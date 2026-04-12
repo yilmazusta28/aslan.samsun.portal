@@ -684,11 +684,14 @@ function normGrp(raw) {
   return null;
 }
 
-// is_mkt: TOPLAM satırlarını tanı
+// is_mkt: Sadece PAZAR geneli TOPLAM satırlarını tanı
+// "PANTOPRAZOLE PAZARI TOPLAM", "ACIDPASS PAZARI TOPLAM" gibi
+// "PANOCER TOPLAM" veya "ACIDPASS TOPLAM" → kendi ürün, is_mkt=false
 function isMktRow(ilac) {
   if (!ilac) return false;
   const u = stripTR(ilac.trim().toUpperCase());
-  return u.includes('TOPLAM');
+  // "PAZAR TOPLAM" veya "PAZARI TOPLAM" içeriyorsa → pazar toplamı
+  return u.includes('PAZAR') && u.includes('TOPLAM');
 }
 
 // ─── IMS_TABLO PARSER ───────────────────────────────────────
@@ -1031,11 +1034,12 @@ const GRP_LBL = {'PANTAPROZOL PAZARI':'Pantaprozol','ACIDPASS PAZARI':'Acidpass'
 
 // Kullanıcının belirlediği ilaç sıraları
 const DRUG_ORDER = {
-  'PANTAPROZOL PAZARI':['PANOCER TOPLAM','PANTACTIVE','PULCET','PANTO','DIGER PANTAPROZOLE'],
-  'ACIDPASS PAZARI':['ACIDPASS TOPLAM','TRIGAST','FAMODİN PLUS','TALCID','RENNIE','DIGER ACIDPASS'],
-  'GRİPORT COLD PAZARI':['GRİPORT COLD','KATARIN','NUROFEN COLD FLUE','GRİBEX COLD FLUE','A FERİN','OTHER COLD PREP','OTHER COLD PREP - VIT C'],
+  // Sıralama: kendi ürün önce, sonra rakipler, en sona pazar toplamı (çizgi grafik olarak gelir)
+  'PANTAPROZOL PAZARI':   ['PANOCER TOPLAM','PANTACTIVE','PULCET','PANTO','DIGER PANTAPROZOLE'],
+  'ACIDPASS PAZARI':      ['ACIDPASS TOPLAM','TRIGAST','FAMODİN PLUS','TALCID','RENNIE','DIGER ACIDPASS'],
+  'GRİPORT COLD PAZARI': ['GRİPORT COLD','KATARIN','NUROFEN COLD FLUE','GRİBEX COLD FLUE','A FERİN','OTHER COLD PREP','OTHER COLD PREP - VIT C'],
   'MOKSİFLOKSASİN PAZARI':['MOKSEFEN','MOXAI','AVELOX','DİĞER MOKSİFLOKSASİN','DİĞER LEVOFLOKSASİN'],
-  'FAMTREC PAZARI':['FAMTREC','BRUFEN','DİĞER FAMOTİDİN'],
+  'FAMTREC PAZARI':       ['FAMTREC','BRUFEN','DİĞER FAMOTİDİN'],
 };
 
 // Birbirinden ayrışan 8 temsilci rengi
@@ -1421,16 +1425,27 @@ function getHV(r){return selHafta==='toplam'?r.toplam:(r[selHafta]||0)}
 function renderPazar(){buildPazarSlicers();renderPazarCharts();}
 
 function renderPazarCharts(){
+  // Pazar toplamı (is_mkt=true) hariç tüm satırlar
   const grpData=IMS.filter(r=>r.ttt===selTTT_p1&&r.ilac_grubu===selGroup&&!r.is_mkt);
   const ownIlac=OWN_IMS[selGroup];
   const bricks=[...new Set(grpData.map(r=>r.brick))].sort();
-  // Sort drugs per user-specified order
+
+  // İlaç sıralaması: DRUG_ORDER listesini kullan
+  // OWN_DRUG (PANOCER TOPLAM, ACIDPASS TOPLAM gibi) → grafik etiketini sadeleştir
   const orderList=DRUG_ORDER[selGroup]||[];
   const allDrugs=[...new Set(grpData.map(r=>r.ilac))];
   const drugs=allDrugs.sort((a,b)=>{
     const ia=orderList.indexOf(a);const ib=orderList.indexOf(b);
     if(ia===-1&&ib===-1)return 0;if(ia===-1)return 1;if(ib===-1)return-1;return ia-ib;
   });
+
+  // Grafik etiketi: PANOCER TOPLAM → PANOCER, ACIDPASS TOPLAM → ACIDPASS
+  function drugLabel(d){
+    if(d===ownIlac){
+      return d.replace(' TOPLAM','').replace(' PAZARI','');
+    }
+    return d;
+  }
   const hLbl=selHafta==='toplam'?'Toplam':selHafta.replace('h','')+'.'+'Hafta';
   document.getElementById('pp_badge').textContent=`${selTTT_p1.split(' ')[0]} | ${GRP_LBL[selGroup]} | ${hLbl}`;
   document.getElementById('mktbar_badge').textContent=GRP_LBL[selGroup];
@@ -1464,9 +1479,9 @@ function renderPazarCharts(){
       const allDatasets=[
         ...drugs.map((drug,i)=>({
           type:'bar',
-          label:drug,
+          label:drugLabel(drug),
           data:bricks.map(b=>grpData.filter(d=>d.brick===b&&d.ilac===drug).reduce((s,r)=>s+getHV(r),0)),
-          backgroundColor:drugClrs[i]+'bb',borderColor:drugClrs[i],borderWidth:drug===ownIlac?2:1,borderRadius:3,
+          backgroundColor:drugClrs[i]+'bb',borderColor:drugClrs[i],borderWidth:drug===ownIlac?2.5:1,borderRadius:3,
           order:2
         })),
         {
@@ -1530,7 +1545,7 @@ function renderPazarCharts(){
     const mctx=document.getElementById('marketBarChart');
     if(mctx){
       charts['marketBarChart']=new Chart(mctx,{type:'bar',
-        data:{labels:drugs,datasets:[{label:'Kutu',data:drugTots,
+        data:{labels:drugs.map(d=>drugLabel(d)),datasets:[{label:'Kutu',data:drugTots,
           backgroundColor:drugs.map((d,i)=>d===ownIlac?'#1BCEd8bb':PAZ_COLORS[i%PAZ_COLORS.length]+'99'),
           borderColor:drugs.map((d,i)=>d===ownIlac?'#1BCED8':PAZ_COLORS[i%PAZ_COLORS.length]),borderWidth:2,borderRadius:4}]},
         options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
@@ -1580,6 +1595,8 @@ function renderPazarCharts(){
 function renderRakipTable(grpData,drugs,ownIlac,mktRows,mktWk){
   const wk=['h1','h2','h3','h4','h5','h6','h7','h8','h9'];
   const body=document.getElementById('rakipBody');
+  // Temiz etiket: PANOCER TOPLAM → PANOCER
+  const lbl=d=>d===ownIlac?d.replace(' TOPLAM','').replace(' PAZARI',''):d;
   const drugW=drugs.map(drug=>{
     const vals=wk.map(w=>grpData.filter(r=>r.ilac===drug).reduce((s,r)=>s+(r[w]||0),0));
     const tot=grpData.filter(r=>r.ilac===drug).reduce((s,r)=>s+r.toplam,0);
@@ -1589,7 +1606,7 @@ function renderRakipTable(grpData,drugs,ownIlac,mktRows,mktWk){
   body.innerHTML=drugW.map(({drug,vals,tot})=>{
     const isOwn=drug===ownIlac;
     return `<tr style="${isOwn?'background:rgba(27,206,216,.05)':''}">
-      <td><span class="${isOwn?'tag-own':'tag-comp'}">${isOwn?'KENDİ':'RAKİP'}</span> <strong style="${isOwn?'color:#0E7490':''}">${drug}</strong></td>
+      <td><span class="${isOwn?'tag-own':'tag-comp'}">${isOwn?'KENDİ':'RAKİP'}</span> <strong style="${isOwn?'color:#0E7490':''}">${lbl(drug)}</strong></td>
       ${vals.map(v=>`<td class="mono" style="${v>0?'':'color:#A0AEC0'}">${v>0?fK(v):'—'}</td>`).join('')}
       <td class="mono" style="font-weight:700">${fK(tot)}</td></tr>`;
   }).join('');
