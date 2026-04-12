@@ -880,6 +880,26 @@ function parseGenelCSV(csvText) {
     JSON.stringify(genel.filter(r=>r.urun==='GENEL TOPLAM').map(r=>({ttt:r.ttt,tl:r.tl_pct,h:r.hedef_tl,s:r.satis_tl}))));
   return { genel, imsTL, trSira };
 }
+
+// ─── KENDİ ÜRÜN HARİTASI ────────────────────────────────────
+// IMS_TABLO'da hangi ilaç adı bizim kendi ürünümüz
+const OWN_DRUG_BY_GRP = {
+  'PANTAPROZOL PAZARI':    { ownIlac: 'PANOCER TOPLAM',  urun: 'PANOCER'      },
+  'ACIDPASS PAZARI':       { ownIlac: 'ACIDPASS TOPLAM', urun: 'ACİDPASS'     },
+  'MOKSİFLOKSASİN PAZARI':{ ownIlac: 'MOKSEFEN',         urun: 'MOKSEFEN'     },
+  'GRİPORT COLD PAZARI':  { ownIlac: 'GRİPORT COLD',    urun: 'GRİPORT COLD' },
+  'FAMTREC PAZARI':        { ownIlac: 'FAMTREC',          urun: 'FAMTREC'      },
+};
+
+// Pazar analizi için kendi ürün haritası
+const OWN_IMS = {
+  'PANTAPROZOL PAZARI':    'PANOCER TOPLAM',
+  'ACIDPASS PAZARI':       'ACIDPASS TOPLAM',
+  'MOKSİFLOKSASİN PAZARI':'MOKSEFEN',
+  'GRİPORT COLD PAZARI':  'GRİPORT COLD',
+  'FAMTREC PAZARI':        'FAMTREC',
+};
+
 function rebuildKutuFromIMS() {
   KUTU.length = 0;
   const wk  = ['h1','h2','h3','h4','h5','h6','h7','h8','h9'];
@@ -1007,7 +1027,7 @@ const URUN_ORDER = ['PANOCER','ACİDPASS','GRİPORT COLD','MOKSEFEN','FAMTREC'];
 const ALL_TTTS = ['AYKUT DİNLER','EMRAH YILDIZ','HAKAN YUMAK','KÜRŞAD KARADAĞ','MEHMET AKİF ÖZGEÇEN','MURAT KANDİŞ','SAMET ÇETİN','YILMAZ USTA'];
 const ALL_GROUPS = ['PANTAPROZOL PAZARI','ACIDPASS PAZARI','MOKSİFLOKSASİN PAZARI','GRİPORT COLD PAZARI','FAMTREC PAZARI'];
 const GRP_LBL = {'PANTAPROZOL PAZARI':'Pantaprozol','ACIDPASS PAZARI':'Acidpass','MOKSİFLOKSASİN PAZARI':'Moksiflo.','GRİPORT COLD PAZARI':'Griport Cold','FAMTREC PAZARI':'Famtrec'};
-// OWN_IMS defined above in sync block
+
 
 // Kullanıcının belirlediği ilaç sıraları
 const DRUG_ORDER = {
