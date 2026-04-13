@@ -385,7 +385,11 @@ Kısa, net ve uygulanabilir Türkçe yanıtlar ver. Somut sayılar ve öneriler 
 Soru/Görev: ${text}` });
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    // Proxy URL: Cloudflare Worker adresinizi buraya yazın
+    // Kurulum adımları için: aşağıdaki açıklamaya bakın
+    const AI_PROXY_URL = window.AI_PROXY_URL || 'https://YOUR-WORKER.workers.dev';
+    
+    const response = await fetch(AI_PROXY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -413,10 +417,88 @@ Soru/Görev: ${text}` });
     statusEl.textContent = '✅ Hazır';
   } catch (err) {
     const loadEl = document.getElementById(loadId);
-    if (loadEl) loadEl.innerHTML = `<strong style="color:#DC2626">⚠️ Hata</strong><br>${err.message}`;
+    const isProxy = err.message?.includes('fetch') || err.message?.includes('CORS') || err.message?.includes('Failed');
+    const errMsg = isProxy
+      ? '🔧 Proxy kurulumu gerekli. AI Asistan sayfasındaki kurulum talimatlarını takip edin.'
+      : err.message;
+    if (loadEl) loadEl.innerHTML = `<strong style="color:#DC2626">⚠️ Hata</strong><br><div style="margin-top:6px;font-size:11px">${errMsg}</div>`;
     statusEl.textContent = '❌ Hata';
   }
   chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+
+// ── PROXY AYARLARI ──────────────────────────────────────────
+function loadProxyUrl() {
+  try {
+    const saved = sessionStorage.getItem('ai_proxy_url');
+    if (saved) {
+      const inp = document.getElementById('proxyUrlInput');
+      if (inp) inp.value = saved;
+      window.AI_PROXY_URL = saved;
+      updateProxyStatus(saved);
+    }
+  } catch(e) {}
+}
+
+function saveProxyUrl() {
+  const val = document.getElementById('proxyUrlInput')?.value?.trim();
+  if (val && val.startsWith('http')) {
+    window.AI_PROXY_URL = val;
+    try { sessionStorage.setItem('ai_proxy_url', val); } catch(e) {}
+    updateProxyStatus(val);
+  }
+}
+
+function updateProxyStatus(url) {
+  const el = document.getElementById('proxyStatus');
+  if (!el) return;
+  if (url && url !== 'https://YOUR-WORKER.workers.dev') {
+    el.textContent = '✅ Yapılandırıldı';
+    el.style.background = '#16A34A';
+    el.style.color = '#fff';
+  } else {
+    el.textContent = '⚠️ Gerekli';
+    el.style.background = '#D97706';
+    el.style.color = '#fff';
+  }
+}
+
+async function testProxy() {
+  const url = document.getElementById('proxyUrlInput')?.value?.trim();
+  if (!url || !url.startsWith('http')) {
+    alert('Geçerli bir URL girin.');
+    return;
+  }
+  const statusEl = document.getElementById('proxyStatus');
+  statusEl.textContent = '⏳ Test...';
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: 'test' }]
+      })
+    });
+    const data = await resp.json();
+    if (data.content || data.type) {
+      window.AI_PROXY_URL = url;
+      try { sessionStorage.setItem('ai_proxy_url', url); } catch(e) {}
+      statusEl.textContent = '✅ Bağlandı!';
+      statusEl.style.background = '#16A34A';
+      statusEl.style.color = '#fff';
+      document.getElementById('proxyInstructions').style.display = 'none';
+    } else {
+      throw new Error(data.error?.message || 'Yanıt formatı hatalı');
+    }
+  } catch(err) {
+    statusEl.textContent = '❌ Bağlanamadı';
+    statusEl.style.background = '#DC2626';
+    statusEl.style.color = '#fff';
+    alert('Bağlantı hatası: ' + err.message + '\nWorker URL ve API key doğru mu?');
+  }
 }
 
 </script>
@@ -1005,6 +1087,57 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
       <div style="margin-bottom:10px">
         <label style="font-size:10px;font-weight:600;color:var(--dim);display:block;margin-bottom:6px">Temsilci Seç</label>
         <div id="aiTttBar" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Proxy Kurulum Paneli -->
+  <div class="card mb16" id="proxySetupCard">
+    <div class="card-hd"><span class="card-title">⚙️ API Bağlantısı</span><span class="card-badge" id="proxyStatus">Yapılandırılmadı</span></div>
+    <div class="card-body" style="padding:12px 16px">
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px">
+          <label style="font-size:10px;font-weight:600;color:var(--dim);display:block;margin-bottom:4px">Cloudflare Worker URL</label>
+          <input type="text" class="inp" id="proxyUrlInput" placeholder="https://your-worker.workers.dev" oninput="saveProxyUrl()">
+        </div>
+        <button class="btn-calc" onclick="testProxy()" style="padding:8px 16px;white-space:nowrap">🔌 Test Et</button>
+      </div>
+      <div style="margin-top:10px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:10px 12px;font-size:11px;color:#166534;line-height:1.7" id="proxyInstructions">
+        <strong>Cloudflare Worker kurulum adımları (ücretsiz):</strong><br>
+        1. <a href="https://dash.cloudflare.com" target="_blank" style="color:#1D4ED8">dash.cloudflare.com</a> → Workers & Pages → Create Worker<br>
+        2. Worker kodunu yapıştırın → <strong>Save & Deploy</strong><br>
+        3. Settings → Variables → <code>ANTHROPIC_API_KEY</code> değişkeni ekleyin (API key değeriniz)<br>
+        4. Worker URL'nizi (xxx.workers.dev) yukarıya girin → Test Et<br>
+        <details style="margin-top:6px"><summary style="cursor:pointer;font-weight:700">Worker kodunu göster 👁</summary>
+        <pre style="background:#1E293B;color:#E2E8F0;padding:10px;border-radius:6px;margin-top:6px;overflow-x:auto;font-size:10px;line-height:1.5">export default {
+  async fetch(request, env) {
+    const ALLOWED = 'https://yilmazusta28.github.io';
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { headers: {
+        'Access-Control-Allow-Origin': ALLOWED,
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      }});
+    }
+    const body = await request.json();
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(body),
+    });
+    const data = await resp.json();
+    return new Response(JSON.stringify(data), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': ALLOWED,
+      }
+    });
+  }
+};</pre></details>
       </div>
     </div>
   </div>
@@ -2911,7 +3044,11 @@ Kısa, net ve uygulanabilir Türkçe yanıtlar ver. Somut sayılar ve öneriler 
 Soru/Görev: ${text}` });
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    // Proxy URL: Cloudflare Worker adresinizi buraya yazın
+    // Kurulum adımları için: aşağıdaki açıklamaya bakın
+    const AI_PROXY_URL = window.AI_PROXY_URL || 'https://YOUR-WORKER.workers.dev';
+    
+    const response = await fetch(AI_PROXY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2939,10 +3076,88 @@ Soru/Görev: ${text}` });
     statusEl.textContent = '✅ Hazır';
   } catch (err) {
     const loadEl = document.getElementById(loadId);
-    if (loadEl) loadEl.innerHTML = `<strong style="color:#DC2626">⚠️ Hata</strong><br>${err.message}`;
+    const isProxy = err.message?.includes('fetch') || err.message?.includes('CORS') || err.message?.includes('Failed');
+    const errMsg = isProxy
+      ? '🔧 Proxy kurulumu gerekli. AI Asistan sayfasındaki kurulum talimatlarını takip edin.'
+      : err.message;
+    if (loadEl) loadEl.innerHTML = `<strong style="color:#DC2626">⚠️ Hata</strong><br><div style="margin-top:6px;font-size:11px">${errMsg}</div>`;
     statusEl.textContent = '❌ Hata';
   }
   chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+
+// ── PROXY AYARLARI ──────────────────────────────────────────
+function loadProxyUrl() {
+  try {
+    const saved = sessionStorage.getItem('ai_proxy_url');
+    if (saved) {
+      const inp = document.getElementById('proxyUrlInput');
+      if (inp) inp.value = saved;
+      window.AI_PROXY_URL = saved;
+      updateProxyStatus(saved);
+    }
+  } catch(e) {}
+}
+
+function saveProxyUrl() {
+  const val = document.getElementById('proxyUrlInput')?.value?.trim();
+  if (val && val.startsWith('http')) {
+    window.AI_PROXY_URL = val;
+    try { sessionStorage.setItem('ai_proxy_url', val); } catch(e) {}
+    updateProxyStatus(val);
+  }
+}
+
+function updateProxyStatus(url) {
+  const el = document.getElementById('proxyStatus');
+  if (!el) return;
+  if (url && url !== 'https://YOUR-WORKER.workers.dev') {
+    el.textContent = '✅ Yapılandırıldı';
+    el.style.background = '#16A34A';
+    el.style.color = '#fff';
+  } else {
+    el.textContent = '⚠️ Gerekli';
+    el.style.background = '#D97706';
+    el.style.color = '#fff';
+  }
+}
+
+async function testProxy() {
+  const url = document.getElementById('proxyUrlInput')?.value?.trim();
+  if (!url || !url.startsWith('http')) {
+    alert('Geçerli bir URL girin.');
+    return;
+  }
+  const statusEl = document.getElementById('proxyStatus');
+  statusEl.textContent = '⏳ Test...';
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: 'test' }]
+      })
+    });
+    const data = await resp.json();
+    if (data.content || data.type) {
+      window.AI_PROXY_URL = url;
+      try { sessionStorage.setItem('ai_proxy_url', url); } catch(e) {}
+      statusEl.textContent = '✅ Bağlandı!';
+      statusEl.style.background = '#16A34A';
+      statusEl.style.color = '#fff';
+      document.getElementById('proxyInstructions').style.display = 'none';
+    } else {
+      throw new Error(data.error?.message || 'Yanıt formatı hatalı');
+    }
+  } catch(err) {
+    statusEl.textContent = '❌ Bağlanamadı';
+    statusEl.style.background = '#DC2626';
+    statusEl.style.color = '#fff';
+    alert('Bağlantı hatası: ' + err.message + '\nWorker URL ve API key doğru mu?');
+  }
 }
 
 </script>
