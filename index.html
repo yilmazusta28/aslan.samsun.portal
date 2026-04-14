@@ -279,8 +279,9 @@ function renderAiAsistan() {
   const allTTTs = ALL_TTTS.length ? ALL_TTTS : ['AYKUT DİNLER'];
   if (!selAiTTT && allTTTs.length) selAiTTT = allTTTs[0];
 
-  document.getElementById('aiTttBar').innerHTML = allTTTs.map(t =>
-    `<button class="sp-btn${t===selAiTTT?' active':''}" onclick="selAiTTT='${t}';renderAiAsistan()">${t}</button>`
+  const aiAll = ['ŞENOL YILMAZ', ...allTTTs];
+  document.getElementById('aiTttBar').innerHTML = aiAll.map(t =>
+    `<button class="sp-btn${t===selAiTTT?' active':''}" onclick="selAiTTT='${t}';renderAiAsistan()">${t==='ŞENOL YILMAZ'?'🏢 '+t:t}</button>`
   ).join('');
 }
 
@@ -323,16 +324,37 @@ Fırsat Brick (İlk333 + MI≥110 + GI≥100): ${migiRows.filter(r=>r.sira<=333&
     });
   }
 
+  // Kalan iş günleri
+  const today = new Date();
+  const HOLIDAYS_LIST = [...HOLIDAYS];
+  let remainingWorkDays = 0;
+  const periodEnd = PERIODS.find(p => {
+    const s = new Date(p.start), e = new Date(p.end);
+    return today >= s && today <= e;
+  });
+  if (periodEnd) {
+    let d = new Date(today);
+    d.setDate(d.getDate()+1);
+    const endDate = new Date(periodEnd.end);
+    while (d <= endDate) {
+      const dow = d.getDay();
+      const ds = d.toISOString().split('T')[0];
+      if (dow !== 0 && dow !== 6 && !HOLIDAYS.has(ds)) remainingWorkDays++;
+      d.setDate(d.getDate()+1);
+    }
+    ctx += `\n\n--- SÜRE ---\nAktif dönem: ${periodEnd.label} (${periodEnd.months})\nDönem sonu: ${periodEnd.end}\nKalan iş günü: ${remainingWorkDays} gün`;
+  }
+
   return ctx;
 }
 
 function aiQuick(type) {
   const prompts = {
-    genel: 'Bu temsilcinin genel satış durumunu analiz et. Güçlü yönleri, zayıf yönleri ve acil dikkat gerektiren durumları belirt.',
-    risk: 'Bu temsilci için prim riski analizi yap. Hangi ürünler %91 hedefin altında? Prim alabilmek için ne kadar satış yapması gerekiyor?',
-    prim: '2026 İLKO prim sistemine göre bu temsilcinin dönemlik prim beklentisini hesapla. TL Real, Portföy ve MI&GI primlerini ayrı ayrı değerlendir.',
-    brick: 'İlk 333 brick bazında önceliklendirme yap. Hangi bricklere önce gitmeli? MI ve GI değerlerine göre fırsat ve risk brickleri sırala.',
-    strateji: 'Bu temsilci için bu haftadan itibaren uygulanabilecek somut bir satış stratejisi öner. Brick öncelikleri, ürün odakları ve hedefleri içersin.',
+    genel: 'Bu temsilcinin genel satış durumunu analiz et. Güçlü ve zayıf yönleri, kalan iş günlerine göre acil durumları belirt. Şenol Yılmaz için tüm ekibi değerlendir.',
+    risk: 'Bu temsilci için prim riski analizi yap. Kalan iş günü dikkate alarak hangi ürünler %91 hedefin altında, kaç iş günü kaldığı baz alınarak haftalık gereken satışı hesapla.',
+    prim: '2026 İLKO prim sistemine göre dönemlik prim beklentisini hesapla. Kalan süre ve mevcut pace dikkate alarak TL Real, Portföy ve MI&GI primlerini değerlendir.',
+    brick: 'İlk 333 brick bazında önceliklendirme yap. Kalan iş günü dikkate alarak hangi bricklere önce gitmeli, hangi eczaneler kritik? Somut adresler öner.',
+    strateji: 'Kalan iş günlerine göre uygulanabilecek haftalık satış stratejisi öner. Günlük kutu/TL hedefleri ver, brick ve ürün önceliklerini belirt.',
   };
   const msg = prompts[type] || type;
   sendAiMsgWithText(msg);
@@ -387,7 +409,7 @@ Soru/Görev: ${text}` });
   try {
     // Proxy URL: Cloudflare Worker adresinizi buraya yazın
     // Kurulum adımları için: aşağıdaki açıklamaya bakın
-    const AI_PROXY_URL = window.AI_PROXY_URL || 'https://YOUR-WORKER.workers.dev';
+    const AI_PROXY_URL = window.AI_PROXY_URL || 'https://samsun.yilmazusta28.workers.dev';
     
     const response = await fetch(AI_PROXY_URL, {
       method: 'POST',
@@ -430,15 +452,18 @@ Soru/Görev: ${text}` });
 
 // ── PROXY AYARLARI ──────────────────────────────────────────
 function loadProxyUrl() {
+  // Sabit proxy URL - kullanıcıdan gizle
+  const DEFAULT_PROXY = 'https://samsun.yilmazusta28.workers.dev';
+  window.AI_PROXY_URL = DEFAULT_PROXY;
   try {
-    const saved = sessionStorage.getItem('ai_proxy_url');
-    if (saved) {
-      const inp = document.getElementById('proxyUrlInput');
-      if (inp) inp.value = saved;
-      window.AI_PROXY_URL = saved;
-      updateProxyStatus(saved);
-    }
-  } catch(e) {}
+    const saved = sessionStorage.getItem('ai_proxy_url') || DEFAULT_PROXY;
+    const inp = document.getElementById('proxyUrlInput');
+    if (inp) inp.value = saved;
+    window.AI_PROXY_URL = saved;
+    updateProxyStatus(saved);
+  } catch(e) {
+    updateProxyStatus(DEFAULT_PROXY);
+  }
 }
 
 function saveProxyUrl() {
@@ -499,6 +524,73 @@ async function testProxy() {
     statusEl.style.color = '#fff';
     alert('Bağlantı hatası: ' + err.message + '\nWorker URL ve API key doğru mu?');
   }
+}
+
+
+// ── ZAM SİMÜLASYONU ─────────────────────────────────────────
+function showZamHesap() {
+  const panel = document.getElementById('zamPanel');
+  if (!panel) return;
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  if (panel.style.display === 'block') buildZamInputs();
+}
+
+function buildZamInputs() {
+  const container = document.getElementById('zamInputs');
+  if (!container) return;
+  const ttt = selAiTTT || (ALL_TTTS[0]);
+  container.innerHTML = URUN_ORDER.map(u => `
+    <div>
+      <label style="font-size:9px;font-weight:700;color:${URUN_CLR[u]};display:block;margin-bottom:3px">${u}</label>
+      <div style="display:flex;gap:4px;align-items:center">
+        <input type="number" class="inp" id="zam_${u.replace(/\s/g,'_').replace(/[^a-zA-Z0-9_]/g,'X')}"
+          value="0" min="0" max="100" step="1" style="padding:5px 8px;font-size:11px"
+          placeholder="Artış %">
+        <span style="font-size:10px;color:var(--dim)">%</span>
+      </div>
+    </div>`).join('');
+}
+
+function calcZam() {
+  const ttt = selAiTTT || ALL_TTTS[0];
+  if (!ttt) return;
+  const rows = GENEL.filter(r=>r.ttt===ttt&&r.urun!=='GENEL TOPLAM'&&r.urun!=='DESTEVIT');
+  let html = '<div style="display:grid;gap:6px">';
+  let totOldHedef=0, totNewHedef=0, totSatis=0;
+  rows.forEach(r => {
+    const id = 'zam_' + r.urun.replace(/\s/g,'_').replace(/[^a-zA-Z0-9_]/g,'X');
+    const zamPct = parseFloat(document.getElementById(id)?.value) || 0;
+    const newHedef = r.hedef_tl * (1 + zamPct/100);
+    const newReal = newHedef > 0 ? (r.satis_tl / newHedef * 100) : 0;
+    const oldReal = r.tl_pct;
+    const diff = newReal - oldReal;
+    totOldHedef += r.hedef_tl; totNewHedef += newHedef; totSatis += r.satis_tl;
+    html += `<div style="background:#F8FAFC;border-radius:7px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-weight:700;color:${URUN_CLR[r.urun]||'var(--c1)'};">${r.urun}</span>
+      <span style="font-size:11px">
+        <span style="color:var(--dim)">${oldReal.toFixed(1)}%</span>
+        <span style="margin:0 6px;color:var(--dim)">→</span>
+        <span style="font-weight:700;color:${newReal>=91?'#16A34A':newReal>=70?'#D97706':'#DC2626'}">${newReal.toFixed(1)}%</span>
+        ${zamPct>0?`<span style="font-size:9px;color:#DC2626;margin-left:4px">(-${Math.abs(diff).toFixed(1)}pp)</span>`:''}
+      </span>
+    </div>`;
+  });
+  const totOldReal = totOldHedef>0?(totSatis/totOldHedef*100):0;
+  const totNewReal = totNewHedef>0?(totSatis/totNewHedef*100):0;
+  html += `<div style="background:linear-gradient(135deg,rgba(79,0,140,.06),rgba(27,206,216,.04));border:1px solid rgba(79,0,140,.2);border-radius:8px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center">
+    <span style="font-weight:700;color:var(--c1)">GENEL TOPLAM</span>
+    <span style="font-size:13px;font-weight:800">
+      <span style="color:var(--dim)">${totOldReal.toFixed(1)}%</span>
+      <span style="margin:0 6px;color:var(--dim)">→</span>
+      <span style="color:${totNewReal>=91?'#16A34A':totNewReal>=70?'#D97706':'#DC2626'}">${totNewReal.toFixed(1)}%</span>
+    </span>
+  </div>`;
+  html += '</div>';
+  document.getElementById('zamResult').innerHTML = html;
+  
+  // AI'a gönder
+  const zamSummary = `Fiyat artışı simülasyonu - Temsilci: ${ttt}\nMevcut toplam real: ${totOldReal.toFixed(1)}% → Zam sonrası: ${totNewReal.toFixed(1)}%\nDönem primi açısından değerlendir.`;
+  sendAiMsgWithText(zamSummary);
 }
 
 </script>
@@ -870,7 +962,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
         <div class="ch-sm"><canvas id="kutuHaftaChart"></canvas></div>
         <div class="scroll-x" style="margin-top:12px">
           <table class="tbl" id="kutuHaftaTable">
-            <thead><tr><th>Ürün</th><th>1.H</th><th>2.H</th><th>3.H</th><th>4.H</th><th>5.H</th><th>6.H</th><th>7.H</th><th>8.H</th><th>9.H</th><th>Ort. (gerçekleşen)</th></tr></thead>
+            <thead><tr><th>Ürün</th><th>1.H</th><th>2.H</th><th>3.H</th><th>4.H</th><th>5.H</th><th>6.H</th><th>7.H</th><th>8.H</th><th>9.H</th><th>Toplam</th></tr></thead>
             <tbody id="kutuHaftaBody"></tbody>
           </table>
         </div>
@@ -993,7 +1085,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
       <div class="card-hd"><span class="card-title">Haftalık Kutu Dökümü</span><span class="card-badge" id="hftKutuBadge">—</span></div>
       <div class="card-body-0 scroll-x">
         <table class="tbl" id="weeklyKutuTable" style="min-width:660px">
-          <thead><tr><th>Ürün</th><th>1.H</th><th>2.H</th><th>3.H</th><th>4.H</th><th>5.H</th><th>6.H</th><th>7.H</th><th>8.H</th><th>9.H</th><th>Toplam</th></tr></thead>
+          <thead><tr><th>Ürün</th><th>1.H</th><th>2.H</th><th>3.H</th><th>4.H</th><th>5.H</th><th>6.H</th><th>7.H</th><th>8.H</th><th>9.H</th><th>Ort./Hft</th></tr></thead>
           <tbody id="weeklyKutuBody"></tbody>
         </table>
       </div>
@@ -1152,7 +1244,19 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
         <button class="btn-calc" style="font-size:11px;padding:7px 14px" onclick="aiQuick('prim')">💰 Prim Tahmini</button>
         <button class="btn-calc" style="font-size:11px;padding:7px 14px" onclick="aiQuick('brick')">📍 Brick Öncelikleri</button>
         <button class="btn-calc" style="font-size:11px;padding:7px 14px" onclick="aiQuick('strateji')">🎯 Strateji Önerisi</button>
+        <button class="btn-calc" style="font-size:11px;padding:7px 14px" onclick="showZamHesap()">💹 Zam Simülasyonu</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Zam Simülasyon Paneli -->
+  <div class="card mb16" id="zamPanel" style="display:none">
+    <div class="card-hd"><span class="card-title">💹 Fiyat Artışı Simülasyonu</span><span class="card-badge">Hedef Güncelleme</span></div>
+    <div class="card-body" style="padding:12px 16px">
+      <p style="font-size:11px;color:var(--dim);margin-bottom:10px">Ürün fiyat artışı gerçekleştiğinde mevcut satış rakamları değişmese de TL hedefler otomatik artar. Beklenen artış oranını girerek yeni gerçekleşme % hesaplayın.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px" id="zamInputs"></div>
+      <button class="btn-calc" onclick="calcZam()" style="margin-top:10px">📊 Hesapla</button>
+      <div id="zamResult" style="margin-top:12px"></div>
     </div>
   </div>
 
@@ -1419,11 +1523,12 @@ function parseIMSCSV(csvText) {
 
     result.push({
       ttt,
-      brick:      (c[2] || '').trim(),
-      ilac_grubu: grp,
+      brick:       (c[2] || '').trim(),
+      ilac_grubu:  grp,
       ilac,
-      is_mkt:     isMktRow(ilac),
-      toplam:     parseN(c[5]),
+      is_mkt:      isMktRow(ilac),
+      toplam:      parseN(c[5]),
+      toplam_ppi:  parseN(c[6]) * 100,  // G sütunu: 0-1 → ×100 = %
       h1: parseN(c[7]),  h2: parseN(c[9]),  h3: parseN(c[11]), h4: parseN(c[13]),
       h5: parseN(c[15]), h6: parseN(c[17]), h7: parseN(c[19]), h8: parseN(c[21]), h9: parseN(c[23])
     });
@@ -2067,10 +2172,9 @@ function renderTTTDetail(){
       <div><div class="tsb-lbl">Toplam Satış</div><div class="tsb-val">${fTL(gen.satis_tl)}</div></div>
       <div><div class="tsb-lbl">Kalan TL</div><div class="tsb-val">${fTL(gen.kalan_tl)}</div></div>
       <div><div class="tsb-lbl">TL %</div><div class="tsb-val">${fPct(gen.tl_pct)}</div></div>
-      <div><div class="tsb-lbl">TR Sırası</div><div class="tsb-val">#${TR_SIRA_MAP[selTTT]||'—'}</div></div>
-      <div><div class="tsb-lbl">Barem</div><div class="tsb-val">${gen.barem||0}%</div></div>
+      <div style="grid-column:span 2"><div class="tsb-lbl" style="font-size:9px">TR ULUSAL SIRASI</div><div class="tsb-val" style="font-size:28px;color:${(TR_SIRA_MAP[selTTT]||99)<=30?'#16A34A':(TR_SIRA_MAP[selTTT]||99)<=60?'#D97706':'#DC2626'}">#${TR_SIRA_MAP[selTTT]||'—'}</div></div>
       <div><div class="tsb-lbl">Brüt Prim</div><div class="tsb-val">${fTL(gen.brut_prim)}</div></div>
-      <div><div class="tsb-lbl">Net Prim</div><div class="tsb-val">${fTL(gen.net_prim)}</div></div>
+      <div><div class="tsb-lbl">Dönem Prim</div><div class="tsb-val" style="color:${gen.net_prim>0?'#16A34A':'var(--dim)'}">${gen.net_prim>0?fTL(gen.net_prim):'—'}</div></div>
     </div>`;
 
   document.getElementById('tttUrunTableTitle').textContent=`${selTTT} — Ürün Bazlı Performans`;
@@ -2148,11 +2252,11 @@ function renderKutuDetail(){
   }
   const kutuRows=baseRows.filter(r=>selKutuUruns.has(r.urun));
   document.getElementById('kutuHaftaBody').innerHTML=kutuRows.map(r=>{
-    const vals=wkeys.map(w=>r[w]||0);const nz=vals.filter(v=>v>0);
-    const avg=nz.length?nz.reduce((a,b)=>a+b,0)/nz.length:0;
+    const vals=wkeys.map(w=>r[w]||0);
+    const tot=vals.reduce((a,b)=>a+b,0);
     return `<tr><td style="font-weight:700;color:${URUN_CLR[r.urun]||'var(--c1)'}">${r.urun}</td>
       ${vals.map(v=>`<td style="${v>0?'font-weight:600':'color:#A0AEC0'}">${v>0?fK(v):'—'}</td>`).join('')}
-      <td style="color:var(--c2);font-weight:700">${fK(avg)} <span style="font-size:9px;color:var(--dim)">(${nz.length}hft)</span></td></tr>`;
+      <td style="color:var(--c1);font-weight:700">${fK(tot)}</td></tr>`;
   }).join('');
   if(!kutuRows.length){document.getElementById('kutuHaftaBody').innerHTML=`<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--dim)">Veri yok</td></tr>`;return;}
   setTimeout(()=>{
@@ -2224,7 +2328,8 @@ function renderPazarCharts(){
   setTimeout(()=>{
     // Brick grouped bar — values rotated on top, no Y axis
     const brickShort=bricks.map(b=>b.length>14?b.substr(0,14)+'…':b);
-    const drugClrs=drugs.map((d,i)=>d===ownIlac?'#1BCED8':PAZ_COLORS[(i)%PAZ_COLORS.length]);
+    const YELLOW_DRUGS = new Set(['DIGER ACIDPASS','OTHER COLD PREP','OTHER COLD PREP - VIT C','DİĞER FAMOTİDİN','DİĞER MOKSİFLOKSASİN','DİĞER LEVOFLOKSASİN','DIGER PANTAPROZOLE']);
+    const drugClrs=drugs.map((d,i)=>d===ownIlac?'#1BCED8':YELLOW_DRUGS.has(d)?'#F59E0B':PAZ_COLORS[(i)%PAZ_COLORS.length]);
     destroyChart('brickBarChart');
     const bctx=document.getElementById('brickBarChart');
     if(bctx){
@@ -2312,7 +2417,7 @@ function renderPazarCharts(){
             }}},
             datalabels:{display:false}
           },
-          scales:{x:{ticks:{callback:v=>fK(v),font:{size:11}}},y:{ticks:{font:{size:11}}}},
+          scales:{x:{display:false},y:{ticks:{font:{size:10},maxTicksLimit:6}}},
           animation:{onComplete:function(){
             const ch=this;const c=ch.ctx;
             c.save();c.font='bold 12px JetBrains Mono,monospace';c.textAlign='left';c.textBaseline='middle';c.fillStyle='#1A202C';
@@ -2583,17 +2688,20 @@ function renderWeeklyTable2(){
     const kutuRows=URUN_ORDER.map(u=>KUTU.find(r=>r.ttt===selTTT_p2&&r.urun===u)).filter(r=>r);
     kutuEl.innerHTML=kutuRows.map(r=>{
       const vals=wk.map(w=>r[w]||0);
-      const tot=vals.reduce((a,b)=>a+b,0);
+      const nzVals=vals.filter(v=>v>0);
+      const avg=nzVals.length?Math.round(nzVals.reduce((a,b)=>a+b,0)/nzVals.length):0;
       return `<tr><td style="font-weight:700;color:${URUN_CLR[r.urun]||'var(--c1)'}">${r.urun}</td>
         ${vals.map(v=>`<td class="mono" style="${v>0?'':v<0?'color:#DC2626':'color:#A0AEC0'}">${v!==0?fK(v):'—'}</td>`).join('')}
-        <td class="mono" style="color:var(--c1);font-weight:700">${fK(tot)}</td></tr>`;
+        <td class="mono" style="color:var(--c2);font-weight:700">${avg>0?fK(avg):'—'}</td></tr>`;
     }).join('');
+    // Alt satır: haftalık toplam + ortalama
     const kTots=wk.map(w=>kutuRows.reduce((s,r)=>s+(r[w]||0),0));
-    const kTotal=kTots.reduce((a,b)=>a+b,0);
+    const kNzWeeks=kTots.filter(v=>v>0);
+    const kAvg=kNzWeeks.length?Math.round(kNzWeeks.reduce((a,b)=>a+b,0)/kNzWeeks.length):0;
     kutuEl.innerHTML+=`<tr style="border-top:2px solid var(--border);background:#F7F9FC">
       <td style="font-weight:700">TOPLAM</td>
       ${kTots.map(v=>`<td class="mono" style="font-weight:600;color:var(--c2)">${v>0?fK(v):'—'}</td>`).join('')}
-      <td class="mono" style="font-weight:700;color:var(--c1)">${fK(kTotal)}</td></tr>`;
+      <td class="mono" style="font-weight:700;color:var(--c1)">${kAvg>0?fK(kAvg):'—'}</td></tr>`;
   }
 }
 function renderTakip(){buildTTT2Slicer();renderTakipContent();}
@@ -2938,8 +3046,9 @@ function renderAiAsistan() {
   const allTTTs = ALL_TTTS.length ? ALL_TTTS : ['AYKUT DİNLER'];
   if (!selAiTTT && allTTTs.length) selAiTTT = allTTTs[0];
 
-  document.getElementById('aiTttBar').innerHTML = allTTTs.map(t =>
-    `<button class="sp-btn${t===selAiTTT?' active':''}" onclick="selAiTTT='${t}';renderAiAsistan()">${t}</button>`
+  const aiAll = ['ŞENOL YILMAZ', ...allTTTs];
+  document.getElementById('aiTttBar').innerHTML = aiAll.map(t =>
+    `<button class="sp-btn${t===selAiTTT?' active':''}" onclick="selAiTTT='${t}';renderAiAsistan()">${t==='ŞENOL YILMAZ'?'🏢 '+t:t}</button>`
   ).join('');
 }
 
@@ -2982,16 +3091,37 @@ Fırsat Brick (İlk333 + MI≥110 + GI≥100): ${migiRows.filter(r=>r.sira<=333&
     });
   }
 
+  // Kalan iş günleri
+  const today = new Date();
+  const HOLIDAYS_LIST = [...HOLIDAYS];
+  let remainingWorkDays = 0;
+  const periodEnd = PERIODS.find(p => {
+    const s = new Date(p.start), e = new Date(p.end);
+    return today >= s && today <= e;
+  });
+  if (periodEnd) {
+    let d = new Date(today);
+    d.setDate(d.getDate()+1);
+    const endDate = new Date(periodEnd.end);
+    while (d <= endDate) {
+      const dow = d.getDay();
+      const ds = d.toISOString().split('T')[0];
+      if (dow !== 0 && dow !== 6 && !HOLIDAYS.has(ds)) remainingWorkDays++;
+      d.setDate(d.getDate()+1);
+    }
+    ctx += `\n\n--- SÜRE ---\nAktif dönem: ${periodEnd.label} (${periodEnd.months})\nDönem sonu: ${periodEnd.end}\nKalan iş günü: ${remainingWorkDays} gün`;
+  }
+
   return ctx;
 }
 
 function aiQuick(type) {
   const prompts = {
-    genel: 'Bu temsilcinin genel satış durumunu analiz et. Güçlü yönleri, zayıf yönleri ve acil dikkat gerektiren durumları belirt.',
-    risk: 'Bu temsilci için prim riski analizi yap. Hangi ürünler %91 hedefin altında? Prim alabilmek için ne kadar satış yapması gerekiyor?',
-    prim: '2026 İLKO prim sistemine göre bu temsilcinin dönemlik prim beklentisini hesapla. TL Real, Portföy ve MI&GI primlerini ayrı ayrı değerlendir.',
-    brick: 'İlk 333 brick bazında önceliklendirme yap. Hangi bricklere önce gitmeli? MI ve GI değerlerine göre fırsat ve risk brickleri sırala.',
-    strateji: 'Bu temsilci için bu haftadan itibaren uygulanabilecek somut bir satış stratejisi öner. Brick öncelikleri, ürün odakları ve hedefleri içersin.',
+    genel: 'Bu temsilcinin genel satış durumunu analiz et. Güçlü ve zayıf yönleri, kalan iş günlerine göre acil durumları belirt. Şenol Yılmaz için tüm ekibi değerlendir.',
+    risk: 'Bu temsilci için prim riski analizi yap. Kalan iş günü dikkate alarak hangi ürünler %91 hedefin altında, kaç iş günü kaldığı baz alınarak haftalık gereken satışı hesapla.',
+    prim: '2026 İLKO prim sistemine göre dönemlik prim beklentisini hesapla. Kalan süre ve mevcut pace dikkate alarak TL Real, Portföy ve MI&GI primlerini değerlendir.',
+    brick: 'İlk 333 brick bazında önceliklendirme yap. Kalan iş günü dikkate alarak hangi bricklere önce gitmeli, hangi eczaneler kritik? Somut adresler öner.',
+    strateji: 'Kalan iş günlerine göre uygulanabilecek haftalık satış stratejisi öner. Günlük kutu/TL hedefleri ver, brick ve ürün önceliklerini belirt.',
   };
   const msg = prompts[type] || type;
   sendAiMsgWithText(msg);
@@ -3046,7 +3176,7 @@ Soru/Görev: ${text}` });
   try {
     // Proxy URL: Cloudflare Worker adresinizi buraya yazın
     // Kurulum adımları için: aşağıdaki açıklamaya bakın
-    const AI_PROXY_URL = window.AI_PROXY_URL || 'https://YOUR-WORKER.workers.dev';
+    const AI_PROXY_URL = window.AI_PROXY_URL || 'https://samsun.yilmazusta28.workers.dev';
     
     const response = await fetch(AI_PROXY_URL, {
       method: 'POST',
@@ -3089,15 +3219,18 @@ Soru/Görev: ${text}` });
 
 // ── PROXY AYARLARI ──────────────────────────────────────────
 function loadProxyUrl() {
+  // Sabit proxy URL - kullanıcıdan gizle
+  const DEFAULT_PROXY = 'https://samsun.yilmazusta28.workers.dev';
+  window.AI_PROXY_URL = DEFAULT_PROXY;
   try {
-    const saved = sessionStorage.getItem('ai_proxy_url');
-    if (saved) {
-      const inp = document.getElementById('proxyUrlInput');
-      if (inp) inp.value = saved;
-      window.AI_PROXY_URL = saved;
-      updateProxyStatus(saved);
-    }
-  } catch(e) {}
+    const saved = sessionStorage.getItem('ai_proxy_url') || DEFAULT_PROXY;
+    const inp = document.getElementById('proxyUrlInput');
+    if (inp) inp.value = saved;
+    window.AI_PROXY_URL = saved;
+    updateProxyStatus(saved);
+  } catch(e) {
+    updateProxyStatus(DEFAULT_PROXY);
+  }
 }
 
 function saveProxyUrl() {
@@ -3158,6 +3291,73 @@ async function testProxy() {
     statusEl.style.color = '#fff';
     alert('Bağlantı hatası: ' + err.message + '\nWorker URL ve API key doğru mu?');
   }
+}
+
+
+// ── ZAM SİMÜLASYONU ─────────────────────────────────────────
+function showZamHesap() {
+  const panel = document.getElementById('zamPanel');
+  if (!panel) return;
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  if (panel.style.display === 'block') buildZamInputs();
+}
+
+function buildZamInputs() {
+  const container = document.getElementById('zamInputs');
+  if (!container) return;
+  const ttt = selAiTTT || (ALL_TTTS[0]);
+  container.innerHTML = URUN_ORDER.map(u => `
+    <div>
+      <label style="font-size:9px;font-weight:700;color:${URUN_CLR[u]};display:block;margin-bottom:3px">${u}</label>
+      <div style="display:flex;gap:4px;align-items:center">
+        <input type="number" class="inp" id="zam_${u.replace(/\s/g,'_').replace(/[^a-zA-Z0-9_]/g,'X')}"
+          value="0" min="0" max="100" step="1" style="padding:5px 8px;font-size:11px"
+          placeholder="Artış %">
+        <span style="font-size:10px;color:var(--dim)">%</span>
+      </div>
+    </div>`).join('');
+}
+
+function calcZam() {
+  const ttt = selAiTTT || ALL_TTTS[0];
+  if (!ttt) return;
+  const rows = GENEL.filter(r=>r.ttt===ttt&&r.urun!=='GENEL TOPLAM'&&r.urun!=='DESTEVIT');
+  let html = '<div style="display:grid;gap:6px">';
+  let totOldHedef=0, totNewHedef=0, totSatis=0;
+  rows.forEach(r => {
+    const id = 'zam_' + r.urun.replace(/\s/g,'_').replace(/[^a-zA-Z0-9_]/g,'X');
+    const zamPct = parseFloat(document.getElementById(id)?.value) || 0;
+    const newHedef = r.hedef_tl * (1 + zamPct/100);
+    const newReal = newHedef > 0 ? (r.satis_tl / newHedef * 100) : 0;
+    const oldReal = r.tl_pct;
+    const diff = newReal - oldReal;
+    totOldHedef += r.hedef_tl; totNewHedef += newHedef; totSatis += r.satis_tl;
+    html += `<div style="background:#F8FAFC;border-radius:7px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-weight:700;color:${URUN_CLR[r.urun]||'var(--c1)'};">${r.urun}</span>
+      <span style="font-size:11px">
+        <span style="color:var(--dim)">${oldReal.toFixed(1)}%</span>
+        <span style="margin:0 6px;color:var(--dim)">→</span>
+        <span style="font-weight:700;color:${newReal>=91?'#16A34A':newReal>=70?'#D97706':'#DC2626'}">${newReal.toFixed(1)}%</span>
+        ${zamPct>0?`<span style="font-size:9px;color:#DC2626;margin-left:4px">(-${Math.abs(diff).toFixed(1)}pp)</span>`:''}
+      </span>
+    </div>`;
+  });
+  const totOldReal = totOldHedef>0?(totSatis/totOldHedef*100):0;
+  const totNewReal = totNewHedef>0?(totSatis/totNewHedef*100):0;
+  html += `<div style="background:linear-gradient(135deg,rgba(79,0,140,.06),rgba(27,206,216,.04));border:1px solid rgba(79,0,140,.2);border-radius:8px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center">
+    <span style="font-weight:700;color:var(--c1)">GENEL TOPLAM</span>
+    <span style="font-size:13px;font-weight:800">
+      <span style="color:var(--dim)">${totOldReal.toFixed(1)}%</span>
+      <span style="margin:0 6px;color:var(--dim)">→</span>
+      <span style="color:${totNewReal>=91?'#16A34A':totNewReal>=70?'#D97706':'#DC2626'}">${totNewReal.toFixed(1)}%</span>
+    </span>
+  </div>`;
+  html += '</div>';
+  document.getElementById('zamResult').innerHTML = html;
+  
+  // AI'a gönder
+  const zamSummary = `Fiyat artışı simülasyonu - Temsilci: ${ttt}\nMevcut toplam real: ${totOldReal.toFixed(1)}% → Zam sonrası: ${totNewReal.toFixed(1)}%\nDönem primi açısından değerlendir.`;
+  sendAiMsgWithText(zamSummary);
 }
 
 </script>
