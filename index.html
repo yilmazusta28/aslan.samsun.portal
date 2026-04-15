@@ -327,25 +327,23 @@ Fırsat Brick (İlk333 + MI≥110 + GI≥100): ${migiRows.filter(r=>r.sira<=333&
   // Eczane verisi (yüklüyse)
   ctx += buildEczaneContext(ttt);
 
-  // Kalan iş günleri
-  const today = new Date();
-  const HOLIDAYS_LIST = [...HOLIDAYS];
+  // Kalan iş günleri — today dahil, lokal saat dilimi
+  const _now = new Date();
+  const _pad = n => String(n).padStart(2,'0');
+  const todayStr = `${_now.getFullYear()}-${_pad(_now.getMonth()+1)}-${_pad(_now.getDate())}`;
+  const periodEnd = PERIODS.find(p => todayStr >= p.start && todayStr <= p.end);
   let remainingWorkDays = 0;
-  const periodEnd = PERIODS.find(p => {
-    const s = new Date(p.start), e = new Date(p.end);
-    return today >= s && today <= e;
-  });
   if (periodEnd) {
-    let d = new Date(today);
-    d.setDate(d.getDate()+1);
-    const endDate = new Date(periodEnd.end);
-    while (d <= endDate) {
-      const dow = d.getDay();
-      const ds = d.toISOString().split('T')[0];
-      if (dow !== 0 && dow !== 6 && !HOLIDAYS.has(ds)) remainingWorkDays++;
-      d.setDate(d.getDate()+1);
+    let _d = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate());
+    const [_ey,_em,_ed] = periodEnd.end.split('-').map(Number);
+    const _endDate = new Date(_ey, _em-1, _ed);
+    while (_d <= _endDate) {
+      const _dow = _d.getDay();
+      const _ds = `${_d.getFullYear()}-${_pad(_d.getMonth()+1)}-${_pad(_d.getDate())}`;
+      if (_dow !== 0 && _dow !== 6 && !HOLIDAYS.has(_ds)) remainingWorkDays++;
+      _d.setDate(_d.getDate()+1);
     }
-    ctx += `\n\n--- SÜRE ---\nAktif dönem: ${periodEnd.label} (${periodEnd.months})\nDönem sonu: ${periodEnd.end}\nKalan iş günü: ${remainingWorkDays} gün`;
+    ctx += `\n\n--- SÜRE ---\nBugün: ${todayStr}\nAktif dönem: ${periodEnd.label} (${periodEnd.months})\nDönem sonu: ${periodEnd.end}\nKalan iş günü (bugün dahil): ${remainingWorkDays} gün`;
   }
 
   return ctx;
@@ -874,7 +872,20 @@ function renderEczaneCharts(filtered, eczList) {
 
 // AI asistan eczane verisi context
 function buildEczaneContext(ttt) {
-  if (!eczaneLoaded || !ECZANE_RAW) return '';
+  if (!eczaneLoaded || !ECZANE_RAW) {
+    // Eczane yüklü değilse AI'a not düş, arka planda yükle
+    if (!eczaneLoaded) {
+      // Arka planda yüklemeyi tetikle (async, sonuç bekleme)
+      fetch(GS_ECZANE_URL + '?v=' + Date.now(), { cache: 'no-store' })
+        .then(r => r.ok ? r.text() : Promise.reject('HTTP ' + r.status))
+        .then(csv => {
+          ECZANE_RAW = parseEczaneCSV(csv);
+          eczaneLoaded = true;
+          console.log('[ECZANE BG] Loaded:', ECZANE_RAW.length);
+        }).catch(e => console.warn('[ECZANE BG]', e));
+    }
+    return '\n\n--- ECZANE VERİSİ ---\n(Eczane sayfası henüz yüklenmedi - bir sonraki soruda dahil edilecek)';
+  }
   const data = ECZANE_RAW.filter(r=>r.ttt===ttt);
   if (!data.length) return '';
 
@@ -1612,7 +1623,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
       <!-- Brick filtresi -->
       <div style="margin-bottom:10px">
         <div class="section-h">Brick</div>
-        <div id="eczaneBrickBar" style="display:flex;flex-wrap:wrap;gap:5px;max-height:80px;overflow-y:auto"></div>
+        <div id="eczaneBrickBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
       </div>
       <!-- Ürün + Ay filtresi -->
       <div style="display:flex;gap:16px;flex-wrap:wrap">
@@ -1926,7 +1937,7 @@ function parseIMSCSV(csvText) {
       ilac,
       is_mkt:      isMktRow(ilac),
       toplam:      parseN(c[5]),
-      toplam_ppi:  parseN(c[6]) * 100,  // G sütunu: 0-1 → ×100 = %
+      toplam_ppi:  parseN(c[6]),  // G sütunu: "37,89%" → parseN → 37.89 (zaten %)
       h1: parseN(c[7]),  h2: parseN(c[9]),  h3: parseN(c[11]), h4: parseN(c[13]),
       h5: parseN(c[15]), h6: parseN(c[17]), h7: parseN(c[19]), h8: parseN(c[21]), h9: parseN(c[23])
     });
@@ -2305,7 +2316,7 @@ const TR_SIRA_MAP = {"KÜRŞAD KARADAĞ": 20, "MEHMET AKİF ÖZGEÇEN": 28, "MUR
 const IMS_TL_MAP = {"PANOCER":105.31,"ACİDPASS":112.23,"GRİPORT COLD":84.15,"MOKSEFEN":149,"FAMTREC":95};
 const URUN_CLR = {'PANOCER':'#16A34A','ACİDPASS':'#1BCED8','GRİPORT COLD':'#FF375E','MOKSEFEN':'#521FD1','FAMTREC':'#E07B39'};
 // Pazar grafiği için ayırt edici renkler (rakipler dahil)
-const PAZ_COLORS = ['#1BCED8','#FF375E','#E07B39','#16A34A','#9333EA','#D97706','#0EA5E9','#DC2626','#10B981','#8B5CF6','#F59E0B','#6366F1'];
+const PAZ_COLORS = ['#DC2626','#2563EB','#F97316','#7C3AED','#16A34A','#64748B','#EF4444','#3B82F6','#FB923C','#8B5CF6','#22C55E','#94A3B8'];
 
 const HOLIDAYS = new Set([
   '2026-01-01','2026-03-20','2026-03-21','2026-03-22',
@@ -3493,25 +3504,23 @@ Fırsat Brick (İlk333 + MI≥110 + GI≥100): ${migiRows.filter(r=>r.sira<=333&
   // Eczane verisi (yüklüyse)
   ctx += buildEczaneContext(ttt);
 
-  // Kalan iş günleri
-  const today = new Date();
-  const HOLIDAYS_LIST = [...HOLIDAYS];
+  // Kalan iş günleri — today dahil, lokal saat dilimi
+  const _now = new Date();
+  const _pad = n => String(n).padStart(2,'0');
+  const todayStr = `${_now.getFullYear()}-${_pad(_now.getMonth()+1)}-${_pad(_now.getDate())}`;
+  const periodEnd = PERIODS.find(p => todayStr >= p.start && todayStr <= p.end);
   let remainingWorkDays = 0;
-  const periodEnd = PERIODS.find(p => {
-    const s = new Date(p.start), e = new Date(p.end);
-    return today >= s && today <= e;
-  });
   if (periodEnd) {
-    let d = new Date(today);
-    d.setDate(d.getDate()+1);
-    const endDate = new Date(periodEnd.end);
-    while (d <= endDate) {
-      const dow = d.getDay();
-      const ds = d.toISOString().split('T')[0];
-      if (dow !== 0 && dow !== 6 && !HOLIDAYS.has(ds)) remainingWorkDays++;
-      d.setDate(d.getDate()+1);
+    let _d = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate());
+    const [_ey,_em,_ed] = periodEnd.end.split('-').map(Number);
+    const _endDate = new Date(_ey, _em-1, _ed);
+    while (_d <= _endDate) {
+      const _dow = _d.getDay();
+      const _ds = `${_d.getFullYear()}-${_pad(_d.getMonth()+1)}-${_pad(_d.getDate())}`;
+      if (_dow !== 0 && _dow !== 6 && !HOLIDAYS.has(_ds)) remainingWorkDays++;
+      _d.setDate(_d.getDate()+1);
     }
-    ctx += `\n\n--- SÜRE ---\nAktif dönem: ${periodEnd.label} (${periodEnd.months})\nDönem sonu: ${periodEnd.end}\nKalan iş günü: ${remainingWorkDays} gün`;
+    ctx += `\n\n--- SÜRE ---\nBugün: ${todayStr}\nAktif dönem: ${periodEnd.label} (${periodEnd.months})\nDönem sonu: ${periodEnd.end}\nKalan iş günü (bugün dahil): ${remainingWorkDays} gün`;
   }
 
   return ctx;
@@ -4040,7 +4049,20 @@ function renderEczaneCharts(filtered, eczList) {
 
 // AI asistan eczane verisi context
 function buildEczaneContext(ttt) {
-  if (!eczaneLoaded || !ECZANE_RAW) return '';
+  if (!eczaneLoaded || !ECZANE_RAW) {
+    // Eczane yüklü değilse AI'a not düş, arka planda yükle
+    if (!eczaneLoaded) {
+      // Arka planda yüklemeyi tetikle (async, sonuç bekleme)
+      fetch(GS_ECZANE_URL + '?v=' + Date.now(), { cache: 'no-store' })
+        .then(r => r.ok ? r.text() : Promise.reject('HTTP ' + r.status))
+        .then(csv => {
+          ECZANE_RAW = parseEczaneCSV(csv);
+          eczaneLoaded = true;
+          console.log('[ECZANE BG] Loaded:', ECZANE_RAW.length);
+        }).catch(e => console.warn('[ECZANE BG]', e));
+    }
+    return '\n\n--- ECZANE VERİSİ ---\n(Eczane sayfası henüz yüklenmedi - bir sonraki soruda dahil edilecek)';
+  }
   const data = ECZANE_RAW.filter(r=>r.ttt===ttt);
   if (!data.length) return '';
 
