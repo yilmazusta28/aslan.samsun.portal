@@ -324,6 +324,9 @@ Fırsat Brick (İlk333 + MI≥110 + GI≥100): ${migiRows.filter(r=>r.sira<=333&
     });
   }
 
+  // Eczane verisi (yüklüyse)
+  ctx += buildEczaneContext(ttt);
+
   // Kalan iş günleri
   const today = new Date();
   const HOLIDAYS_LIST = [...HOLIDAYS];
@@ -591,6 +594,316 @@ function calcZam() {
   // AI'a gönder
   const zamSummary = `Fiyat artışı simülasyonu - Temsilci: ${ttt}\nMevcut toplam real: ${totOldReal.toFixed(1)}% → Zam sonrası: ${totNewReal.toFixed(1)}%\nDönem primi açısından değerlendir.`;
   sendAiMsgWithText(zamSummary);
+}
+
+
+// ═══════════════════════════════════════════════════════════
+//  ECZANE SATIŞ TAKİBİ
+// ═══════════════════════════════════════════════════════════
+const GS_ECZANE_URL = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/ECZANE.csv';
+
+// ECZANE_RAW: parse edilmiş kayıtlar (lazy load)
+// Her kayıt: [tarih, gln, ad, brick, urun, form, adet, tutar, iade]
+let ECZANE_RAW = null;
+let eczaneLoaded = false;
+
+// Filtre state
+let selEczaneTTT   = '';
+let selEczaneBrick = 'TÜMÜ';
+let selEczaneUrun  = 'TÜMÜ';
+let selEczaneAy    = 'TÜMÜ';
+let eczaneSortKey  = 'toplam';
+let eczaneSortAsc  = false;
+
+// Brick → TTT eşleşmesi (MIGI_RAW'dan türetilir)
+function getBrickTTTMap() {
+  const map = {};
+  if (MIGI_RAW) {
+    MIGI_RAW.forEach(r => {
+      // Brick isimlerini normalize et (büyük harf)
+      map[r.brick.toUpperCase()] = r.ttt;
+    });
+  }
+  return map;
+}
+
+// ECZANE CSV Parser
+function parseEczaneCSV(csvText) {
+  if (csvText.trim().startsWith('<')) throw new Error('ECZANE.csv HTML döndü');
+  const rows = parseCSVRows(csvText);
+  if (rows.length < 2) throw new Error('ECZANE.csv boş');
+
+  // Header tespiti
+  let startRow = 0;
+  if ((rows[0][0]||'').trim().toLowerCase().includes('tarih')) startRow = 1;
+
+  const result = [];
+  const brickTTT = getBrickTTTMap();
+
+  for (let i = startRow; i < rows.length; i++) {
+    const c = rows[i];
+    if (c.length < 9) continue;
+    const gln   = (c[3]||'').trim();
+    const ad    = (c[4]||'').trim();
+    const brick = (c[5]||'').trim();
+    const urun  = (c[6]||'').trim();
+    if (!gln || !ad || !brick || !urun) continue;
+
+    const tarih = (c[0]||'').trim();
+    const adet  = parseInt(c[8]||0) || 0;
+    const tutar = parseN(c[11]||0);
+    const iade  = parseInt(c[13]||0) || 0;
+
+    // Ay tespiti
+    const ayParts = tarih.split('.');
+    const ay = ayParts.length >= 2 ? ayParts[1].padStart(2,'0') + '/' + (ayParts[2]||'2026') : '01/2026';
+
+    // TTT bul (brick üzerinden)
+    const ttt = brickTTT[brick.toUpperCase()] || null;
+
+    result.push({ tarih, gln, ad, brick, urun, adet, tutar, iade, ay, ttt });
+  }
+  return result;
+}
+
+// Eczane sayfasını render et
+async function renderEczane() {
+  const statusEl = document.getElementById('eczaneLoadStatus');
+
+  // İlk kez yükleniyorsa CSV fetch et
+  if (!eczaneLoaded) {
+    statusEl.textContent = '⏳ ECZANE.csv yükleniyor...';
+    try {
+      const resp = await fetch(GS_ECZANE_URL + '?v=' + Date.now(), { cache: 'no-store' });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const csv = await resp.text();
+      ECZANE_RAW = parseEczaneCSV(csv);
+      eczaneLoaded = true;
+      statusEl.textContent = `✅ ${ECZANE_RAW.length.toLocaleString('tr-TR')} satış kaydı`;
+      console.log('[ECZANE] Loaded:', ECZANE_RAW.length, 'records');
+    } catch(err) {
+      statusEl.textContent = '❌ ' + err.message;
+      console.error('[ECZANE]', err);
+      return;
+    }
+  }
+
+  buildEczaneFilters();
+  renderEczaneContent();
+}
+
+function buildEczaneFilters() {
+  const brickTTT = getBrickTTTMap();
+
+  // Temsilci listesi - ALL_TTTS + "GİDİLMEYEN"
+  const allT = [...ALL_TTTS];
+  if (!selEczaneTTT && allT.length) selEczaneTTT = allT[0];
+  document.getElementById('eczaneTttBar').innerHTML = allT.map(t =>
+    `<button class="sp-btn${t===selEczaneTTT?' active':''}" onclick="selEczaneTTT='${t}';buildEczaneFilters();renderEczaneContent()">${t}</button>`
+  ).join('');
+
+  // Seçili TTT'ye ait brickler
+  const tttBricks = [...new Set(
+    ECZANE_RAW.filter(r => r.ttt === selEczaneTTT).map(r => r.brick)
+  )].sort();
+
+  document.getElementById('eczaneBrickBar').innerHTML =
+    ['TÜMÜ', ...tttBricks].map(b =>
+      `<button class="sp-btn${b===selEczaneBrick?' active':''}" onclick="selEczaneBrick='${b}';renderEczaneContent()" style="font-size:9px;padding:4px 8px">${b}</button>`
+    ).join('');
+
+  // Ürünler
+  const uruns = [...new Set(ECZANE_RAW.map(r=>r.urun))].sort();
+  document.getElementById('eczaneUrunBar').innerHTML =
+    ['TÜMÜ', ...uruns].map(u =>
+      `<button class="sp-btn${u===selEczaneUrun?' active':''}" onclick="selEczaneUrun='${u}';renderEczaneContent()" style="font-size:9px;padding:4px 8px">${u}</button>`
+    ).join('');
+
+  // Aylar
+  const aylar = [...new Set(ECZANE_RAW.map(r=>r.ay))].sort();
+  document.getElementById('eczaneAyBar').innerHTML =
+    ['TÜMÜ', ...aylar].map(a =>
+      `<button class="sp-btn${a===selEczaneAy?' active':''}" onclick="selEczaneAy='${a}';renderEczaneContent()" style="font-size:9px;padding:4px 8px">${a==='TÜMÜ'?'Tümü Oca+Şub':a==='01/2026'?'Ocak 2026':'Şubat 2026'}</button>`
+    ).join('');
+}
+
+function getFilteredEczane() {
+  return ECZANE_RAW.filter(r => {
+    if (selEczaneTTT && r.ttt !== selEczaneTTT) return false;
+    if (selEczaneBrick !== 'TÜMÜ' && r.brick !== selEczaneBrick) return false;
+    if (selEczaneUrun  !== 'TÜMÜ' && r.urun  !== selEczaneUrun)  return false;
+    if (selEczaneAy    !== 'TÜMÜ' && r.ay    !== selEczaneAy)    return false;
+    return true;
+  });
+}
+
+function renderEczaneContent() {
+  const filtered = getFilteredEczane();
+
+  // Eczane bazında aggregate
+  const eczMap = {};
+  filtered.forEach(r => {
+    if (!eczMap[r.gln]) {
+      eczMap[r.gln] = { gln:r.gln, ad:r.ad, brick:r.brick, ttt:r.ttt, ocak:0, subat:0, toplam:0, tutar:0, iade:0, uruns:new Set() };
+    }
+    const e = eczMap[r.gln];
+    e.toplam += r.adet; e.tutar += r.tutar; e.iade += r.iade;
+    if (r.ay === '01/2026') e.ocak += r.adet;
+    if (r.ay === '02/2026') e.subat += r.adet;
+    e.uruns.add(r.urun);
+  });
+
+  const eczList = Object.values(eczMap);
+  eczList.forEach(e => { e.uruns = [...e.uruns]; });
+
+  // Özet kartlar
+  const totAdet  = eczList.reduce((s,e)=>s+e.toplam,0);
+  const totTutar = eczList.reduce((s,e)=>s+e.tutar,0);
+  const totIade  = eczList.reduce((s,e)=>s+e.iade,0);
+  const aktif    = eczList.filter(e=>e.toplam>0).length;
+  const buyuyen  = eczList.filter(e=>e.subat>e.ocak).length;
+
+  document.getElementById('eczaneSummaryCards').innerHTML = [
+    {icon:'🏥',label:'Toplam Eczane',val:eczList.length,color:'var(--c1)'},
+    {icon:'✅',label:'Aktif Eczane',val:aktif,color:'#16A34A'},
+    {icon:'📦',label:'Toplam Adet',val:fK(totAdet),color:'#0891B2'},
+    {icon:'💰',label:'Toplam Tutar',val:fTL(totTutar),color:'#521FD1'},
+    {icon:'📈',label:'Büyüyen Eczane',val:buyuyen,color:'#D97706'},
+    {icon:'↩️',label:'İade',val:fK(totIade),color:'#DC2626'},
+  ].map(c=>`<div style="background:#fff;border:1px solid var(--border);border-radius:9px;padding:10px 12px;text-align:center">
+    <div style="font-size:16px">${c.icon}</div>
+    <div style="font-size:18px;font-weight:800;color:${c.color}">${c.val}</div>
+    <div style="font-size:9px;color:var(--dim);font-weight:600;text-transform:uppercase;margin-top:2px">${c.label}</div>
+  </div>`).join('');
+
+  // Tablo
+  _eczaneData = eczList;
+  document.getElementById('eczaneTblBadge').textContent = `${eczList.length} eczane`;
+  renderEczaneTable(eczList);
+
+  // Grafikler
+  renderEczaneCharts(filtered, eczList);
+}
+
+let _eczaneData = [];
+let _eczaneSearchFilter = '';
+
+function filterEczaneTable() {
+  _eczaneSearchFilter = (document.getElementById('eczaneSearch')?.value||'').toLowerCase();
+  renderEczaneTable(_eczaneData);
+}
+
+function sortEczane(key) {
+  if (eczaneSortKey === key) eczaneSortAsc = !eczaneSortAsc;
+  else { eczaneSortKey = key; eczaneSortAsc = false; }
+  renderEczaneTable(_eczaneData);
+}
+
+function renderEczaneTable(data) {
+  // Arama filtresi
+  let list = _eczaneSearchFilter
+    ? data.filter(e => e.ad.toLowerCase().includes(_eczaneSearchFilter) || e.brick.toLowerCase().includes(_eczaneSearchFilter) || e.gln.includes(_eczaneSearchFilter))
+    : [...data];
+
+  // Sıralama
+  list.sort((a,b) => {
+    let av=a[eczaneSortKey]||0, bv=b[eczaneSortKey]||0;
+    if (typeof av==='string') av=av.toLowerCase(), bv=(bv||'').toLowerCase();
+    return eczaneSortAsc ? (av>bv?1:-1) : (av<bv?1:-1);
+  });
+
+  const MAX_ROWS = 200;
+  const shown = list.slice(0, MAX_ROWS);
+
+  document.getElementById('eczaneTblBadge').textContent =
+    `${list.length} eczane${list.length>MAX_ROWS?' (ilk '+MAX_ROWS+' gösteriliyor)':''}`;
+
+  document.getElementById('eczaneTbody').innerHTML = shown.map(e => {
+    const trend = e.subat > e.ocak ? '📈' : e.subat < e.ocak && e.subat>0 ? '📉' : e.subat===0&&e.ocak===0?'➖':'';
+    const durum = e.toplam===0?'<span style="color:#94A3B8">Pasif</span>':
+                  e.iade>e.toplam*0.2?'<span style="color:#DC2626;font-weight:600">⚠️ İade</span>':
+                  e.subat>e.ocak?'<span style="color:#16A34A;font-weight:600">📈 Büyüyor</span>':
+                  '<span style="color:#64748B">—</span>';
+    const urunBadges = e.uruns.map(u=>`<span style="background:${URUN_CLR[u]||'#64748B'}22;color:${URUN_CLR[u]||'#64748B'};border-radius:3px;padding:1px 5px;font-size:8px;font-weight:700">${u}</span>`).join(' ');
+    return `<tr>
+      <td style="font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.ad}">${e.ad}</td>
+      <td style="font-size:10px;color:var(--dim)">${e.brick}</td>
+      <td class="mono" style="font-size:10px;color:#94A3B8">${e.gln}</td>
+      <td class="mono">${e.ocak>0?fK(e.ocak):'—'}</td>
+      <td class="mono">${e.subat>0?fK(e.subat):'—'} ${trend}</td>
+      <td class="mono" style="font-weight:700;color:var(--c1)">${e.toplam>0?fK(e.toplam):'—'}</td>
+      <td class="mono" style="font-size:10px">${e.tutar>0?fTL(e.tutar):'—'}</td>
+      <td class="mono" style="color:${e.iade>0?'#DC2626':'#A0AEC0'}">${e.iade>0?fK(e.iade):'—'}</td>
+      <td>${urunBadges}</td>
+      <td>${durum}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderEczaneCharts(filtered, eczList) {
+  // Brick bazlı
+  const brickMap = {};
+  filtered.forEach(r => {
+    if (!brickMap[r.brick]) brickMap[r.brick] = 0;
+    brickMap[r.brick] += r.adet;
+  });
+  const brickSorted = Object.entries(brickMap).sort((a,b)=>b[1]-a[1]).slice(0,12);
+
+  setTimeout(()=>{
+    mkChart('eczaneBrickChart','bar',{
+      labels: brickSorted.map(([b])=>b.length>16?b.substr(0,16)+'…':b),
+      datasets:[{label:'Satış Adet',data:brickSorted.map(([,v])=>v),
+        backgroundColor:'#4F008C44',borderColor:'#4F008C',borderWidth:2,borderRadius:4}]
+    },{plugins:{title:{display:true,text:'Brick Bazlı Satış',font:{size:11}}},
+      scales:{y:{ticks:{callback:v=>fK(v)}},x:{ticks:{font:{size:8},maxRotation:45}}}});
+
+    // Ürün dağılımı
+    const urunMap = {};
+    filtered.forEach(r=>{ urunMap[r.urun]=(urunMap[r.urun]||0)+r.adet; });
+    const urunEntries = Object.entries(urunMap).sort((a,b)=>b[1]-a[1]);
+    mkChart('eczaneUrunChart','doughnut',{
+      labels: urunEntries.map(([u])=>u),
+      datasets:[{data:urunEntries.map(([,v])=>v),
+        backgroundColor: urunEntries.map(([u])=>(URUN_CLR[u]||'#64748B')+'cc'),
+        borderColor: urunEntries.map(([u])=>URUN_CLR[u]||'#64748B'),
+        borderWidth:2}]
+    },{plugins:{legend:{position:'bottom',labels:{font:{size:10}}},
+      title:{display:true,text:'Ürün Dağılımı',font:{size:11}}}});
+  },50);
+}
+
+// AI asistan eczane verisi context
+function buildEczaneContext(ttt) {
+  if (!eczaneLoaded || !ECZANE_RAW) return '';
+  const data = ECZANE_RAW.filter(r=>r.ttt===ttt);
+  if (!data.length) return '';
+
+  const eczMap = {};
+  data.forEach(r=>{
+    if(!eczMap[r.gln]) eczMap[r.gln]={ad:r.ad,brick:r.brick,ocak:0,subat:0,iade:0,uruns:new Set()};
+    if(r.ay==='01/2026') eczMap[r.gln].ocak+=r.adet;
+    if(r.ay==='02/2026') eczMap[r.gln].subat+=r.adet;
+    eczMap[r.gln].iade+=r.iade;
+    eczMap[r.gln].uruns.add(r.urun);
+  });
+
+  const list = Object.values(eczMap).sort((a,b)=>(b.ocak+b.subat)-(a.ocak+a.subat));
+  const top10 = list.slice(0,10);
+  const dusen = list.filter(e=>e.subat<e.ocak&&e.subat>0).slice(0,5);
+  const sifir = list.filter(e=>e.subat===0&&e.ocak>0).slice(0,5);
+
+  let ctx = `\n\n--- ECZANE SATIŞ VERİSİ (Oca-Şub 2026) ---\nToplam Eczane: ${list.length} | Aktif: ${list.filter(e=>e.ocak+e.subat>0).length}`;
+  ctx += `\n\nEn Çok Satan 10 Eczane:`;
+  top10.forEach(e=>{ ctx += `\n  ${e.ad} [${e.brick}]: Oca=${e.ocak}, Şub=${e.subat} ${[...e.uruns].join('/')}`; });
+  if (dusen.length) {
+    ctx += `\n\nDüşüş Gösteren Eczaneler (Şub<Oca):`;
+    dusen.forEach(e=>{ ctx += `\n  ${e.ad}: Oca=${e.ocak}→Şub=${e.subat}`; });
+  }
+  if (sifir.length) {
+    ctx += `\n\nŞubatta Alış Yapmayan (Oca Alımlı):`;
+    sifir.forEach(e=>{ ctx += `\n  ${e.ad} [${e.brick}]: Oca=${e.ocak}`; });
+  }
+  return ctx;
 }
 
 </script>
@@ -875,6 +1188,10 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
       <button class="nav-tab" id="ntab4" onclick="goPage(4)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
         <span class="tab-label">AI Asistan</span>
+      </button>
+      <button class="nav-tab" id="ntab5" onclick="goPage(5)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 3h18v18H3z"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+        <span class="tab-label">Eczane</span>
       </button>
     </div>
   </div>
@@ -1273,6 +1590,87 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
     <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px">
       <input type="text" class="inp" id="aiInput" placeholder="Soru sorun... (ör: Kürşad için bu hafta hangi bricklere gitmeliyim?)" style="flex:1" onkeydown="if(event.key==='Enter')sendAiMsg()">
       <button class="btn-calc" onclick="sendAiMsg()" style="padding:8px 16px;white-space:nowrap">Gönder ↗</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ PAGE 5: ECZANE SATIŞ TAKİBİ ══════ -->
+<div class="page" id="page5">
+  <!-- Başlık + Yükleme durumu -->
+  <div class="card mb16">
+    <div class="card-hd">
+      <span class="card-title">🏥 Eczane Satış Takibi</span>
+      <span class="card-badge" id="eczaneBadge">Ocak–Şubat 2026</span>
+      <span id="eczaneLoadStatus" style="margin-left:8px;font-size:10px;color:var(--dim)">Veriler yükleniyor...</span>
+    </div>
+    <div class="card-body" style="padding:10px 16px">
+      <!-- Temsilci filtresi -->
+      <div style="margin-bottom:10px">
+        <div class="section-h">Temsilci</div>
+        <div id="eczaneTttBar" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+      </div>
+      <!-- Brick filtresi -->
+      <div style="margin-bottom:10px">
+        <div class="section-h">Brick</div>
+        <div id="eczaneBrickBar" style="display:flex;flex-wrap:wrap;gap:5px;max-height:80px;overflow-y:auto"></div>
+      </div>
+      <!-- Ürün + Ay filtresi -->
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <div style="flex:1;min-width:120px">
+          <div class="section-h">Ürün</div>
+          <div id="eczaneUrunBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+        </div>
+        <div style="flex:1;min-width:120px">
+          <div class="section-h">Dönem</div>
+          <div id="eczaneAyBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Özet kartları -->
+  <div id="eczaneSummaryCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:16px"></div>
+
+  <!-- Eczane tablosu -->
+  <div class="card mb16">
+    <div class="card-hd">
+      <span class="card-title">📋 Eczane Detay Listesi</span>
+      <span class="card-badge" id="eczaneTblBadge">—</span>
+      <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+        <input type="text" id="eczaneSearch" class="inp" placeholder="🔍 Eczane ara..." 
+          style="padding:5px 10px;font-size:11px;width:160px" oninput="filterEczaneTable()">
+      </div>
+    </div>
+    <div class="card-body-0 scroll-x">
+      <table class="tbl" id="eczaneTable" style="min-width:700px">
+        <thead>
+          <tr>
+            <th onclick="sortEczane('ad')" style="cursor:pointer">Eczane ▾</th>
+            <th onclick="sortEczane('brick')" style="cursor:pointer">Brick ▾</th>
+            <th onclick="sortEczane('gln')" style="cursor:pointer">GLN ▾</th>
+            <th onclick="sortEczane('ocak')" style="cursor:pointer">Oca Adet ▾</th>
+            <th onclick="sortEczane('subat')" style="cursor:pointer">Şub Adet ▾</th>
+            <th onclick="sortEczane('toplam')" style="cursor:pointer">Toplam ▾</th>
+            <th onclick="sortEczane('tutar')" style="cursor:pointer">Tutar ▾</th>
+            <th onclick="sortEczane('iade')" style="cursor:pointer">İade ▾</th>
+            <th>Ürünler</th>
+            <th>Durum</th>
+          </tr>
+        </thead>
+        <tbody id="eczaneTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Brick özet grafiği -->
+  <div class="g2">
+    <div class="card">
+      <div class="card-hd"><span class="card-title">📊 Brick Bazlı Dağılım</span></div>
+      <div class="card-body"><div class="ch-md"><canvas id="eczaneBrickChart"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><span class="card-title">💊 Ürün Dağılımı</span></div>
+      <div class="card-body"><div class="ch-md"><canvas id="eczaneUrunChart"></canvas></div></div>
     </div>
   </div>
 </div>
@@ -1976,6 +2374,7 @@ function goPage(i){
   else if(i===2)renderTakip();
   else if(i===3)renderMiGi();
   else if(i===4)renderAiAsistan();
+  else if(i===5)renderEczane();
 }
 function selectTTT(ttt){
   selTTT=selTTT===ttt?'':ttt;
@@ -3091,6 +3490,9 @@ Fırsat Brick (İlk333 + MI≥110 + GI≥100): ${migiRows.filter(r=>r.sira<=333&
     });
   }
 
+  // Eczane verisi (yüklüyse)
+  ctx += buildEczaneContext(ttt);
+
   // Kalan iş günleri
   const today = new Date();
   const HOLIDAYS_LIST = [...HOLIDAYS];
@@ -3358,6 +3760,316 @@ function calcZam() {
   // AI'a gönder
   const zamSummary = `Fiyat artışı simülasyonu - Temsilci: ${ttt}\nMevcut toplam real: ${totOldReal.toFixed(1)}% → Zam sonrası: ${totNewReal.toFixed(1)}%\nDönem primi açısından değerlendir.`;
   sendAiMsgWithText(zamSummary);
+}
+
+
+// ═══════════════════════════════════════════════════════════
+//  ECZANE SATIŞ TAKİBİ
+// ═══════════════════════════════════════════════════════════
+const GS_ECZANE_URL = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/ECZANE.csv';
+
+// ECZANE_RAW: parse edilmiş kayıtlar (lazy load)
+// Her kayıt: [tarih, gln, ad, brick, urun, form, adet, tutar, iade]
+let ECZANE_RAW = null;
+let eczaneLoaded = false;
+
+// Filtre state
+let selEczaneTTT   = '';
+let selEczaneBrick = 'TÜMÜ';
+let selEczaneUrun  = 'TÜMÜ';
+let selEczaneAy    = 'TÜMÜ';
+let eczaneSortKey  = 'toplam';
+let eczaneSortAsc  = false;
+
+// Brick → TTT eşleşmesi (MIGI_RAW'dan türetilir)
+function getBrickTTTMap() {
+  const map = {};
+  if (MIGI_RAW) {
+    MIGI_RAW.forEach(r => {
+      // Brick isimlerini normalize et (büyük harf)
+      map[r.brick.toUpperCase()] = r.ttt;
+    });
+  }
+  return map;
+}
+
+// ECZANE CSV Parser
+function parseEczaneCSV(csvText) {
+  if (csvText.trim().startsWith('<')) throw new Error('ECZANE.csv HTML döndü');
+  const rows = parseCSVRows(csvText);
+  if (rows.length < 2) throw new Error('ECZANE.csv boş');
+
+  // Header tespiti
+  let startRow = 0;
+  if ((rows[0][0]||'').trim().toLowerCase().includes('tarih')) startRow = 1;
+
+  const result = [];
+  const brickTTT = getBrickTTTMap();
+
+  for (let i = startRow; i < rows.length; i++) {
+    const c = rows[i];
+    if (c.length < 9) continue;
+    const gln   = (c[3]||'').trim();
+    const ad    = (c[4]||'').trim();
+    const brick = (c[5]||'').trim();
+    const urun  = (c[6]||'').trim();
+    if (!gln || !ad || !brick || !urun) continue;
+
+    const tarih = (c[0]||'').trim();
+    const adet  = parseInt(c[8]||0) || 0;
+    const tutar = parseN(c[11]||0);
+    const iade  = parseInt(c[13]||0) || 0;
+
+    // Ay tespiti
+    const ayParts = tarih.split('.');
+    const ay = ayParts.length >= 2 ? ayParts[1].padStart(2,'0') + '/' + (ayParts[2]||'2026') : '01/2026';
+
+    // TTT bul (brick üzerinden)
+    const ttt = brickTTT[brick.toUpperCase()] || null;
+
+    result.push({ tarih, gln, ad, brick, urun, adet, tutar, iade, ay, ttt });
+  }
+  return result;
+}
+
+// Eczane sayfasını render et
+async function renderEczane() {
+  const statusEl = document.getElementById('eczaneLoadStatus');
+
+  // İlk kez yükleniyorsa CSV fetch et
+  if (!eczaneLoaded) {
+    statusEl.textContent = '⏳ ECZANE.csv yükleniyor...';
+    try {
+      const resp = await fetch(GS_ECZANE_URL + '?v=' + Date.now(), { cache: 'no-store' });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const csv = await resp.text();
+      ECZANE_RAW = parseEczaneCSV(csv);
+      eczaneLoaded = true;
+      statusEl.textContent = `✅ ${ECZANE_RAW.length.toLocaleString('tr-TR')} satış kaydı`;
+      console.log('[ECZANE] Loaded:', ECZANE_RAW.length, 'records');
+    } catch(err) {
+      statusEl.textContent = '❌ ' + err.message;
+      console.error('[ECZANE]', err);
+      return;
+    }
+  }
+
+  buildEczaneFilters();
+  renderEczaneContent();
+}
+
+function buildEczaneFilters() {
+  const brickTTT = getBrickTTTMap();
+
+  // Temsilci listesi - ALL_TTTS + "GİDİLMEYEN"
+  const allT = [...ALL_TTTS];
+  if (!selEczaneTTT && allT.length) selEczaneTTT = allT[0];
+  document.getElementById('eczaneTttBar').innerHTML = allT.map(t =>
+    `<button class="sp-btn${t===selEczaneTTT?' active':''}" onclick="selEczaneTTT='${t}';buildEczaneFilters();renderEczaneContent()">${t}</button>`
+  ).join('');
+
+  // Seçili TTT'ye ait brickler
+  const tttBricks = [...new Set(
+    ECZANE_RAW.filter(r => r.ttt === selEczaneTTT).map(r => r.brick)
+  )].sort();
+
+  document.getElementById('eczaneBrickBar').innerHTML =
+    ['TÜMÜ', ...tttBricks].map(b =>
+      `<button class="sp-btn${b===selEczaneBrick?' active':''}" onclick="selEczaneBrick='${b}';renderEczaneContent()" style="font-size:9px;padding:4px 8px">${b}</button>`
+    ).join('');
+
+  // Ürünler
+  const uruns = [...new Set(ECZANE_RAW.map(r=>r.urun))].sort();
+  document.getElementById('eczaneUrunBar').innerHTML =
+    ['TÜMÜ', ...uruns].map(u =>
+      `<button class="sp-btn${u===selEczaneUrun?' active':''}" onclick="selEczaneUrun='${u}';renderEczaneContent()" style="font-size:9px;padding:4px 8px">${u}</button>`
+    ).join('');
+
+  // Aylar
+  const aylar = [...new Set(ECZANE_RAW.map(r=>r.ay))].sort();
+  document.getElementById('eczaneAyBar').innerHTML =
+    ['TÜMÜ', ...aylar].map(a =>
+      `<button class="sp-btn${a===selEczaneAy?' active':''}" onclick="selEczaneAy='${a}';renderEczaneContent()" style="font-size:9px;padding:4px 8px">${a==='TÜMÜ'?'Tümü Oca+Şub':a==='01/2026'?'Ocak 2026':'Şubat 2026'}</button>`
+    ).join('');
+}
+
+function getFilteredEczane() {
+  return ECZANE_RAW.filter(r => {
+    if (selEczaneTTT && r.ttt !== selEczaneTTT) return false;
+    if (selEczaneBrick !== 'TÜMÜ' && r.brick !== selEczaneBrick) return false;
+    if (selEczaneUrun  !== 'TÜMÜ' && r.urun  !== selEczaneUrun)  return false;
+    if (selEczaneAy    !== 'TÜMÜ' && r.ay    !== selEczaneAy)    return false;
+    return true;
+  });
+}
+
+function renderEczaneContent() {
+  const filtered = getFilteredEczane();
+
+  // Eczane bazında aggregate
+  const eczMap = {};
+  filtered.forEach(r => {
+    if (!eczMap[r.gln]) {
+      eczMap[r.gln] = { gln:r.gln, ad:r.ad, brick:r.brick, ttt:r.ttt, ocak:0, subat:0, toplam:0, tutar:0, iade:0, uruns:new Set() };
+    }
+    const e = eczMap[r.gln];
+    e.toplam += r.adet; e.tutar += r.tutar; e.iade += r.iade;
+    if (r.ay === '01/2026') e.ocak += r.adet;
+    if (r.ay === '02/2026') e.subat += r.adet;
+    e.uruns.add(r.urun);
+  });
+
+  const eczList = Object.values(eczMap);
+  eczList.forEach(e => { e.uruns = [...e.uruns]; });
+
+  // Özet kartlar
+  const totAdet  = eczList.reduce((s,e)=>s+e.toplam,0);
+  const totTutar = eczList.reduce((s,e)=>s+e.tutar,0);
+  const totIade  = eczList.reduce((s,e)=>s+e.iade,0);
+  const aktif    = eczList.filter(e=>e.toplam>0).length;
+  const buyuyen  = eczList.filter(e=>e.subat>e.ocak).length;
+
+  document.getElementById('eczaneSummaryCards').innerHTML = [
+    {icon:'🏥',label:'Toplam Eczane',val:eczList.length,color:'var(--c1)'},
+    {icon:'✅',label:'Aktif Eczane',val:aktif,color:'#16A34A'},
+    {icon:'📦',label:'Toplam Adet',val:fK(totAdet),color:'#0891B2'},
+    {icon:'💰',label:'Toplam Tutar',val:fTL(totTutar),color:'#521FD1'},
+    {icon:'📈',label:'Büyüyen Eczane',val:buyuyen,color:'#D97706'},
+    {icon:'↩️',label:'İade',val:fK(totIade),color:'#DC2626'},
+  ].map(c=>`<div style="background:#fff;border:1px solid var(--border);border-radius:9px;padding:10px 12px;text-align:center">
+    <div style="font-size:16px">${c.icon}</div>
+    <div style="font-size:18px;font-weight:800;color:${c.color}">${c.val}</div>
+    <div style="font-size:9px;color:var(--dim);font-weight:600;text-transform:uppercase;margin-top:2px">${c.label}</div>
+  </div>`).join('');
+
+  // Tablo
+  _eczaneData = eczList;
+  document.getElementById('eczaneTblBadge').textContent = `${eczList.length} eczane`;
+  renderEczaneTable(eczList);
+
+  // Grafikler
+  renderEczaneCharts(filtered, eczList);
+}
+
+let _eczaneData = [];
+let _eczaneSearchFilter = '';
+
+function filterEczaneTable() {
+  _eczaneSearchFilter = (document.getElementById('eczaneSearch')?.value||'').toLowerCase();
+  renderEczaneTable(_eczaneData);
+}
+
+function sortEczane(key) {
+  if (eczaneSortKey === key) eczaneSortAsc = !eczaneSortAsc;
+  else { eczaneSortKey = key; eczaneSortAsc = false; }
+  renderEczaneTable(_eczaneData);
+}
+
+function renderEczaneTable(data) {
+  // Arama filtresi
+  let list = _eczaneSearchFilter
+    ? data.filter(e => e.ad.toLowerCase().includes(_eczaneSearchFilter) || e.brick.toLowerCase().includes(_eczaneSearchFilter) || e.gln.includes(_eczaneSearchFilter))
+    : [...data];
+
+  // Sıralama
+  list.sort((a,b) => {
+    let av=a[eczaneSortKey]||0, bv=b[eczaneSortKey]||0;
+    if (typeof av==='string') av=av.toLowerCase(), bv=(bv||'').toLowerCase();
+    return eczaneSortAsc ? (av>bv?1:-1) : (av<bv?1:-1);
+  });
+
+  const MAX_ROWS = 200;
+  const shown = list.slice(0, MAX_ROWS);
+
+  document.getElementById('eczaneTblBadge').textContent =
+    `${list.length} eczane${list.length>MAX_ROWS?' (ilk '+MAX_ROWS+' gösteriliyor)':''}`;
+
+  document.getElementById('eczaneTbody').innerHTML = shown.map(e => {
+    const trend = e.subat > e.ocak ? '📈' : e.subat < e.ocak && e.subat>0 ? '📉' : e.subat===0&&e.ocak===0?'➖':'';
+    const durum = e.toplam===0?'<span style="color:#94A3B8">Pasif</span>':
+                  e.iade>e.toplam*0.2?'<span style="color:#DC2626;font-weight:600">⚠️ İade</span>':
+                  e.subat>e.ocak?'<span style="color:#16A34A;font-weight:600">📈 Büyüyor</span>':
+                  '<span style="color:#64748B">—</span>';
+    const urunBadges = e.uruns.map(u=>`<span style="background:${URUN_CLR[u]||'#64748B'}22;color:${URUN_CLR[u]||'#64748B'};border-radius:3px;padding:1px 5px;font-size:8px;font-weight:700">${u}</span>`).join(' ');
+    return `<tr>
+      <td style="font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.ad}">${e.ad}</td>
+      <td style="font-size:10px;color:var(--dim)">${e.brick}</td>
+      <td class="mono" style="font-size:10px;color:#94A3B8">${e.gln}</td>
+      <td class="mono">${e.ocak>0?fK(e.ocak):'—'}</td>
+      <td class="mono">${e.subat>0?fK(e.subat):'—'} ${trend}</td>
+      <td class="mono" style="font-weight:700;color:var(--c1)">${e.toplam>0?fK(e.toplam):'—'}</td>
+      <td class="mono" style="font-size:10px">${e.tutar>0?fTL(e.tutar):'—'}</td>
+      <td class="mono" style="color:${e.iade>0?'#DC2626':'#A0AEC0'}">${e.iade>0?fK(e.iade):'—'}</td>
+      <td>${urunBadges}</td>
+      <td>${durum}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderEczaneCharts(filtered, eczList) {
+  // Brick bazlı
+  const brickMap = {};
+  filtered.forEach(r => {
+    if (!brickMap[r.brick]) brickMap[r.brick] = 0;
+    brickMap[r.brick] += r.adet;
+  });
+  const brickSorted = Object.entries(brickMap).sort((a,b)=>b[1]-a[1]).slice(0,12);
+
+  setTimeout(()=>{
+    mkChart('eczaneBrickChart','bar',{
+      labels: brickSorted.map(([b])=>b.length>16?b.substr(0,16)+'…':b),
+      datasets:[{label:'Satış Adet',data:brickSorted.map(([,v])=>v),
+        backgroundColor:'#4F008C44',borderColor:'#4F008C',borderWidth:2,borderRadius:4}]
+    },{plugins:{title:{display:true,text:'Brick Bazlı Satış',font:{size:11}}},
+      scales:{y:{ticks:{callback:v=>fK(v)}},x:{ticks:{font:{size:8},maxRotation:45}}}});
+
+    // Ürün dağılımı
+    const urunMap = {};
+    filtered.forEach(r=>{ urunMap[r.urun]=(urunMap[r.urun]||0)+r.adet; });
+    const urunEntries = Object.entries(urunMap).sort((a,b)=>b[1]-a[1]);
+    mkChart('eczaneUrunChart','doughnut',{
+      labels: urunEntries.map(([u])=>u),
+      datasets:[{data:urunEntries.map(([,v])=>v),
+        backgroundColor: urunEntries.map(([u])=>(URUN_CLR[u]||'#64748B')+'cc'),
+        borderColor: urunEntries.map(([u])=>URUN_CLR[u]||'#64748B'),
+        borderWidth:2}]
+    },{plugins:{legend:{position:'bottom',labels:{font:{size:10}}},
+      title:{display:true,text:'Ürün Dağılımı',font:{size:11}}}});
+  },50);
+}
+
+// AI asistan eczane verisi context
+function buildEczaneContext(ttt) {
+  if (!eczaneLoaded || !ECZANE_RAW) return '';
+  const data = ECZANE_RAW.filter(r=>r.ttt===ttt);
+  if (!data.length) return '';
+
+  const eczMap = {};
+  data.forEach(r=>{
+    if(!eczMap[r.gln]) eczMap[r.gln]={ad:r.ad,brick:r.brick,ocak:0,subat:0,iade:0,uruns:new Set()};
+    if(r.ay==='01/2026') eczMap[r.gln].ocak+=r.adet;
+    if(r.ay==='02/2026') eczMap[r.gln].subat+=r.adet;
+    eczMap[r.gln].iade+=r.iade;
+    eczMap[r.gln].uruns.add(r.urun);
+  });
+
+  const list = Object.values(eczMap).sort((a,b)=>(b.ocak+b.subat)-(a.ocak+a.subat));
+  const top10 = list.slice(0,10);
+  const dusen = list.filter(e=>e.subat<e.ocak&&e.subat>0).slice(0,5);
+  const sifir = list.filter(e=>e.subat===0&&e.ocak>0).slice(0,5);
+
+  let ctx = `\n\n--- ECZANE SATIŞ VERİSİ (Oca-Şub 2026) ---\nToplam Eczane: ${list.length} | Aktif: ${list.filter(e=>e.ocak+e.subat>0).length}`;
+  ctx += `\n\nEn Çok Satan 10 Eczane:`;
+  top10.forEach(e=>{ ctx += `\n  ${e.ad} [${e.brick}]: Oca=${e.ocak}, Şub=${e.subat} ${[...e.uruns].join('/')}`; });
+  if (dusen.length) {
+    ctx += `\n\nDüşüş Gösteren Eczaneler (Şub<Oca):`;
+    dusen.forEach(e=>{ ctx += `\n  ${e.ad}: Oca=${e.ocak}→Şub=${e.subat}`; });
+  }
+  if (sifir.length) {
+    ctx += `\n\nŞubatta Alış Yapmayan (Oca Alımlı):`;
+    sifir.forEach(e=>{ ctx += `\n  ${e.ad} [${e.brick}]: Oca=${e.ocak}`; });
+  }
+  return ctx;
 }
 
 </script>
