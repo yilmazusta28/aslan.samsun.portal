@@ -528,6 +528,29 @@ async function testProxy() {
 }
 
 
+
+function buildIMSContext(ttt) {
+  if(!IMS||!IMS.length)return'';
+  const groups=[...new Set(IMS.filter(r=>r.ttt===ttt).map(r=>r.ilac_grubu))];
+  if(!groups.length)return'';
+  let ctx='\n\n--- PAZAR & RAKİP ANALİZİ (IMS) ---';
+  groups.forEach(grp=>{
+    const mktRow=IMS.find(r=>r.ttt===ttt&&r.ilac_grubu===grp&&r.is_mkt);
+    const ownKey=OWN_IMS[grp];
+    const ownRows=IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&r.ilac===ownKey);
+    if(!ownRows.length&&!mktRow)return;
+    const ownTot=ownRows.reduce((s,r)=>s+r.toplam,0);
+    const mktTot=mktRow?mktRow.toplam:0;
+    const ppi=mktTot>0?(ownTot/mktTot*100).toFixed(1):'—';
+    const grpLabel=GRP_LBL[grp]||grp;
+    const rivals=IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&!r.is_mkt&&r.ilac!==ownKey)
+      .sort((a,b)=>b.toplam-a.toplam).slice(0,2);
+    ctx+=`\n${grpLabel}: Kendi=${fK(ownTot)} | Pazar=${fK(mktTot)} | Pay=${ppi}%`;
+    if(rivals.length)ctx+=` | Rakip:${rivals.map(r=>r.ilac+'('+fK(r.toplam)+')').join(',')}`;
+  });
+  return ctx;
+}
+
 // ── ZAM SİMÜLASYONU ─────────────────────────────────────────
 function showZamHesap() {
   const panel = document.getElementById('zamPanel');
@@ -826,7 +849,6 @@ function renderEczaneTable(data) {
     return `<tr>
       <td style="font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.ad}">${e.ad}</td>
       <td style="font-size:10px;color:var(--dim)">${e.brick}</td>
-      <td class="mono" style="font-size:10px;color:#94A3B8">${e.gln}</td>
       <td class="mono">${e.ocak>0?fK(e.ocak):'—'}</td>
       <td class="mono">${e.subat>0?fK(e.subat):'—'} ${trend}</td>
       <td class="mono" style="font-weight:700;color:var(--c1)">${e.toplam>0?fK(e.toplam):'—'}</td>
@@ -1197,12 +1219,16 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
         <span class="tab-label">MI & GI</span>
       </button>
       <button class="nav-tab" id="ntab4" onclick="goPage(4)">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
-        <span class="tab-label">AI Asistan</span>
-      </button>
-      <button class="nav-tab" id="ntab5" onclick="goPage(5)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 3h18v18H3z"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
         <span class="tab-label">Eczane</span>
+      </button>
+      <button class="nav-tab" id="ntab5" onclick="goPage(5)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M8 10h8M8 14h5"/></svg>
+        <span class="tab-label">Prim Hesapla</span>
+      </button>
+      <button class="nav-tab" id="ntab6" onclick="goPage(6)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+        <span class="tab-label">AI Asistan</span>
       </button>
     </div>
   </div>
@@ -1355,7 +1381,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
   <!-- 1. Anamal Kutu Tablosu (ÜSTTE) -->
   <div style="height:16px"></div>
   <div class="card mb16">
-    <div class="card-hd"><span class="card-title">Anamal Kutu Hedef & Kalan</span><span class="card-badge">%70 / %91 / %100 Basamakları</span></div>
+    <div class="card-hd"><span class="card-title">IMS TL Kutu Hedef & Kalan</span><span class="card-badge" style="font-size:9px">IMS TL Hesabına Göre</span></div>
     <div class="card-body-0 scroll-x">
       <table class="tbl" id="kutuTable" style="min-width:820px">
         <thead><tr>
@@ -1418,6 +1444,17 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
         </table>
       </div>
     </div>
+    <div class="card mb16">
+      <div class="card-hd">
+        <span class="card-title">IMS TL&#39;ye Göre Haftalık Kutu Dökümü</span>
+        <span class="card-badge">Hft TL ÷ IMS TL Fiyatı</span>
+      </div>
+      <div class="card-body-0 scroll-x">
+        <table class="tbl" id="weeklyImsKutuTable" style="min-width:660px">
+          <thead><tr><th>Ürün (IMS ₺)</th><th>1.H</th><th>2.H</th><th>3.H</th><th>4.H</th><th>5.H</th><th>6.H</th><th>7.H</th><th>8.H</th><th>9.H</th><th>Ort./Hft</th></tr></thead>
+          <tbody id="weeklyImsKutuBody"></tbody>
+        </table>
+    </div>
   </div>
 </div>
 
@@ -1459,6 +1496,89 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
       </table>
     </div>
   </div>
+</div>
+
+<!-- ══════ PAGE 4: ECZANE SATIŞ TAKİBİ ══════ -->
+<div class="page" id="page4">
+  <!-- Başlık + Yükleme durumu -->
+  <div class="card mb16">
+    <div class="card-hd">
+      <span class="card-title">🏥 Eczane Satış Takibi</span>
+      <span class="card-badge" id="eczaneBadge">Ocak–Şubat 2026</span>
+      <span id="eczaneLoadStatus" style="margin-left:8px;font-size:10px;color:var(--dim)">Veriler yükleniyor...</span>
+    </div>
+    <div class="card-body" style="padding:10px 16px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">
+        <div>
+          <div class="section-h">Temsilci</div>
+          <div id="eczaneTttBar" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+        </div>
+        <div>
+          <div class="section-h">Brick</div>
+          <div id="eczaneBrickBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <div class="section-h">Ürün</div>
+          <div id="eczaneUrunBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+        </div>
+        <div>
+          <div class="section-h">Dönem</div>
+          <div id="eczaneAyBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Özet kartları -->
+  <div id="eczaneSummaryCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:16px"></div>
+
+  <!-- Eczane tablosu -->
+  <div class="card mb16">
+    <div class="card-hd">
+      <span class="card-title">📋 Eczane Detay Listesi</span>
+      <span class="card-badge" id="eczaneTblBadge">—</span>
+      <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+        <input type="text" id="eczaneSearch" class="inp" placeholder="🔍 Eczane ara..." 
+          style="padding:5px 10px;font-size:11px;width:160px" oninput="filterEczaneTable()">
+      </div>
+    </div>
+    <div class="card-body-0 scroll-x">
+      <table class="tbl" id="eczaneTable" style="min-width:700px">
+        <thead>
+          <tr>
+            <th onclick="sortEczane('ad')" style="cursor:pointer">Eczane ▾</th>
+            <th onclick="sortEczane('brick')" style="cursor:pointer">Brick ▾</th>
+            <th onclick="sortEczane('ocak')" style="cursor:pointer">Oca Adet ▾</th>
+            <th onclick="sortEczane('subat')" style="cursor:pointer">Şub Adet ▾</th>
+            <th onclick="sortEczane('toplam')" style="cursor:pointer">Toplam ▾</th>
+            <th onclick="sortEczane('tutar')" style="cursor:pointer">Tutar ▾</th>
+            <th onclick="sortEczane('iade')" style="cursor:pointer">İade ▾</th>
+            <th>Ürünler</th>
+            <th>Durum</th>
+          </tr>
+        </thead>
+        <tbody id="eczaneTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Brick özet grafiği -->
+  <div class="g2">
+    <div class="card">
+      <div class="card-hd"><span class="card-title">📊 Brick Bazlı Dağılım</span></div>
+      <div class="card-body"><div class="ch-md"><canvas id="eczaneBrickChart"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><span class="card-title">💊 Ürün Dağılımı</span></div>
+      <div class="card-body"><div class="ch-md"><canvas id="eczaneUrunChart"></canvas></div></div>
+    </div>
+  </div>
+</div>
+<!-- ══════ PAGE 5: PRİM HESAPLAMA ══════ -->
+<div class="page" id="page5">
+
   <!-- Prim hesaplama şablonu -->
   <div class="card mb16">
     <div class="card-hd"><span class="card-title">💰 Prim Hesaplama Şablonu</span><span class="card-badge">2026 İLKO TTT</span></div>
@@ -1496,11 +1616,10 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
         </div>
       </div>
     </div>
-  </div>
 </div>
 
-<!-- ══════ PAGE 4: AI ASİSTAN ══════ -->
-<div class="page" id="page4">
+<!-- ══════ PAGE 6: AI ASİSTAN ══════ -->
+<div class="page" id="page6">
   <div class="card mb16">
     <div class="card-hd"><span class="card-title">🤖 AI Satış Asistanı</span><span class="card-badge" style="background:linear-gradient(135deg,#4F008C,#1BCED8);color:#fff">Claude AI</span></div>
     <div class="card-body" style="padding:10px 16px">
@@ -1512,7 +1631,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
   </div>
 
   <!-- Proxy Kurulum Paneli -->
-  <div class="card mb16" id="proxySetupCard">
+  <div class="card mb16" id="proxySetupCard" style="display:none">
     <div class="card-hd"><span class="card-title">⚙️ API Bağlantısı</span><span class="card-badge" id="proxyStatus">Yapılandırılmadı</span></div>
     <div class="card-body" style="padding:12px 16px">
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
@@ -1605,86 +1724,6 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
   </div>
 </div>
 
-<!-- ══════ PAGE 5: ECZANE SATIŞ TAKİBİ ══════ -->
-<div class="page" id="page5">
-  <!-- Başlık + Yükleme durumu -->
-  <div class="card mb16">
-    <div class="card-hd">
-      <span class="card-title">🏥 Eczane Satış Takibi</span>
-      <span class="card-badge" id="eczaneBadge">Ocak–Şubat 2026</span>
-      <span id="eczaneLoadStatus" style="margin-left:8px;font-size:10px;color:var(--dim)">Veriler yükleniyor...</span>
-    </div>
-    <div class="card-body" style="padding:10px 16px">
-      <!-- Temsilci filtresi -->
-      <div style="margin-bottom:10px">
-        <div class="section-h">Temsilci</div>
-        <div id="eczaneTttBar" style="display:flex;flex-wrap:wrap;gap:6px"></div>
-      </div>
-      <!-- Brick filtresi -->
-      <div style="margin-bottom:10px">
-        <div class="section-h">Brick</div>
-        <div id="eczaneBrickBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
-      </div>
-      <!-- Ürün + Ay filtresi -->
-      <div style="display:flex;gap:16px;flex-wrap:wrap">
-        <div style="flex:1;min-width:120px">
-          <div class="section-h">Ürün</div>
-          <div id="eczaneUrunBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
-        </div>
-        <div style="flex:1;min-width:120px">
-          <div class="section-h">Dönem</div>
-          <div id="eczaneAyBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Özet kartları -->
-  <div id="eczaneSummaryCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:16px"></div>
-
-  <!-- Eczane tablosu -->
-  <div class="card mb16">
-    <div class="card-hd">
-      <span class="card-title">📋 Eczane Detay Listesi</span>
-      <span class="card-badge" id="eczaneTblBadge">—</span>
-      <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
-        <input type="text" id="eczaneSearch" class="inp" placeholder="🔍 Eczane ara..." 
-          style="padding:5px 10px;font-size:11px;width:160px" oninput="filterEczaneTable()">
-      </div>
-    </div>
-    <div class="card-body-0 scroll-x">
-      <table class="tbl" id="eczaneTable" style="min-width:700px">
-        <thead>
-          <tr>
-            <th onclick="sortEczane('ad')" style="cursor:pointer">Eczane ▾</th>
-            <th onclick="sortEczane('brick')" style="cursor:pointer">Brick ▾</th>
-            <th onclick="sortEczane('gln')" style="cursor:pointer">GLN ▾</th>
-            <th onclick="sortEczane('ocak')" style="cursor:pointer">Oca Adet ▾</th>
-            <th onclick="sortEczane('subat')" style="cursor:pointer">Şub Adet ▾</th>
-            <th onclick="sortEczane('toplam')" style="cursor:pointer">Toplam ▾</th>
-            <th onclick="sortEczane('tutar')" style="cursor:pointer">Tutar ▾</th>
-            <th onclick="sortEczane('iade')" style="cursor:pointer">İade ▾</th>
-            <th>Ürünler</th>
-            <th>Durum</th>
-          </tr>
-        </thead>
-        <tbody id="eczaneTbody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- Brick özet grafiği -->
-  <div class="g2">
-    <div class="card">
-      <div class="card-hd"><span class="card-title">📊 Brick Bazlı Dağılım</span></div>
-      <div class="card-body"><div class="ch-md"><canvas id="eczaneBrickChart"></canvas></div></div>
-    </div>
-    <div class="card">
-      <div class="card-hd"><span class="card-title">💊 Ürün Dağılımı</span></div>
-      <div class="card-body"><div class="ch-md"><canvas id="eczaneUrunChart"></canvas></div></div>
-    </div>
-  </div>
-</div>
 </div><!-- /main -->
 </div><!-- /app -->
 
@@ -2261,6 +2300,11 @@ async function syncData() {
     if (curPage === 0)      renderAna();
     else if (curPage === 1) renderPazar();
     else if (curPage === 2) renderTakip();
+    else if (curPage === 3) renderMiGi();
+    else if (curPage === 4) renderEczane();
+    else if (curPage === 5) buildPrimInputs();
+    else if (curPage === 6) renderAiAsistan();
+    loadProxyUrl();
 
     const now = new Date();
     statusEl.textContent = '✅ ' + now.toLocaleTimeString('tr-TR');
@@ -2316,7 +2360,14 @@ const TR_SIRA_MAP = {"KÜRŞAD KARADAĞ": 20, "MEHMET AKİF ÖZGEÇEN": 28, "MUR
 const IMS_TL_MAP = {"PANOCER":105.31,"ACİDPASS":112.23,"GRİPORT COLD":84.15,"MOKSEFEN":149,"FAMTREC":95};
 const URUN_CLR = {'PANOCER':'#16A34A','ACİDPASS':'#1BCED8','GRİPORT COLD':'#FF375E','MOKSEFEN':'#521FD1','FAMTREC':'#E07B39'};
 // Pazar grafiği için ayırt edici renkler (rakipler dahil)
-const PAZ_COLORS = ['#DC2626','#2563EB','#F97316','#7C3AED','#16A34A','#64748B','#EF4444','#3B82F6','#FB923C','#8B5CF6','#22C55E','#94A3B8'];
+const PAZ_COLORS = ['#E53E3E','#3B82F6','#F97316','#7C3AED','#10B981','#78716C','#F43F5E','#60A5FA','#FCD34D','#A78BFA','#34D399','#6B7280','#FB923C','#818CF8','#6EE7B7'];
+
+
+// Her drug için tutarlı renk — iki grafik arası uyum
+function getPazColor(drug, ownIlac, idx) {
+  if (drug === ownIlac) return '#1BCED8';
+  return PAZ_COLORS[idx % PAZ_COLORS.length];
+}
 
 const HOLIDAYS = new Set([
   '2026-01-01','2026-03-20','2026-03-21','2026-03-22',
@@ -2384,8 +2435,9 @@ function goPage(i){
   else if(i===1)renderPazar();
   else if(i===2)renderTakip();
   else if(i===3)renderMiGi();
-  else if(i===4)renderAiAsistan();
-  else if(i===5)renderEczane();
+  else if(i===4)renderEczane();
+  else if(i===5){ buildPrimInputs(); }
+  else if(i===6)renderAiAsistan();
 }
 function selectTTT(ttt){
   selTTT=selTTT===ttt?'':ttt;
@@ -2738,8 +2790,7 @@ function renderPazarCharts(){
   setTimeout(()=>{
     // Brick grouped bar — values rotated on top, no Y axis
     const brickShort=bricks.map(b=>b.length>14?b.substr(0,14)+'…':b);
-    const YELLOW_DRUGS = new Set(['DIGER ACIDPASS','OTHER COLD PREP','OTHER COLD PREP - VIT C','DİĞER FAMOTİDİN','DİĞER MOKSİFLOKSASİN','DİĞER LEVOFLOKSASİN','DIGER PANTAPROZOLE']);
-    const drugClrs=drugs.map((d,i)=>d===ownIlac?'#1BCED8':YELLOW_DRUGS.has(d)?'#F59E0B':PAZ_COLORS[(i)%PAZ_COLORS.length]);
+    const drugClrs=drugs.map((d,i)=>getPazColor(d,ownIlac,i));
     destroyChart('brickBarChart');
     const bctx=document.getElementById('brickBarChart');
     if(bctx){
@@ -2818,8 +2869,8 @@ function renderPazarCharts(){
     if(mctx){
       charts['marketBarChart']=new Chart(mctx,{type:'bar',
         data:{labels:drugs.map(d=>drugLabel(d)),datasets:[{label:'Kutu',data:drugTots,
-          backgroundColor:drugs.map((d,i)=>d===ownIlac?'#1BCEd8bb':PAZ_COLORS[i%PAZ_COLORS.length]+'99'),
-          borderColor:drugs.map((d,i)=>d===ownIlac?'#1BCED8':PAZ_COLORS[i%PAZ_COLORS.length]),borderWidth:2,borderRadius:4}]},
+          backgroundColor:drugs.map((d,i)=>getPazColor(d,ownIlac,i)+'99'),
+          borderColor:drugs.map((d,i)=>getPazColor(d,ownIlac,i)),borderWidth:2,borderRadius:4}]},
         options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
           plugins:{legend:{display:false},
             tooltip:{callbacks:{label:i=>{
@@ -2827,7 +2878,7 @@ function renderPazarCharts(){
             }}},
             datalabels:{display:false}
           },
-          scales:{x:{display:false},y:{ticks:{font:{size:10},maxTicksLimit:6}}},
+          scales:{x:{display:false},y:{ticks:{font:{size:9}}}},
           animation:{onComplete:function(){
             const ch=this;const c=ch.ctx;
             c.save();c.font='bold 12px JetBrains Mono,monospace';c.textAlign='left';c.textBaseline='middle';c.fillStyle='#1A202C';
@@ -2891,20 +2942,26 @@ function renderRakipTable(grpData,drugs,ownIlac,mktRows,mktWk){
 function renderMarketDetailTable(grpData,drugs,bricks,ownIlac){
   const body=document.getElementById('marketDetailBody');
   let rows=[];
-  // Brick öncelikli sıralama
   bricks.forEach(brick=>{
     drugs.forEach(drug=>{
       const r=grpData.find(d=>d.ilac===drug&&d.brick===brick);
       if(r&&r.toplam>0)rows.push({drug,brick,isOwn:drug===ownIlac,r});
     });
   });
-  body.innerHTML=rows.map(({drug,brick,isOwn,r})=>`<tr>
-    <td><span class="${isOwn?'tag-own':'tag-comp'}">${isOwn?'KENDİ':'RAKİP'}</span> <strong style="${isOwn?'color:#0E7490':''}">${drug}</strong></td>
-    <td class="muted" style="font-size:10px">${brick}</td>
-    <td class="mono">${fK(r.toplam)}</td>
-    <td><span class="bdg ${pCls(r.toplam_ppi||0)}">${(r.toplam_ppi||0).toFixed(1)}%</span></td>
-    ${['h1','h2','h3','h4','h5','h6','h7','h8','h9'].map(w=>`<td style="font-size:10px;${r[w]>0?'font-weight:600':r[w]<0?'color:#DC2626;font-weight:600':'color:#A0AEC0'}">${r[w]!==0?fK(r[w]):'—'}</td>`).join('')}
-  </tr>`).join('');
+  // Brick değişiminde ayırıcı çizgi
+  let lastBrick='';
+  body.innerHTML=rows.map(({drug,brick,isOwn,r})=>{
+    const isNewBrick = brick!==lastBrick;
+    lastBrick=brick;
+    const borderStyle=isNewBrick?'border-top:2px solid #CBD5E0':'';
+    return `<tr style="${borderStyle}">
+      <td><span class="${isOwn?'tag-own':'tag-comp'}">${isOwn?'KENDİ':'RAKİP'}</span> <strong style="${isOwn?'color:#0E7490':''}">${drug}</strong></td>
+      <td class="muted" style="font-size:10px;${isNewBrick?'font-weight:700;color:#4A5568':''}">${brick}</td>
+      <td class="mono">${fK(r.toplam)}</td>
+      <td><span class="bdg ${pCls(r.toplam_ppi||0)}">${(r.toplam_ppi||0).toFixed(1)}%</span></td>
+      ${['h1','h2','h3','h4','h5','h6','h7','h8','h9'].map(w=>`<td style="font-size:10px;${r[w]>0?'font-weight:600':r[w]<0?'color:#DC2626;font-weight:600':'color:#A0AEC0'}">${r[w]!==0?fK(r[w]):'—'}</td>`).join('')}
+    </tr>`;
+  }).join('');
 }
 
 function resetCalc(){
@@ -3112,6 +3169,27 @@ function renderWeeklyTable2(){
       <td style="font-weight:700">TOPLAM</td>
       ${kTots.map(v=>`<td class="mono" style="font-weight:600;color:var(--c2)">${v>0?fK(v):'—'}</td>`).join('')}
       <td class="mono" style="font-weight:700;color:var(--c1)">${kAvg>0?fK(kAvg):'—'}</td></tr>`;
+  }
+  // IMS TL'ye Göre Kutu Dökümü
+  const imsKutuEl=document.getElementById('weeklyImsKutuBody');
+  if(imsKutuEl){
+    const imsRows=URUN_ORDER.map(u=>GENEL.find(r=>r.ttt===selTTT_p2&&r.urun===u)).filter(r=>r&&r.hedef_tl>0);
+    imsKutuEl.innerHTML=imsRows.map(r=>{
+      const imsPrice=IMS_TL_MAP[r.urun]||1;
+      const vals=wk.map(w=>r[w]>0?Math.round(r[w]/imsPrice):0);
+      const nzV=vals.filter(v=>v>0);
+      const avg=nzV.length?Math.round(nzV.reduce((a,b)=>a+b,0)/nzV.length):0;
+      return `<tr><td style="font-weight:700;color:${URUN_CLR[r.urun]||'var(--c1)'}">${r.urun}<span style="font-size:8px;color:var(--dim);margin-left:4px">(${imsPrice}₺)</span></td>
+        ${vals.map(v=>`<td class="mono" style="${v>0?'':'color:#A0AEC0'}">${v>0?fK(v):'—'}</td>`).join('')}
+        <td class="mono" style="color:var(--c2);font-weight:700">${avg>0?fK(avg):'—'}</td></tr>`;
+    }).join('');
+    const iTots=wk.map(w=>imsRows.reduce((s,r)=>{const p=IMS_TL_MAP[r.urun]||1;return s+(r[w]>0?Math.round(r[w]/p):0);},0));
+    const iNzW=iTots.filter(v=>v>0);
+    const iAvg=iNzW.length?Math.round(iNzW.reduce((a,b)=>a+b,0)/iNzW.length):0;
+    imsKutuEl.innerHTML+=`<tr style="border-top:2px solid var(--border);background:#F7F9FC">
+      <td style="font-weight:700">TOPLAM</td>
+      ${iTots.map(v=>`<td class="mono" style="font-weight:600;color:var(--c2)">${v>0?fK(v):'—'}</td>`).join('')}
+      <td class="mono" style="font-weight:700;color:var(--c1)">${iAvg>0?fK(iAvg):'—'}</td></tr>`;
   }
 }
 function renderTakip(){buildTTT2Slicer();renderTakipContent();}
@@ -3705,6 +3783,29 @@ async function testProxy() {
 }
 
 
+
+function buildIMSContext(ttt) {
+  if(!IMS||!IMS.length)return'';
+  const groups=[...new Set(IMS.filter(r=>r.ttt===ttt).map(r=>r.ilac_grubu))];
+  if(!groups.length)return'';
+  let ctx='\n\n--- PAZAR & RAKİP ANALİZİ (IMS) ---';
+  groups.forEach(grp=>{
+    const mktRow=IMS.find(r=>r.ttt===ttt&&r.ilac_grubu===grp&&r.is_mkt);
+    const ownKey=OWN_IMS[grp];
+    const ownRows=IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&r.ilac===ownKey);
+    if(!ownRows.length&&!mktRow)return;
+    const ownTot=ownRows.reduce((s,r)=>s+r.toplam,0);
+    const mktTot=mktRow?mktRow.toplam:0;
+    const ppi=mktTot>0?(ownTot/mktTot*100).toFixed(1):'—';
+    const grpLabel=GRP_LBL[grp]||grp;
+    const rivals=IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&!r.is_mkt&&r.ilac!==ownKey)
+      .sort((a,b)=>b.toplam-a.toplam).slice(0,2);
+    ctx+=`\n${grpLabel}: Kendi=${fK(ownTot)} | Pazar=${fK(mktTot)} | Pay=${ppi}%`;
+    if(rivals.length)ctx+=` | Rakip:${rivals.map(r=>r.ilac+'('+fK(r.toplam)+')').join(',')}`;
+  });
+  return ctx;
+}
+
 // ── ZAM SİMÜLASYONU ─────────────────────────────────────────
 function showZamHesap() {
   const panel = document.getElementById('zamPanel');
@@ -4003,7 +4104,6 @@ function renderEczaneTable(data) {
     return `<tr>
       <td style="font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.ad}">${e.ad}</td>
       <td style="font-size:10px;color:var(--dim)">${e.brick}</td>
-      <td class="mono" style="font-size:10px;color:#94A3B8">${e.gln}</td>
       <td class="mono">${e.ocak>0?fK(e.ocak):'—'}</td>
       <td class="mono">${e.subat>0?fK(e.subat):'—'} ${trend}</td>
       <td class="mono" style="font-weight:700;color:var(--c1)">${e.toplam>0?fK(e.toplam):'—'}</td>
