@@ -309,28 +309,6 @@ Kalan TL: ${(genelTotal?.kalan_tl||0).toLocaleString('tr-TR',{maximumFractionDig
 ${r.urun}: %${r.tl_pct?.toFixed(1)||0} (Hedef: ${(r.hedef_tl/1000).toFixed(0)}K, Satış: ${(r.satis_tl/1000).toFixed(0)}K)`;
   });
 
-  // IMS pazar & rakip verisi
-  if (IMS && IMS.length) {
-    const imsGroups = [...new Set(IMS.filter(r=>r.ttt===ttt).map(r=>r.ilac_grubu))];
-    if (imsGroups.length) {
-      ctx += '\n\n--- PAZAR & RAKİP ANALİZİ (IMS) ---';
-      imsGroups.forEach(grp=>{
-        const mktRow = IMS.find(r=>r.ttt===ttt&&r.ilac_grubu===grp&&r.is_mkt);
-        const ownKey = OWN_IMS[grp];
-        const ownRows = IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&r.ilac===ownKey);
-        if(!ownRows.length && !mktRow) return;
-        const ownTot = ownRows.reduce((s,r)=>s+r.toplam,0);
-        const mktTot = mktRow ? mktRow.toplam : 0;
-        const ppi = mktTot>0?(ownTot/mktTot*100).toFixed(1):'—';
-        const grpLabel = GRP_LBL[grp]||grp;
-        const rivals = IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&!r.is_mkt&&r.ilac!==ownKey)
-          .sort((a,b)=>b.toplam-a.toplam).slice(0,3);
-        ctx += `\n${grpLabel}: Kendi=${fK(ownTot)} kutu | Pazar=${fK(mktTot)} kutu | Pazar Payı=${ppi}%`;
-        if(rivals.length) ctx += ` | Rakipler: ${rivals.map(r=>r.ilac+'('+fK(r.toplam)+')').join(', ')}`;
-      });
-    }
-  }
-
   ctx += `
 
 --- BRICK ANALİZİ (MI & GI) ---
@@ -401,7 +379,7 @@ async function sendAiMsgWithText(text) {
   chatArea.innerHTML += `<div style="background:#EDE9FE;border-radius:10px;padding:12px 14px;font-size:12px;align-self:flex-end;max-width:80%;margin-left:auto">
     <strong style="color:#4F008C">👤 Siz</strong><br>${text}
   </div>`;
-  setTimeout(()=>{ chatArea.scrollTop = chatArea.scrollHeight; }, 0);
+  chatArea.scrollTop = chatArea.scrollHeight;
 
   // Loading
   const loadId = 'ai_loading_' + Date.now();
@@ -672,7 +650,7 @@ function parseEczaneCSV(csvText) {
     const tarih = (c[0]||'').trim();
     const adet  = parseInt(c[8]||0) || 0;
     const tutar = parseN(c[11]||0);
-    const iade  = parseInt(c[13]||0) || 0;
+    const iade  = parseInt(c[12]||0) || 0;
 
     // Ay tespiti
     const ayParts = tarih.split('.');
@@ -729,14 +707,14 @@ function buildEczaneFilters() {
 
   document.getElementById('eczaneBrickBar').innerHTML =
     ['TÜMÜ', ...tttBricks].map(b =>
-      `<button class="sp-btn${b===selEczaneBrick?' active':''}" onclick="selEczaneBrick='${b}';renderEczaneContent()" style="font-size:9px;padding:4px 8px">${b}</button>`
+      `<button class="sp-btn${b===selEczaneBrick?' active':''}" onclick="selEczaneBrick='${b}';buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${b}</button>`
     ).join('');
 
   // Ürünler
   const uruns = [...new Set(ECZANE_RAW.map(r=>r.urun))].sort();
   document.getElementById('eczaneUrunBar').innerHTML =
     ['TÜMÜ', ...uruns].map(u =>
-      `<button class="sp-btn${u===selEczaneUrun?' active':''}" onclick="selEczaneUrun='${u}';renderEczaneContent()" style="font-size:9px;padding:4px 8px">${u}</button>`
+      `<button class="sp-btn${u===selEczaneUrun?' active':''}" onclick="selEczaneUrun='${u}';buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${u}</button>`
     ).join('');
 
   // Aylar
@@ -747,10 +725,9 @@ function buildEczaneFilters() {
     '07/2026':'Temmuz 2026','08/2026':'Ağustos 2026','09/2026':'Eylül 2026',
     '10/2026':'Ekim 2026','11/2026':'Kasım 2026','12/2026':'Aralık 2026',
   };
-  const tümüLabel = aylar.length > 0 ? 'Tümü ('+aylar.length+' ay)' : 'Tümü';
   document.getElementById('eczaneAyBar').innerHTML =
     ['TÜMÜ', ...aylar].map(a =>
-      `<button class="sp-btn${a===selEczaneAy?' active':''}" onclick="selEczaneAy='${a}';renderEczaneContent()" style="font-size:9px;padding:4px 8px">${a==='TÜMÜ'?tümüLabel:(AY_LABELS[a]||a)}</button>`
+      `<button class="sp-btn${a===selEczaneAy?' active':''}" onclick="selEczaneAy='${a}';buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${a==='TÜMÜ'?'Tümü':AY_LABELS[a]||a}</button>`
     ).join('');
 }
 
@@ -769,28 +746,27 @@ function renderEczaneContent() {
 
   // Eczane bazında aggregate
   const eczMap = {};
-  // Mevcut aylara göre dinamik kolonlar
-  const ayKolonlar = [...new Set(filtered.map(r=>r.ay))].sort();
+  // Hangi aylar var? dinamik
+  const mevcutAylar = [...new Set(filtered.map(r=>r.ay))].sort();
   filtered.forEach(r => {
     if (!eczMap[r.gln]) {
       const ayInit = {};
-      ayKolonlar.forEach(a=>{ ayInit['ay_'+a]=0; });
-      eczMap[r.gln] = { gln:r.gln, ad:r.ad, brick:r.brick, ttt:r.ttt, toplam:0, tutar:0, iade:0, uruns:new Set(), ...ayInit };
+      mevcutAylar.forEach(a => { ayInit['ay_'+a] = 0; });
+      eczMap[r.gln] = { gln:r.gln, ad:r.ad, brick:r.brick, ttt:r.ttt, toplam:0, tutar:0, uruns:new Set(), ...ayInit };
     }
     const e = eczMap[r.gln];
-    e.toplam += r.adet; e.tutar += r.tutar; e.iade += r.iade;
-    const ayKey = 'ay_'+r.ay;
-    e[ayKey] = (e[ayKey]||0) + r.adet;
+    e.toplam += r.adet; e.tutar += r.tutar;
+    e['ay_'+r.ay] = (e['ay_'+r.ay]||0) + r.adet;
     e.uruns.add(r.urun);
-  });
-  // Geriye uyumluluk için ocak/subat
-  Object.values(eczMap).forEach(e=>{
-    e.ocak = e['ay_01/2026']||0;
-    e.subat = e['ay_02/2026']||0;
   });
 
   const eczList = Object.values(eczMap);
-  eczList.forEach(e => { e.uruns = [...e.uruns]; });
+  eczList.forEach(e => {
+    e.uruns = [...e.uruns];
+    // Geriye uyumluluk
+    e.ocak  = e['ay_01/2026']||0;
+    e.subat = e['ay_02/2026']||0;
+  });
 
   // Özet kartlar
   const totAdet  = eczList.reduce((s,e)=>s+e.toplam,0);
@@ -838,7 +814,7 @@ function sortEczane(key) {
 function renderEczaneTable(data) {
   // Arama filtresi
   let list = _eczaneSearchFilter
-    ? data.filter(e => e.ad.toLowerCase().includes(_eczaneSearchFilter) || e.brick.toLowerCase().includes(_eczaneSearchFilter) )
+    ? data.filter(e => e.ad.toLowerCase().includes(_eczaneSearchFilter) || e.brick.toLowerCase().includes(_eczaneSearchFilter) || e.gln.includes(_eczaneSearchFilter))
     : [...data];
 
   // Sıralama
@@ -854,21 +830,39 @@ function renderEczaneTable(data) {
   document.getElementById('eczaneTblBadge').textContent =
     `${list.length} eczane${list.length>MAX_ROWS?' (ilk '+MAX_ROWS+' gösteriliyor)':''}`;
 
+  // Aktif aylara göre thead güncelle
+  const _aylar = [...new Set(data.flatMap(e=>Object.keys(e).filter(k=>k.startsWith('ay_')).map(k=>k.slice(3))))].sort();
+  const _AY_K = {'01/2026':'Oca','02/2026':'Şub','03/2026':'Mar','04/2026':'Nis','05/2026':'May','06/2026':'Haz','07/2026':'Tem','08/2026':'Ağu','09/2026':'Eyl','10/2026':'Eki','11/2026':'Kas','12/2026':'Ara'};
+  const theadEl = document.getElementById('eczaneThead');
+  if (theadEl && _aylar.length > 0) {
+    theadEl.innerHTML = `<th onclick="sortEczane('ad')" style="cursor:pointer">Eczane ▾</th>
+      <th onclick="sortEczane('brick')" style="cursor:pointer">Brick ▾</th>
+      ${_aylar.map(a=>`<th onclick="sortEczane('ay_${a}')" style="cursor:pointer">${_AY_K[a]||a} ▾</th>`).join('')}
+      <th onclick="sortEczane('toplam')" style="cursor:pointer">Toplam ▾</th>
+      <th onclick="sortEczane('tutar')" style="cursor:pointer">Tutar ▾</th>
+      <th>Ürünler</th><th>Durum</th>`;
+  }
+
   document.getElementById('eczaneTbody').innerHTML = shown.map(e => {
-    const trend = e.subat > e.ocak ? '📈' : e.subat < e.ocak && e.subat>0 ? '📉' : e.subat===0&&e.ocak===0?'➖':'';
+    // Trend: son ay vs ilk ay
+    const ilkAy = _aylar[0], sonAy = _aylar[_aylar.length-1];
+    const ilkVal = e['ay_'+ilkAy]||0, sonVal = e['ay_'+sonAy]||0;
+    const trend = _aylar.length>=2 ? (sonVal>ilkVal?'📈':sonVal<ilkVal&&sonVal>0?'📉':'') : '';
     const durum = e.toplam===0?'<span style="color:#94A3B8">Pasif</span>':
-                  e.iade>e.toplam*0.2?'<span style="color:#DC2626;font-weight:600">⚠️ İade</span>':
-                  e.subat>e.ocak?'<span style="color:#16A34A;font-weight:600">📈 Büyüyor</span>':
+                  (sonVal>ilkVal&&_aylar.length>=2)?'<span style="color:#16A34A;font-weight:600">📈 Büyüyor</span>':
                   '<span style="color:#64748B">—</span>';
     const urunBadges = e.uruns.map(u=>`<span style="background:${URUN_CLR[u]||'#64748B'}22;color:${URUN_CLR[u]||'#64748B'};border-radius:3px;padding:1px 5px;font-size:8px;font-weight:700">${u}</span>`).join(' ');
+    const ayTds = _aylar.map(a=>{
+      const v=e['ay_'+a]||0;
+      const isLast=(a===sonAy);
+      return `<td class="mono" style="${v>0?(isLast?'font-weight:700':''):'color:#A0AEC0'}">${v>0?fK(v):'—'}${isLast&&trend?' '+trend:''}</td>`;
+    }).join('');
     return `<tr>
       <td style="font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.ad}">${e.ad}</td>
       <td style="font-size:10px;color:var(--dim)">${e.brick}</td>
-      <td class="mono">${e.ocak>0?fK(e.ocak):'—'}</td>
-      <td class="mono">${e.subat>0?fK(e.subat):'—'} ${trend}</td>
+      ${ayTds}
       <td class="mono" style="font-weight:700;color:var(--c1)">${e.toplam>0?fK(e.toplam):'—'}</td>
       <td class="mono" style="font-size:10px">${e.tutar>0?fTL(e.tutar):'—'}</td>
-      <td class="mono" style="color:${e.iade>0?'#DC2626':'#A0AEC0'}">${e.iade>0?fK(e.iade):'—'}</td>
       <td>${urunBadges}</td>
       <td>${durum}</td>
     </tr>`;
@@ -1392,7 +1386,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
   <!-- 1. Anamal Kutu Tablosu (ÜSTTE) -->
   <div style="height:16px"></div>
   <div class="card mb16">
-    <div class="card-hd"><span class="card-title">Anamal Kutu Hedef & Kalan</span><span class="card-badge">%70 / %91 / %100 Basamakları</span></div>
+    <div class="card-hd"><span class="card-title">IMS TL Kutu Hedef &amp; Kalan</span><span class="card-badge" style="font-size:9px">IMS TL Hesabına Göre Kutu Hesaplaması Yapılmıştır</span></div>
     <div class="card-body-0 scroll-x">
       <table class="tbl" id="kutuTable" style="min-width:820px">
         <thead><tr>
@@ -1454,6 +1448,19 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
           <tbody id="weeklyKutuBody"></tbody>
         </table>
       </div>
+    </div>
+  </div>
+  <!-- IMS TL'ye Göre Haftalık Kutu -->
+  <div class="card mb16">
+    <div class="card-hd">
+      <span class="card-title">IMS TL&#39;ye Göre Haftalık Kutu Dökümü</span>
+      <span class="card-badge" style="font-size:9px">Hft TL ÷ IMS TL Birim Fiyat</span>
+    </div>
+    <div class="card-body-0 scroll-x">
+      <table class="tbl" id="weeklyImsKutuTable" style="min-width:660px">
+        <thead><tr><th>Ürün (₺/kutu)</th><th>1.H</th><th>2.H</th><th>3.H</th><th>4.H</th><th>5.H</th><th>6.H</th><th>7.H</th><th>8.H</th><th>9.H</th><th>Ort./Hft</th></tr></thead>
+        <tbody id="weeklyImsKutuBody"></tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -1549,7 +1556,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
   </div>
 
   <!-- Proxy Kurulum Paneli -->
-  <div class="card mb16" id="proxySetupCard" style="display:none">
+  <div class="card mb16" id="proxySetupCard">
     <div class="card-hd"><span class="card-title">⚙️ API Bağlantısı</span><span class="card-badge" id="proxyStatus">Yapılandırılmadı</span></div>
     <div class="card-body" style="padding:12px 16px">
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
@@ -1628,7 +1635,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
   <!-- Sohbet alanı -->
   <div class="card mb16">
     <div class="card-hd"><span class="card-title">💬 AI Yorum & Analiz</span><span id="aiStatus" class="card-badge">Hazır</span></div>
-    <div id="aiChatArea" style="min-height:300px;max-height:480px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;scroll-behavior:smooth">
+    <div id="aiChatArea" style="min-height:300px;max-height:500px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px">
       <div style="background:linear-gradient(135deg,rgba(79,0,140,.06),rgba(27,206,216,.04));border:1px solid rgba(79,0,140,.15);border-radius:10px;padding:14px;font-size:12px;color:var(--text);line-height:1.6">
         <strong style="color:var(--c1)">🤖 AI Asistan</strong><br>
         Merhaba! Ben Samsun 2D ekibinin satış asistanıyım. Temsilci seçin ve analiz butonlarından birini kullanın ya da aşağıdan soru sorun.
@@ -1652,24 +1659,23 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
       <span id="eczaneLoadStatus" style="margin-left:8px;font-size:10px;color:var(--dim)">Veriler yükleniyor...</span>
     </div>
     <div class="card-body" style="padding:10px 16px">
-      <!-- Satır 1: Temsilci + Brick yan yana -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:10px">
-        <div>
-          <div class="section-h">Temsilci</div>
-          <div id="eczaneTttBar" style="display:flex;flex-wrap:wrap;gap:6px"></div>
-        </div>
-        <div>
-          <div class="section-h">Brick</div>
-          <div id="eczaneBrickBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
-        </div>
+      <!-- Temsilci filtresi -->
+      <div style="margin-bottom:10px">
+        <div class="section-h">Temsilci</div>
+        <div id="eczaneTttBar" style="display:flex;flex-wrap:wrap;gap:6px"></div>
       </div>
-      <!-- Satır 2: Ürün + Dönem yan yana -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-        <div>
+      <!-- Brick filtresi -->
+      <div style="margin-bottom:10px">
+        <div class="section-h">Brick</div>
+        <div id="eczaneBrickBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+      </div>
+      <!-- Ürün + Ay filtresi -->
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <div style="flex:1;min-width:120px">
           <div class="section-h">Ürün</div>
           <div id="eczaneUrunBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
         </div>
-        <div>
+        <div style="flex:1;min-width:120px">
           <div class="section-h">Dönem</div>
           <div id="eczaneAyBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
         </div>
@@ -1693,14 +1699,13 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
     <div class="card-body-0 scroll-x">
       <table class="tbl" id="eczaneTable" style="min-width:700px">
         <thead>
-          <tr>
+          <tr id="eczaneThead">
             <th onclick="sortEczane('ad')" style="cursor:pointer">Eczane ▾</th>
             <th onclick="sortEczane('brick')" style="cursor:pointer">Brick ▾</th>
-            <th onclick="sortEczane('ocak')" style="cursor:pointer">Oca Adet ▾</th>
-            <th onclick="sortEczane('subat')" style="cursor:pointer">Şub Adet ▾</th>
+            <th onclick="sortEczane('ocak')" style="cursor:pointer">Oca ▾</th>
+            <th onclick="sortEczane('subat')" style="cursor:pointer">Şub ▾</th>
             <th onclick="sortEczane('toplam')" style="cursor:pointer">Toplam ▾</th>
             <th onclick="sortEczane('tutar')" style="cursor:pointer">Tutar ▾</th>
-            <th onclick="sortEczane('iade')" style="cursor:pointer">İade ▾</th>
             <th>Ürünler</th>
             <th>Durum</th>
           </tr>
@@ -2333,6 +2338,9 @@ let KUTU  = [];  // IMS ten rebuild edilen kutu verisi
 const URUN_ORDER = ['PANOCER','ACİDPASS','GRİPORT COLD','MOKSEFEN','FAMTREC'];
 const ALL_TTTS = ['AYKUT DİNLER','EMRAH YILDIZ','HAKAN YUMAK','KÜRŞAD KARADAĞ','MEHMET AKİF ÖZGEÇEN','MURAT KANDİŞ','SAMET ÇETİN','YILMAZ USTA'];
 const ALL_GROUPS = ['PANTAPROZOL PAZARI','ACIDPASS PAZARI','MOKSİFLOKSASİN PAZARI','GRİPORT COLD PAZARI','FAMTREC PAZARI'];
+// Global drugLabel — PANOCER TOPLAM→PANOCER, ACIDPASS TOPLAM→ACIDPASS
+function drugLabel(d){ return d.replace(' TOPLAM','').replace(' PAZARI',''); }
+
 const GRP_LBL = {'PANTAPROZOL PAZARI':'Pantaprozol','ACIDPASS PAZARI':'Acidpass','MOKSİFLOKSASİN PAZARI':'Moksiflo.','GRİPORT COLD PAZARI':'Griport Cold','FAMTREC PAZARI':'Famtrec'};
 
 
@@ -2353,7 +2361,7 @@ const TR_SIRA_MAP = {"KÜRŞAD KARADAĞ": 20, "MEHMET AKİF ÖZGEÇEN": 28, "MUR
 const IMS_TL_MAP = {"PANOCER":105.31,"ACİDPASS":112.23,"GRİPORT COLD":84.15,"MOKSEFEN":149,"FAMTREC":95};
 const URUN_CLR = {'PANOCER':'#16A34A','ACİDPASS':'#1BCED8','GRİPORT COLD':'#FF375E','MOKSEFEN':'#521FD1','FAMTREC':'#E07B39'};
 // Pazar grafiği için ayırt edici renkler (rakipler dahil)
-const PAZ_COLORS = ['#E53E3E','#3B82F6','#F97316','#7C3AED','#10B981','#0891B2','#F59E0B','#6366F1','#EC4899','#14B8A6','#8B5CF6','#EF4444','#22D3EE','#A3E635','#FB923C'];
+const PAZ_COLORS = ['#DC2626','#2563EB','#F97316','#7C3AED','#16A34A','#64748B','#EF4444','#3B82F6','#FB923C','#8B5CF6','#22C55E','#94A3B8'];
 
 const HOLIDAYS = new Set([
   '2026-01-01','2026-03-20','2026-03-21','2026-03-22',
@@ -2747,13 +2755,7 @@ function renderPazarCharts(){
     if(ia===-1&&ib===-1)return 0;if(ia===-1)return 1;if(ib===-1)return-1;return ia-ib;
   });
 
-  // Grafik etiketi: PANOCER TOPLAM → PANOCER, ACIDPASS TOPLAM → ACIDPASS
-  function drugLabel(d){
-    if(d===ownIlac){
-      return d.replace(' TOPLAM','').replace(' PAZARI','');
-    }
-    return d;
-  }
+  // drugLabel: global tanımlı
   const hLbl=selHafta==='toplam'?'Toplam':selHafta.replace('h','')+'.'+'Hafta';
   document.getElementById('pp_badge').textContent=`${selTTT_p1.split(' ')[0]} | ${GRP_LBL[selGroup]} | ${hLbl}`;
   document.getElementById('mktbar_badge').textContent=GRP_LBL[selGroup];
@@ -2775,7 +2777,8 @@ function renderPazarCharts(){
   setTimeout(()=>{
     // Brick grouped bar — values rotated on top, no Y axis
     const brickShort=bricks.map(b=>b.length>14?b.substr(0,14)+'…':b);
-    const drugClrs=drugs.map((d,i)=>d===ownIlac?'#1BCED8':PAZ_COLORS[i%PAZ_COLORS.length]);
+    const YELLOW_DRUGS = new Set(['DIGER ACIDPASS','OTHER COLD PREP','OTHER COLD PREP - VIT C','DİĞER FAMOTİDİN','DİĞER MOKSİFLOKSASİN','DİĞER LEVOFLOKSASİN','DIGER PANTAPROZOLE']);
+    const drugClrs=drugs.map((d,i)=>d===ownIlac?'#1BCED8':YELLOW_DRUGS.has(d)?'#F59E0B':PAZ_COLORS[(i)%PAZ_COLORS.length]);
     destroyChart('brickBarChart');
     const bctx=document.getElementById('brickBarChart');
     if(bctx){
@@ -2854,7 +2857,7 @@ function renderPazarCharts(){
     if(mctx){
       charts['marketBarChart']=new Chart(mctx,{type:'bar',
         data:{labels:drugs.map(d=>drugLabel(d)),datasets:[{label:'Kutu',data:drugTots,
-          backgroundColor:drugs.map((d,i)=>d===ownIlac?'#1BCED8bb':PAZ_COLORS[i%PAZ_COLORS.length]+'99'),
+          backgroundColor:drugs.map((d,i)=>d===ownIlac?'#1BCEd8bb':PAZ_COLORS[i%PAZ_COLORS.length]+'99'),
           borderColor:drugs.map((d,i)=>d===ownIlac?'#1BCED8':PAZ_COLORS[i%PAZ_COLORS.length]),borderWidth:2,borderRadius:4}]},
         options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
           plugins:{legend:{display:false},
@@ -2863,7 +2866,7 @@ function renderPazarCharts(){
             }}},
             datalabels:{display:false}
           },
-          scales:{x:{display:false},y:{ticks:{font:{size:9},maxRotation:0}}},
+          scales:{x:{display:false},y:{ticks:{font:{size:10},maxTicksLimit:6}}},
           animation:{onComplete:function(){
             const ch=this;const c=ch.ctx;
             c.save();c.font='bold 12px JetBrains Mono,monospace';c.textAlign='left';c.textBaseline='middle';c.fillStyle='#1A202C';
@@ -2927,25 +2930,20 @@ function renderRakipTable(grpData,drugs,ownIlac,mktRows,mktWk){
 function renderMarketDetailTable(grpData,drugs,bricks,ownIlac){
   const body=document.getElementById('marketDetailBody');
   let rows=[];
+  // Brick öncelikli sıralama
   bricks.forEach(brick=>{
     drugs.forEach(drug=>{
       const r=grpData.find(d=>d.ilac===drug&&d.brick===brick);
       if(r&&r.toplam>0)rows.push({drug,brick,isOwn:drug===ownIlac,r});
     });
   });
-  let lastBrick='';
-  body.innerHTML=rows.map(({drug,brick,isOwn,r})=>{
-    const newBrick=brick!==lastBrick;lastBrick=brick;
-    const rowStyle=newBrick?'border-top:2px solid #94A3B8':'';
-    const brickStyle=newBrick?'font-weight:700;color:#334155':'color:var(--dim)';
-    return `<tr style="${rowStyle}">
-      <td><span class="${isOwn?'tag-own':'tag-comp'}">${isOwn?'KENDİ':'RAKİP'}</span> <strong style="${isOwn?'color:#0E7490':''}">${drugLabel(drug)}</strong></td>
-      <td style="font-size:10px;${brickStyle}">${brick}</td>
-      <td class="mono">${fK(r.toplam)}</td>
-      <td><span class="bdg ${pCls(r.toplam_ppi||0)}">${(r.toplam_ppi||0).toFixed(1)}%</span></td>
-      ${['h1','h2','h3','h4','h5','h6','h7','h8','h9'].map(w=>`<td style="font-size:10px;${r[w]>0?'font-weight:600':r[w]<0?'color:#DC2626;font-weight:600':'color:#A0AEC0'}">${r[w]!==0?fK(r[w]):'—'}</td>`).join('')}
-    </tr>`;
-  }).join('');
+  body.innerHTML=rows.map(({drug,brick,isOwn,r})=>`<tr>
+    <td><span class="${isOwn?'tag-own':'tag-comp'}">${isOwn?'KENDİ':'RAKİP'}</span> <strong style="${isOwn?'color:#0E7490':''}">${drugLabel(drug)}</strong></td>
+    <td class="muted" style="font-size:10px">${brick}</td>
+    <td class="mono">${fK(r.toplam)}</td>
+    <td><span class="bdg ${pCls(r.toplam_ppi||0)}">${(r.toplam_ppi||0).toFixed(1)}%</span></td>
+    ${['h1','h2','h3','h4','h5','h6','h7','h8','h9'].map(w=>`<td style="font-size:10px;${r[w]>0?'font-weight:600':r[w]<0?'color:#DC2626;font-weight:600':'color:#A0AEC0'}">${r[w]!==0?fK(r[w]):'—'}</td>`).join('')}
+  </tr>`).join('');
 }
 
 function resetCalc(){
@@ -3153,6 +3151,31 @@ function renderWeeklyTable2(){
       <td style="font-weight:700">TOPLAM</td>
       ${kTots.map(v=>`<td class="mono" style="font-weight:600;color:var(--c2)">${v>0?fK(v):'—'}</td>`).join('')}
       <td class="mono" style="font-weight:700;color:var(--c1)">${kAvg>0?fK(kAvg):'—'}</td></tr>`;
+  }
+  // ── IMS TL'ye Göre Haftalık Kutu ──────────────────────────
+  const imsKutuEl = document.getElementById('weeklyImsKutuBody');
+  if (imsKutuEl) {
+    const imsRows = URUN_ORDER.map(u => GENEL.find(r=>r.ttt===selTTT_p2&&r.urun===u)).filter(r=>r&&r.hedef_tl>0);
+    imsKutuEl.innerHTML = imsRows.map(r => {
+      const p = IMS_TL_MAP[r.urun] || 1;
+      const vals = wk.map(w => r[w] > 0 ? Math.round(r[w] / p) : 0);
+      const nzV = vals.filter(v => v > 0);
+      const avg = nzV.length ? Math.round(nzV.reduce((a,b)=>a+b,0) / nzV.length) : 0;
+      return `<tr>
+        <td style="font-weight:700;color:${URUN_CLR[r.urun]||'var(--c1)'}">${r.urun}<span style="font-size:8px;font-weight:400;color:var(--dim);margin-left:4px">${p}₺</span></td>
+        ${vals.map(v=>`<td class="mono" style="${v>0?'':'color:#A0AEC0'}">${v>0?fK(v):'—'}</td>`).join('')}
+        <td class="mono" style="color:var(--c2);font-weight:700">${avg>0?fK(avg):'—'}</td></tr>`;
+    }).join('');
+    const iTots = wk.map(w => imsRows.reduce((s,r) => {
+      const p = IMS_TL_MAP[r.urun]||1;
+      return s + (r[w]>0 ? Math.round(r[w]/p) : 0);
+    }, 0));
+    const iNz = iTots.filter(v=>v>0);
+    const iAvg = iNz.length ? Math.round(iNz.reduce((a,b)=>a+b,0)/iNz.length) : 0;
+    imsKutuEl.innerHTML += `<tr style="border-top:2px solid var(--border);background:#F7F9FC">
+      <td style="font-weight:700">TOPLAM</td>
+      ${iTots.map(v=>`<td class="mono" style="font-weight:600;color:var(--c2)">${v>0?fK(v):'—'}</td>`).join('')}
+      <td class="mono" style="font-weight:700;color:var(--c1)">${iAvg>0?fK(iAvg):'—'}</td></tr>`;
   }
 }
 function renderTakip(){buildTTT2Slicer();renderTakipContent();}
@@ -3527,28 +3550,6 @@ Kalan TL: ${(genelTotal?.kalan_tl||0).toLocaleString('tr-TR',{maximumFractionDig
 ${r.urun}: %${r.tl_pct?.toFixed(1)||0} (Hedef: ${(r.hedef_tl/1000).toFixed(0)}K, Satış: ${(r.satis_tl/1000).toFixed(0)}K)`;
   });
 
-  // IMS pazar & rakip verisi
-  if (IMS && IMS.length) {
-    const imsGroups = [...new Set(IMS.filter(r=>r.ttt===ttt).map(r=>r.ilac_grubu))];
-    if (imsGroups.length) {
-      ctx += '\n\n--- PAZAR & RAKİP ANALİZİ (IMS) ---';
-      imsGroups.forEach(grp=>{
-        const mktRow = IMS.find(r=>r.ttt===ttt&&r.ilac_grubu===grp&&r.is_mkt);
-        const ownKey = OWN_IMS[grp];
-        const ownRows = IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&r.ilac===ownKey);
-        if(!ownRows.length && !mktRow) return;
-        const ownTot = ownRows.reduce((s,r)=>s+r.toplam,0);
-        const mktTot = mktRow ? mktRow.toplam : 0;
-        const ppi = mktTot>0?(ownTot/mktTot*100).toFixed(1):'—';
-        const grpLabel = GRP_LBL[grp]||grp;
-        const rivals = IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&!r.is_mkt&&r.ilac!==ownKey)
-          .sort((a,b)=>b.toplam-a.toplam).slice(0,3);
-        ctx += `\n${grpLabel}: Kendi=${fK(ownTot)} kutu | Pazar=${fK(mktTot)} kutu | Pazar Payı=${ppi}%`;
-        if(rivals.length) ctx += ` | Rakipler: ${rivals.map(r=>r.ilac+'('+fK(r.toplam)+')').join(', ')}`;
-      });
-    }
-  }
-
   ctx += `
 
 --- BRICK ANALİZİ (MI & GI) ---
@@ -3619,7 +3620,7 @@ async function sendAiMsgWithText(text) {
   chatArea.innerHTML += `<div style="background:#EDE9FE;border-radius:10px;padding:12px 14px;font-size:12px;align-self:flex-end;max-width:80%;margin-left:auto">
     <strong style="color:#4F008C">👤 Siz</strong><br>${text}
   </div>`;
-  setTimeout(()=>{ chatArea.scrollTop = chatArea.scrollHeight; }, 0);
+  chatArea.scrollTop = chatArea.scrollHeight;
 
   // Loading
   const loadId = 'ai_loading_' + Date.now();
@@ -3687,7 +3688,7 @@ Soru/Görev: ${text}` });
     if (loadEl) loadEl.innerHTML = `<strong style="color:#DC2626">⚠️ Hata</strong><br><div style="margin-top:6px;font-size:11px">${errMsg}</div>`;
     statusEl.textContent = '❌ Hata';
   }
-  setTimeout(()=>{ chatArea.scrollTop = chatArea.scrollHeight; }, 50);
+  chatArea.scrollTop = chatArea.scrollHeight;
 }
 
 
@@ -3890,7 +3891,7 @@ function parseEczaneCSV(csvText) {
     const tarih = (c[0]||'').trim();
     const adet  = parseInt(c[8]||0) || 0;
     const tutar = parseN(c[11]||0);
-    const iade  = parseInt(c[13]||0) || 0;
+    const iade  = parseInt(c[12]||0) || 0;
 
     // Ay tespiti
     const ayParts = tarih.split('.');
@@ -3947,14 +3948,14 @@ function buildEczaneFilters() {
 
   document.getElementById('eczaneBrickBar').innerHTML =
     ['TÜMÜ', ...tttBricks].map(b =>
-      `<button class="sp-btn${b===selEczaneBrick?' active':''}" onclick="selEczaneBrick='${b}';renderEczaneContent()" style="font-size:9px;padding:4px 8px">${b}</button>`
+      `<button class="sp-btn${b===selEczaneBrick?' active':''}" onclick="selEczaneBrick='${b}';buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${b}</button>`
     ).join('');
 
   // Ürünler
   const uruns = [...new Set(ECZANE_RAW.map(r=>r.urun))].sort();
   document.getElementById('eczaneUrunBar').innerHTML =
     ['TÜMÜ', ...uruns].map(u =>
-      `<button class="sp-btn${u===selEczaneUrun?' active':''}" onclick="selEczaneUrun='${u}';renderEczaneContent()" style="font-size:9px;padding:4px 8px">${u}</button>`
+      `<button class="sp-btn${u===selEczaneUrun?' active':''}" onclick="selEczaneUrun='${u}';buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${u}</button>`
     ).join('');
 
   // Aylar
@@ -3965,10 +3966,9 @@ function buildEczaneFilters() {
     '07/2026':'Temmuz 2026','08/2026':'Ağustos 2026','09/2026':'Eylül 2026',
     '10/2026':'Ekim 2026','11/2026':'Kasım 2026','12/2026':'Aralık 2026',
   };
-  const tümüLabel = aylar.length > 0 ? 'Tümü ('+aylar.length+' ay)' : 'Tümü';
   document.getElementById('eczaneAyBar').innerHTML =
     ['TÜMÜ', ...aylar].map(a =>
-      `<button class="sp-btn${a===selEczaneAy?' active':''}" onclick="selEczaneAy='${a}';renderEczaneContent()" style="font-size:9px;padding:4px 8px">${a==='TÜMÜ'?tümüLabel:(AY_LABELS[a]||a)}</button>`
+      `<button class="sp-btn${a===selEczaneAy?' active':''}" onclick="selEczaneAy='${a}';buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${a==='TÜMÜ'?'Tümü':AY_LABELS[a]||a}</button>`
     ).join('');
 }
 
@@ -3987,28 +3987,27 @@ function renderEczaneContent() {
 
   // Eczane bazında aggregate
   const eczMap = {};
-  // Mevcut aylara göre dinamik kolonlar
-  const ayKolonlar = [...new Set(filtered.map(r=>r.ay))].sort();
+  // Hangi aylar var? dinamik
+  const mevcutAylar = [...new Set(filtered.map(r=>r.ay))].sort();
   filtered.forEach(r => {
     if (!eczMap[r.gln]) {
       const ayInit = {};
-      ayKolonlar.forEach(a=>{ ayInit['ay_'+a]=0; });
-      eczMap[r.gln] = { gln:r.gln, ad:r.ad, brick:r.brick, ttt:r.ttt, toplam:0, tutar:0, iade:0, uruns:new Set(), ...ayInit };
+      mevcutAylar.forEach(a => { ayInit['ay_'+a] = 0; });
+      eczMap[r.gln] = { gln:r.gln, ad:r.ad, brick:r.brick, ttt:r.ttt, toplam:0, tutar:0, uruns:new Set(), ...ayInit };
     }
     const e = eczMap[r.gln];
-    e.toplam += r.adet; e.tutar += r.tutar; e.iade += r.iade;
-    const ayKey = 'ay_'+r.ay;
-    e[ayKey] = (e[ayKey]||0) + r.adet;
+    e.toplam += r.adet; e.tutar += r.tutar;
+    e['ay_'+r.ay] = (e['ay_'+r.ay]||0) + r.adet;
     e.uruns.add(r.urun);
-  });
-  // Geriye uyumluluk için ocak/subat
-  Object.values(eczMap).forEach(e=>{
-    e.ocak = e['ay_01/2026']||0;
-    e.subat = e['ay_02/2026']||0;
   });
 
   const eczList = Object.values(eczMap);
-  eczList.forEach(e => { e.uruns = [...e.uruns]; });
+  eczList.forEach(e => {
+    e.uruns = [...e.uruns];
+    // Geriye uyumluluk
+    e.ocak  = e['ay_01/2026']||0;
+    e.subat = e['ay_02/2026']||0;
+  });
 
   // Özet kartlar
   const totAdet  = eczList.reduce((s,e)=>s+e.toplam,0);
@@ -4056,7 +4055,7 @@ function sortEczane(key) {
 function renderEczaneTable(data) {
   // Arama filtresi
   let list = _eczaneSearchFilter
-    ? data.filter(e => e.ad.toLowerCase().includes(_eczaneSearchFilter) || e.brick.toLowerCase().includes(_eczaneSearchFilter) )
+    ? data.filter(e => e.ad.toLowerCase().includes(_eczaneSearchFilter) || e.brick.toLowerCase().includes(_eczaneSearchFilter) || e.gln.includes(_eczaneSearchFilter))
     : [...data];
 
   // Sıralama
@@ -4072,21 +4071,39 @@ function renderEczaneTable(data) {
   document.getElementById('eczaneTblBadge').textContent =
     `${list.length} eczane${list.length>MAX_ROWS?' (ilk '+MAX_ROWS+' gösteriliyor)':''}`;
 
+  // Aktif aylara göre thead güncelle
+  const _aylar = [...new Set(data.flatMap(e=>Object.keys(e).filter(k=>k.startsWith('ay_')).map(k=>k.slice(3))))].sort();
+  const _AY_K = {'01/2026':'Oca','02/2026':'Şub','03/2026':'Mar','04/2026':'Nis','05/2026':'May','06/2026':'Haz','07/2026':'Tem','08/2026':'Ağu','09/2026':'Eyl','10/2026':'Eki','11/2026':'Kas','12/2026':'Ara'};
+  const theadEl = document.getElementById('eczaneThead');
+  if (theadEl && _aylar.length > 0) {
+    theadEl.innerHTML = `<th onclick="sortEczane('ad')" style="cursor:pointer">Eczane ▾</th>
+      <th onclick="sortEczane('brick')" style="cursor:pointer">Brick ▾</th>
+      ${_aylar.map(a=>`<th onclick="sortEczane('ay_${a}')" style="cursor:pointer">${_AY_K[a]||a} ▾</th>`).join('')}
+      <th onclick="sortEczane('toplam')" style="cursor:pointer">Toplam ▾</th>
+      <th onclick="sortEczane('tutar')" style="cursor:pointer">Tutar ▾</th>
+      <th>Ürünler</th><th>Durum</th>`;
+  }
+
   document.getElementById('eczaneTbody').innerHTML = shown.map(e => {
-    const trend = e.subat > e.ocak ? '📈' : e.subat < e.ocak && e.subat>0 ? '📉' : e.subat===0&&e.ocak===0?'➖':'';
+    // Trend: son ay vs ilk ay
+    const ilkAy = _aylar[0], sonAy = _aylar[_aylar.length-1];
+    const ilkVal = e['ay_'+ilkAy]||0, sonVal = e['ay_'+sonAy]||0;
+    const trend = _aylar.length>=2 ? (sonVal>ilkVal?'📈':sonVal<ilkVal&&sonVal>0?'📉':'') : '';
     const durum = e.toplam===0?'<span style="color:#94A3B8">Pasif</span>':
-                  e.iade>e.toplam*0.2?'<span style="color:#DC2626;font-weight:600">⚠️ İade</span>':
-                  e.subat>e.ocak?'<span style="color:#16A34A;font-weight:600">📈 Büyüyor</span>':
+                  (sonVal>ilkVal&&_aylar.length>=2)?'<span style="color:#16A34A;font-weight:600">📈 Büyüyor</span>':
                   '<span style="color:#64748B">—</span>';
     const urunBadges = e.uruns.map(u=>`<span style="background:${URUN_CLR[u]||'#64748B'}22;color:${URUN_CLR[u]||'#64748B'};border-radius:3px;padding:1px 5px;font-size:8px;font-weight:700">${u}</span>`).join(' ');
+    const ayTds = _aylar.map(a=>{
+      const v=e['ay_'+a]||0;
+      const isLast=(a===sonAy);
+      return `<td class="mono" style="${v>0?(isLast?'font-weight:700':''):'color:#A0AEC0'}">${v>0?fK(v):'—'}${isLast&&trend?' '+trend:''}</td>`;
+    }).join('');
     return `<tr>
       <td style="font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.ad}">${e.ad}</td>
       <td style="font-size:10px;color:var(--dim)">${e.brick}</td>
-      <td class="mono">${e.ocak>0?fK(e.ocak):'—'}</td>
-      <td class="mono">${e.subat>0?fK(e.subat):'—'} ${trend}</td>
+      ${ayTds}
       <td class="mono" style="font-weight:700;color:var(--c1)">${e.toplam>0?fK(e.toplam):'—'}</td>
       <td class="mono" style="font-size:10px">${e.tutar>0?fTL(e.tutar):'—'}</td>
-      <td class="mono" style="color:${e.iade>0?'#DC2626':'#A0AEC0'}">${e.iade>0?fK(e.iade):'—'}</td>
       <td>${urunBadges}</td>
       <td>${durum}</td>
     </tr>`;
