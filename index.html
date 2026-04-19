@@ -309,30 +309,79 @@ Kalan TL: ${(genelTotal?.kalan_tl||0).toLocaleString('tr-TR',{maximumFractionDig
 ${r.urun}: %${r.tl_pct?.toFixed(1)||0} (Hedef: ${(r.hedef_tl/1000).toFixed(0)}K, Satış: ${(r.satis_tl/1000).toFixed(0)}K)`;
   });
 
-  // IMS pazar & rakip verisi
+  // IMS pazar & rakip — ayrıntılı brick bazlı analiz
   if (IMS && IMS.length) {
     const imsGrps = [...new Set(IMS.filter(r=>r.ttt===ttt).map(r=>r.ilac_grubu))];
     if (imsGrps.length) {
-      ctx += '\n\n--- PAZAR & RAKİP (IMS) ---';
+      ctx += '\n\n--- PAZAR & RAKİP ANALİZİ (IMS) ---';
       imsGrps.forEach(grp => {
-        const mktRow  = IMS.find(r=>r.ttt===ttt&&r.ilac_grubu===grp&&r.is_mkt);
-        const ownKey  = OWN_IMS[grp];
-        const ownRows = IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&r.ilac===ownKey);
-        if (!ownRows.length && !mktRow) return;
-        const ownTot  = ownRows.reduce((s,r)=>s+r.toplam,0);
-        const mktTot  = mktRow ? mktRow.toplam : 0;
-        const ppi     = mktTot>0 ? (ownTot/mktTot*100).toFixed(1) : '—';
-        const lbl     = GRP_LBL[grp]||grp;
-        // Güçlü rakip
-        const rivals  = IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&!r.is_mkt&&r.ilac!==ownKey)
-                           .sort((a,b)=>b.toplam-a.toplam).slice(0,2);
+        const mktRows  = IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&r.is_mkt);
+        const ownKey   = OWN_IMS[grp];
+        const ownRows  = IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&r.ilac===ownKey);
+        const allRows  = IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&!r.is_mkt);
+        if (!ownRows.length && !mktRows.length) return;
+        const ownTot   = ownRows.reduce((s,r)=>s+r.toplam,0);
+        const mktTot   = mktRows.reduce((s,r)=>s+r.toplam,0);
+        const ppi      = mktTot>0 ? (ownTot/mktTot*100).toFixed(1) : '—';
+        const lbl      = GRP_LBL[grp]||grp;
+        const imsPrice = IMS_TL_MAP[Object.values(OWN_DRUG_BY_GRP).find(o=>o.ilac_grubu===grp||OWN_IMS[grp]===o.ownIlac)?.urun||''] || 0;
+        // Gerçek IMS fiyatı — ürün adına göre bul
+        const ownUrunName = Object.entries(OWN_DRUG_BY_GRP).find(([g])=>g===grp)?.[1]?.urun || '';
+        const imsFiyat = IMS_TL_MAP[ownUrunName] || 0;
         // Son 3 hafta trendi
-        const wkKeys  = ['h7','h8','h9'];
-        const ownWk3  = wkKeys.map(w=>ownRows.reduce((s,r)=>s+(r[w]||0),0));
-        const validWk = ownWk3.filter(v=>v>0);
-        const trend3  = validWk.length>=2 ? (validWk[validWk.length-1]>validWk[0]?'📈':validWk[validWk.length-1]<validWk[0]?'📉':'→') : '—';
-        ctx += `\n${lbl}: Kendi=${fK(ownTot)} | Pazar=${fK(mktTot)} | Pay=${ppi}% | Trend:${trend3}`;
-        if (rivals.length) ctx += ` | Rakip:${rivals.map(r=>r.ilac+'('+fK(r.toplam)+')').join(',')}`;
+        const wkKeys   = ['h7','h8','h9'];
+        const ownWk3   = wkKeys.map(w=>ownRows.reduce((s,r)=>s+(r[w]||0),0));
+        const validWk  = ownWk3.filter(v=>v>0);
+        const trend3   = validWk.length>=2?(validWk[validWk.length-1]>validWk[0]?'📈':validWk[validWk.length-1]<validWk[0]?'📉':'→'):'—';
+        // Güçlü rakipler
+        const rivals   = IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&!r.is_mkt&&r.ilac!==ownKey)
+                            .sort((a,b)=>b.toplam-a.toplam).slice(0,3);
+        ctx += `\n\n[${lbl}] Kendi:${fK(ownTot)} kutu | Pazar:${fK(mktTot)} kutu | Pay:${ppi}% | Trend:${trend3}`;
+        if (imsFiyat>0) {
+          const hedefKutu = mktTot>0 ? Math.round(mktTot*0.10) : 0; // %10 pay hedefi örnek
+          ctx += ` | IMS TL:${imsFiyat}₺/kutu`;
+        }
+        if (rivals.length) {
+          ctx += `\n  Rakipler: ${rivals.map(r=>`${r.ilac}(${fK(r.toplam)},Pay:${mktTot>0?(r.toplam/mktTot*100).toFixed(0):0}%)`).join(' | ')}`;
+        }
+        // Brick bazlı analiz — rakibin güçlü, bizim zayıf olduğu brickler
+        const bricks = [...new Set(allRows.map(r=>r.brick))];
+        const riskBricks = [], firsatBricks = [];
+        bricks.forEach(brick=>{
+          const ownB    = ownRows.filter(r=>r.brick===brick).reduce((s,r)=>s+r.toplam,0);
+          const mktB    = mktRows.filter(r=>r.brick===brick).reduce((s,r)=>s+r.toplam,0);
+          const topRival= rivals[0] ? IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&r.ilac===rivals[0].ilac&&r.brick===brick).reduce((s,r)=>s+r.toplam,0) : 0;
+          if (mktB>0) {
+            const ppiB = (ownB/mktB*100);
+            if (ppiB < 15 && mktB > 500) riskBricks.push({brick,ppiB:ppiB.toFixed(0),mktB,ownB,topRival});
+            else if (ppiB > 25 && ownB > 0) firsatBricks.push({brick,ppiB:ppiB.toFixed(0),ownB});
+          }
+        });
+        if (riskBricks.length>0) {
+          ctx += `\n  ⚠️ Dikkat Gereken Brickler (pay<%15, pazar>500 kutu):`;
+          riskBricks.slice(0,4).forEach(b=>{
+            ctx += `\n    - ${b.brick}: Pay=${b.ppiB}%, Pazar=${fK(b.mktB)}, Bizim=${fK(b.ownB)}${b.topRival>0?', Rakip(1):'+fK(b.topRival):''}`;
+          });
+        }
+        if (firsatBricks.length>0) {
+          ctx += `\n  🚀 Güçlü Brickler (pay>%25):`;
+          firsatBricks.slice(0,3).forEach(b=>{ ctx += `\n    - ${b.brick}: Pay=${b.ppiB}%, Kendi=${fK(b.ownB)}`; });
+        }
+      });
+      // Kalan TL + Hedef kutu hesabı
+      ctx += '\n\n--- KALAN HEDEF & IMS TL KUTU HESABI ---';
+      const genelRec = GENEL.find(r=>r.ttt===ttt&&r.urun==='GENEL TOPLAM');
+      if (genelRec) {
+        ctx += `\nKalan TL: ${fTL(genelRec.kalan_tl)} | Gerçekleşme: %${genelRec.tl_pct?.toFixed(1)||0}`;
+      }
+      URUN_ORDER.forEach(urun=>{
+        const r = GENEL.find(g=>g.ttt===ttt&&g.urun===urun);
+        if (!r || r.kalan_tl<=0) return;
+        const p = IMS_TL_MAP[urun]||0;
+        if (p>0) {
+          const kalanKutu = Math.round(r.kalan_tl / p);
+          ctx += `\n  ${urun}: Kalan ${fTL(r.kalan_tl)} → ${fK(kalanKutu)} kutu gerekli (${p}₺/kutu)`;
+        }
       });
     }
   }
@@ -421,15 +470,19 @@ async function sendAiMsgWithText(text) {
   // Build context
   const context = buildTTTContext(selAiTTT);
   const systemPrompt = `Sen İLKO İlaç firmasının Samsun 2D bölgesi için çalışan uzman bir satış analisti ve stratejistsin.
-2026 İLKO TTT prim sistemi kuralları:
-- TL Real Primi: %91+ realizasyon gerekli, çarpan tablosuna göre hesaplanır (dönemlik baz: 55.000₺)
-- Portföy Primi: %91+ TL real VE %91+ prim puanı gerekli (baz: 11.000₺)  
-- MI&GI Primi: %70+ TL real gerekli, matris katsayısı ile (baz: 14.000₺)
-- Prim puanı = ürün ağırlığı × ürün TL real (min %70, max %130)
-- İlk 333 brick yatırım önceliği taşır (Türkiye 1001 brick sıralaması)
-- Market İndeks (MI): TTT pazar payı / Türkiye pazar payı × 100
-- GI (EVOL): TTT büyüme / Ulusal büyüme × 100
-Kısa, net ve uygulanabilir Türkçe yanıtlar ver. Somut sayılar ve öneriler sun.`;
+2026 İLKO TTT prim sistemi:
+- TL Real Primi: %91+ realizasyon, çarpan tablosu (baz: 55.000₺/dönem)
+- Portföy Primi: %91+ TL real VE %91+ prim puanı (baz: 11.000₺)
+- MI&GI Primi: %70+ TL real, matris katsayısı (baz: 14.000₺)
+- Prim puanı = ürün ağırlığı × ürün real (min %70, max %130)
+IMS Analiz Kuralları:
+- IMS TL fiyatları: PANOCER=105.31₺, ACİDPASS=112.23₺, GRİPORT COLD=84.15₺, MOKSEFEN=149₺, FAMTREC=95₺
+- Kalan TL hedefi / IMS TL fiyatı = satılması gereken anamal kutu miktarı
+- Brick bazlı pazar payı %15 altındaysa ve pazar >500 kutu ise risk brick
+- Rakibin pay >%30 ve bizim <%15 ise öncelikli hedef brick
+- İlk 333 brick yatırım önceliği taşır
+- Eczane önerisi yaparken: hedefi / IMS TL fiyatı = kutu, brick başına dağıt
+Yanıtlar: Net, somut sayılı, uygulanabilir Türkçe. Brick ve eczane isimleri ile öner.`;
 
   aiChatHistory.push({ role: 'user', content: `${context}
 
@@ -1687,23 +1740,24 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
       <span id="eczaneLoadStatus" style="margin-left:8px;font-size:10px;color:var(--dim)">Veriler yükleniyor...</span>
     </div>
     <div class="card-body" style="padding:10px 16px">
-      <!-- Temsilci filtresi -->
-      <div style="margin-bottom:10px">
-        <div class="section-h">Temsilci</div>
-        <div id="eczaneTttBar" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+      <!-- Temsilci + Brick yan yana -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">
+        <div>
+          <div class="section-h">Temsilci</div>
+          <div id="eczaneTttBar" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+        </div>
+        <div>
+          <div class="section-h">Brick</div>
+          <div id="eczaneBrickBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+        </div>
       </div>
-      <!-- Brick filtresi -->
-      <div style="margin-bottom:10px">
-        <div class="section-h">Brick</div>
-        <div id="eczaneBrickBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
-      </div>
-      <!-- Ürün + Ay filtresi -->
-      <div style="display:flex;gap:16px;flex-wrap:wrap">
-        <div style="flex:1;min-width:120px">
+      <!-- Ürün + Dönem yan yana -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
           <div class="section-h">Ürün</div>
           <div id="eczaneUrunBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
         </div>
-        <div style="flex:1;min-width:120px">
+        <div>
           <div class="section-h">Dönem</div>
           <div id="eczaneAyBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
         </div>
@@ -2148,11 +2202,11 @@ function parseGenelCSV(csvText) {
 // ─── KENDİ ÜRÜN HARİTASI ────────────────────────────────────
 // IMS_TABLO'da hangi ilaç adı bizim kendi ürünümüz
 const OWN_DRUG_BY_GRP = {
-  'PANTAPROZOL PAZARI':    { ownIlac: 'PANOCER TOPLAM',  urun: 'PANOCER'      },
-  'ACIDPASS PAZARI':       { ownIlac: 'ACIDPASS TOPLAM', urun: 'ACİDPASS'     },
-  'MOKSİFLOKSASİN PAZARI':{ ownIlac: 'MOKSEFEN',         urun: 'MOKSEFEN'     },
-  'GRİPORT COLD PAZARI':  { ownIlac: 'GRİPORT COLD',    urun: 'GRİPORT COLD' },
-  'FAMTREC PAZARI':        { ownIlac: 'FAMTREC',          urun: 'FAMTREC'      },
+  'PANTAPROZOL PAZARI':    { ownIlac: 'PANOCER TOPLAM',  urun: 'PANOCER',       ilac_grubu:'PANTAPROZOL PAZARI'   },
+  'ACIDPASS PAZARI':       { ownIlac: 'ACIDPASS TOPLAM', urun: 'ACİDPASS',      ilac_grubu:'ACIDPASS PAZARI'      },
+  'MOKSİFLOKSASİN PAZARI':{ ownIlac: 'MOKSEFEN',         urun: 'MOKSEFEN',      ilac_grubu:'MOKSİFLOKSASİN PAZARI'},
+  'GRİPORT COLD PAZARI':  { ownIlac: 'GRİPORT COLD',    urun: 'GRİPORT COLD',  ilac_grubu:'GRİPORT COLD PAZARI'  },
+  'FAMTREC PAZARI':        { ownIlac: 'FAMTREC',          urun: 'FAMTREC',       ilac_grubu:'FAMTREC PAZARI'       },
 };
 
 // Pazar analizi için kendi ürün haritası
@@ -3585,30 +3639,79 @@ Kalan TL: ${(genelTotal?.kalan_tl||0).toLocaleString('tr-TR',{maximumFractionDig
 ${r.urun}: %${r.tl_pct?.toFixed(1)||0} (Hedef: ${(r.hedef_tl/1000).toFixed(0)}K, Satış: ${(r.satis_tl/1000).toFixed(0)}K)`;
   });
 
-  // IMS pazar & rakip verisi
+  // IMS pazar & rakip — ayrıntılı brick bazlı analiz
   if (IMS && IMS.length) {
     const imsGrps = [...new Set(IMS.filter(r=>r.ttt===ttt).map(r=>r.ilac_grubu))];
     if (imsGrps.length) {
-      ctx += '\n\n--- PAZAR & RAKİP (IMS) ---';
+      ctx += '\n\n--- PAZAR & RAKİP ANALİZİ (IMS) ---';
       imsGrps.forEach(grp => {
-        const mktRow  = IMS.find(r=>r.ttt===ttt&&r.ilac_grubu===grp&&r.is_mkt);
-        const ownKey  = OWN_IMS[grp];
-        const ownRows = IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&r.ilac===ownKey);
-        if (!ownRows.length && !mktRow) return;
-        const ownTot  = ownRows.reduce((s,r)=>s+r.toplam,0);
-        const mktTot  = mktRow ? mktRow.toplam : 0;
-        const ppi     = mktTot>0 ? (ownTot/mktTot*100).toFixed(1) : '—';
-        const lbl     = GRP_LBL[grp]||grp;
-        // Güçlü rakip
-        const rivals  = IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&!r.is_mkt&&r.ilac!==ownKey)
-                           .sort((a,b)=>b.toplam-a.toplam).slice(0,2);
+        const mktRows  = IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&r.is_mkt);
+        const ownKey   = OWN_IMS[grp];
+        const ownRows  = IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&r.ilac===ownKey);
+        const allRows  = IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&!r.is_mkt);
+        if (!ownRows.length && !mktRows.length) return;
+        const ownTot   = ownRows.reduce((s,r)=>s+r.toplam,0);
+        const mktTot   = mktRows.reduce((s,r)=>s+r.toplam,0);
+        const ppi      = mktTot>0 ? (ownTot/mktTot*100).toFixed(1) : '—';
+        const lbl      = GRP_LBL[grp]||grp;
+        const imsPrice = IMS_TL_MAP[Object.values(OWN_DRUG_BY_GRP).find(o=>o.ilac_grubu===grp||OWN_IMS[grp]===o.ownIlac)?.urun||''] || 0;
+        // Gerçek IMS fiyatı — ürün adına göre bul
+        const ownUrunName = Object.entries(OWN_DRUG_BY_GRP).find(([g])=>g===grp)?.[1]?.urun || '';
+        const imsFiyat = IMS_TL_MAP[ownUrunName] || 0;
         // Son 3 hafta trendi
-        const wkKeys  = ['h7','h8','h9'];
-        const ownWk3  = wkKeys.map(w=>ownRows.reduce((s,r)=>s+(r[w]||0),0));
-        const validWk = ownWk3.filter(v=>v>0);
-        const trend3  = validWk.length>=2 ? (validWk[validWk.length-1]>validWk[0]?'📈':validWk[validWk.length-1]<validWk[0]?'📉':'→') : '—';
-        ctx += `\n${lbl}: Kendi=${fK(ownTot)} | Pazar=${fK(mktTot)} | Pay=${ppi}% | Trend:${trend3}`;
-        if (rivals.length) ctx += ` | Rakip:${rivals.map(r=>r.ilac+'('+fK(r.toplam)+')').join(',')}`;
+        const wkKeys   = ['h7','h8','h9'];
+        const ownWk3   = wkKeys.map(w=>ownRows.reduce((s,r)=>s+(r[w]||0),0));
+        const validWk  = ownWk3.filter(v=>v>0);
+        const trend3   = validWk.length>=2?(validWk[validWk.length-1]>validWk[0]?'📈':validWk[validWk.length-1]<validWk[0]?'📉':'→'):'—';
+        // Güçlü rakipler
+        const rivals   = IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&!r.is_mkt&&r.ilac!==ownKey)
+                            .sort((a,b)=>b.toplam-a.toplam).slice(0,3);
+        ctx += `\n\n[${lbl}] Kendi:${fK(ownTot)} kutu | Pazar:${fK(mktTot)} kutu | Pay:${ppi}% | Trend:${trend3}`;
+        if (imsFiyat>0) {
+          const hedefKutu = mktTot>0 ? Math.round(mktTot*0.10) : 0; // %10 pay hedefi örnek
+          ctx += ` | IMS TL:${imsFiyat}₺/kutu`;
+        }
+        if (rivals.length) {
+          ctx += `\n  Rakipler: ${rivals.map(r=>`${r.ilac}(${fK(r.toplam)},Pay:${mktTot>0?(r.toplam/mktTot*100).toFixed(0):0}%)`).join(' | ')}`;
+        }
+        // Brick bazlı analiz — rakibin güçlü, bizim zayıf olduğu brickler
+        const bricks = [...new Set(allRows.map(r=>r.brick))];
+        const riskBricks = [], firsatBricks = [];
+        bricks.forEach(brick=>{
+          const ownB    = ownRows.filter(r=>r.brick===brick).reduce((s,r)=>s+r.toplam,0);
+          const mktB    = mktRows.filter(r=>r.brick===brick).reduce((s,r)=>s+r.toplam,0);
+          const topRival= rivals[0] ? IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&r.ilac===rivals[0].ilac&&r.brick===brick).reduce((s,r)=>s+r.toplam,0) : 0;
+          if (mktB>0) {
+            const ppiB = (ownB/mktB*100);
+            if (ppiB < 15 && mktB > 500) riskBricks.push({brick,ppiB:ppiB.toFixed(0),mktB,ownB,topRival});
+            else if (ppiB > 25 && ownB > 0) firsatBricks.push({brick,ppiB:ppiB.toFixed(0),ownB});
+          }
+        });
+        if (riskBricks.length>0) {
+          ctx += `\n  ⚠️ Dikkat Gereken Brickler (pay<%15, pazar>500 kutu):`;
+          riskBricks.slice(0,4).forEach(b=>{
+            ctx += `\n    - ${b.brick}: Pay=${b.ppiB}%, Pazar=${fK(b.mktB)}, Bizim=${fK(b.ownB)}${b.topRival>0?', Rakip(1):'+fK(b.topRival):''}`;
+          });
+        }
+        if (firsatBricks.length>0) {
+          ctx += `\n  🚀 Güçlü Brickler (pay>%25):`;
+          firsatBricks.slice(0,3).forEach(b=>{ ctx += `\n    - ${b.brick}: Pay=${b.ppiB}%, Kendi=${fK(b.ownB)}`; });
+        }
+      });
+      // Kalan TL + Hedef kutu hesabı
+      ctx += '\n\n--- KALAN HEDEF & IMS TL KUTU HESABI ---';
+      const genelRec = GENEL.find(r=>r.ttt===ttt&&r.urun==='GENEL TOPLAM');
+      if (genelRec) {
+        ctx += `\nKalan TL: ${fTL(genelRec.kalan_tl)} | Gerçekleşme: %${genelRec.tl_pct?.toFixed(1)||0}`;
+      }
+      URUN_ORDER.forEach(urun=>{
+        const r = GENEL.find(g=>g.ttt===ttt&&g.urun===urun);
+        if (!r || r.kalan_tl<=0) return;
+        const p = IMS_TL_MAP[urun]||0;
+        if (p>0) {
+          const kalanKutu = Math.round(r.kalan_tl / p);
+          ctx += `\n  ${urun}: Kalan ${fTL(r.kalan_tl)} → ${fK(kalanKutu)} kutu gerekli (${p}₺/kutu)`;
+        }
       });
     }
   }
@@ -3697,15 +3800,19 @@ async function sendAiMsgWithText(text) {
   // Build context
   const context = buildTTTContext(selAiTTT);
   const systemPrompt = `Sen İLKO İlaç firmasının Samsun 2D bölgesi için çalışan uzman bir satış analisti ve stratejistsin.
-2026 İLKO TTT prim sistemi kuralları:
-- TL Real Primi: %91+ realizasyon gerekli, çarpan tablosuna göre hesaplanır (dönemlik baz: 55.000₺)
-- Portföy Primi: %91+ TL real VE %91+ prim puanı gerekli (baz: 11.000₺)  
-- MI&GI Primi: %70+ TL real gerekli, matris katsayısı ile (baz: 14.000₺)
-- Prim puanı = ürün ağırlığı × ürün TL real (min %70, max %130)
-- İlk 333 brick yatırım önceliği taşır (Türkiye 1001 brick sıralaması)
-- Market İndeks (MI): TTT pazar payı / Türkiye pazar payı × 100
-- GI (EVOL): TTT büyüme / Ulusal büyüme × 100
-Kısa, net ve uygulanabilir Türkçe yanıtlar ver. Somut sayılar ve öneriler sun.`;
+2026 İLKO TTT prim sistemi:
+- TL Real Primi: %91+ realizasyon, çarpan tablosu (baz: 55.000₺/dönem)
+- Portföy Primi: %91+ TL real VE %91+ prim puanı (baz: 11.000₺)
+- MI&GI Primi: %70+ TL real, matris katsayısı (baz: 14.000₺)
+- Prim puanı = ürün ağırlığı × ürün real (min %70, max %130)
+IMS Analiz Kuralları:
+- IMS TL fiyatları: PANOCER=105.31₺, ACİDPASS=112.23₺, GRİPORT COLD=84.15₺, MOKSEFEN=149₺, FAMTREC=95₺
+- Kalan TL hedefi / IMS TL fiyatı = satılması gereken anamal kutu miktarı
+- Brick bazlı pazar payı %15 altındaysa ve pazar >500 kutu ise risk brick
+- Rakibin pay >%30 ve bizim <%15 ise öncelikli hedef brick
+- İlk 333 brick yatırım önceliği taşır
+- Eczane önerisi yaparken: hedefi / IMS TL fiyatı = kutu, brick başına dağıt
+Yanıtlar: Net, somut sayılı, uygulanabilir Türkçe. Brick ve eczane isimleri ile öner.`;
 
   aiChatHistory.push({ role: 'user', content: `${context}
 
