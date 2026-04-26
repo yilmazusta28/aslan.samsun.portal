@@ -1390,14 +1390,10 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
         <span class="tab-label">MI & GI</span>
       </button>
       <button class="nav-tab" id="ntab4" onclick="goPage(4)">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M8 10h8M8 14h5"/></svg>
-        <span class="tab-label">Prim Hesapla</span>
-      </button>
-      <button class="nav-tab" id="ntab5" onclick="goPage(5)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
         <span class="tab-label">AI Asistan</span>
       </button>
-      <button class="nav-tab" id="ntab6" onclick="goPage(6)">
+      <button class="nav-tab" id="ntab5" onclick="goPage(5)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 3h18v18H3z"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
         <span class="tab-label">Eczane</span>
       </button>
@@ -1634,7 +1630,6 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
 
 <!-- ══════ PAGE 3: MI & GI ANALİZİ ══════ -->
 <div class="page" id="page3">
-
   <!-- Temsilci seçici -->
   <div class="card mb16">
     <div class="card-hd"><span class="card-title">🎯 MI & GI Brick Analizi</span><span class="card-badge" id="migi_badge">Samsun 2D</span><span style="background:#FEF3C7;color:#92400E;border:1px solid #F59E0B;border-radius:5px;padding:2px 8px;font-size:9px;font-weight:700;margin-left:8px">📅 2025 Referans Yılı — Prim hesabında kullanılmaz</span></div>
@@ -1671,11 +1666,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
     </div>
   </div>
   <!-- Prim hesaplama şablonu -->
-</div>
-
-<!-- ══════ PAGE 4: PRİM HESAPLAMA ══════ -->
-<div class="page" id="page4">
-<div class="card mb16">
+  <div class="card mb16">
     <div class="card-hd"><span class="card-title">💰 Prim Hesaplama Şablonu</span><span class="card-badge">2026 İLKO TTT</span></div>
     <div class="card-body">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
@@ -1714,8 +1705,8 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
   </div>
 </div>
 
-<!-- ══════ PAGE 5: AI ASİSTAN ══════ -->
-<div class="page" id="page5">
+<!-- ══════ PAGE 4: AI ASİSTAN ══════ -->
+<div class="page" id="page4">
   <div class="card mb16">
     <div class="card-hd"><span class="card-title">🤖 AI Satış Asistanı</span><span class="card-badge" style="background:linear-gradient(135deg,#4F008C,#1BCED8);color:#fff">Claude AI</span></div>
     <div class="card-body" style="padding:10px 16px">
@@ -1822,8 +1813,8 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
   </div>
 </div>
 
-<!-- ══════ PAGE 6: ECZANE SATIŞ TAKİBİ ══════ -->
-<div class="page" id="page6">
+<!-- ══════ PAGE 5: ECZANE SATIŞ TAKİBİ ══════ -->
+<div class="page" id="page5">
   <!-- Başlık + Yükleme durumu -->
   <div class="card mb16">
     <div class="card-hd">
@@ -1900,7 +1891,6 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
     </div>
   </div>
 </div>
-
 </div><!-- /main -->
 </div><!-- /app -->
 
@@ -2486,10 +2476,6 @@ async function syncData() {
     if (curPage === 0)      renderAna();
     else if (curPage === 1) renderPazar();
     else if (curPage === 2) renderTakip();
-    else if (curPage === 3) renderMiGi();
-    else if (curPage === 4) buildPrimInputs();
-    else if (curPage === 5) renderAiAsistan();
-    else if (curPage === 6) renderEczane();
 
     const now = new Date();
     statusEl.textContent = '✅ ' + now.toLocaleTimeString('tr-TR');
@@ -2619,9 +2605,8 @@ function goPage(i){
   else if(i===1)renderPazar();
   else if(i===2)renderTakip();
   else if(i===3)renderMiGi();
-  else if(i===4)buildPrimInputs();
-  else if(i===5)renderAiAsistan();
-  else if(i===6)renderEczane();
+  else if(i===4)renderAiAsistan();
+  else if(i===5)renderEczane();
 }
 function selectTTT(ttt){
   selTTT=selTTT===ttt?'':ttt;
@@ -2829,46 +2814,16 @@ function renderTTTDetail(){
   const gen=GENEL.find(r=>r.ttt===selTTT&&r.urun==='GENEL TOPLAM')||{};
 
   const roleLabel=isSenol?'🏢 Bölge Müdürü':'Temsilci';
-  const _bannerPhoto = getTTTPhoto(selTTT);
-  const _initials = selTTT.split(' ').map(s=>s[0]).slice(0,2).join('');
-  const _bannerImg = _bannerPhoto
-    ? `<img src="${_bannerPhoto}" crossorigin="anonymous"
-         style="width:100%;height:100%;object-fit:cover;object-position:top center"
-         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
-    : '';
-  const _trSira = TR_SIRA_MAP[selTTT]||0;
-  const _trCol  = _trSira<=30?'#16A34A':_trSira<=60?'#D97706':'#DC2626';
-
   document.getElementById('tttSummaryBox').innerHTML=`
-    <div style="display:flex;align-items:flex-start;gap:20px">
-      <!-- Sol: Fotoğraf + İsim -->
-      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;flex-shrink:0">
-        <div style="width:150px;height:150px;border-radius:50%;overflow:hidden;
-                    background:linear-gradient(135deg,rgba(255,255,255,.15),rgba(255,255,255,.05));
-                    border:3px solid rgba(255,255,255,.35);
-                    box-shadow:0 4px 20px rgba(0,0,0,.25);
-                    display:flex;align-items:center;justify-content:center">
-          ${_bannerImg}
-          <div style="width:100%;height:100%;display:${_bannerPhoto?'none':'flex'};align-items:center;justify-content:center;font-size:42px;font-weight:900;color:#fff">${_initials}</div>
-        </div>
-        <div style="text-align:center">
-          <div style="font-size:15px;font-weight:800;color:#fff;letter-spacing:-.2px">${selTTT}</div>
-          <div style="font-size:10px;opacity:.6;margin-top:2px">${roleLabel}</div>
-          <div style="margin-top:6px;font-size:11px;font-weight:700;color:${_trCol}">TR Sırası #${_trSira||'—'}</div>
-        </div>
-      </div>
-      <!-- Sağ: İstatistikler -->
-      <div style="flex:1;min-width:0">
+    <div class="tsb-name">${selTTT} <span style="font-size:12px;opacity:.7;font-weight:400">${roleLabel}</span></div>
     <div class="tsb-grid">
       <div><div class="tsb-lbl">Toplam Hedef</div><div class="tsb-val">${fTL(gen.hedef_tl)}</div></div>
       <div><div class="tsb-lbl">Toplam Satış</div><div class="tsb-val">${fTL(gen.satis_tl)}</div></div>
       <div><div class="tsb-lbl">Kalan TL</div><div class="tsb-val">${fTL(gen.kalan_tl)}</div></div>
       <div><div class="tsb-lbl">TL %</div><div class="tsb-val">${fPct(gen.tl_pct)}</div></div>
-
+      <div style="grid-column:span 2"><div class="tsb-lbl" style="font-size:9px">TR ULUSAL SIRASI</div><div class="tsb-val" style="font-size:28px;color:${(TR_SIRA_MAP[selTTT]||99)<=30?'#16A34A':(TR_SIRA_MAP[selTTT]||99)<=60?'#D97706':'#DC2626'}">#${TR_SIRA_MAP[selTTT]||'—'}</div></div>
       <div><div class="tsb-lbl">Brüt Prim</div><div class="tsb-val">${fTL(gen.brut_prim)}</div></div>
       <div><div class="tsb-lbl">Dönem Prim</div><div class="tsb-val" style="color:${gen.net_prim>0?'#16A34A':'var(--dim)'}">${gen.net_prim>0?fTL(gen.net_prim):'—'}</div></div>
-    </div>
-      </div>
     </div>`;
 
   document.getElementById('tttUrunTableTitle').textContent=`${selTTT} — Ürün Bazlı Performans`;
