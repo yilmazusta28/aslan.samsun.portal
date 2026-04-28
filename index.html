@@ -661,10 +661,22 @@ let eczaneSortAsc  = false;
 // Brick → TTT eşleşmesi (MIGI_RAW'dan türetilir)
 function getBrickTTTMap() {
   const map = {};
-  if (MIGI_RAW) {
+  // Önce IMS verisinden (en güvenilir kaynak)
+  if (IMS && IMS.length) {
+    IMS.forEach(r => {
+      if (r.brick && r.ttt) map[r.brick.toUpperCase()] = r.ttt;
+    });
+  }
+  // Yoksa MIGI_TL_RAW'dan dene
+  if (!Object.keys(map).length && MIGI_TL_RAW && MIGI_TL_RAW.length) {
+    MIGI_TL_RAW.forEach(r => {
+      if (r.brick && r.ttt) map[r.brick.toUpperCase()] = r.ttt;
+    });
+  }
+  // Yoksa eski MIGI_RAW
+  if (!Object.keys(map).length && MIGI_RAW && MIGI_RAW.length) {
     MIGI_RAW.forEach(r => {
-      // Brick isimlerini normalize et (büyük harf)
-      map[r.brick.toUpperCase()] = r.ttt;
+      if (r.brick && r.ttt) map[r.brick.toUpperCase()] = r.ttt;
     });
   }
   return map;
@@ -736,9 +748,18 @@ async function renderEczane() {
 }
 
 function buildEczaneFilters() {
+  // Her çağrıda brickTTT'yi yeniden oluştur (IMS verisi sonradan yükleniyor olabilir)
   const brickTTT = getBrickTTTMap();
+  // ECZANE_RAW'daki ttt=null satırlara brickTTTMap'ten ttt ata
+  if (ECZANE_RAW && ECZANE_RAW.length && Object.keys(brickTTT).length) {
+    ECZANE_RAW.forEach(r => {
+      if (!r.ttt && r.brick) {
+        r.ttt = brickTTT[r.brick.toUpperCase()] || null;
+      }
+    });
+  }
 
-  // Temsilci listesi - ALL_TTTS + "GİDİLMEYEN"
+  // Temsilci listesi - ALL_TTTS
   const allT = [...ALL_TTTS];
   if (!selEczaneTTT && allT.length) selEczaneTTT = allT[0];
   document.getElementById('eczaneTttBar').innerHTML = allT.map(t =>
@@ -3851,46 +3872,6 @@ function getPriorityLabel(sira, mi, gi) {
   return '<span style="background:#94A3B8;color:#fff;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700">2. GRP</span>';
 }
 
-function renderMiGi() {
-  // Yeni karne verisini tercih et, yoksa eski MIGI_RAW
-  const srcRaw = MIGI_TL_RAW.length ? MIGI_TL_RAW : MIGI_RAW;
-  const allTTTs = [...new Set(srcRaw.map(r=>r.ttt))].filter(t=>!t.includes('GİDİLMEYEN')).sort();
-  if (!selMigiTTT && allTTTs.length) selMigiTTT = allTTTs[0];
-  // Dönem badge
-  const donemEl = document.getElementById('migiDonemBadge');
-  if (donemEl) donemEl.textContent = '📅 ' + (migiDonem || (MIGI_TL_RAW.length ? 'Güncel' : '2025 Referans'));
-  document.getElementById('migiTttBar').innerHTML = allTTTs.map(t=>
-    `<button class="sp-btn${t===selMigiTTT?' active':''}" onclick="selMigiTTT='${t}';renderMiGi()">${t}</button>`
-  ).join('');
-
-  const _src = MIGI_TL_RAW.length ? MIGI_TL_RAW : MIGI_RAW;
-  const rows = _src.filter(r=>r.ttt===selMigiTTT);
-  document.getElementById('migi_badge').textContent = selMigiTTT;
-  document.getElementById('migiTableBadge').textContent = `${rows.length} brick`;
-
-  // Özet kartları
-  const top333 = rows.filter(r=>r.sira<=333);
-  const avgMI  = rows.length ? (rows.reduce((s,r)=>s+r.mi,0)/rows.length).toFixed(1) : 0;
-  const avgGI  = rows.length ? (rows.reduce((s,r)=>s+r.gi,0)/rows.length).toFixed(1) : 0;
-  const risk   = rows.filter(r=>r.mi<90||r.gi<90).length;
-  const firsat = rows.filter(r=>r.sira<=333&&r.mi>=110&&r.gi>=100).length;
-
-  document.getElementById('migiSummary').innerHTML = [
-    {label:'Toplam Brick',val:rows.length,color:'var(--c1)',icon:'📍'},
-    {label:'İlk 333 Brick',val:top333.length,color:'#D97706',icon:'⭐'},
-    {label:'Ort. MI',val:avgMI,color:getIndeksColor(avgMI),icon:'📊'},
-    {label:'Ort. GI',val:avgGI,color:getIndeksColor(avgGI),icon:'📈'},
-    {label:'Risk Brick',val:risk,color:'#DC2626',icon:'⚠️'},
-    {label:'Fırsat Brick',val:firsat,color:'#16A34A',icon:'🚀'},
-  ].map(c=>`<div style="background:#fff;border:1px solid var(--border);border-radius:9px;padding:10px 12px;text-align:center">
-    <div style="font-size:18px">${c.icon}</div>
-    <div style="font-size:20px;font-weight:800;color:${c.color}">${c.val}</div>
-    <div style="font-size:9px;color:var(--dim);font-weight:600;text-transform:uppercase;margin-top:2px">${c.label}</div>
-  </div>`).join('');
-
-  buildPrimInputs();
-}
-
 function migiFilter(f) {
   migiCurrentFilter = f;
   ['All','333','Risk','Firsat'].forEach(x=>{
@@ -4463,10 +4444,22 @@ let eczaneSortAsc  = false;
 // Brick → TTT eşleşmesi (MIGI_RAW'dan türetilir)
 function getBrickTTTMap() {
   const map = {};
-  if (MIGI_RAW) {
+  // Önce IMS verisinden (en güvenilir kaynak)
+  if (IMS && IMS.length) {
+    IMS.forEach(r => {
+      if (r.brick && r.ttt) map[r.brick.toUpperCase()] = r.ttt;
+    });
+  }
+  // Yoksa MIGI_TL_RAW'dan dene
+  if (!Object.keys(map).length && MIGI_TL_RAW && MIGI_TL_RAW.length) {
+    MIGI_TL_RAW.forEach(r => {
+      if (r.brick && r.ttt) map[r.brick.toUpperCase()] = r.ttt;
+    });
+  }
+  // Yoksa eski MIGI_RAW
+  if (!Object.keys(map).length && MIGI_RAW && MIGI_RAW.length) {
     MIGI_RAW.forEach(r => {
-      // Brick isimlerini normalize et (büyük harf)
-      map[r.brick.toUpperCase()] = r.ttt;
+      if (r.brick && r.ttt) map[r.brick.toUpperCase()] = r.ttt;
     });
   }
   return map;
@@ -4538,9 +4531,18 @@ async function renderEczane() {
 }
 
 function buildEczaneFilters() {
+  // Her çağrıda brickTTT'yi yeniden oluştur (IMS verisi sonradan yükleniyor olabilir)
   const brickTTT = getBrickTTTMap();
+  // ECZANE_RAW'daki ttt=null satırlara brickTTTMap'ten ttt ata
+  if (ECZANE_RAW && ECZANE_RAW.length && Object.keys(brickTTT).length) {
+    ECZANE_RAW.forEach(r => {
+      if (!r.ttt && r.brick) {
+        r.ttt = brickTTT[r.brick.toUpperCase()] || null;
+      }
+    });
+  }
 
-  // Temsilci listesi - ALL_TTTS + "GİDİLMEYEN"
+  // Temsilci listesi - ALL_TTTS
   const allT = [...ALL_TTTS];
   if (!selEczaneTTT && allT.length) selEczaneTTT = allT[0];
   document.getElementById('eczaneTttBar').innerHTML = allT.map(t =>
