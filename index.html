@@ -63,9 +63,13 @@ function calcPrimPuani(urunReals) {
 
 // ── MI & GI VERİSİ ─────────────────────────────────────────
 let MIGI_RAW    = []; // Eski MI_GI.csv (fallback)
-let MIGI_TL_RAW   = []; // MI_GI-TL.csv
-let MIGI_KUTU_RAW = []; // MI_GI-KUTU.csv
-let migiDonem     = ''; // Aktif dönem adı
+let MIGI_TL_RAW   = []; // MI_GI-TL.csv ham veri
+let MIGI_KUTU_RAW = []; // MI_GI-KUTU.csv ham veri
+let migiDonem     = ''; // Aktif dönem (son seçili)
+let selMigiDonem  = 'TÜMÜ';  // Seçili dönem filtresi
+let selMigiIlac   = 'TÜMÜ';  // Seçili ürün filtresi
+let selMigiTip    = 'TL';     // TL veya KUTU
+let selMigiKapsam = 'EVOL';   // EVOL, MI, BI, PP
 
 let selMigiTTT = '';
 let migiCurrentFilter = 'all';
@@ -92,137 +96,7 @@ function getPriorityLabel(sira, mi, gi) {
   return '<span style="background:#94A3B8;color:#fff;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700">2. GRP</span>';
 }
 
-function renderMiGi() {
-  // Kaynak: Yeni TL karnesi önce, yoksa KUTU, yoksa eski MIGI_RAW
-  const srcTL   = MIGI_TL_RAW.length   ? MIGI_TL_RAW   : [];
-  const srcKutu = MIGI_KUTU_RAW.length ? MIGI_KUTU_RAW : [];
-  const srcRaw  = srcTL.length ? srcTL : srcKutu.length ? srcKutu : MIGI_RAW;
 
-  if (!srcRaw.length) {
-    const tbody = document.getElementById('migiTbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--dim);padding:20px">MI_GI-TL.csv / MI_GI-KUTU.csv yükleniyor...</td></tr>';
-    return;
-  }
-
-  // TTT listesi
-  const allTTTs = [...new Set(srcRaw.map(r=>r.ttt))].filter(t=>!t.includes('GİDİLMEYEN')).sort();
-  if (!selMigiTTT && allTTTs.length) selMigiTTT = allTTTs[0];
-
-  // Dönem badge
-  const donemEl = document.getElementById('migiDonemBadge');
-  if (donemEl) donemEl.textContent = '📅 ' + (migiDonem || (srcRaw.length ? 'Güncel' : 'Yükleniyor'));
-
-  // TTT seçici
-  const tttBar = document.getElementById('migiTttBar');
-  if (tttBar) {
-    tttBar.innerHTML = allTTTs.map(t =>
-      `<button class="sp-btn${t===selMigiTTT?' active':''}" onclick="selMigiTTT='${t}';renderMiGi()">${t.split(' ')[0]}</button>`
-    ).join('');
-  }
-
-  // Bu TTT'nin brickleri - TL ve KUTU kaynaklarını birleştir
-  const tlRows   = srcTL.filter(r=>r.ttt===selMigiTTT);
-  const kutuRows = srcKutu.filter(r=>r.ttt===selMigiTTT);
-
-  // Tüm brickler
-  const bricks = [...new Set(srcRaw.filter(r=>r.ttt===selMigiTTT).map(r=>r.brick))].sort();
-
-  // Summary kartları
-  const sumEl = document.getElementById('migiSummary');
-  if (sumEl && tlRows.length) {
-    const avgEvol = (tlRows.reduce((s,r)=>s+(r['evol_PANOCER']||0),0)/tlRows.length).toFixed(0);
-    const avgMI   = (tlRows.reduce((s,r)=>s+(r['mi_PANOCER']||0),0)/tlRows.length).toFixed(0);
-    const above100evol = tlRows.filter(r=>(r['evol_PANOCER']||0)>100).length;
-    const above100mi   = tlRows.filter(r=>(r['mi_PANOCER']||0)>100).length;
-    sumEl.innerHTML = [
-      {icon:'📍',lbl:'Toplam Brick', val:bricks.length, color:'#22d3ee'},
-      {icon:'📈',lbl:'Ort. EVOL (TL)',val:avgEvol,      color:'#34d399'},
-      {icon:'🎯',lbl:'Ort. MI (TL)',  val:avgMI,        color:'#818cf8'},
-      {icon:'✅',lbl:'EVOL>100',      val:above100evol, color:'#34d399'},
-      {icon:'✅',lbl:'MI>100',        val:above100mi,   color:'#06b6d4'},
-    ].map(c=>`<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:10px 14px">
-        <div style="font-size:16px;margin-bottom:4px">${c.icon}</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:800;color:${c.color}">${c.val}</div>
-        <div style="font-size:9px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">${c.lbl}</div>
-      </div>`).join('');
-  }
-
-  // Tablo filtresi uygula
-  _renderMiGiTable(tlRows, kutuRows, bricks);
-}
-
-function _renderMiGiTable(tlRows, kutuRows, bricks) {
-  const tbody = document.getElementById('migiTbody');
-  if (!tbody) return;
-
-  const URUNLER = ['PANOCER','MOKSEFEN','ACİDPASS','GRIPORT_COLD','FAMTREC'];
-  const URUN_CLR_M = {'PANOCER':'#16A34A','MOKSEFEN':'#521FD1','ACİDPASS':'#1BCED8','GRIPORT_COLD':'#FF375E','FAMTREC':'#E07B39'};
-
-  const filtered = tlRows.filter(r=>{
-    if (migiCurrentFilter==='333') return r.sira<=333;
-    if (migiCurrentFilter==='risk') {
-      // EVOL<100 veya MI<100 olan herhangi bir ürün
-      return URUNLER.some(u=>(r['evol_'+u]||0)<100||(r['mi_'+u]||0)<100);
-    }
-    if (migiCurrentFilter==='firsat') {
-      return URUNLER.some(u=>(r['evol_'+u]||0)>100&&(r['mi_'+u]||0)>100);
-    }
-    return true;
-  });
-
-  const badgeMigiTable = document.getElementById('migiTableBadge');
-  if (badgeMigiTable) badgeMigiTable.textContent = filtered.length + ' brick';
-
-  // Thead güncelle
-  const thead = document.getElementById('migiThead');
-  if (thead) {
-    thead.innerHTML = `
-      <tr>
-        <th>Sıra</th>
-        <th>Brick</th>
-        <th colspan="2" style="text-align:center;color:#34d399">PANOCER</th>
-        <th colspan="2" style="text-align:center;color:#521FD1">MOKSEFEN</th>
-        <th colspan="2" style="text-align:center;color:#1BCED8">ACİDPASS</th>
-        <th colspan="2" style="text-align:center;color:#FF375E">GRİPORT</th>
-        <th colspan="2" style="text-align:center;color:#E07B39">FAMTREC</th>
-      </tr>
-      <tr>
-        <th></th><th></th>
-        ${['PANOCER','MOKSEFEN','ACİDPASS','GRIPORT_COLD','FAMTREC'].map(u=>`
-          <th style="font-size:8px">EVOL</th>
-          <th style="font-size:8px">MI</th>
-        `).join('')}
-      </tr>`;
-  }
-
-  const clr = v => v>=100?'color:#34d399':'color:#f87171';
-
-  tbody.innerHTML = filtered.map(r => {
-    const siraStyle = r.sira<=333?'background:rgba(34,211,238,.08)':'';
-    return `<tr style="${siraStyle}">
-      <td class="mono" style="font-size:10px;color:rgba(255,255,255,.4)">${r.sira}</td>
-      <td style="font-size:10px;font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.brick}">${r.brick}</td>
-      ${['PANOCER','MOKSEFEN','ACİDPASS','GRIPORT_COLD','FAMTREC'].map(u=>`
-        <td class="mono" style="font-size:11px;font-weight:700;${clr(r['evol_'+u]||0)}">${(r['evol_'+u]||0).toFixed(0)}</td>
-        <td class="mono" style="font-size:11px;font-weight:700;${clr(r['mi_'+u]||0)}">${(r['mi_'+u]||0).toFixed(0)}</td>
-      `).join('')}
-    </tr>`;
-  }).join('');
-
-  if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:rgba(255,255,255,.3);padding:20px">Veri bulunamadı</td></tr>';
-  }
-}
-
-
-function migiFilter(f) {
-  migiCurrentFilter = f;
-  ['All','333','Risk','Firsat'].forEach(x=>{
-    const el = document.getElementById('migiFilter'+x);
-    if(el) el.classList.toggle('active', x.toLowerCase()===f);
-  });
-  renderMiGi();
-}
 
 function buildPrimInputs() {
   // TTT select
@@ -1694,42 +1568,87 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
 <!-- ══════ PAGE 3: MI & GI ANALİZİ ══════ -->
 <div class="page" id="page3">
 
-  <!-- Temsilci seçici -->
+  <!-- Filtre Paneli -->
   <div class="card mb16">
-    <div class="card-hd"><span class="card-title">🎯 MI & GI Brick Analizi</span><span class="card-badge" id="migi_badge">Samsun 2D</span><span style="background:#FEF3C7;color:#92400E;border:1px solid #F59E0B;border-radius:5px;padding:2px 8px;font-size:9px;font-weight:700;margin-left:8px">📅 2025 Referans Yılı — Prim hesabında kullanılmaz</span></div>
-    <div class="card-body" style="padding:10px 16px">
-      <div id="migiTttBar" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
-      <!-- Özet kartları -->
-      <div id="migiSummary" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:10px"></div>
+    <div class="card-hd">
+      <span class="card-title">🎯 MI &amp; GI Karne Analizi</span>
+      <span class="card-badge" id="migiDonemBadge">Yükleniyor...</span>
+    </div>
+    <div class="card-body">
+
+      <!-- Satır 1: Temsilci + TL/Kutu -->
+      <div style="display:grid;grid-template-columns:1fr auto;gap:16px;margin-bottom:10px;align-items:start">
+        <div>
+          <div class="section-h">Temsilci</div>
+          <div id="migiTttBar" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+        </div>
+        <div>
+          <div class="section-h">Tip</div>
+          <div style="display:flex;gap:5px">
+            <button class="sp-btn active" id="migiTipTL"   onclick="selMigiTip='TL';  buildMigiFilters();renderMiGi()">TL</button>
+            <button class="sp-btn"        id="migiTipKUTU" onclick="selMigiTip='KUTU';buildMigiFilters();renderMiGi()">Kutu</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Satır 2: Dönem + Ürün -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:10px">
+        <div>
+          <div class="section-h">Dönem</div>
+          <div id="migiDonemBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+        </div>
+        <div>
+          <div class="section-h">Ürün</div>
+          <div id="migiIlacBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+        </div>
+      </div>
+
+      <!-- Satır 3: Kapsam filtresi + Filtre butonları -->
+      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:12px">
+        <div>
+          <div class="section-h">Kapsam</div>
+          <div style="display:flex;gap:5px">
+            <button class="sp-btn active" id="migiKapsamEVOL" onclick="selMigiKapsam='EVOL';buildMigiFilters();renderMiGi()">Gelişim (EVOL)</button>
+            <button class="sp-btn"        id="migiKapsamMI"   onclick="selMigiKapsam='MI';  buildMigiFilters();renderMiGi()">Penetrasyon (MI)</button>
+            <button class="sp-btn"        id="migiKapsamPP"   onclick="selMigiKapsam='PP';  buildMigiFilters();renderMiGi()">Pazar Payı (%)</button>
+            <button class="sp-btn"        id="migiKapsamBI"   onclick="selMigiKapsam='BI';  buildMigiFilters();renderMiGi()">Büyüme İndeksi</button>
+          </div>
+        </div>
+        <div style="margin-left:auto">
+          <div class="section-h">Hızlı Filtre</div>
+          <div style="display:flex;gap:5px">
+            <button class="sp-btn active" id="migiFilterAll"    onclick="migiFilter('all')">Tümü</button>
+            <button class="sp-btn"        id="migiFilter333"    onclick="migiFilter('333')">İlk 333</button>
+            <button class="sp-btn"        id="migiFilterRisk"   onclick="migiFilter('risk')">⚠️ Risk (&lt;100)</button>
+            <button class="sp-btn"        id="migiFilterFirsat" onclick="migiFilter('firsat')">🚀 Fırsat (&gt;100)</button>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
-  <!-- Brick tablosu -->
-  <div class="card mb16">
+
+  <!-- Özet Kartları -->
+  <div id="migiSummary" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:14px"></div>
+
+  <!-- Tablo -->
+  <div class="card">
     <div class="card-hd">
       <span class="card-title">📍 Brick Detay Tablosu</span>
       <span class="card-badge" id="migiTableBadge">—</span>
-      <div style="display:flex;gap:6px;align-items:center;margin-left:auto">
-        <label style="font-size:10px;color:var(--dim);font-weight:600">Filtre:</label>
-        <button class="sp-btn active" id="migiFilterAll" onclick="migiFilter('all')">Tümü</button>
-        <button class="sp-btn" id="migiFilter333" onclick="migiFilter('333')">İlk 333</button>
-        <button class="sp-btn" id="migiFilterRisk" onclick="migiFilter('risk')">⚠️ Risk</button>
-        <button class="sp-btn" id="migiFilterFirsat" onclick="migiFilter('firsat')">🚀 Fırsat</button>
-      </div>
     </div>
     <div class="card-body-0 scroll-x">
-      <table class="tbl" id="migiTable" style="min-width:1100px">
-        <thead id="migiThead"><tr>
-          <th>Sıra</th><th>Brick</th>
-          <th>MI<br><small style="font-weight:400;color:#64748B">Market İndeks</small></th>
-          <th>GI<br><small style="font-weight:400;color:#64748B">Gelişim İndeksi</small></th>
-          <th>PANOCER</th><th>MOKSEFEN</th><th>ACIDPASS</th><th>GRIPORT</th>
-          <th>Öncelik</th>
-        </tr></thead>
-        <tbody id="migiTbody"></tbody>
+      <table class="tbl" id="migiTable" style="min-width:700px">
+        <thead id="migiThead">
+          <tr><th>Sıra</th><th>Brick</th><th>Değer</th></tr>
+        </thead>
+        <tbody id="migiTbody">
+          <tr><td colspan="3" style="text-align:center;padding:20px;color:var(--dim)">MI_GI-TL.csv ve MI_GI-KUTU.csv GitHub reposuna yüklenmeli</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
-  <!-- Prim hesaplama şablonu -->
+
 </div>
 
 <!-- ══════ PAGE 4: PRİM HESAPLAMA ══════ -->
@@ -1984,7 +1903,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
 // Haftalık güncellemede repo'ya IMS_TABLO.csv ve GENEL_TABLO.csv yükleyin.
 const GS_IMS_URL   = "https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/IMS_TABLO.csv";
 const GS_GENEL_URL = "https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/GENEL_TABLO.csv";
-const GS_MIGI_URL    = "https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI.csv";
+// MI_GI.csv artık kullanılmıyor (MI_GI-TL.csv ve MI_GI-KUTU.csv kullanılıyor)
 const GS_MIGI_TL_URL   = "https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI-TL.csv";
 const GS_MIGI_KUTU_URL = "https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI-KUTU.csv";
 
@@ -2400,6 +2319,212 @@ function rebuildKutuFromIMS() {
 // NOT: Bu veriler referans yıl (2025) için - prim hesabında KULLANILMAZ
 //      Sadece brick önceliklendirme ve tablo görüntüleme için kullanılır
 
+// ══════════════════════════════════════════════════════════
+// MI & GI — Filtre inşa + render
+// ══════════════════════════════════════════════════════════
+
+function buildMigiFilters() {
+  const src = selMigiTip === 'TL' ? MIGI_TL_RAW : MIGI_KUTU_RAW;
+  if (!src.length) return;
+
+  // TTT filtre active state
+  const allTTTs = [...new Set(src.map(r=>r.ttt))].filter(t=>!t.includes('GİDİLMEYEN')).sort();
+  const tttBar = document.getElementById('migiTttBar');
+  if (tttBar) {
+    tttBar.innerHTML = allTTTs.map(t =>
+      `<button class="sp-btn${t===selMigiTTT?' active':''}"
+        onclick="selMigiTTT='${t}';buildMigiFilters();renderMiGi()">${t.split(' ')[0]}</button>`
+    ).join('');
+  }
+
+  // Dönem filtresi - tüm unique dönemler
+  const allDonems = [...new Set(src.map(r=>r.donem))].sort();
+  const donemBar = document.getElementById('migiDonemBar');
+  if (donemBar) {
+    donemBar.innerHTML = ['TÜMÜ', ...allDonems].map(d =>
+      `<button class="sp-btn${d===selMigiDonem?' active':''}"
+        onclick="selMigiDonem='${d}';buildMigiFilters();renderMiGi()">${d==='TÜMÜ'?'Tümü':d.replace('YTD-','')}</button>`
+    ).join('');
+  }
+
+  // Ürün filtresi
+  const allIlaclar = [...new Set(src.map(r=>r.ilac))].sort();
+  const ilacBar = document.getElementById('migiIlacBar');
+  if (ilacBar) {
+    ilacBar.innerHTML = ['TÜMÜ', ...allIlaclar].map(u =>
+      `<button class="sp-btn${u===selMigiIlac?' active':''}"
+        onclick="selMigiIlac='${u}';buildMigiFilters();renderMiGi()">${u==='TÜMÜ'?'Tümü':u}</button>`
+    ).join('');
+  }
+
+  // Kapsam active state
+  ['EVOL','MI','PP','BI'].forEach(k => {
+    const el = document.getElementById('migiKapsam'+k);
+    if (el) el.classList.toggle('active', k === selMigiKapsam);
+  });
+
+  // Tip active state
+  const tipTL   = document.getElementById('migiTipTL');
+  const tipKutu = document.getElementById('migiTipKUTU');
+  if (tipTL)   tipTL.classList.toggle('active', selMigiTip==='TL');
+  if (tipKutu) tipKutu.classList.toggle('active', selMigiTip==='KUTU');
+}
+
+function migiFilter(f) {
+  migiCurrentFilter = f;
+  ['All','333','Risk','Firsat'].forEach(x => {
+    const el = document.getElementById('migiFilter'+x);
+    if (el) el.classList.toggle('active', x.toLowerCase() === f);
+  });
+  renderMiGi();
+}
+
+function renderMiGi() {
+  const src = selMigiTip === 'TL' ? MIGI_TL_RAW : MIGI_KUTU_RAW;
+
+  if (!src.length) {
+    const tbody = document.getElementById('migiTbody');
+    if (tbody) tbody.innerHTML =
+      `<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--dim)">
+        ⚠️ Veri yüklenmedi — GitHub reposunda MI_GI-TL.csv ve MI_GI-KUTU.csv olduğunu kontrol edin
+      </td></tr>`;
+    return;
+  }
+
+  // İlk yüklemede seçili TTT'yi kullan
+  const allTTTs = [...new Set(src.map(r=>r.ttt))].filter(t=>!t.includes('GİDİLMEYEN')).sort();
+  if (!selMigiTTT && allTTTs.length) selMigiTTT = allTTTs[0];
+
+  // Dönem badge
+  const lastDonem = [...new Set(src.map(r=>r.donem))].sort().pop() || '';
+  migiDonem = lastDonem;
+  const donemEl = document.getElementById('migiDonemBadge');
+  if (donemEl) donemEl.textContent = '📅 ' + (migiDonem || 'Güncel');
+
+  buildMigiFilters();
+
+  // Kapsam → KAPSAM string eşleşmesi
+  const KAPSAM_MAP = {
+    'EVOL': 'PAZARA GÖRE GELİŞİM',
+    'MI':   'PENETRASYON',
+    'PP':   'PAZAR PAYI',
+    'BI':   'BÜYÜME'
+  };
+  const kapsamFilter = KAPSAM_MAP[selMigiKapsam] || 'PAZARA GÖRE GELİŞİM';
+
+  // Veriyi filtrele
+  let rows = src.filter(r => {
+    if (r.ttt.includes('GİDİLMEYEN')) return false;
+    if (selMigiTTT && r.ttt !== selMigiTTT) return false;
+    if (selMigiDonem !== 'TÜMÜ' && r.donem !== selMigiDonem) return false;
+    if (selMigiIlac !== 'TÜMÜ' && r.ilac !== selMigiIlac) return false;
+    if (!r.kapsam.includes(kapsamFilter)) return false;
+    return true;
+  });
+
+  // Hızlı filtre
+  const pN = v => parseFloat(String(v||0).replace(',','.')) || 0;
+  if (migiCurrentFilter === '333') rows = rows.filter(r => r.sira <= 333);
+  if (migiCurrentFilter === 'risk')   rows = rows.filter(r => pN(r.deger) < 100);
+  if (migiCurrentFilter === 'firsat') rows = rows.filter(r => pN(r.deger) >= 100);
+
+  // Sıra sırala
+  rows.sort((a,b) => a.sira - b.sira);
+
+  // Özet kartları
+  const vals = rows.map(r=>pN(r.deger)).filter(v=>v>0);
+  const avg  = vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : '—';
+  const above100 = vals.filter(v=>v>=100).length;
+  const below100  = vals.filter(v=>v<100).length;
+  const kapsamLbl = {'EVOL':'EVOL.IND','MI':'MI','PP':'Pazar Payı','BI':'Büyüme İnd.'}[selMigiKapsam]||'';
+  const tipLbl = selMigiTip === 'TL' ? 'TL' : 'Kutu';
+
+  const sumEl = document.getElementById('migiSummary');
+  if (sumEl) sumEl.innerHTML = [
+    {icon:'📍', lbl:'Brick Sayısı',      val:rows.length,  color:'#22d3ee'},
+    {icon:'📊', lbl:`Ort. ${kapsamLbl}`, val:avg,          color:'#818cf8'},
+    {icon:'✅', lbl:`≥100 Brick`,        val:above100,     color:'#34d399'},
+    {icon:'⚠️', lbl:`<100 Brick`,        val:below100,     color:'#f87171'},
+    {icon:'💊', lbl:'Ürün',              val:selMigiIlac==='TÜMÜ'?'Tümü':selMigiIlac, color:'#fbbf24'},
+  ].map(c=>`<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+      border-radius:10px;padding:10px 12px">
+      <div style="font-size:15px;margin-bottom:3px">${c.icon}</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:800;color:${c.color}">${c.val}</div>
+      <div style="font-size:9px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.4px;margin-top:2px">${c.lbl}</div>
+    </div>`).join('');
+
+  // Thead
+  const thead = document.getElementById('migiThead');
+  const isMultiIlac = selMigiIlac === 'TÜMÜ';
+  if (thead) {
+    if (isMultiIlac) {
+      // Tüm ürünler - her ürün bir sütun
+      const ilaclar = [...new Set(rows.map(r=>r.ilac))].sort();
+      const URUN_CLR = {'PANOCER':'#16A34A','MOKSEFEN':'#521FD1','ACİDPASS':'#1BCED8','GRIPORT COLD':'#FF375E','FAMTREC':'#E07B39'};
+      thead.innerHTML = `<tr>
+        <th>Sıra</th><th>Brick</th><th>Dönem</th>
+        ${ilaclar.map(u=>`<th style="color:${URUN_CLR[u]||'#fff'}">${u.replace(' COLD','')}</th>`).join('')}
+      </tr>`;
+    } else {
+      thead.innerHTML = `<tr>
+        <th>Sıra</th><th>Brick</th><th>Dönem</th>
+        <th>${selMigiIlac}</th><th>Durum</th>
+      </tr>`;
+    }
+  }
+
+  // Tbody
+  const tbody = document.getElementById('migiTbody');
+  if (!tbody) return;
+
+  if (isMultiIlac) {
+    // Pivot: brick × dönem → her ürün bir sütun
+    const ilaclar = [...new Set(rows.map(r=>r.ilac))].sort();
+    const pivotMap = {};
+    rows.forEach(r => {
+      const key = r.sira+'|'+r.brick+'|'+r.donem;
+      if (!pivotMap[key]) pivotMap[key] = {sira:r.sira,brick:r.brick,donem:r.donem};
+      pivotMap[key][r.ilac] = pN(r.deger);
+    });
+    const pivotRows = Object.values(pivotMap).sort((a,b)=>a.sira-b.sira);
+
+    document.getElementById('migiTableBadge').textContent = pivotRows.length + ' brick';
+
+    const clrV = v => v>=100?'color:#34d399;font-weight:700':'color:#f87171';
+    tbody.innerHTML = pivotRows.map(r => {
+      const siraStyle = r.sira<=333?'background:rgba(34,211,238,.05)':'';
+      return `<tr style="${siraStyle}">
+        <td class="mono" style="font-size:10px;color:rgba(255,255,255,.4)">${r.sira}</td>
+        <td style="font-size:10px;font-weight:600;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.brick}">${r.brick}</td>
+        <td style="font-size:9px;color:rgba(255,255,255,.4)">${r.donem.replace('YTD-','')}</td>
+        ${ilaclar.map(u=>`<td class="mono" style="font-size:11px;${clrV(r[u]||0)}">${r[u]!=null?r[u].toFixed(1):'—'}</td>`).join('')}
+      </tr>`;
+    }).join('');
+  } else {
+    // Tek ürün - detay görünüm
+    document.getElementById('migiTableBadge').textContent = rows.length + ' kayıt';
+    const clrV = v => v>=100?'#34d399':'#f87171';
+    tbody.innerHTML = rows.map(r => {
+      const v = pN(r.deger);
+      const siraStyle = r.sira<=333?'background:rgba(34,211,238,.05)':'';
+      return `<tr style="${siraStyle}">
+        <td class="mono" style="font-size:10px;color:rgba(255,255,255,.4)">${r.sira}</td>
+        <td style="font-size:10px;font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.brick}">${r.brick}</td>
+        <td style="font-size:9px;color:rgba(255,255,255,.4)">${r.donem.replace('YTD-','')}</td>
+        <td class="mono" style="font-size:13px;font-weight:800;color:${clrV(v)}">${v.toFixed(1)}</td>
+        <td><span style="background:${v>=100?'rgba(52,211,153,.1)':'rgba(248,113,113,.1)'};
+          color:${clrV(v)};border:1px solid ${v>=100?'rgba(52,211,153,.3)':'rgba(248,113,113,.3)'};
+          border-radius:5px;padding:2px 8px;font-size:9px;font-weight:700">
+          ${v>=100?'✅ ≥100':'⚠️ <100'}</span></td>
+      </tr>`;
+    }).join('');
+  }
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:20px;color:rgba(255,255,255,.3)">Filtreye uygun veri yok</td></tr>';
+  }
+}
+
 // ─── MIGI KARNE CSV PARSER (yeni format: SIRA;BÖLGE;PERSONEL;BRICK;DÖNEM;KAPSAM;İLAÇ;DEĞER) ───
 function parseMiGiKarneCSV(csvText) {
   if (!csvText || csvText.trim().startsWith('<')) return [];
@@ -2520,19 +2645,23 @@ async function syncData() {
     const ts = Date.now();
 
     // Üç tabloyu paralel çek
-    const [respIMS, respGenel, respMiGi, respMiGiTL, respMiGiKutu] = await Promise.all([
+    // Kritik: IMS + GENEL (bunlar olmadan portal çalışmaz)
+    const [respIMS, respGenel] = await Promise.all([
       fetch(GS_IMS_URL   + '?v=' + ts, fetchOpts),
       fetch(GS_GENEL_URL + '?v=' + ts, fetchOpts),
-      fetch(GS_MIGI_URL  + '?v=' + ts, fetchOpts),
-      fetch(GS_MIGI_TL_URL   + '?v=' + ts, fetchOpts),
-      fetch(GS_MIGI_KUTU_URL + '?v=' + ts, fetchOpts)
+    ]);
+
+    // Opsiyonel: MI_GI dosyaları (biri yoksa diğerleri etkilenmesin)
+    let respMiGiTL = null, respMiGiKutu = null;
+    await Promise.allSettled([
+      fetch(GS_MIGI_TL_URL   + '?v=' + ts, fetchOpts).then(r=>{ respMiGiTL   = r; }).catch(()=>{}),
+      fetch(GS_MIGI_KUTU_URL + '?v=' + ts, fetchOpts).then(r=>{ respMiGiKutu = r; }).catch(()=>{}),
     ]);
     
     console.log('[fetch] IMS status:', respIMS.status);
     console.log('[fetch] GENEL status:', respGenel.status);
-    console.log('[fetch] MIGI status:', respMiGi.status);
-
-    if (!respMiGi.ok)  console.warn('MI_GI.csv okunamadı (HTTP ' + respMiGi.status + ') - gömülü veri kullanılıyor');
+    console.log('[fetch] MIGI-TL status:', respMiGiTL?.status||'n/a');
+    console.log('[fetch] MIGI-KUTU status:', respMiGiKutu?.status||'n/a');
     if (!respIMS.ok)   throw new Error(
       'IMS_TABLO.csv bulunamadı (HTTP ' + respIMS.status + '). ' +
       'GitHub reposunda ana klasörde IMS_TABLO.csv olduğundan emin olun. ' +
@@ -2544,31 +2673,18 @@ async function syncData() {
       'URL: https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/GENEL_TABLO.csv'
     );
 
-    const [csvIMS, csvGenel, csvMiGi, csvMiGiTL, csvMiGiKutu] = await Promise.all([
+    const [csvIMS, csvGenel] = await Promise.all([
       respIMS.text(),
       respGenel.text(),
-      respMiGi.ok ? respMiGi.text() : Promise.resolve(''),
-      respMiGiTL.ok ? respMiGiTL.text() : Promise.resolve(''),
-      respMiGiKutu.ok ? respMiGiKutu.text() : Promise.resolve('')
     ]);
+    const csvMiGiTL   = (respMiGiTL   && respMiGiTL.ok)   ? await respMiGiTL.text()   : '';
+    const csvMiGiKutu = (respMiGiKutu && respMiGiKutu.ok) ? await respMiGiKutu.text() : '';
 
     // Parse
     const newIMS = parseIMSCSV(csvIMS);
     const { genel: newGenel, imsTL: newImsTL, trSira: newTrSira } = parseGenelCSV(csvGenel);
 
-    // MI_GI parse (opsiyonel - başarısız olursa gömülü veri kalır)
-    if (csvMiGi) {
-      try {
-        const newMiGi = parseMiGiCSV(csvMiGi);
-        if (newMiGi.length > 0) {
-          MIGI_RAW.length = 0;
-          MIGI_RAW.push(...newMiGi);
-          console.log('[MIGI] Updated:', newMiGi.length, 'records');
-        }
-      } catch (migiErr) {
-        console.warn('[MIGI] Parse hatası, MIGI_RAW boş kalacak:', migiErr.message);
-      }
-    }
+    // MI_GI.csv artık kullanılmıyor (MI_GI-TL.csv ve MI_GI-KUTU.csv kullanılıyor)
 
     // Yeni TL Karnesi
     if (csvMiGiTL) {
@@ -3708,7 +3824,7 @@ function calcPrimPuani(urunReals) {
 }
 
 // ── MI & GI VERİSİ ─────────────────────────────────────────
-let MIGI_RAW = []; let MIGI_TL_RAW = []; let MIGI_KUTU_RAW = []; let migiDonem = '';
+let MIGI_RAW = []; let MIGI_TL_RAW = []; let MIGI_KUTU_RAW = []; let migiDonem = ''; let selMigiDonem='TÜMÜ'; let selMigiIlac='TÜMÜ'; let selMigiTip='TL'; let selMigiKapsam='EVOL';
 
 let selMigiTTT = '';
 let migiCurrentFilter = 'all';
