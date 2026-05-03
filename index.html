@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Samsun 2D Satış Portalı</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
 // ── PRİM ÇARPAN TABLOSU (2026) ──────────────────────────────
 const CARPAN_TABLE = {
   91:75,92:78,93:81,94:84,95:87,96:90,97:93,98:96,99:99,100:100,
@@ -223,7 +224,7 @@ function buildTTTContext(ttt) {
   // Temsilci verilerini özet olarak hazırla
   const genelRows = GENEL.filter(r=>r.ttt===ttt&&r.urun!=='GENEL TOPLAM');
   const genelTotal = GENEL.find(r=>r.ttt===ttt&&r.urun==='GENEL TOPLAM');
-  const migiRows = MIGI_RAW.filter(r=>r.ttt===ttt);
+  const migiRows = (MIGI_TL_RAW||[]).filter(r=>r.ttt===ttt);
   const top333 = migiRows.filter(r=>r.sira<=333);
   const trSira = TR_SIRA_MAP[ttt] || '?';
 
@@ -1013,6 +1014,59 @@ function buildEczaneContext(ttt) {
   return ctx;
 }
 
+
+// ── LOGIN ──────────────────────────────────────────────────
+const VALID_USERS=[
+  'Şenol Yılmaz','şenol yılmaz','ŞENOL YILMAZ',
+  'Yılmaz Usta','yılmaz usta','YILMAZ USTA',
+  'Murat Kandiş','murat kandiş','MURAT KANDİŞ','Murat Kandis','murat kandis',
+  'Kürşad Karadağ','kürşad karadağ','KÜRŞAD KARADAĞ','Kursad Karadag','kursad karadag',
+  'Emrah Yıldız','emrah yıldız','EMRAH YILDIZ','Emrah Yildiz','emrah yildiz',
+  'Hakan Yumak','hakan yumak','HAKAN YUMAK',
+  'Aykut Dinler','aykut dinler','AYKUT DİNLER','Aykut Dİnler',
+  'Mehmet Akif Özgeçen','mehmet akif özgeçen','MEHMET AKİF ÖZGEÇEN','Mehmet Akif Ozgecen',
+  'Samet Çetin','samet çetin','SAMET ÇETİN','Samet Cetin','samet cetin'
+];
+
+// Kullanıcı adı → temsilci adı eşleşmesi
+const USER_TO_TTT = {
+  'şenol yılmaz': 'ŞENOL YILMAZ',
+  'yılmaz usta':  'YILMAZ USTA',
+  'murat kandiş': 'MURAT KANDİŞ',
+  'murat kandis': 'MURAT KANDİŞ',
+  'kürşad karadağ': 'KÜRŞAD KARADAĞ',
+  'kursad karadag': 'KÜRŞAD KARADAĞ',
+  'emrah yıldız':  'EMRAH YILDIZ',
+  'emrah yildiz':  'EMRAH YILDIZ',
+  'hakan yumak':   'HAKAN YUMAK',
+  'aykut dinler':  'AYKUT DİNLER',
+  'mehmet akif özgeçen': 'MEHMET AKİF ÖZGEÇEN',
+  'mehmet akif ozgecen': 'MEHMET AKİF ÖZGEÇEN',
+  'samet çetin':   'SAMET ÇETİN',
+  'samet cetin':   'SAMET ÇETİN',
+};
+let LOGGED_IN_USER = ''; // giriş yapan kullanıcı canonical adı
+
+const VALID_PASS='Saslan.9';
+
+function doLogin(){
+  const user=document.getElementById('loginUser').value.trim();
+  const pass=document.getElementById('loginPass').value;
+  const errEl=document.getElementById('loginErr');
+  const isUserOk=VALID_USERS.some(u=>u.toLowerCase()===user.toLowerCase());
+  if(isUserOk&&pass===VALID_PASS){
+    document.getElementById('loginScreen').style.display='none';
+    errEl.style.display='none';
+    LOGGED_IN_USER = USER_TO_TTT[user.toLowerCase()] || '';
+    // initApp Blok-2'de tanımlı — DOM tamamen yüklendiği için güvenli çağır
+    if(typeof initApp === 'function') { initApp(); }
+    else { window._pendingLogin = true; }
+  } else {
+    errEl.style.display='block';
+    document.getElementById('loginPass').value='';
+    document.getElementById('loginPass').focus();
+  }
+}
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -1665,7 +1719,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
           <tr><th>Sıra</th><th>Brick</th><th>Dönem</th><th>Gelişim(evo)</th><th>Penetrasyon(MI)</th><th>Pazar Payı%</th><th>Büyüme İndeksi</th><th>Durum</th></tr>
         </thead>
         <tbody id="migiTbody">
-          <tr><td colspan="8" style="text-align:center;padding:20px;color:var(--dim)">MI_GI_TL_TOPLAM.csv ve MI_GI_KUTU_TOPLAM.csv GitHub reposuna yüklenmeli</td></tr>
+          <tr><td colspan="9" style="text-align:center;padding:20px;color:var(--dim)">MI_GI_TL_TOPLAM.csv ve MI_GI_KUTU_TOPLAM.csv GitHub reposuna yüklenmeli</td></tr>
         </tbody>
       </table>
     </div>
@@ -2359,15 +2413,10 @@ function buildMigiFilters() {
     ).join('');
   }
 
-  // Brick filtresi - seçili TTT'ye göre
-  const brickSrc = selMigiTTT ? src.filter(r=>r.ttt===selMigiTTT) : src;
-  const allBricks = [...new Set(brickSrc.map(r=>r.brick))].sort();
+  // Brick filtresi - bu dosyada tüm kayıtlar TOPLAM brick, bu alan gizlenir
   const brickBar = document.getElementById('migiBrickBar');
   if (brickBar) {
-    brickBar.innerHTML = ['TÜMÜ', ...allBricks].map(b =>
-      `<button class="sp-btn${b===selMigiBrick?' active':''}"
-        onclick="selMigiBrick='${b}';buildMigiFilters();renderMiGi()">${b==='TÜMÜ'?'Tümü':b}</button>`
-    ).join('');
+    brickBar.innerHTML = '<span style="color:var(--dim);font-size:11px;font-style:italic">Bu veri setinde brick bazlı ayrım bulunmuyor — veriler temsilci + dönem bazlıdır.</span>';
   }
 
   // Dönem filtresi - tüm unique dönemler
@@ -2399,9 +2448,9 @@ function buildMigiFilters() {
 
 function migiFilter(f) {
   migiCurrentFilter = f;
-  ['All','333','Risk','Firsat'].forEach(x => {
-    const el = document.getElementById('migiFilter'+x);
-    if (el) el.classList.toggle('active', x.toLowerCase() === f);
+  [['All','all'],['333','333'],['Risk','risk'],['Firsat','firsat']].forEach(([id,val]) => {
+    const el = document.getElementById('migiFilter'+id);
+    if (el) el.classList.toggle('active', val === f);
   });
   renderMiGi();
 }
@@ -2412,7 +2461,7 @@ function renderMiGi() {
   if (!src.length) {
     const tbody = document.getElementById('migiTbody');
     if (tbody) tbody.innerHTML =
-      `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--dim)">
+      `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--dim)">
         ⚠️ Veri yüklenmedi — GitHub reposunda MI_GI_TL_TOPLAM.csv ve MI_GI_KUTU_TOPLAM.csv olduğunu kontrol edin
       </td></tr>`;
     return;
@@ -2449,26 +2498,25 @@ function renderMiGi() {
     return true;
   });
 
-  // Pivot: her brick+dönem+ilac için 4 kapsam değerini topla
+  // Yeni format: her kayıt zaten {bi, evol, mi, pp} alanlarını içeriyor
+  // ttt+donem+ilac bazında grupla (her kombinasyon için tek satır)
   const pivotMap = {};
   filtered.forEach(r => {
-    const key = r.sira + '|' + r.brick + '|' + r.donem + (selMigiIlac !== 'TÜMÜ' ? '|' + r.ilac : '');
+    const key = r.ttt + '|' + r.donem + '|' + r.ilac;
     if (!pivotMap[key]) {
-      pivotMap[key] = { sira: r.sira, brick: r.brick, donem: r.donem, ilac: r.ilac,
-        evol: null, mi: null, pp: null, bi: null };
+      pivotMap[key] = { sira: r.sira||0, ttt: r.ttt, brick: r.brick, donem: r.donem, ilac: r.ilac,
+        evol: r.evol, mi: r.mi, pp: r.pp, bi: r.bi };
     }
-    const kap = (r.kapsam || '').toUpperCase();
-    if (kap.includes('EVOL')) pivotMap[key].evol = r.deger;
-    else if (kap.includes('PENETRASYON') || kap.includes('MARKET')) pivotMap[key].mi = r.deger;
-    else if (kap.includes('PAZAR PAYI') || kap.includes('PAYI')) pivotMap[key].pp = r.deger;
-    else if (kap.includes('BÜYÜME') || kap.includes('BUYUME')) pivotMap[key].bi = r.deger;
   });
 
-  let pivotRows = Object.values(pivotMap).sort((a,b) => a.sira - b.sira);
+  let pivotRows = Object.values(pivotMap).sort((a,b) => {
+    // Ay sırasına göre sırala (01/2026, 02/2026 ...)
+    return a.donem.localeCompare(b.donem) || a.ttt.localeCompare(b.ttt);
+  });
 
   // Hızlı filtre (EVOL değerine göre)
   const pN = v => parseFloat(String(v||0).replace(',','.')) || 0;
-  if (migiCurrentFilter === '333') pivotRows = pivotRows.filter(r => r.sira <= 333);
+  if (migiCurrentFilter === '333') pivotRows = pivotRows.filter(r => pN(r.evol) >= 100 && pN(r.mi) >= 100); // 333 yerine güçlü performans göster
   if (migiCurrentFilter === 'risk')   pivotRows = pivotRows.filter(r => pN(r.evol) < 100 || pN(r.mi) < 100);
   if (migiCurrentFilter === 'firsat') pivotRows = pivotRows.filter(r => pN(r.evol) >= 100 && pN(r.mi) >= 100);
 
@@ -2518,7 +2566,7 @@ function renderMiGi() {
   const thead = document.getElementById('migiThead');
   if (thead) {
     thead.innerHTML = `<tr>
-      <th>Sıra</th><th>Brick</th><th>Dönem</th>
+      <th>#</th><th>Temsilci</th><th>Ürün</th><th>Dönem</th>
       <th>Gelişim(evo)</th><th>Penetrasyon(MI)</th><th>Pazar Payı%</th><th>Büyüme İndeksi</th><th>Durum</th>
     </tr>`;
   }
@@ -2527,7 +2575,7 @@ function renderMiGi() {
   const tbody = document.getElementById('migiTbody');
   if (!tbody) return;
 
-  document.getElementById('migiTableBadge').textContent = pivotRows.length + ' brick';
+  document.getElementById('migiTableBadge').textContent = pivotRows.length + ' kayıt';
 
   const clrV = v => v != null ? (v >= 100 ? 'color:#34d399;font-weight:700' : 'color:#f87171') : 'color:rgba(255,255,255,.3)';
   const fmtV = v => v != null ? pN(v).toFixed(1) : '—';
@@ -2549,46 +2597,114 @@ function renderMiGi() {
       else durumHtml = `<span style="background:rgba(251,191,36,.1);color:#fbbf24;border:1px solid rgba(251,191,36,.3);border-radius:5px;padding:2px 7px;font-size:9px;font-weight:700">🟡 Orta</span>`;
     }
 
-    return `<tr style="${siraStyle}">
-      <td class="mono" style="font-size:10px;color:rgba(255,255,255,.5);font-weight:700">${r.sira||'—'}</td>
-      <td style="font-size:10px;font-weight:600;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.brick}">${r.brick}</td>
-      <td style="font-size:9px;color:rgba(255,255,255,.4)">${(r.donem||'').replace('YTD-','')}</td>
+    const ayAdi = {'01':'Oca','02':'Şub','03':'Mar','04':'Nis','05':'May','06':'Haz',
+      '07':'Tem','08':'Ağu','09':'Eyl','10':'Eki','11':'Kas','12':'Ara'}[r.donem.split('/')[0]] || r.donem;
+    return `<tr>
+      <td class="mono" style="font-size:10px;color:rgba(255,255,255,.3)">${pivotRows.indexOf(r)+1}</td>
+      <td style="font-size:10px;font-weight:700;color:var(--c3)">${r.ttt.split(' ')[0]}</td>
+      <td style="font-size:9px;color:rgba(255,255,255,.5)">${r.ilac==='GENEL'?'Tümü':r.ilac}</td>
+      <td style="font-size:10px;color:rgba(255,255,255,.5);font-weight:600">${ayAdi}</td>
       <td class="mono" style="font-size:12px;${clrV(evo)}">${fmtV(r.evol)}</td>
       <td class="mono" style="font-size:12px;${clrV(mi)}">${fmtV(r.mi)}</td>
       <td class="mono" style="font-size:12px;${clrV(pp)}">${fmtV(r.pp)}</td>
       <td class="mono" style="font-size:12px;${clrV(bi)}">${fmtV(r.bi)}</td>
       <td>${durumHtml}</td>
     </tr>`;
-  }).join('') : '<tr><td colspan="8" style="text-align:center;padding:20px;color:rgba(255,255,255,.3)">Filtreye uygun veri yok</td></tr>';
+  }).join('') : '<tr><td colspan="9" style="text-align:center;padding:20px;color:rgba(255,255,255,.3)">Filtreye uygun veri yok</td></tr>';
 }
 
-// ─── MIGI KARNE CSV PARSER (yeni format: SIRA;BÖLGE;PERSONEL;BRICK;DÖNEM;KAPSAM;İLAÇ;DEĞER) ───
 function parseMiGiKarneCSV(csvText) {
   if (!csvText || csvText.trim().startsWith('<')) return { records: [], donem: '' };
-  const rows = parseCSVRows(csvText);
-  if (rows.length < 2) return { records: [], donem: '' };
+
+  // Yeni format: AY;PERSONEL;BI;EVOL;MI;PP_YTD2;PP_YTD1;PP_BI;...;urун bazlı değerler
+  // [0]=AY  [1]=PERSONEL
+  // [2]=BI (Büyüme İndeksi - toplam)  [3]=EVOL.IND (toplam)
+  // [4]=MI/Penetrasyon (toplam)       [5]=YTD-2 PP  [6]=YTD-1 PP
+  // [7]=PP Büyüme İndeksi  [8]=TL Hedef%  [9]=TL Satış%  [10]=TL Real%
+  // [11-15]=BI per ürün (PANOCER,FAMTREC,MOKSEFEN,ACIDPASS,GRIPORT)
+  // [16-20]=EVOL per ürün
+  // [21-25]=MI per ürün
+  // [26-30]=PP per ürün
 
   const pN = s => {
-    s = String(s||'').trim().replace(/ /g,'').replace(/\s/g,'');
+    s = String(s||'').trim().replace(/\s/g,'');
+    if (!s || s==='-') return 0;
     return parseFloat(s.replace(/\./g,'').replace(',','.')) || 0;
   };
 
+  const sep = ';';
+  const clean = csvText.replace(/^\uFEFF/,'').replace(/\r/g,'');
+
+  // CSV satır parser (tırnak desteği)
+  function parseRow(line) {
+    const out = []; let cur = ''; let inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQ = !inQ; continue; }
+      if (ch === sep && !inQ) { out.push(cur.trim()); cur = ''; continue; }
+      cur += ch;
+    }
+    out.push(cur.trim());
+    return out;
+  }
+
+  // Tüm satırları al (boş olmayanlar)
+  const lines = clean.split('\n').filter(l => l.trim());
+
+  const AYLAR = ['OCAK','ŞUBAT','MART','NİSAN','MAYIS','HAZİRAN','TEMMUZ','AĞUSTOS','EYLÜL','EKİM','KASIM','ARALIK'];
+  const AY_MAP = {
+    'OCAK':'01','ŞUBAT':'02','MART':'03','NİSAN':'04','MAYIS':'05','HAZİRAN':'06',
+    'TEMMUZ':'07','AĞUSTOS':'08','EYLÜL':'09','EKİM':'10','KASIM':'11','ARALIK':'12'
+  };
+
+  // Data satırı başlangıcı: ilk ay adı içeren satır
+  let dataStartIdx = 2; // varsayılan: 2 header satırı var
+  for (let i = 0; i < Math.min(6, lines.length); i++) {
+    const firstCol = (parseRow(lines[i])[0] || '').trim().toUpperCase();
+    if (AYLAR.some(a => firstCol === a)) { dataStartIdx = i; break; }
+  }
+
+  const URUN_SIRASI = ['PANOCER','FAMTREC','MOKSEFEN','ACİDPASS','GRİPORT COLD'];
   const records = [];
-  for (const r of rows.slice(1)) {
-    if (!r[0] || !r[0].trim() || isNaN(parseInt(r[0]))) continue;
-    records.push({
-      sira:   parseInt(r[0]),
-      bolge:  (r[1]||'').trim(),
-      ttt:    (r[2]||'').trim(),
-      brick:  (r[3]||'').trim(),
-      donem:  (r[4]||'').trim(),
-      kapsam: (r[5]||'').trim(),
-      ilac:   (r[6]||'').trim(),
-      deger:  pN(r[7])
+
+  for (let i = dataStartIdx; i < lines.length; i++) {
+    const c = parseRow(lines[i]);
+    if (c.length < 5) continue;
+
+    const ayRaw = (c[0]||'').trim().toUpperCase();
+    const tttRaw = (c[1]||'').trim();
+    if (!ayRaw || !tttRaw) continue;
+    if (tttRaw.toUpperCase().includes('NATIONAL') || tttRaw.toUpperCase().includes('GİDİLMEYEN')) continue;
+
+    // Ay → dönem kodu
+    const ayEntry = Object.entries(AY_MAP).find(([k]) => ayRaw.includes(k));
+    const ayNo = ayEntry ? ayEntry[1] : '00';
+    const donem = ayNo !== '00' ? `${ayNo}/2026` : ayRaw;
+
+    const ttt = normTTT(tttRaw) || tttRaw;
+
+    // Toplam değerleri (TÜM ÜRÜNLER)
+    const bi_toplam   = pN(c[2]);
+    const evol_toplam = pN(c[3]);
+    const mi_toplam   = pN(c[4]);
+    const pp_ytd1     = pN(c[6]);
+
+    // GENEL kayıt
+    records.push({ sira:0, ttt, brick:'TOPLAM', donem, ilac:'GENEL',
+      bi:bi_toplam, evol:evol_toplam, mi:mi_toplam, pp:pp_ytd1 });
+
+    // Ürün bazlı kayıtlar
+    URUN_SIRASI.forEach((urun, idx) => {
+      const bi_u   = pN(c[11 + idx]);
+      const evol_u = pN(c[16 + idx]);
+      const mi_u   = pN(c[21 + idx]);
+      const pp_u   = pN(c[26 + idx]);
+      if (bi_u === 0 && evol_u === 0 && mi_u === 0) return;
+      records.push({ sira:0, ttt, brick:'TOPLAM', donem, ilac:urun,
+        bi:bi_u, evol:evol_u, mi:mi_u, pp:pp_u });
     });
   }
 
-  // En son dönem
   const donemler = [...new Set(records.map(r=>r.donem))].sort();
   const lastDonem = donemler[donemler.length - 1] || '';
 
@@ -2656,6 +2772,18 @@ async function syncData() {
   const statusEl = document.getElementById('syncStatus');
   const loadMsg  = document.getElementById('loadMsg');
   statusEl.textContent = '⏳ Güncelleniyor…';
+
+  // file:// protokolünde CORS engeli — kullanıcıyı bilgilendir
+  if (window.location.protocol === 'file:') {
+    const msg = '⚠️ Dosya doğrudan açıldı (file://). GitHub\'dan veri yüklemek için portala bir web sunucusu üzerinden ya da doğrudan GitHub Pages üzerinden erişin.';
+    if (loadMsg) { loadMsg.textContent = msg; loadMsg.style.color='#D97706'; loadMsg.style.maxWidth='340px'; loadMsg.style.textAlign='center'; }
+    statusEl.textContent = '⚠️ file:// — veri yüklenemez';
+    _syncLock = false;
+    // Demo mod: sadece UI'ı başlat, veri olmadan
+    document.getElementById('loading').style.display='none';
+    if(typeof goPage==='function') goPage(1);
+    return;
+  }
 
   try {
     // GitHub raw önbelleğini atlatmak için cache:no-store + timestamp
@@ -2768,7 +2896,7 @@ async function syncData() {
 
     const now = new Date();
     statusEl.textContent = '✅ ' + now.toLocaleTimeString('tr-TR');
-    statusEl.title = `IMS: ${newIMS.length} | GENEL: ${newGenel.length} | MIGI: ${MIGI_RAW.length}`;
+    statusEl.title = `IMS: ${newIMS.length} | GENEL: ${newGenel.length} | MIGI-TL: ${MIGI_TL_RAW.length} | MIGI-KUTU: ${MIGI_KUTU_RAW.length}`;
     if (loadMsg) loadMsg.textContent = 'Veriler yüklendi ✅';
     console.log('[SYNC OK] IMS:', newIMS.length, 'GENEL:', newGenel.length,
       'KUTU:', KUTU.length, 'TTTS:', ALL_TTTS);
@@ -3729,55 +3857,7 @@ function renderTakip(){buildTTT2Slicer();renderTakipContent();}
 // ═══════════════════════════════════════════════════════════
 //  LOGIN
 // ═══════════════════════════════════════════════════════════
-const VALID_USERS=[
-  'Şenol Yılmaz','şenol yılmaz','ŞENOL YILMAZ',
-  'Yılmaz Usta','yılmaz usta','YILMAZ USTA',
-  'Murat Kandiş','murat kandiş','MURAT KANDİŞ','Murat Kandis','murat kandis',
-  'Kürşad Karadağ','kürşad karadağ','KÜRŞAD KARADAĞ','Kursad Karadag','kursad karadag',
-  'Emrah Yıldız','emrah yıldız','EMRAH YILDIZ','Emrah Yildiz','emrah yildiz',
-  'Hakan Yumak','hakan yumak','HAKAN YUMAK',
-  'Aykut Dinler','aykut dinler','AYKUT DİNLER','Aykut Dİnler',
-  'Mehmet Akif Özgeçen','mehmet akif özgeçen','MEHMET AKİF ÖZGEÇEN','Mehmet Akif Ozgecen',
-  'Samet Çetin','samet çetin','SAMET ÇETİN','Samet Cetin','samet cetin'
-];
-
-// Kullanıcı adı → temsilci adı eşleşmesi
-const USER_TO_TTT = {
-  'şenol yılmaz': 'ŞENOL YILMAZ',
-  'yılmaz usta':  'YILMAZ USTA',
-  'murat kandiş': 'MURAT KANDİŞ',
-  'murat kandis': 'MURAT KANDİŞ',
-  'kürşad karadağ': 'KÜRŞAD KARADAĞ',
-  'kursad karadag': 'KÜRŞAD KARADAĞ',
-  'emrah yıldız':  'EMRAH YILDIZ',
-  'emrah yildiz':  'EMRAH YILDIZ',
-  'hakan yumak':   'HAKAN YUMAK',
-  'aykut dinler':  'AYKUT DİNLER',
-  'mehmet akif özgeçen': 'MEHMET AKİF ÖZGEÇEN',
-  'mehmet akif ozgecen': 'MEHMET AKİF ÖZGEÇEN',
-  'samet çetin':   'SAMET ÇETİN',
-  'samet cetin':   'SAMET ÇETİN',
-};
-let LOGGED_IN_USER = ''; // giriş yapan kullanıcı canonical adı
-
-const VALID_PASS='Saslan.9';
-
-function doLogin(){
-  const user=document.getElementById('loginUser').value.trim();
-  const pass=document.getElementById('loginPass').value;
-  const errEl=document.getElementById('loginErr');
-  const isUserOk=VALID_USERS.some(u=>u.toLowerCase()===user.toLowerCase());
-  if(isUserOk&&pass===VALID_PASS){
-    document.getElementById('loginScreen').style.display='none';
-    errEl.style.display='none';
-    LOGGED_IN_USER = USER_TO_TTT[user.toLowerCase()] || '';
-    initApp();
-  } else {
-    errEl.style.display='block';
-    document.getElementById('loginPass').value='';
-    document.getElementById('loginPass').focus();
-  }
-}
+// LOGIN — yukarıdaki script bloğuna taşındı
 
 async function initApp(){
   const loadMsg = document.getElementById('loadMsg');
@@ -3810,63 +3890,11 @@ window.addEventListener('DOMContentLoaded',()=>{
   // Login ekranını göster, app'i başlatma
   document.getElementById('loading').style.display='none';
   document.getElementById('loginUser').focus();
+  // Eğer kullanıcı script yüklenmeden önce giriş yaptıysa şimdi başlat
+  if(window._pendingLogin){ window._pendingLogin=false; initApp(); }
 });
 
-// ── PRİM ÇARPAN TABLOSU (2026) ──────────────────────────────
-const CARPAN_TABLE = {
-  91:75,92:78,93:81,94:84,95:87,96:90,97:93,98:96,99:99,100:100,
-  101:105,102:108,103:112,104:116,105:120,106:122,107:124,108:126,109:128,110:130,
-  111:132,112:134,113:136,114:138,115:140,116:142,117:144,118:146,119:148,120:150,
-  121:151,122:152,123:153,124:154,125:155,126:156,127:157,128:158,129:159,130:160
-};
-
-// MI & GI MATRİS (PDF sayfa 13)
-const MIGI_MATRIX = {
-  // [GIGI_row][MI_col] = katsayı
-  80:  {80:0,   85:0,   90:0,   95:0,    100:0.5, 110:0.5, 120:0.75,130:0.75,140:1,   150:1.1},
-  85:  {80:0,   85:0,   90:0,   95:0.5,  100:0.5, 110:0.75,120:0.75,130:1,   140:1.1, 150:1.1},
-  90:  {80:0,   85:0,   90:0.5, 95:0.5,  100:0.75,110:0.75,120:1,   130:1.1, 140:1.1, 150:1.25},
-  95:  {80:0,   85:0.5, 90:0.5, 95:0.75, 100:0.75,110:1,   120:1.1, 130:1.1, 140:1.25,150:1.25},
-  100: {80:0.5, 85:0.5, 90:0.75,95:0.75, 100:1,   110:1.1, 120:1.1, 130:1.25,140:1.25,150:1.5},
-  110: {80:0.5, 85:0.75,90:0.75,95:1,    100:1.1, 110:1.1, 120:1.25,130:1.25,140:1.5, 150:1.5},
-  120: {80:0.75,85:0.75,90:1,   95:1.1,  100:1.1, 110:1.25,120:1.25,130:1.5, 140:1.5, 150:1.75},
-  130: {80:0.75,85:1,   90:1.1, 95:1.1,  100:1.25,110:1.25,120:1.5, 130:1.5, 140:1.75,150:1.75},
-  140: {80:1,   85:1.1, 90:1.1, 95:1.25, 100:1.25,110:1.5, 120:1.5, 130:1.75,140:1.75,150:2},
-  150: {80:1.1, 85:1.1, 90:1.25,95:1.25, 100:1.5, 110:1.5, 120:1.75,130:1.75,140:2,   150:2},
-};
-
-// Çarpan tablosundan değer al
-function getCarpan(real_pct) {
-  const r = Math.min(Math.max(Math.round(real_pct), 91), 130);
-  return (CARPAN_TABLE[r] || 100) / 100;
-}
-
-// MI & GI matrisinden katsayı al
-function getMiGiKatsayi(mi, gi) {
-  const MI_COLS  = [80,85,90,95,100,110,120,130,140,150];
-  const GI_ROWS  = [80,85,90,95,100,110,120,130,140,150];
-  const snapMI   = MI_COLS.reduce((a,b) => Math.abs(b-mi)<Math.abs(a-mi)?b:a);
-  const snapGI   = GI_ROWS.reduce((a,b) => Math.abs(b-gi)<Math.abs(a-gi)?b:a);
-  return MIGI_MATRIX[snapGI]?.[snapMI] ?? 0;
-}
-
-// Prim puanı hesapla (ürün ağırlıkları × real)
-const URUN_AGIRLIK = {
-  'PANOCER': 0.25, 'ACİDPASS': 0.25,
-  'GRİPORT COLD': 0.20, 'MOKSEFEN': 0.15, 'FAMTREC': 0.15
-};
-
-function calcPrimPuani(urunReals) {
-  let total = 0;
-  for (const [urun, agirlik] of Object.entries(URUN_AGIRLIK)) {
-    const real = urunReals[urun] || 0;
-    if (real >= 70) {
-      const cappedReal = Math.min(real, 130);
-      total += cappedReal * agirlik;
-    }
-  }
-  return total;
-}
+// (CARPAN_TABLE, MIGI_MATRIX, URUN_AGIRLIK — blok 1'de tanımlı)
 
 // ── MI & GI VERİSİ (duplicate declarations removed - defined in first script block) ─────
 // selMigiTTT, selMigiBrick, selMigiDonem etc. already defined above
@@ -4026,7 +4054,7 @@ function buildTTTContext(ttt) {
   // Temsilci verilerini özet olarak hazırla
   const genelRows = GENEL.filter(r=>r.ttt===ttt&&r.urun!=='GENEL TOPLAM');
   const genelTotal = GENEL.find(r=>r.ttt===ttt&&r.urun==='GENEL TOPLAM');
-  const migiRows = MIGI_RAW.filter(r=>r.ttt===ttt);
+  const migiRows = (MIGI_TL_RAW||[]).filter(r=>r.ttt===ttt);
   const top333 = migiRows.filter(r=>r.sira<=333);
   const trSira = TR_SIRA_MAP[ttt] || '?';
 
@@ -4428,8 +4456,7 @@ function calcZam() {
 // ═══════════════════════════════════════════════════════════
 //  ECZANE SATIŞ TAKİBİ
 // ═══════════════════════════════════════════════════════════
-const GS_ECZANE_URL = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/ECZANE.csv';
-const GITHUB_IMG_BASE = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/images/';
+// GS_ECZANE_URL, GITHUB_IMG_BASE — blok 1'de tanımlı
 
 // Temsilci adı → fotoğraf dosya adı
 function getTTTPhoto(ttt) {
