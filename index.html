@@ -2807,79 +2807,90 @@ function renderCalcTable(){
 }
 
 function liveCalcRow(urun){
-  // Real-time per-row update without full runCalc
-  const r=GENEL.find(g=>g.ttt===selTTT_p2&&g.urun===urun);if(!r)return;
-  const key=urun.replace(/\s+/g,'_');
-  const kutu=parseFloat(document.getElementById('kutu_'+key)?.value)||0;
-  const imsPrice=IMS_TL_MAP[urun]||0;
-  const tahAnamal=kutu*imsPrice;
-  const toplamS=r.satis_tl+tahAnamal;
-  const tahPct=r.hedef_tl>0?(toplamS/r.hedef_tl*100):0;
-  
-  // Prim puan hesabı: GENEL_TABLO'daki urun_agirlik kullan
-  const agirlik = r.urun_agirlik > 0 ? r.urun_agirlik : (URUN_AGIRLIK[urun]||0.2);
-  const tahPrim = tahPct >= 91 ? Math.min(tahPct, 130) * agirlik : (tahPct >= 70 ? (tahPct-70)*(50/21)*agirlik/50 : 0);
+  const r=GENEL.find(g=>g.ttt===selTTT_p2&&g.urun===urun);
+  if(!r) return;
+
+  const key       = urun.replace(/\s+/g,'_');
+  const kutu      = parseFloat(document.getElementById('kutu_'+key)?.value)||0;
+  const imsPrice  = IMS_TL_MAP[urun]||0;
+  const tahAnamal = kutu * imsPrice;
+  const toplamS   = r.satis_tl + tahAnamal;
+  const tahPct    = r.hedef_tl > 0 ? (toplamS / r.hedef_tl * 100) : 0;
+
+  // ─── Ürün bazı prim puan katkısı (formül) ──────────────────
+  // CSV L sütunu = urun_agirlik
+  const agirlik = r.urun_agirlik > 0 ? r.urun_agirlik : (URUN_AGIRLIK[urun]||0);
+  let clampedReal = 0;
+  if (tahPct >= 70) clampedReal = Math.min(tahPct, 130);
+  const tahPrimPuan = clampedReal * agirlik;
+  // ───────────────────────────────────────────────────────────
 
   // Tahmin Anamal TL
-  const raEl=document.getElementById('ra_'+key);
-  if(raEl)raEl.textContent=kutu>0?fTL(tahAnamal):'—';
+  const raEl = document.getElementById('ra_'+key);
+  if (raEl) raEl.textContent = kutu>0 ? fTL(tahAnamal) : '—';
 
   // Satış Kümülatif TL (mevcut + tahmini)
-  const rkEl=document.getElementById('rk_'+key);
-  if(rkEl){
-    if(kutu>0){
-      rkEl.innerHTML=`<div style="font-size:11px;font-weight:700;color:var(--c1)">${fTL(toplamS)}</div>
+  const rkEl = document.getElementById('rk_'+key);
+  if (rkEl) {
+    if (kutu > 0) {
+      rkEl.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--c1)">${fTL(toplamS)}</div>
         <div style="font-size:9px;color:var(--dim)">${fTL(r.satis_tl)} + ${fTL(tahAnamal)}</div>`;
     } else {
-      rkEl.innerHTML=`<div style="font-size:11px">${fTL(r.satis_tl)}</div><div style="font-size:9px;color:var(--dim)">Mevcut</div>`;
+      rkEl.innerHTML = `<div style="font-size:11px">${fTL(r.satis_tl)}</div><div style="font-size:9px;color:var(--dim)">Mevcut</div>`;
     }
   }
 
-  // Kalan TL güncelle
-  const rkalEl=document.getElementById('rkal_'+key);
-  if(rkalEl){
-    const kalan=Math.max(0,r.hedef_tl-toplamS);
-    rkalEl.textContent=fTL(kalan);
-    rkalEl.style.color=kalan<=0?'#16A34A':'#DC2626';
+  // Kalan TL
+  const rkalEl = document.getElementById('rkal_'+key);
+  if (rkalEl) {
+    const kalan = Math.max(0, r.hedef_tl - toplamS);
+    rkalEl.textContent = fTL(kalan);
+    rkalEl.style.color = kalan<=0 ? '#16A34A' : '#DC2626';
   }
 
   // TL %
-  const rpEl=document.getElementById('rp_'+key);
-  if(rpEl)rpEl.innerHTML=`<span class="bdg ${pCls(tahPct)}">${fPct(tahPct)}</span>`;
+  const rpEl = document.getElementById('rp_'+key);
+  if (rpEl) rpEl.innerHTML = `<span class="bdg ${pCls(tahPct)}">${fPct(tahPct)}</span>`;
 
-  // Prim (ürün bazında prim puan gösterimi - satır için)
-  const rprEl=document.getElementById('rpr_'+key);
-  if(rprEl){
-    const prim = r.hedef_tl>0 ? (toplamS/r.hedef_tl*100) : 0;
-    let primPuan=0;
-    if(prim>=100)primPuan=100;else if(prim>=91)primPuan=50+(prim-91)*(50/9);else if(prim>=70)primPuan=(prim-70)*(50/21);
-    rprEl.innerHTML=`<span class="bdg bdg-blue">${fPct(primPuan)}</span>`;
-  }
+  // Prim Puan % (ürün katkısı — formüle göre)
+  const rprEl = document.getElementById('rpr_'+key);
+  if (rprEl) rprEl.innerHTML = `<span class="bdg bdg-blue">${fPct(tahPrimPuan)}</span>`;
 
-  // Update summary row
+  // Toplam satırı güncelle
   runCalcSummary();
 }
 
 function runCalcSummary(){
-  let totH=0,totS=0,totAnamal=0,totPrimPuan=0;
+  let totH=0, totS=0, totAnamal=0, totPrimPuan=0;
+
   URUN_ORDER.forEach(urun=>{
-    const r=GENEL.find(g=>g.ttt===selTTT_p2&&g.urun===urun);if(!r)return;
-    const key=urun.replace(/\s+/g,'_');
-    const kutu=parseFloat(document.getElementById('kutu_'+key)?.value)||0;
-    const tahAnamal=kutu*(IMS_TL_MAP[urun]||0);
-    const toplamS=r.satis_tl+tahAnamal;
-    const tahPct=r.hedef_tl>0?(toplamS/r.hedef_tl*100):0;
-    // Prim puan: GENEL_TABLO'dan agirlik al, toplam hesapla
-    const agirlik = r.urun_agirlik > 0 ? r.urun_agirlik : (URUN_AGIRLIK[urun]||0.2);
-    const urunPrimKatkisi = tahPct >= 91 ? Math.min(tahPct, 130) * agirlik : 0;
-    totPrimPuan += urunPrimKatkisi;
-    totH+=r.hedef_tl;totS+=toplamS;totAnamal+=tahAnamal;
+    const r=GENEL.find(g=>g.ttt===selTTT_p2&&g.urun===urun);
+    if(!r) return;
+
+    const key = urun.replace(/\s+/g,'_');
+    const kutu = parseFloat(document.getElementById('kutu_'+key)?.value)||0;
+    const tahAnamal = kutu * (IMS_TL_MAP[urun]||0);
+    const toplamS   = r.satis_tl + tahAnamal;
+    const tahPct    = r.hedef_tl > 0 ? (toplamS / r.hedef_tl * 100) : 0;
+
+    // ─── Prim Puan katkısı (formül) ───────────────────────────
+    // CSV'den ağırlık al (L sütunu = urun_agirlik)
+    const agirlik = r.urun_agirlik > 0 ? r.urun_agirlik : (URUN_AGIRLIK[urun]||0);
+    // clamp(70, real, 130): real<70 → 0, real>130 → 130, else real
+    let clampedReal = 0;
+    if (tahPct >= 70) clampedReal = Math.min(tahPct, 130);
+    // Katkı = clamp(real) × ağırlık
+    totPrimPuan += clampedReal * agirlik;
+    // ──────────────────────────────────────────────────────────
+
+    totH      += r.hedef_tl;
+    totS      += toplamS;
+    totAnamal += tahAnamal;
   });
-  const totPct=totH>0?(totS/totH*100):0;
-  const totKalan=Math.max(0,totH-totS);
-  // Toplam prim puan (ortalama değil, TOPLAM)
-  let totPrim=0;
-  if(totPct>=100)totPrim=100;else if(totPct>=91)totPrim=50+(totPct-91)*(50/9);else if(totPct>=70)totPrim=(totPct-70)*(50/21);
+
+  const totPct   = totH > 0 ? (totS / totH * 100) : 0;
+  const totKalan = Math.max(0, totH - totS);
+
   document.getElementById('calcFoot').innerHTML=`<tr style="border-top:2px solid var(--c1);background:rgba(79,0,140,.04)">
     <td style="font-weight:700;color:var(--c1)">TOPLAM</td>
     <td></td>
@@ -2890,9 +2901,11 @@ function runCalcSummary(){
     <td><span class="bdg ${pCls(totPct)}">${fPct(totPct)}</span></td>
     <td><span class="bdg bdg-blue">${fPct(totPrimPuan)}</span></td>
   </tr>`;
-  document.getElementById('calcInsight').style.display=totAnamal>0?'block':'none';
-  document.getElementById('calcInsightBody').innerHTML=`Tahmini gerçekleşme: <strong>${fPct(totPct)}</strong> | Hedefe kalan: <strong>${fTL(totKalan)}</strong> | Tahmini prim puan: <strong>${fPct(totPrimPuan)}</strong>`;
+
+  document.getElementById('calcInsight').style.display = totAnamal>0 ? 'block' : 'none';
+  document.getElementById('calcInsightBody').innerHTML = `Tahmini gerçekleşme: <strong>${fPct(totPct)}</strong> | Hedefe kalan: <strong>${fTL(totKalan)}</strong> | Tahmini prim puan: <strong>${fPct(totPrimPuan)}</strong>`;
 }
+
 
 function runCalc(){runCalcSummary();}
 
