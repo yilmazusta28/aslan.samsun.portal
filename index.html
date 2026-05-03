@@ -63,8 +63,8 @@ function calcPrimPuani(urunReals) {
 
 // ── MI & GI VERİSİ ─────────────────────────────────────────
 let MIGI_RAW    = []; // Eski MI_GI.csv (fallback)
-let MIGI_TL_RAW   = []; // MI_GI-TL.csv ham veri
-let MIGI_KUTU_RAW = []; // MI_GI-KUTU.csv ham veri
+let MIGI_TL_RAW   = []; // MI_GI_TL_TOPLAM.csv ham veri
+let MIGI_KUTU_RAW = []; // MI_GI_KUTU_TOPLAM.csv ham veri
 let migiDonem     = ''; // Aktif dönem (son seçili)
 let selMigiDonem  = 'TÜMÜ';  // Seçili dönem filtresi
 let selMigiIlac   = 'TÜMÜ';  // Seçili ürün filtresi
@@ -72,6 +72,7 @@ let selMigiTip    = 'TL';     // TL veya KUTU
 let selMigiKapsam = 'EVOL';   // EVOL, MI, BI, PP
 
 let selMigiTTT = '';
+let selMigiBrick = 'TÜMÜ';
 let migiCurrentFilter = 'all';
 
 function getIndeksColor(v) {
@@ -166,11 +167,11 @@ function calcPrim() {
 
   // Baz primler (dönemlik)
   const BAZ_TL_REAL  = 55000;
-  const BAZ_PORTFOLYO = 11000;
+  
   const BAZ_MIGI     = 14000;
 
   const tlRealPrim   = carpan * BAZ_TL_REAL;
-  const portfoyPrim  = (effReal >= 91 && primPuani >= 91) ? 0.2 * BAZ_PORTFOLYO * carpan : 0;
+  const portfoyPrim  = (effReal >= 91 && primPuani >= 91) ? 0.20 * BAZ_TL_REAL * carpan : 0;
   const migiPrim     = migiKatsayi * BAZ_MIGI;
   const toplamPrim   = tlRealPrim + portfoyPrim + migiPrim;
 
@@ -1528,13 +1529,14 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
         <div class="insight-body" id="calcInsightBody"></div>
       </div>
       <div class="scroll-x">
-        <table class="tbl" id="calcTable" style="min-width:860px">
+        <table class="tbl" id="calcTable" style="min-width:960px">
           <thead><tr>
             <th>Ürün</th>
             <th>Tahmini Kutu</th>
-            <th>IMS TL</th>
             <th>Tahmin Anamal TL</th>
             <th>Satış Kümülatif TL</th>
+            <th>Hedef TL</th>
+            <th>Kalan TL</th>
             <th>Tahminli TL %</th>
             <th>Tahmini Prim Puan %</th>
           </tr></thead>
@@ -1589,6 +1591,9 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
 <!-- ══════ PAGE 3: MI & GI ANALİZİ ══════ -->
 <div class="page" id="page3">
 
+  <!-- Özet Toplam Kartları (üstte) -->
+  <div id="migiToplamCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:14px"></div>
+
   <!-- Filtre Paneli -->
   <div class="card mb16">
     <div class="card-hd">
@@ -1597,12 +1602,32 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
     </div>
     <div class="card-body">
 
-      <!-- Satır 1: Temsilci + TL/Kutu -->
-      <div style="display:grid;grid-template-columns:1fr auto;gap:16px;margin-bottom:10px;align-items:start">
+      <!-- Satır 1: Temsilci -->
+      <div style="margin-bottom:10px">
+        <div class="section-h">Temsilci</div>
+        <div id="migiTttBar" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+      </div>
+
+      <!-- Satır 2: Brick -->
+      <div style="margin-bottom:10px">
+        <div class="section-h">Brick</div>
+        <div id="migiBrickBar" style="display:flex;flex-wrap:wrap;gap:5px;max-height:80px;overflow-y:auto"></div>
+      </div>
+
+      <!-- Satır 3: Ürün + Dönem -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:10px">
         <div>
-          <div class="section-h">Temsilci</div>
-          <div id="migiTttBar" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+          <div class="section-h">Ürün</div>
+          <div id="migiIlacBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
         </div>
+        <div>
+          <div class="section-h">Dönem</div>
+          <div id="migiDonemBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+        </div>
+      </div>
+
+      <!-- Satır 4: Tip + Hızlı Filtre -->
+      <div style="display:grid;grid-template-columns:auto auto 1fr;gap:16px;align-items:end">
         <div>
           <div class="section-h">Tip</div>
           <div style="display:flex;gap:5px">
@@ -1610,33 +1635,8 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
             <button class="sp-btn"        id="migiTipKUTU" onclick="selMigiTip='KUTU';buildMigiFilters();renderMiGi()">Kutu</button>
           </div>
         </div>
-      </div>
-
-      <!-- Satır 2: Dönem + Ürün -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:10px">
         <div>
-          <div class="section-h">Dönem</div>
-          <div id="migiDonemBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
-        </div>
-        <div>
-          <div class="section-h">Ürün</div>
-          <div id="migiIlacBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
-        </div>
-      </div>
-
-      <!-- Satır 3: Kapsam filtresi + Filtre butonları -->
-      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:12px">
-        <div>
-          <div class="section-h">Kapsam</div>
-          <div style="display:flex;gap:5px">
-            <button class="sp-btn active" id="migiKapsamEVOL" onclick="selMigiKapsam='EVOL';buildMigiFilters();renderMiGi()">Gelişim (EVOL)</button>
-            <button class="sp-btn"        id="migiKapsamMI"   onclick="selMigiKapsam='MI';  buildMigiFilters();renderMiGi()">Penetrasyon (MI)</button>
-            <button class="sp-btn"        id="migiKapsamPP"   onclick="selMigiKapsam='PP';  buildMigiFilters();renderMiGi()">Pazar Payı (%)</button>
-            <button class="sp-btn"        id="migiKapsamBI"   onclick="selMigiKapsam='BI';  buildMigiFilters();renderMiGi()">Büyüme İndeksi</button>
-          </div>
-        </div>
-        <div style="margin-left:auto">
-          <div class="section-h">Hızlı Filtre</div>
+          <div class="section-h">Hızlı Filtreleme</div>
           <div style="display:flex;gap:5px">
             <button class="sp-btn active" id="migiFilterAll"    onclick="migiFilter('all')">Tümü</button>
             <button class="sp-btn"        id="migiFilter333"    onclick="migiFilter('333')">İlk 333</button>
@@ -1644,6 +1644,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
             <button class="sp-btn"        id="migiFilterFirsat" onclick="migiFilter('firsat')">🚀 Fırsat (&gt;100)</button>
           </div>
         </div>
+        <div></div>
       </div>
 
     </div>
@@ -1661,10 +1662,10 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
     <div class="card-body-0 scroll-x">
       <table class="tbl" id="migiTable" style="min-width:700px">
         <thead id="migiThead">
-          <tr><th>Sıra</th><th>Brick</th><th>Değer</th></tr>
+          <tr><th>Sıra</th><th>Brick</th><th>Dönem</th><th>Gelişim(evo)</th><th>Penetrasyon(MI)</th><th>Pazar Payı%</th><th>Büyüme İndeksi</th><th>Durum</th></tr>
         </thead>
         <tbody id="migiTbody">
-          <tr><td colspan="3" style="text-align:center;padding:20px;color:var(--dim)">MI_GI-TL.csv ve MI_GI-KUTU.csv GitHub reposuna yüklenmeli</td></tr>
+          <tr><td colspan="8" style="text-align:center;padding:20px;color:var(--dim)">MI_GI_TL_TOPLAM.csv ve MI_GI_KUTU_TOPLAM.csv GitHub reposuna yüklenmeli</td></tr>
         </tbody>
       </table>
     </div>
@@ -1925,8 +1926,8 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
 const GS_IMS_URL   = "https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/IMS_TABLO.csv";
 const GS_GENEL_URL = "https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/GENEL_TABLO.csv";
 // MI_GI.csv artık kullanılmıyor (MI_GI-TL.csv ve MI_GI-KUTU.csv kullanılıyor)
-const GS_MIGI_TL_URL   = "https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI-TL.csv";
-const GS_MIGI_KUTU_URL = "https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI-KUTU.csv";
+const GS_MIGI_TL_URL   = "https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI_TL_TOPLAM.csv";
+const GS_MIGI_KUTU_URL = "https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI_KUTU_TOPLAM.csv";
 
 // ─── CSV PARSER — OTOMATİK SEPARATOR TESPİTİ ───────────────
 // Türkçe Excel/LibreOffice CSV'si noktalı virgül (;) kullanır
@@ -2354,7 +2355,18 @@ function buildMigiFilters() {
   if (tttBar) {
     tttBar.innerHTML = allTTTs.map(t =>
       `<button class="sp-btn${t===selMigiTTT?' active':''}"
-        onclick="selMigiTTT='${t}';buildMigiFilters();renderMiGi()">${t.split(' ')[0]}</button>`
+        onclick="selMigiTTT='${t}';selMigiBrick='TÜMÜ';buildMigiFilters();renderMiGi()">${t.split(' ')[0]}</button>`
+    ).join('');
+  }
+
+  // Brick filtresi - seçili TTT'ye göre
+  const brickSrc = selMigiTTT ? src.filter(r=>r.ttt===selMigiTTT) : src;
+  const allBricks = [...new Set(brickSrc.map(r=>r.brick))].sort();
+  const brickBar = document.getElementById('migiBrickBar');
+  if (brickBar) {
+    brickBar.innerHTML = ['TÜMÜ', ...allBricks].map(b =>
+      `<button class="sp-btn${b===selMigiBrick?' active':''}"
+        onclick="selMigiBrick='${b}';buildMigiFilters();renderMiGi()">${b==='TÜMÜ'?'Tümü':b}</button>`
     ).join('');
   }
 
@@ -2378,12 +2390,6 @@ function buildMigiFilters() {
     ).join('');
   }
 
-  // Kapsam active state
-  ['EVOL','MI','PP','BI'].forEach(k => {
-    const el = document.getElementById('migiKapsam'+k);
-    if (el) el.classList.toggle('active', k === selMigiKapsam);
-  });
-
   // Tip active state
   const tipTL   = document.getElementById('migiTipTL');
   const tipKutu = document.getElementById('migiTipKUTU');
@@ -2406,8 +2412,8 @@ function renderMiGi() {
   if (!src.length) {
     const tbody = document.getElementById('migiTbody');
     if (tbody) tbody.innerHTML =
-      `<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--dim)">
-        ⚠️ Veri yüklenmedi — GitHub reposunda MI_GI-TL.csv ve MI_GI-KUTU.csv olduğunu kontrol edin
+      `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--dim)">
+        ⚠️ Veri yüklenmedi — GitHub reposunda MI_GI_TL_TOPLAM.csv ve MI_GI_KUTU_TOPLAM.csv olduğunu kontrol edin
       </td></tr>`;
     return;
   }
@@ -2424,48 +2430,82 @@ function renderMiGi() {
 
   buildMigiFilters();
 
-  // Kapsam → KAPSAM string eşleşmesi
+  // Tüm 4 kapsam için veri grupla - brick+dönem bazında
+  // KAPSAM_MAP: CSV'deki kapsam değerlerine göre
   const KAPSAM_MAP = {
-    'EVOL': 'PAZARA GÖRE GELİŞİM',
+    'EVOL': 'EVOL.IND',
     'MI':   'PENETRASYON',
     'PP':   'PAZAR PAYI',
     'BI':   'BÜYÜME'
   };
-  const kapsamFilter = KAPSAM_MAP[selMigiKapsam] || 'PAZARA GÖRE GELİŞİM';
 
-  // Veriyi filtrele
-  let rows = src.filter(r => {
+  // TTT + brick filtresi uygula (kapsam filtresi YOK - hepsi gösterilecek)
+  let filtered = src.filter(r => {
     if (r.ttt.includes('GİDİLMEYEN')) return false;
     if (selMigiTTT && r.ttt !== selMigiTTT) return false;
     if (selMigiDonem !== 'TÜMÜ' && r.donem !== selMigiDonem) return false;
     if (selMigiIlac !== 'TÜMÜ' && r.ilac !== selMigiIlac) return false;
-    if (!r.kapsam.includes(kapsamFilter)) return false;
+    if (selMigiBrick !== 'TÜMÜ' && r.brick !== selMigiBrick) return false;
     return true;
   });
 
-  // Hızlı filtre
+  // Pivot: her brick+dönem+ilac için 4 kapsam değerini topla
+  const pivotMap = {};
+  filtered.forEach(r => {
+    const key = r.sira + '|' + r.brick + '|' + r.donem + (selMigiIlac !== 'TÜMÜ' ? '|' + r.ilac : '');
+    if (!pivotMap[key]) {
+      pivotMap[key] = { sira: r.sira, brick: r.brick, donem: r.donem, ilac: r.ilac,
+        evol: null, mi: null, pp: null, bi: null };
+    }
+    const kap = (r.kapsam || '').toUpperCase();
+    if (kap.includes('EVOL')) pivotMap[key].evol = r.deger;
+    else if (kap.includes('PENETRASYON') || kap.includes('MARKET')) pivotMap[key].mi = r.deger;
+    else if (kap.includes('PAZAR PAYI') || kap.includes('PAYI')) pivotMap[key].pp = r.deger;
+    else if (kap.includes('BÜYÜME') || kap.includes('BUYUME')) pivotMap[key].bi = r.deger;
+  });
+
+  let pivotRows = Object.values(pivotMap).sort((a,b) => a.sira - b.sira);
+
+  // Hızlı filtre (EVOL değerine göre)
   const pN = v => parseFloat(String(v||0).replace(',','.')) || 0;
-  if (migiCurrentFilter === '333') rows = rows.filter(r => r.sira <= 333);
-  if (migiCurrentFilter === 'risk')   rows = rows.filter(r => pN(r.deger) < 100);
-  if (migiCurrentFilter === 'firsat') rows = rows.filter(r => pN(r.deger) >= 100);
+  if (migiCurrentFilter === '333') pivotRows = pivotRows.filter(r => r.sira <= 333);
+  if (migiCurrentFilter === 'risk')   pivotRows = pivotRows.filter(r => pN(r.evol) < 100 || pN(r.mi) < 100);
+  if (migiCurrentFilter === 'firsat') pivotRows = pivotRows.filter(r => pN(r.evol) >= 100 && pN(r.mi) >= 100);
 
-  // Sıra sırala
-  rows.sort((a,b) => a.sira - b.sira);
+  // Özet Toplam kartları
+  const toplamEl = document.getElementById('migiToplamCards');
+  if (toplamEl) {
+    const evoVals = pivotRows.map(r=>pN(r.evol)).filter(v=>v>0);
+    const miVals  = pivotRows.map(r=>pN(r.mi)).filter(v=>v>0);
+    const ppVals  = pivotRows.map(r=>pN(r.pp)).filter(v=>v>0);
+    const biVals  = pivotRows.map(r=>pN(r.bi)).filter(v=>v>0);
+    const avg = arr => arr.length ? (arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(1) : '—';
+    const tipLbl = selMigiTip === 'TL' ? 'TL' : 'Kutu';
+    toplamEl.innerHTML = [
+      {icon:'📈', lbl:`Ort. Gelişim (EVOL) ${tipLbl}`, val:avg(evoVals), color:'#22d3ee'},
+      {icon:'🎯', lbl:`Ort. Penetrasyon (MI) ${tipLbl}`, val:avg(miVals), color:'#818cf8'},
+      {icon:'📊', lbl:`Ort. Pazar Payı% ${tipLbl}`, val:avg(ppVals), color:'#34d399'},
+      {icon:'💹', lbl:`Ort. Büyüme İndeksi ${tipLbl}`, val:avg(biVals), color:'#fbbf24'},
+      {icon:'📍', lbl:'Brick Sayısı', val:pivotRows.length, color:'#f87171'},
+    ].map(c=>`<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;text-align:center">
+      <div style="font-size:16px;margin-bottom:4px">${c.icon}</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:800;color:${c.color}">${c.val}</div>
+      <div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px;margin-top:2px">${c.lbl}</div>
+    </div>`).join('');
+  }
 
-  // Özet kartları
-  const vals = rows.map(r=>pN(r.deger)).filter(v=>v>0);
-  const avg  = vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : '—';
-  const above100 = vals.filter(v=>v>=100).length;
-  const below100  = vals.filter(v=>v<100).length;
-  const kapsamLbl = {'EVOL':'EVOL.IND','MI':'MI','PP':'Pazar Payı','BI':'Büyüme İnd.'}[selMigiKapsam]||'';
-  const tipLbl = selMigiTip === 'TL' ? 'TL' : 'Kutu';
+  // Özet kartları (mevcut)
+  const evoVals2 = pivotRows.map(r=>pN(r.evol)).filter(v=>v>0);
+  const above100 = evoVals2.filter(v=>v>=100).length;
+  const below100  = evoVals2.filter(v=>v<100).length;
+  const avg2 = evoVals2.length ? (evoVals2.reduce((a,b)=>a+b,0)/evoVals2.length).toFixed(1) : '—';
 
   const sumEl = document.getElementById('migiSummary');
   if (sumEl) sumEl.innerHTML = [
-    {icon:'📍', lbl:'Brick Sayısı',      val:rows.length,  color:'#22d3ee'},
-    {icon:'📊', lbl:`Ort. ${kapsamLbl}`, val:avg,          color:'#818cf8'},
-    {icon:'✅', lbl:`≥100 Brick`,        val:above100,     color:'#34d399'},
-    {icon:'⚠️', lbl:`<100 Brick`,        val:below100,     color:'#f87171'},
+    {icon:'📍', lbl:'Brick Sayısı',      val:pivotRows.length,  color:'#22d3ee'},
+    {icon:'📊', lbl:'Ort. EVOL',         val:avg2,              color:'#818cf8'},
+    {icon:'✅', lbl:'EVOL ≥100',         val:above100,          color:'#34d399'},
+    {icon:'⚠️', lbl:'EVOL <100',         val:below100,          color:'#f87171'},
     {icon:'💊', lbl:'Ürün',              val:selMigiIlac==='TÜMÜ'?'Tümü':selMigiIlac, color:'#fbbf24'},
   ].map(c=>`<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
       border-radius:10px;padding:10px 12px">
@@ -2474,93 +2514,69 @@ function renderMiGi() {
       <div style="font-size:9px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.4px;margin-top:2px">${c.lbl}</div>
     </div>`).join('');
 
-  // Thead
+  // Thead - sabit sütunlar
   const thead = document.getElementById('migiThead');
-  const isMultiIlac = selMigiIlac === 'TÜMÜ';
   if (thead) {
-    if (isMultiIlac) {
-      // Tüm ürünler - her ürün bir sütun
-      const ilaclar = [...new Set(rows.map(r=>r.ilac))].sort();
-      const URUN_CLR = {'PANOCER':'#16A34A','MOKSEFEN':'#521FD1','ACİDPASS':'#1BCED8','GRIPORT COLD':'#FF375E','FAMTREC':'#E07B39'};
-      thead.innerHTML = `<tr>
-        <th>Sıra</th><th>Brick</th><th>Dönem</th>
-        ${ilaclar.map(u=>`<th style="color:${URUN_CLR[u]||'#fff'}">${u.replace(' COLD','')}</th>`).join('')}
-      </tr>`;
-    } else {
-      thead.innerHTML = `<tr>
-        <th>Sıra</th><th>Brick</th><th>Dönem</th>
-        <th>${selMigiIlac}</th><th>Durum</th>
-      </tr>`;
-    }
+    thead.innerHTML = `<tr>
+      <th>Sıra</th><th>Brick</th><th>Dönem</th>
+      <th>Gelişim(evo)</th><th>Penetrasyon(MI)</th><th>Pazar Payı%</th><th>Büyüme İndeksi</th><th>Durum</th>
+    </tr>`;
   }
 
   // Tbody
   const tbody = document.getElementById('migiTbody');
   if (!tbody) return;
 
-  if (isMultiIlac) {
-    // Pivot: brick × dönem → her ürün bir sütun
-    const ilaclar = [...new Set(rows.map(r=>r.ilac))].sort();
-    const pivotMap = {};
-    rows.forEach(r => {
-      const key = r.sira+'|'+r.brick+'|'+r.donem;
-      if (!pivotMap[key]) pivotMap[key] = {sira:r.sira,brick:r.brick,donem:r.donem};
-      pivotMap[key][r.ilac] = pN(r.deger);
-    });
-    const pivotRows = Object.values(pivotMap).sort((a,b)=>a.sira-b.sira);
+  document.getElementById('migiTableBadge').textContent = pivotRows.length + ' brick';
 
-    document.getElementById('migiTableBadge').textContent = pivotRows.length + ' brick';
+  const clrV = v => v != null ? (v >= 100 ? 'color:#34d399;font-weight:700' : 'color:#f87171') : 'color:rgba(255,255,255,.3)';
+  const fmtV = v => v != null ? pN(v).toFixed(1) : '—';
 
-    const clrV = v => v>=100?'color:#34d399;font-weight:700':'color:#f87171';
-    tbody.innerHTML = pivotRows.map(r => {
-      const siraStyle = r.sira<=333?'background:rgba(34,211,238,.05)':'';
-      return `<tr style="${siraStyle}">
-        <td class="mono" style="font-size:10px;color:rgba(255,255,255,.4)">${r.sira}</td>
-        <td style="font-size:10px;font-weight:600;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.brick}">${r.brick}</td>
-        <td style="font-size:9px;color:rgba(255,255,255,.4)">${r.donem.replace('YTD-','')}</td>
-        ${ilaclar.map(u=>`<td class="mono" style="font-size:11px;${clrV(r[u]||0)}">${r[u]!=null?r[u].toFixed(1):'—'}</td>`).join('')}
-      </tr>`;
-    }).join('');
-  } else {
-    // Tek ürün - detay görünüm
-    document.getElementById('migiTableBadge').textContent = rows.length + ' kayıt';
-    const clrV = v => v>=100?'#34d399':'#f87171';
-    tbody.innerHTML = rows.map(r => {
-      const v = pN(r.deger);
-      const siraStyle = r.sira<=333?'background:rgba(34,211,238,.05)':'';
-      return `<tr style="${siraStyle}">
-        <td class="mono" style="font-size:10px;color:rgba(255,255,255,.4)">${r.sira}</td>
-        <td style="font-size:10px;font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.brick}">${r.brick}</td>
-        <td style="font-size:9px;color:rgba(255,255,255,.4)">${r.donem.replace('YTD-','')}</td>
-        <td class="mono" style="font-size:13px;font-weight:800;color:${clrV(v)}">${v.toFixed(1)}</td>
-        <td><span style="background:${v>=100?'rgba(52,211,153,.1)':'rgba(248,113,113,.1)'};
-          color:${clrV(v)};border:1px solid ${v>=100?'rgba(52,211,153,.3)':'rgba(248,113,113,.3)'};
-          border-radius:5px;padding:2px 8px;font-size:9px;font-weight:700">
-          ${v>=100?'✅ ≥100':'⚠️ <100'}</span></td>
-      </tr>`;
-    }).join('');
-  }
+  tbody.innerHTML = pivotRows.length ? pivotRows.map(r => {
+    const evo = r.evol != null ? pN(r.evol) : null;
+    const mi  = r.mi != null  ? pN(r.mi)  : null;
+    const pp  = r.pp != null  ? pN(r.pp)  : null;
+    const bi  = r.bi != null  ? pN(r.bi)  : null;
 
-  if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:20px;color:rgba(255,255,255,.3)">Filtreye uygun veri yok</td></tr>';
-  }
+    const siraStyle = r.sira<=333 ? 'background:rgba(34,211,238,.04)' : '';
+
+    // Durum: EVOL ve MI birlikte değerlendir
+    let durumHtml = '—';
+    if (evo != null && mi != null) {
+      if (evo >= 110 && mi >= 100) durumHtml = `<span style="background:rgba(52,211,153,.1);color:#34d399;border:1px solid rgba(52,211,153,.3);border-radius:5px;padding:2px 7px;font-size:9px;font-weight:700">✅ Güçlü</span>`;
+      else if (evo >= 100 && mi >= 100) durumHtml = `<span style="background:rgba(129,140,248,.1);color:#818cf8;border:1px solid rgba(129,140,248,.3);border-radius:5px;padding:2px 7px;font-size:9px;font-weight:700">🔵 İyi</span>`;
+      else if (evo < 90 || mi < 90) durumHtml = `<span style="background:rgba(248,113,113,.1);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:5px;padding:2px 7px;font-size:9px;font-weight:700">⚠️ Risk</span>`;
+      else durumHtml = `<span style="background:rgba(251,191,36,.1);color:#fbbf24;border:1px solid rgba(251,191,36,.3);border-radius:5px;padding:2px 7px;font-size:9px;font-weight:700">🟡 Orta</span>`;
+    }
+
+    return `<tr style="${siraStyle}">
+      <td class="mono" style="font-size:10px;color:rgba(255,255,255,.5);font-weight:700">${r.sira||'—'}</td>
+      <td style="font-size:10px;font-weight:600;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.brick}">${r.brick}</td>
+      <td style="font-size:9px;color:rgba(255,255,255,.4)">${(r.donem||'').replace('YTD-','')}</td>
+      <td class="mono" style="font-size:12px;${clrV(evo)}">${fmtV(r.evol)}</td>
+      <td class="mono" style="font-size:12px;${clrV(mi)}">${fmtV(r.mi)}</td>
+      <td class="mono" style="font-size:12px;${clrV(pp)}">${fmtV(r.pp)}</td>
+      <td class="mono" style="font-size:12px;${clrV(bi)}">${fmtV(r.bi)}</td>
+      <td>${durumHtml}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="8" style="text-align:center;padding:20px;color:rgba(255,255,255,.3)">Filtreye uygun veri yok</td></tr>';
 }
 
 // ─── MIGI KARNE CSV PARSER (yeni format: SIRA;BÖLGE;PERSONEL;BRICK;DÖNEM;KAPSAM;İLAÇ;DEĞER) ───
 function parseMiGiKarneCSV(csvText) {
-  if (!csvText || csvText.trim().startsWith('<')) return [];
+  if (!csvText || csvText.trim().startsWith('<')) return { records: [], donem: '' };
   const rows = parseCSVRows(csvText);
-  if (rows.length < 2) return [];
+  if (rows.length < 2) return { records: [], donem: '' };
 
   const pN = s => {
     s = String(s||'').trim().replace(/ /g,'').replace(/\s/g,'');
     return parseFloat(s.replace(/\./g,'').replace(',','.')) || 0;
   };
 
-  const raw = [];
+  const records = [];
   for (const r of rows.slice(1)) {
     if (!r[0] || !r[0].trim() || isNaN(parseInt(r[0]))) continue;
-    raw.push({
+    records.push({
       sira:   parseInt(r[0]),
       bolge:  (r[1]||'').trim(),
       ttt:    (r[2]||'').trim(),
@@ -2572,33 +2588,14 @@ function parseMiGiKarneCSV(csvText) {
     });
   }
 
-  // En son dönem bul
-  const donemler = [...new Set(raw.map(r=>r.donem))].sort();
+  // En son dönem
+  const donemler = [...new Set(records.map(r=>r.donem))].sort();
   const lastDonem = donemler[donemler.length - 1] || '';
 
-  // Sadece son dönemi al, pivot: {ttt+brick} → {kapsam → {ilac → değer}}
-  const lastRows = raw.filter(r => r.donem === lastDonem);
-
-  // Brick bazında özet: her brick için her ürün × kapsam
-  const brickMap = {};
-  for (const r of lastRows) {
-    const key = r.ttt + '|||' + r.brick;
-    if (!brickMap[key]) brickMap[key] = { sira:r.sira, ttt:r.ttt, brick:r.brick, donem:lastDonem };
-    const k = brickMap[key];
-    // Kapsam kısaltmaları
-    if (r.kapsam.includes('BÜYÜME')) {
-      k['bi_' + r.ilac.replace(/ /g,'_')] = r.deger;
-    } else if (r.kapsam.includes('EVOL')) {
-      k['evol_' + r.ilac.replace(/ /g,'_')] = r.deger;
-    } else if (r.kapsam.includes('PENETRASYON')) {
-      k['mi_' + r.ilac.replace(/ /g,'_')] = r.deger;
-    } else if (r.kapsam.includes('PAZAR PAYI')) {
-      k['pp_' + r.ilac.replace(/ /g,'_')] = r.deger;
-    }
-  }
-
-  return { records: Object.values(brickMap), donem: lastDonem, allDonems: donemler };
+  console.log('[parseMiGiKarneCSV] records:', records.length, '| donems:', donemler, '| last:', lastDonem);
+  return { records, donem: lastDonem, allDonems: donemler };
 }
+
 
 function parseMiGiCSV(csvText) {
   if (csvText.trim().startsWith('<')) {
@@ -3471,12 +3468,16 @@ function resetCalc(){
   URUN_ORDER.forEach(u=>{
     const k=u.replace(/\s+/g,'_');
     const el=document.getElementById('kutu_'+k);if(el)el.value=0;
-    ['ra_','rk_','rp_','rpr_'].forEach(p=>{
+    ['ra_','rk_','rkal_','rp_','rpr_'].forEach(p=>{
       const e=document.getElementById(p+k);
       if(e){
         if(p==='rk_'){
           const r=GENEL.find(g=>g.ttt===selTTT_p2&&g.urun===u);
           e.innerHTML=r?`<div style="font-size:11px">${fTL(r.satis_tl)}</div><div style="font-size:9px;color:var(--dim)">Mevcut</div>`:'—';
+        } else if(p==='rkal_'){
+          const r=GENEL.find(g=>g.ttt===selTTT_p2&&g.urun===u);
+          e.textContent=r?fTL(Math.max(0,r.hedef_tl-r.satis_tl)):'—';
+          e.style.color='#DC2626';
         } else if(p==='rp_'){
           const r=GENEL.find(g=>g.ttt===selTTT_p2&&g.urun===u);
           e.innerHTML=r?`<span class="bdg ${pCls(r.tl_pct)}">${fPct(r.tl_pct)}</span>`:'—';
@@ -3549,12 +3550,13 @@ function renderCalcTable(){
         <input class="inp" type="number" min="0" step="1" id="kutu_${urun.replace(/\s+/g,'_')}" value="0"
           style="width:100px;padding:5px 8px;font-size:12px" oninput="liveCalcRow('${urun}')">
       </td>
-      <td class="mono" style="color:var(--dim);font-size:11px">${imsTlFmt(urun)}</td>
       <td class="mono" id="ra_${urun.replace(/\s+/g,'_')}" style="color:var(--c2)">—</td>
       <td class="mono" id="rk_${urun.replace(/\s+/g,'_')}" style="min-width:130px">
         <div style="font-size:11px">${fTL(r.satis_tl)}</div>
         <div style="font-size:9px;color:var(--dim)">Mevcut</div>
       </td>
+      <td class="mono" style="color:var(--dim)">${fTL(r.hedef_tl)}</td>
+      <td class="mono" id="rkal_${urun.replace(/\s+/g,'_')}" style="color:#DC2626">${fTL(Math.max(0,r.hedef_tl-r.satis_tl))}</td>
       <td id="rp_${urun.replace(/\s+/g,'_')}">
         <span class="bdg ${pCls(r.tl_pct)}">${fPct(r.tl_pct)}</span>
       </td>
@@ -3575,8 +3577,10 @@ function liveCalcRow(urun){
   const tahAnamal=kutu*imsPrice;
   const toplamS=r.satis_tl+tahAnamal;
   const tahPct=r.hedef_tl>0?(toplamS/r.hedef_tl*100):0;
-  let prim=0;
-  if(tahPct>=100)prim=100;else if(tahPct>=91)prim=50+(tahPct-91)*(50/9);else if(tahPct>=70)prim=(tahPct-70)*(50/21);
+  
+  // Prim puan hesabı: GENEL_TABLO'daki urun_agirlik kullan
+  const agirlik = r.urun_agirlik > 0 ? r.urun_agirlik : (URUN_AGIRLIK[urun]||0.2);
+  const tahPrim = tahPct >= 91 ? Math.min(tahPct, 130) * agirlik : (tahPct >= 70 ? (tahPct-70)*(50/21)*agirlik/50 : 0);
 
   // Tahmin Anamal TL
   const raEl=document.getElementById('ra_'+key);
@@ -3593,43 +3597,63 @@ function liveCalcRow(urun){
     }
   }
 
+  // Kalan TL güncelle
+  const rkalEl=document.getElementById('rkal_'+key);
+  if(rkalEl){
+    const kalan=Math.max(0,r.hedef_tl-toplamS);
+    rkalEl.textContent=fTL(kalan);
+    rkalEl.style.color=kalan<=0?'#16A34A':'#DC2626';
+  }
+
   // TL %
   const rpEl=document.getElementById('rp_'+key);
   if(rpEl)rpEl.innerHTML=`<span class="bdg ${pCls(tahPct)}">${fPct(tahPct)}</span>`;
 
-  // Prim
+  // Prim (ürün bazında prim puan gösterimi - satır için)
   const rprEl=document.getElementById('rpr_'+key);
-  if(rprEl)rprEl.innerHTML=`<span class="bdg bdg-blue">${fPct(prim)}</span>`;
+  if(rprEl){
+    const prim = r.hedef_tl>0 ? (toplamS/r.hedef_tl*100) : 0;
+    let primPuan=0;
+    if(prim>=100)primPuan=100;else if(prim>=91)primPuan=50+(prim-91)*(50/9);else if(prim>=70)primPuan=(prim-70)*(50/21);
+    rprEl.innerHTML=`<span class="bdg bdg-blue">${fPct(primPuan)}</span>`;
+  }
 
   // Update summary row
   runCalcSummary();
 }
 
 function runCalcSummary(){
-  let totH=0,totS=0,totAnamal=0;
+  let totH=0,totS=0,totAnamal=0,totPrimPuan=0;
   URUN_ORDER.forEach(urun=>{
     const r=GENEL.find(g=>g.ttt===selTTT_p2&&g.urun===urun);if(!r)return;
     const key=urun.replace(/\s+/g,'_');
     const kutu=parseFloat(document.getElementById('kutu_'+key)?.value)||0;
     const tahAnamal=kutu*(IMS_TL_MAP[urun]||0);
     const toplamS=r.satis_tl+tahAnamal;
+    const tahPct=r.hedef_tl>0?(toplamS/r.hedef_tl*100):0;
+    // Prim puan: GENEL_TABLO'dan agirlik al, toplam hesapla
+    const agirlik = r.urun_agirlik > 0 ? r.urun_agirlik : (URUN_AGIRLIK[urun]||0.2);
+    const urunPrimKatkisi = tahPct >= 91 ? Math.min(tahPct, 130) * agirlik : 0;
+    totPrimPuan += urunPrimKatkisi;
     totH+=r.hedef_tl;totS+=toplamS;totAnamal+=tahAnamal;
   });
   const totPct=totH>0?(totS/totH*100):0;
-  const totK=totH-totS;
+  const totKalan=Math.max(0,totH-totS);
+  // Toplam prim puan (ortalama değil, TOPLAM)
   let totPrim=0;
   if(totPct>=100)totPrim=100;else if(totPct>=91)totPrim=50+(totPct-91)*(50/9);else if(totPct>=70)totPrim=(totPct-70)*(50/21);
   document.getElementById('calcFoot').innerHTML=`<tr style="border-top:2px solid var(--c1);background:rgba(79,0,140,.04)">
     <td style="font-weight:700;color:var(--c1)">TOPLAM</td>
     <td></td>
-    <td class="mono" style="color:var(--dim)">—</td>
     <td class="mono" style="font-weight:700;color:var(--c2)">${totAnamal>0?fTL(totAnamal):'—'}</td>
     <td class="mono" style="font-weight:700">${fTL(totS)}</td>
+    <td class="mono" style="color:var(--dim)">${fTL(totH)}</td>
+    <td class="mono" style="color:${totKalan<=0?'#16A34A':'#DC2626'};font-weight:700">${fTL(totKalan)}</td>
     <td><span class="bdg ${pCls(totPct)}">${fPct(totPct)}</span></td>
-    <td><span class="bdg bdg-blue">${fPct(totPrim)}</span></td>
+    <td><span class="bdg bdg-blue">${fPct(totPrimPuan)}</span></td>
   </tr>`;
   document.getElementById('calcInsight').style.display=totAnamal>0?'block':'none';
-  document.getElementById('calcInsightBody').innerHTML=`Tahmini gerçekleşme: <strong>${fPct(totPct)}</strong> | Hedefe kalan: <strong>${fTL(totK)}</strong> | Tahmini prim: <strong>${fPct(totPrim)}</strong>`;
+  document.getElementById('calcInsightBody').innerHTML=`Tahmini gerçekleşme: <strong>${fPct(totPct)}</strong> | Hedefe kalan: <strong>${fTL(totKalan)}</strong> | Tahmini prim puan: <strong>${fPct(totPrimPuan)}</strong>`;
 }
 
 function runCalc(){runCalcSummary();}
@@ -3844,11 +3868,8 @@ function calcPrimPuani(urunReals) {
   return total;
 }
 
-// ── MI & GI VERİSİ ─────────────────────────────────────────
-let MIGI_RAW = []; let MIGI_TL_RAW = []; let MIGI_KUTU_RAW = []; let migiDonem = ''; let selMigiDonem='TÜMÜ'; let selMigiIlac='TÜMÜ'; let selMigiTip='TL'; let selMigiKapsam='EVOL';
-
-let selMigiTTT = '';
-let migiCurrentFilter = 'all';
+// ── MI & GI VERİSİ (duplicate declarations removed - defined in first script block) ─────
+// selMigiTTT, selMigiBrick, selMigiDonem etc. already defined above
 
 function getIndeksColor(v) {
   if (v >= 120) return '#16A34A';
@@ -3949,11 +3970,11 @@ function calcPrim() {
 
   // Baz primler (dönemlik)
   const BAZ_TL_REAL  = 55000;
-  const BAZ_PORTFOLYO = 11000;
+  
   const BAZ_MIGI     = 14000;
 
   const tlRealPrim   = carpan * BAZ_TL_REAL;
-  const portfoyPrim  = (effReal >= 91 && primPuani >= 91) ? 0.2 * BAZ_PORTFOLYO * carpan : 0;
+  const portfoyPrim  = (effReal >= 91 && primPuani >= 91) ? 0.20 * BAZ_TL_REAL * carpan : 0;
   const migiPrim     = migiKatsayi * BAZ_MIGI;
   const toplamPrim   = tlRealPrim + portfoyPrim + migiPrim;
 
