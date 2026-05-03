@@ -3899,27 +3899,27 @@ window.addEventListener('DOMContentLoaded',()=>{
 // ── MI & GI VERİSİ (duplicate declarations removed - defined in first script block) ─────
 // selMigiTTT, selMigiBrick, selMigiDonem etc. already defined above
 
-function getIndeksColor(v) {
-  if (v >= 120) return '#16A34A';
-  if (v >= 100) return '#0891B2';
-  if (v >= 80)  return '#D97706';
-  return '#DC2626';
-}
-function getIndeksLabel(v) {
-  if (v >= 120) return '🟢 Güçlü';
-  if (v >= 100) return '🔵 İyi';
-  if (v >= 80)  return '🟡 Orta';
-  return '🔴 Zayıf';
-}
-function getPriorityLabel(sira, mi, gi) {
-  const inTop333 = sira <= 333;
-  const strong = mi >= 110 && gi >= 100;
-  const risk   = mi < 90 || gi < 90;
-  if (inTop333 && strong) return '<span style="background:#16A34A;color:#fff;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700">🔑 ÖNCELİKLİ</span>';
-  if (inTop333 && risk)   return '<span style="background:#DC2626;color:#fff;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700">⚠️ RİSK</span>';
-  if (inTop333)           return '<span style="background:#D97706;color:#fff;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700">⭐ İZLE</span>';
-  return '<span style="background:#94A3B8;color:#fff;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700">2. GRP</span>';
-}
+// (duplicate removed: getIndeksColor — blok 1'de tanımlı)
+
+
+
+
+
+// (duplicate removed: getIndeksLabel — blok 1'de tanımlı)
+
+
+
+
+
+// (duplicate removed: getPriorityLabel — blok 1'de tanımlı)
+
+
+
+
+
+
+
+
 
 function migiFilter(f) {
   migiCurrentFilter = f;
@@ -3930,527 +3930,527 @@ function migiFilter(f) {
   renderMiGi();
 }
 
-function buildPrimInputs() {
-  // TTT select
-  const sel = document.getElementById('primTTT');
-  if (sel.options.length <= 1) {
-    ALL_TTTS.forEach(t => {
-      const opt = document.createElement('option');
-      opt.value = opt.textContent = t;
-      sel.appendChild(opt);
-    });
-  }
-  if (!sel.value && ALL_TTTS.length) { sel.value = ALL_TTTS[0]; }
+// (duplicate removed: buildPrimInputs — blok 1'de tanımlı)
 
-  // Ürün girişleri
-  const container = document.getElementById('primUrunInputs');
-  if (!container.children.length) {
-    URUN_ORDER.forEach(u => {
-      container.innerHTML += `<div>
-        <label style="font-size:9px;font-weight:700;color:${URUN_CLR[u]};display:block;margin-bottom:3px">${u}</label>
-        <input type="number" class="inp" id="primReal_${u.replace(/\s/g,'_').replace(/[^a-zA-Z0-9_]/g,'X')}" 
-          value="" min="0" max="200" placeholder="TL Real %" oninput="calcPrim()" style="padding:5px 8px">
-      </div>`;
-    });
-  }
-  calcPrim();
-}
 
-function getPrimRealId(u) {
-  return 'primReal_' + u.replace(/\s/g,'_').replace(/[^a-zA-Z0-9_]/g,'X');
-}
 
-function calcPrim() {
-  const ttt = document.getElementById('primTTT')?.value;
-  if (!ttt) return;
 
-  const urunReals = {};
-  let toplam_hedef = 0, toplam_satis = 0;
 
-  URUN_ORDER.forEach(u => {
-    const r = GENEL.find(g=>g.ttt===ttt&&g.urun===u);
-    const inp = document.getElementById(getPrimRealId(u));
-    let realPct = inp ? parseFloat(inp.value) : 0;
-    if (!realPct && r) realPct = r.tl_pct;  // mevcut gerçekleşme
-    if (inp && !inp.value && r) inp.placeholder = r.tl_pct.toFixed(1) + '% (mevcut)';
-    urunReals[u] = realPct || 0;
-    if (r) { toplam_hedef += r.hedef_tl; toplam_satis += r.satis_tl; }
-  });
 
-  const toplamReal = toplam_hedef > 0 ? (toplam_satis / toplam_hedef * 100) : 0;
-  // Input'lardan hesapla (dolu ise)
-  const inputReal = URUN_ORDER.map(u=>{
-    const inp = document.getElementById(getPrimRealId(u));
-    return inp?.value ? parseFloat(inp.value) : null;
-  });
-  const hasInputs = inputReal.some(v=>v!==null);
-  const effReal = hasInputs
-    ? (URUN_ORDER.reduce((s,u,i)=>s+(inputReal[i]||0)*(URUN_AGIRLIK[u]||0.2),0))
-    : toplamReal;
 
-  const mi = parseFloat(document.getElementById('primMI')?.value) || 100;
-  const gi = parseFloat(document.getElementById('primGI')?.value) || 100;
 
-  // Prim puanı
-  const primPuani = calcPrimPuani(urunReals);
-  const carpan = effReal >= 91 ? getCarpan(effReal) : 0;
-  const migiKatsayi = effReal >= 70 ? getMiGiKatsayi(mi, gi) : 0;
 
-  // Baz primler (dönemlik)
-  const BAZ_TL_REAL  = 55000;
-  
-  const BAZ_MIGI     = 14000;
 
-  const tlRealPrim   = carpan * BAZ_TL_REAL;
-  const portfoyPrim  = (effReal >= 91 && primPuani >= 91) ? 0.20 * BAZ_TL_REAL * carpan : 0;
-  const migiPrim     = migiKatsayi * BAZ_MIGI;
-  const toplamPrim   = tlRealPrim + portfoyPrim + migiPrim;
 
-  const okStyle = v => v > 0 ? 'color:#16A34A;font-weight:700' : 'color:#DC2626;font-weight:700';
 
-  document.getElementById('primResult').innerHTML = `
-    <div style="display:grid;gap:8px">
-      <div style="background:#fff;border-radius:8px;padding:10px;border:1px solid var(--border)">
-        <div style="font-size:10px;color:var(--dim);font-weight:600;margin-bottom:6px">KOŞUL KONTROLÜ</div>
-        <div style="font-size:11px;display:grid;gap:4px">
-          <div>TL Realizasyon: <strong style="${effReal>=91?'color:#16A34A':'color:#DC2626'}">${effReal.toFixed(1)}%</strong> ${effReal>=91?'✅ (≥91%)':'❌ (<91%)'}</div>
-          <div>Prim Puanı: <strong style="${primPuani>=91?'color:#16A34A':'color:#DC2626'}">${primPuani.toFixed(1)}%</strong> ${primPuani>=91?'✅':'⚠️ Portföy primi yok'}</div>
-          <div>MI İndeks: <strong style="color:${getIndeksColor(mi)}">${mi}</strong> | GI İndeks: <strong style="color:${getIndeksColor(gi)}">${gi}</strong></div>
-          <div>MI&GI Katsayı: <strong>${migiKatsayi}x</strong></div>
-        </div>
-      </div>
-      <div style="background:#fff;border-radius:8px;padding:10px;border:1px solid var(--border)">
-        <div style="font-size:10px;color:var(--dim);font-weight:600;margin-bottom:6px">PRİM HESABI (DÖNEMLİK)</div>
-        <table style="width:100%;font-size:11px;border-collapse:collapse">
-          <tr style="border-bottom:1px solid var(--border)"><td style="padding:4px">TL Real Primi</td><td style="text-align:right"><span style="${okStyle(tlRealPrim)}">${tlRealPrim.toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺</span></td></tr>
-          <tr style="border-bottom:1px solid var(--border)"><td style="padding:4px">Portföy Primi (+%20)</td><td style="text-align:right"><span style="${okStyle(portfoyPrim)}">${portfoyPrim.toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺</span></td></tr>
-          <tr style="border-bottom:2px solid var(--c1)"><td style="padding:4px">MI & GI Primi</td><td style="text-align:right"><span style="${okStyle(migiPrim)}">${migiPrim.toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺</span></td></tr>
-          <tr><td style="padding:6px;font-weight:700;color:var(--c1)">TOPLAM PRİM</td><td style="text-align:right;font-size:15px;font-weight:800;color:var(--c1)">${toplamPrim.toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺</td></tr>
-        </table>
-      </div>
-      <div style="font-size:9px;color:var(--dim);background:#F7F9FC;padding:8px;border-radius:6px">
-        * Dönemlik hesaplama. %100 üzeri realizasyonlar kompanzasyon döneminde işlenir.
-      </div>
-    </div>
-  `;
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+// (duplicate removed: getPrimRealId — blok 1'de tanımlı)
+
+
+
+// (duplicate removed: calcPrim — blok 1'de tanımlı)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 // ── AI ASİSTAN ──────────────────────────────────────────────
-let selAiTTT = '';
-let aiChatHistory = [];
+// (duplicate removed — selAiTTT blok 1'de tanımlı)
+// (duplicate removed — aiChatHistory blok 1'de tanımlı)
 
-function renderAiAsistan() {
-  const allTTTs = ALL_TTTS.length ? ALL_TTTS : ['AYKUT DİNLER'];
-  if (!selAiTTT && allTTTs.length) selAiTTT = allTTTs[0];
+// (duplicate removed: renderAiAsistan — blok 1'de tanımlı)
 
-  const aiAll = ['ŞENOL YILMAZ', ...allTTTs];
-  document.getElementById('aiTttBar').innerHTML = aiAll.map(t =>
-    `<button class="sp-btn${t===selAiTTT?' active':''}" onclick="selAiTTT='${t}';renderAiAsistan()">${t==='ŞENOL YILMAZ'?'🏢 '+t:t}</button>`
-  ).join('');
-}
 
-function buildTTTContext(ttt) {
-  // Temsilci verilerini özet olarak hazırla
-  const genelRows = GENEL.filter(r=>r.ttt===ttt&&r.urun!=='GENEL TOPLAM');
-  const genelTotal = GENEL.find(r=>r.ttt===ttt&&r.urun==='GENEL TOPLAM');
-  const migiRows = (MIGI_TL_RAW||[]).filter(r=>r.ttt===ttt);
-  const top333 = migiRows.filter(r=>r.sira<=333);
-  const trSira = TR_SIRA_MAP[ttt] || '?';
 
-  let ctx = `=== SAMSUN 2D SATIŞ VERİLERİ ===
-Temsilci: ${ttt} | TR Sırası: #${trSira}
-Dönem: 2026 2.Dönem (Mart-Nisan)
 
---- GENEL PERFORMANS ---
-Toplam Gerçekleşme: %${genelTotal?.tl_pct?.toFixed(2)||0}
-Hedef TL: ${(genelTotal?.hedef_tl||0).toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺
-Satış TL: ${(genelTotal?.satis_tl||0).toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺
-Kalan TL: ${(genelTotal?.kalan_tl||0).toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺
 
---- ÜRÜN BAZLI PERFORMANS ---`;
-  genelRows.forEach(r=>{
-    ctx += `
-${r.urun}: %${r.tl_pct?.toFixed(1)||0} (Hedef: ${(r.hedef_tl/1000).toFixed(0)}K, Satış: ${(r.satis_tl/1000).toFixed(0)}K)`;
-  });
 
-  // IMS pazar & rakip — ayrıntılı brick bazlı analiz
-  if (IMS && IMS.length) {
-    const imsGrps = [...new Set(IMS.filter(r=>r.ttt===ttt).map(r=>r.ilac_grubu))];
-    if (imsGrps.length) {
-      ctx += '\n\n--- PAZAR & RAKİP ANALİZİ (IMS) ---';
-      imsGrps.forEach(grp => {
-        const mktRows  = IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&r.is_mkt);
-        const ownKey   = OWN_IMS[grp];
-        const ownRows  = IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&r.ilac===ownKey);
-        const allRows  = IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&!r.is_mkt);
-        if (!ownRows.length && !mktRows.length) return;
-        const ownTot   = ownRows.reduce((s,r)=>s+r.toplam,0);
-        const mktTot   = mktRows.reduce((s,r)=>s+r.toplam,0);
-        const ppi      = mktTot>0 ? (ownTot/mktTot*100).toFixed(1) : '—';
-        const lbl      = GRP_LBL[grp]||grp;
-        const imsPrice = IMS_TL_MAP[Object.values(OWN_DRUG_BY_GRP).find(o=>o.ilac_grubu===grp||OWN_IMS[grp]===o.ownIlac)?.urun||''] || 0;
-        // Gerçek IMS fiyatı — ürün adına göre bul
-        const ownUrunName = Object.entries(OWN_DRUG_BY_GRP).find(([g])=>g===grp)?.[1]?.urun || '';
-        const imsFiyat = IMS_TL_MAP[ownUrunName] || 0;
-        // Son 3 hafta trendi
-        const wkKeys   = ['h7','h8','h9'];
-        const ownWk3   = wkKeys.map(w=>ownRows.reduce((s,r)=>s+(r[w]||0),0));
-        const validWk  = ownWk3.filter(v=>v>0);
-        const trend3   = validWk.length>=2?(validWk[validWk.length-1]>validWk[0]?'📈':validWk[validWk.length-1]<validWk[0]?'📉':'→'):'—';
-        // Güçlü rakipler
-        const rivals   = IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&!r.is_mkt&&r.ilac!==ownKey)
-                            .sort((a,b)=>b.toplam-a.toplam).slice(0,3);
-        ctx += `\n\n[${lbl}] Kendi:${fK(ownTot)} kutu | Pazar:${fK(mktTot)} kutu | Pay:${ppi}% | Trend:${trend3}`;
-        if (imsFiyat>0) {
-          const hedefKutu = mktTot>0 ? Math.round(mktTot*0.10) : 0; // %10 pay hedefi örnek
-          ctx += ` | IMS TL:${imsFiyat}₺/kutu`;
-        }
-        if (rivals.length) {
-          ctx += `\n  Rakipler: ${rivals.map(r=>`${r.ilac}(${fK(r.toplam)},Pay:${mktTot>0?(r.toplam/mktTot*100).toFixed(0):0}%)`).join(' | ')}`;
-        }
-        // Brick bazlı analiz — rakibin güçlü, bizim zayıf olduğu brickler
-        const bricks = [...new Set(allRows.map(r=>r.brick))];
-        const riskBricks = [], firsatBricks = [];
-        bricks.forEach(brick=>{
-          const ownB    = ownRows.filter(r=>r.brick===brick).reduce((s,r)=>s+r.toplam,0);
-          const mktB    = mktRows.filter(r=>r.brick===brick).reduce((s,r)=>s+r.toplam,0);
-          const topRival= rivals[0] ? IMS.filter(r=>r.ttt===ttt&&r.ilac_grubu===grp&&r.ilac===rivals[0].ilac&&r.brick===brick).reduce((s,r)=>s+r.toplam,0) : 0;
-          if (mktB>0) {
-            const ppiB = (ownB/mktB*100);
-            if (ppiB < 15 && mktB > 500) riskBricks.push({brick,ppiB:ppiB.toFixed(0),mktB,ownB,topRival});
-            else if (ppiB > 25 && ownB > 0) firsatBricks.push({brick,ppiB:ppiB.toFixed(0),ownB});
-          }
-        });
-        if (riskBricks.length>0) {
-          ctx += `\n  ⚠️ Dikkat Gereken Brickler (pay<%15, pazar>500 kutu):`;
-          riskBricks.slice(0,4).forEach(b=>{
-            ctx += `\n    - ${b.brick}: Pay=${b.ppiB}%, Pazar=${fK(b.mktB)}, Bizim=${fK(b.ownB)}${b.topRival>0?', Rakip(1):'+fK(b.topRival):''}`;
-          });
-        }
-        if (firsatBricks.length>0) {
-          ctx += `\n  🚀 Güçlü Brickler (pay>%25):`;
-          firsatBricks.slice(0,3).forEach(b=>{ ctx += `\n    - ${b.brick}: Pay=${b.ppiB}%, Kendi=${fK(b.ownB)}`; });
-        }
-      });
-      // Kalan TL + Hedef kutu hesabı
-      ctx += '\n\n--- KALAN HEDEF & IMS TL KUTU HESABI ---';
-      const genelRec = GENEL.find(r=>r.ttt===ttt&&r.urun==='GENEL TOPLAM');
-      if (genelRec) {
-        ctx += `\nKalan TL: ${fTL(genelRec.kalan_tl)} | Gerçekleşme: %${genelRec.tl_pct?.toFixed(1)||0}`;
-      }
-      URUN_ORDER.forEach(urun=>{
-        const r = GENEL.find(g=>g.ttt===ttt&&g.urun===urun);
-        if (!r || r.kalan_tl<=0) return;
-        const p = IMS_TL_MAP[urun]||0;
-        if (p>0) {
-          const kalanKutu = Math.round(r.kalan_tl / p);
-          ctx += `\n  ${urun}: Kalan ${fTL(r.kalan_tl)} → ${fK(kalanKutu)} kutu gerekli (${p}₺/kutu)`;
-        }
-      });
-    }
-  }
 
-  ctx += `
 
---- BRICK ANALİZİ (MI & GI) ---
-Toplam Brick: ${migiRows.length} | İlk 333: ${top333.length}
-Risk Brick (MI<90 veya GI<90): ${migiRows.filter(r=>r.mi<90||r.gi<90).length}
-Fırsat Brick (İlk333 + MI≥110 + GI≥100): ${migiRows.filter(r=>r.sira<=333&&r.mi>=110&&r.gi>=100).length}`;
 
-  if (top333.length) {
-    ctx += '\n\nİlk 333 Brick Durumu:';
-    top333.sort((a,b)=>a.sira-b.sira).forEach(r=>{
-      ctx += `
-  [#${r.sira}] ${r.brick}: MI=${r.mi.toFixed(0)}, GI=${r.gi.toFixed(0)}, PANOCER_MI=${r.panocer_mi.toFixed(0)}`;
-    });
-  }
+// (duplicate removed: buildTTTContext — blok 1'de tanımlı)
 
-  // Eczane verisi (yüklüyse)
-  ctx += buildEczaneContext(ttt);
 
-  // Kalan iş günleri — today dahil, lokal saat dilimi
-  const _now = new Date();
-  const _pad = n => String(n).padStart(2,'0');
-  const todayStr = `${_now.getFullYear()}-${_pad(_now.getMonth()+1)}-${_pad(_now.getDate())}`;
-  const periodEnd = PERIODS.find(p => todayStr >= p.start && todayStr <= p.end);
-  let remainingWorkDays = 0;
-  if (periodEnd) {
-    let _d = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate());
-    const [_ey,_em,_ed] = periodEnd.end.split('-').map(Number);
-    const _endDate = new Date(_ey, _em-1, _ed);
-    while (_d <= _endDate) {
-      const _dow = _d.getDay();
-      const _ds = `${_d.getFullYear()}-${_pad(_d.getMonth()+1)}-${_pad(_d.getDate())}`;
-      if (_dow !== 0 && _dow !== 6 && !HOLIDAYS.has(_ds)) remainingWorkDays++;
-      _d.setDate(_d.getDate()+1);
-    }
-    ctx += `\n\n--- SÜRE ---\nBugün: ${todayStr}\nAktif dönem: ${periodEnd.label} (${periodEnd.months})\nDönem sonu: ${periodEnd.end}\nKalan iş günü (bugün dahil): ${remainingWorkDays} gün`;
-  }
 
-  return ctx;
-}
 
-function aiQuick(type) {
-  const prompts = {
-    genel: 'Bu temsilcinin genel satış durumunu analiz et. Güçlü ve zayıf yönleri, kalan iş günlerine göre acil durumları belirt. Şenol Yılmaz için tüm ekibi değerlendir.',
-    risk: 'Bu temsilci için prim riski analizi yap. Kalan iş günü dikkate alarak hangi ürünler %91 hedefin altında, kaç iş günü kaldığı baz alınarak haftalık gereken satışı hesapla.',
-    prim: '2026 İLKO prim sistemine göre dönemlik prim beklentisini hesapla. Kalan süre ve mevcut pace dikkate alarak TL Real, Portföy ve MI&GI primlerini değerlendir.',
-    brick: 'İlk 333 brick bazında önceliklendirme yap. Kalan iş günü dikkate alarak hangi bricklere önce gitmeli, hangi eczaneler kritik? Somut adresler öner.',
-    strateji: 'Kalan iş günlerine göre uygulanabilecek haftalık satış stratejisi öner. Günlük kutu/TL hedefleri ver, brick ve ürün önceliklerini belirt.',
-    eczane: `Bu temsilcinin eczane satış verilerini detaylı analiz et. Şu kuralları uygula:
-1) Her eczane için aylık tüketim ortalaması hesapla. Örnek: Oca=30, Mar=25 ise (Şub atlayan) ortalama=(30+25)/2=27.5 kutu/ay.
-2) Büyük tek alışları tespit et (kampanya). Bir ayda normal tüketimin 3x+ üzerinde alış varsa kampanya olarak işaretle; bir sonraki sipariş 3-6 ay veya daha uzun süre gecikebilir.
-3) Satış şartları: ACİDPASS:10+1,20+3,50+15,100+35 | PANOCER:10+3,30+12,50+25,100+60,165+135 | GRİPORT COLD:5+1,12+3,20+4,50+20,80+40 | MOKSEFEN:5+1,10+3,30+15
-4) Her aktif eczane için: tahmini aylık tüketim, kalan stok tahmini, önerilen sipariş paketi (en uygun satış şartı kombinasyonu), beklenen sipariş zamanı.
-5) Risk: Büyük alış yapıp uzun süre almayacak eczaneleri listele. Fırsat: Düzenli küçük alış yapan ve sipariş zamanı yaklaşan eczaneleri öne çıkar.`,
-    rakip: `IMS verilerini kullanarak rakip analizi yap:
-1) Her ilaç grubu için rakip ürünlerin brick bazında pazar paylarını karşılaştır.
-2) Rakibin en güçlü olduğu brickler (bizim payımız <%15, rakip payı >%30) ve orada ne yapılabileceğini öner.
-3) Rakibin zayıf olduğu brickler (rakip payı <%20) ve büyüme fırsatlarını listele.
-4) Son 3 hafta trendine göre rakip büyüyen bricklerde savunma, rakip gerileyen bricklerde saldırı stratejisi öner.
-5) Brick bazında en kritik 5 öncelikli hedefi somut ziyaret planıyla açıkla.`,
-  };
-  const msg = prompts[type] || type;
-  sendAiMsgWithText(msg);
-}
 
-async function sendAiMsg() {
-  const input = document.getElementById('aiInput');
-  const text = input.value.trim();
-  if (!text) return;
-  input.value = '';
-  sendAiMsgWithText(text);
-}
 
-async function sendAiMsgWithText(text) {
-  if (!selAiTTT) { alert('Lütfen temsilci seçin.'); return; }
-  
-  const chatArea = document.getElementById('aiChatArea');
-  const statusEl = document.getElementById('aiStatus');
 
-  // User bubble
-  chatArea.innerHTML += `<div style="background:#EDE9FE;border-radius:10px;padding:12px 14px;font-size:12px;align-self:flex-end;max-width:80%;margin-left:auto">
-    <strong style="color:#4F008C">👤 Siz</strong><br>${text}
-  </div>`;
-  requestAnimationFrame(()=>{chatArea.scrollTop=chatArea.scrollHeight;});
 
-  // Loading
-  const loadId = 'ai_loading_' + Date.now();
-  chatArea.innerHTML += `<div id="${loadId}" style="background:#F1F5F9;border-radius:10px;padding:12px 14px;font-size:12px">
-    <strong style="color:var(--c1)">🤖 AI Asistan</strong><br>
-    <span style="color:var(--dim)">⏳ Analiz ediliyor...</span>
-  </div>`;
-  requestAnimationFrame(()=>{chatArea.scrollTop=chatArea.scrollHeight;});
-  statusEl.textContent = '⏳ Düşünüyor...';
 
-  // Build context
-  const context = buildTTTContext(selAiTTT);
-  const systemPrompt = `Sen İLKO İlaç firmasının Samsun 2D bölgesi için çalışan uzman bir satış analisti ve stratejistsin.
-2026 İLKO TTT prim sistemi:
-- TL Real Primi: %91+ realizasyon, çarpan tablosu (baz: 55.000₺/dönem)
-- Portföy Primi: %91+ TL real VE %91+ prim puanı (baz: 11.000₺)
-- MI&GI Primi: %70+ TL real, matris katsayısı (baz: 14.000₺)
-- Prim puanı = ürün ağırlığı × ürün real (min %70, max %130)
-IMS Analiz Kuralları:
-- IMS TL fiyatları: PANOCER=105.31₺, ACİDPASS=112.23₺, GRİPORT COLD=84.15₺, MOKSEFEN=149₺, FAMTREC=95₺
-- Kalan TL hedefi / IMS TL fiyatı = satılması gereken anamal kutu miktarı
-- Brick bazlı pazar payı %15 altındaysa ve pazar >500 kutu ise risk brick
-- Rakibin pay >%30 ve bizim <%15 ise öncelikli hedef brick
-- İlk 333 brick yatırım önceliği taşır
-- Eczane önerisi yaparken: hedefi / IMS TL fiyatı = kutu, brick başına dağıt
-Yanıtlar: Net, somut sayılı, uygulanabilir Türkçe. Brick ve eczane isimleri ile öner.`;
 
-  aiChatHistory.push({ role: 'user', content: `${context}
 
-Soru/Görev: ${text}` });
 
-  try {
-    // Proxy URL: Cloudflare Worker adresinizi buraya yazın
-    // Kurulum adımları için: aşağıdaki açıklamaya bakın
-    const AI_PROXY_URL = window.AI_PROXY_URL || 'https://samsun.yilmazusta28.workers.dev';
-    
-    const response = await fetch(AI_PROXY_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        system: systemPrompt,
-        messages: aiChatHistory.slice(-6) // son 6 mesaj
-      })
-    });
 
-    const data = await response.json();
-    const reply = data.content?.[0]?.text || 'Yanıt alınamadı.';
 
-    aiChatHistory.push({ role: 'assistant', content: reply });
 
-    // Format reply
-    const formatted = reply
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\n/g, '<br>');
 
-    const loadEl = document.getElementById(loadId);
-    if (loadEl) {
-      loadEl.innerHTML = `<strong style="color:var(--c1)">🤖 AI Asistan</strong><br><div style="margin-top:6px;line-height:1.6">${formatted}</div>`;
-    }
-    statusEl.textContent = '✅ Hazır';
-  } catch (err) {
-    const loadEl = document.getElementById(loadId);
-    const isProxy = err.message?.includes('fetch') || err.message?.includes('CORS') || err.message?.includes('Failed');
-    const errMsg = isProxy
-      ? '🔧 Proxy kurulumu gerekli. AI Asistan sayfasındaki kurulum talimatlarını takip edin.'
-      : err.message;
-    if (loadEl) loadEl.innerHTML = `<strong style="color:#DC2626">⚠️ Hata</strong><br><div style="margin-top:6px;font-size:11px">${errMsg}</div>`;
-    statusEl.textContent = '❌ Hata';
-  }
-  requestAnimationFrame(()=>{chatArea.scrollTop=chatArea.scrollHeight;});
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// (duplicate removed: aiQuick — blok 1'de tanımlı)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// (duplicate removed: sendAiMsg — blok 1'de tanımlı)
+
+
+
+
+
+
+
+// (duplicate removed: sendAiMsgWithText — blok 1'de tanımlı)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 // ── PROXY AYARLARI ──────────────────────────────────────────
-function loadProxyUrl() {
-  // Sabit proxy URL - kullanıcıdan gizle
-  const DEFAULT_PROXY = 'https://samsun.yilmazusta28.workers.dev';
-  window.AI_PROXY_URL = DEFAULT_PROXY;
-  try {
-    const saved = sessionStorage.getItem('ai_proxy_url') || DEFAULT_PROXY;
-    const inp = document.getElementById('proxyUrlInput');
-    if (inp) inp.value = saved;
-    window.AI_PROXY_URL = saved;
-    updateProxyStatus(saved);
-  } catch(e) {
-    updateProxyStatus(DEFAULT_PROXY);
-  }
-}
+// (duplicate removed: loadProxyUrl — blok 1'de tanımlı)
 
-function saveProxyUrl() {
-  const val = document.getElementById('proxyUrlInput')?.value?.trim();
-  if (val && val.startsWith('http')) {
-    window.AI_PROXY_URL = val;
-    try { sessionStorage.setItem('ai_proxy_url', val); } catch(e) {}
-    updateProxyStatus(val);
-  }
-}
 
-function updateProxyStatus(url) {
-  const el = document.getElementById('proxyStatus');
-  if (!el) return;
-  if (url && url !== 'https://YOUR-WORKER.workers.dev') {
-    el.textContent = '✅ Yapılandırıldı';
-    el.style.background = '#16A34A';
-    el.style.color = '#fff';
-  } else {
-    el.textContent = '⚠️ Gerekli';
-    el.style.background = '#D97706';
-    el.style.color = '#fff';
-  }
-}
 
-async function testProxy() {
-  const url = document.getElementById('proxyUrlInput')?.value?.trim();
-  if (!url || !url.startsWith('http')) {
-    alert('Geçerli bir URL girin.');
-    return;
-  }
-  const statusEl = document.getElementById('proxyStatus');
-  statusEl.textContent = '⏳ Test...';
-  try {
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 10,
-        messages: [{ role: 'user', content: 'test' }]
-      })
-    });
-    const data = await resp.json();
-    if (data.content || data.type) {
-      window.AI_PROXY_URL = url;
-      try { sessionStorage.setItem('ai_proxy_url', url); } catch(e) {}
-      statusEl.textContent = '✅ Bağlandı!';
-      statusEl.style.background = '#16A34A';
-      statusEl.style.color = '#fff';
-      document.getElementById('proxyInstructions').style.display = 'none';
-    } else {
-      throw new Error(data.error?.message || 'Yanıt formatı hatalı');
-    }
-  } catch(err) {
-    statusEl.textContent = '❌ Bağlanamadı';
-    statusEl.style.background = '#DC2626';
-    statusEl.style.color = '#fff';
-    alert('Bağlantı hatası: ' + err.message + '\nWorker URL ve API key doğru mu?');
-  }
-}
+
+
+
+
+
+
+
+
+
+
+
+// (duplicate removed: saveProxyUrl — blok 1'de tanımlı)
+
+
+
+
+
+
+
+
+// (duplicate removed: updateProxyStatus — blok 1'de tanımlı)
+
+
+
+
+
+
+
+
+
+
+
+
+
+// (duplicate removed: testProxy — blok 1'de tanımlı)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 // ── ZAM SİMÜLASYONU ─────────────────────────────────────────
-function showZamHesap() {
-  const panel = document.getElementById('zamPanel');
-  if (!panel) return;
-  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-  if (panel.style.display === 'block') buildZamInputs();
-}
+// (duplicate removed: showZamHesap — blok 1'de tanımlı)
 
-function buildZamInputs() {
-  const container = document.getElementById('zamInputs');
-  if (!container) return;
-  const ttt = selAiTTT || (ALL_TTTS[0]);
-  container.innerHTML = URUN_ORDER.map(u => `
-    <div>
-      <label style="font-size:9px;font-weight:700;color:${URUN_CLR[u]};display:block;margin-bottom:3px">${u}</label>
-      <div style="display:flex;gap:4px;align-items:center">
-        <input type="number" class="inp" id="zam_${u.replace(/\s/g,'_').replace(/[^a-zA-Z0-9_]/g,'X')}"
-          value="0" min="0" max="100" step="1" style="padding:5px 8px;font-size:11px"
-          placeholder="Artış %">
-        <span style="font-size:10px;color:var(--dim)">%</span>
-      </div>
-    </div>`).join('');
-}
 
-function calcZam() {
-  const ttt = selAiTTT || ALL_TTTS[0];
-  if (!ttt) return;
-  const rows = GENEL.filter(r=>r.ttt===ttt&&r.urun!=='GENEL TOPLAM'&&r.urun!=='DESTEVIT');
-  let html = '<div style="display:grid;gap:6px">';
-  let totOldHedef=0, totNewHedef=0, totSatis=0;
-  rows.forEach(r => {
-    const id = 'zam_' + r.urun.replace(/\s/g,'_').replace(/[^a-zA-Z0-9_]/g,'X');
-    const zamPct = parseFloat(document.getElementById(id)?.value) || 0;
-    const newHedef = r.hedef_tl * (1 + zamPct/100);
-    const newReal = newHedef > 0 ? (r.satis_tl / newHedef * 100) : 0;
-    const oldReal = r.tl_pct;
-    const diff = newReal - oldReal;
-    totOldHedef += r.hedef_tl; totNewHedef += newHedef; totSatis += r.satis_tl;
-    html += `<div style="background:#F8FAFC;border-radius:7px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
-      <span style="font-weight:700;color:${URUN_CLR[r.urun]||'var(--c1)'};">${r.urun}</span>
-      <span style="font-size:11px">
-        <span style="color:var(--dim)">${oldReal.toFixed(1)}%</span>
-        <span style="margin:0 6px;color:var(--dim)">→</span>
-        <span style="font-weight:700;color:${newReal>=91?'#16A34A':newReal>=70?'#D97706':'#DC2626'}">${newReal.toFixed(1)}%</span>
-        ${zamPct>0?`<span style="font-size:9px;color:#DC2626;margin-left:4px">(-${Math.abs(diff).toFixed(1)}pp)</span>`:''}
-      </span>
-    </div>`;
-  });
-  const totOldReal = totOldHedef>0?(totSatis/totOldHedef*100):0;
-  const totNewReal = totNewHedef>0?(totSatis/totNewHedef*100):0;
-  html += `<div style="background:linear-gradient(135deg,rgba(79,0,140,.06),rgba(27,206,216,.04));border:1px solid rgba(79,0,140,.2);border-radius:8px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center">
-    <span style="font-weight:700;color:var(--c1)">GENEL TOPLAM</span>
-    <span style="font-size:13px;font-weight:800">
-      <span style="color:var(--dim)">${totOldReal.toFixed(1)}%</span>
-      <span style="margin:0 6px;color:var(--dim)">→</span>
-      <span style="color:${totNewReal>=91?'#16A34A':totNewReal>=70?'#D97706':'#DC2626'}">${totNewReal.toFixed(1)}%</span>
-    </span>
-  </div>`;
-  html += '</div>';
-  document.getElementById('zamResult').innerHTML = html;
-  
-  // AI'a gönder
-  const zamSummary = `Fiyat artışı simülasyonu - Temsilci: ${ttt}\nMevcut toplam real: ${totOldReal.toFixed(1)}% → Zam sonrası: ${totNewReal.toFixed(1)}%\nDönem primi açısından değerlendir.`;
-  sendAiMsgWithText(zamSummary);
-}
+
+
+
+
+// (duplicate removed: buildZamInputs — blok 1'de tanımlı)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// (duplicate removed: calcZam — blok 1'de tanımlı)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 // ═══════════════════════════════════════════════════════════
@@ -4459,390 +4459,391 @@ function calcZam() {
 // GS_ECZANE_URL, GITHUB_IMG_BASE — blok 1'de tanımlı
 
 // Temsilci adı → fotoğraf dosya adı
-function getTTTPhoto(ttt) {
-  // Sade ASCII dosya adları — encode gerekmez
-  const photoMap = {
-    'ŞENOL YILMAZ':         'Senol',
-    'YILMAZ USTA':          'Yilmaz',
-    'MURAT KANDİŞ':         'Murat',
-    'KÜRŞAD KARADAĞ':       'Kursad',
-    'EMRAH YILDIZ':         'Emrah',
-    'HAKAN YUMAK':          'Hakan',
-    'AYKUT DİNLER':         'Aykut',
-    'MEHMET AKİF ÖZGEÇEN':  'Mehmet',
-    'SAMET ÇETİN':          'Samet',
-  };
-  const name = photoMap[ttt];
-  return name ? GITHUB_IMG_BASE + name + '.jpg' : null;
-}
+// (duplicate removed: getTTTPhoto — blok 1'de tanımlı)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // ECZANE_RAW: parse edilmiş kayıtlar (lazy load)
 // Her kayıt: [tarih, gln, ad, brick, urun, form, adet, tutar, iade]
-let ECZANE_RAW = null;
-let eczaneLoaded = false;
+// (duplicate removed — ECZANE_RAW blok 1'de tanımlı)
+// (duplicate removed — eczaneLoaded blok 1'de tanımlı)
 
 // Filtre state
-let selEczaneTTT   = '';
-let selEczaneBrick = 'TÜMÜ';
-let selEczaneUrun  = 'TÜMÜ';
-let selEczaneAy    = 'TÜMÜ';
-let eczaneSortKey  = 'toplam';
-let eczaneSortAsc  = false;
+// (duplicate removed — selEczaneTTT blok 1'de tanımlı)
+// (duplicate removed — selEczaneBrick blok 1'de tanımlı)
+// (duplicate removed — selEczaneUrun blok 1'de tanımlı)
+// (duplicate removed — selEczaneAy blok 1'de tanımlı)
+// (duplicate removed — eczaneSortKey blok 1'de tanımlı)
+// (duplicate removed — eczaneSortAsc blok 1'de tanımlı)
 
 // Brick → TTT eşleşmesi (MIGI_RAW'dan türetilir)
-function getBrickTTTMap() {
-  const map = {};
-  // Önce IMS verisinden (en güvenilir kaynak)
-  if (IMS && IMS.length) {
-    IMS.forEach(r => {
-      if (r.brick && r.ttt) map[r.brick.toUpperCase()] = r.ttt;
-    });
-  }
-  // Yoksa MIGI_TL_RAW'dan dene
-  if (!Object.keys(map).length && MIGI_TL_RAW && MIGI_TL_RAW.length) {
-    MIGI_TL_RAW.forEach(r => {
-      if (r.brick && r.ttt) map[r.brick.toUpperCase()] = r.ttt;
-    });
-  }
-  // Yoksa eski MIGI_RAW
-  if (!Object.keys(map).length && MIGI_RAW && MIGI_RAW.length) {
-    MIGI_RAW.forEach(r => {
-      if (r.brick && r.ttt) map[r.brick.toUpperCase()] = r.ttt;
-    });
-  }
-  return map;
-}
+// (duplicate removed: getBrickTTTMap — blok 1'de tanımlı)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // ECZANE CSV Parser
-function parseEczaneCSV(csvText) {
-  if (csvText.trim().startsWith('<')) throw new Error('ECZANE.csv HTML döndü');
-  const rows = parseCSVRows(csvText);
-  if (rows.length < 2) throw new Error('ECZANE.csv boş');
+// (duplicate removed: parseEczaneCSV — blok 1'de tanımlı)
 
-  // Header tespiti
-  let startRow = 0;
-  if ((rows[0][0]||'').trim().toLowerCase().includes('tarih')) startRow = 1;
 
-  const result = [];
-  const brickTTT = getBrickTTTMap();
 
-  for (let i = startRow; i < rows.length; i++) {
-    const c = rows[i];
-    if (c.length < 9) continue;
-    const gln   = (c[3]||'').trim();
-    const ad    = (c[4]||'').trim();
-    const brick = (c[5]||'').trim();
-    const urun  = (c[6]||'').trim();
-    if (!gln || !ad || !brick || !urun) continue;
 
-    const tarih = (c[0]||'').trim();
-    const adet  = parseInt(c[8]||0) || 0;
-    const tutar = parseN(c[11]||0);
-    const iade  = parseInt(c[12]||0) || 0;
 
-    // Ay tespiti
-    const ayParts = tarih.split('.');
-    const ay = ayParts.length >= 2 ? ayParts[1].padStart(2,'0') + '/' + (ayParts[2]||'2026') : '01/2026';
 
-    // TTT bul (brick üzerinden)
-    const ttt = brickTTT[brick.toUpperCase()] || null;
 
-    result.push({ tarih, gln, ad, brick, urun, adet, tutar, iade, ay, ttt });
-  }
-  return result;
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // Eczane sayfasını render et
-async function renderEczane() {
-  const statusEl = document.getElementById('eczaneLoadStatus');
+// (duplicate removed: renderEczane — blok 1'de tanımlı)
 
-  // İlk kez yükleniyorsa CSV fetch et
-  if (!eczaneLoaded) {
-    statusEl.textContent = '⏳ ECZANE.csv yükleniyor...';
-    try {
-      const resp = await fetch(GS_ECZANE_URL + '?v=' + Date.now(), { cache: 'no-store' });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      const csv = await resp.text();
-      ECZANE_RAW = parseEczaneCSV(csv);
-      eczaneLoaded = true;
-      statusEl.textContent = `✅ ${ECZANE_RAW.length.toLocaleString('tr-TR')} satış kaydı`;
-      console.log('[ECZANE] Loaded:', ECZANE_RAW.length, 'records');
-    } catch(err) {
-      statusEl.textContent = '❌ ' + err.message;
-      console.error('[ECZANE]', err);
-      return;
-    }
-  }
 
-  buildEczaneFilters();
-  renderEczaneContent();
-}
 
-function buildEczaneFilters() {
-  // Her çağrıda brickTTT'yi yeniden oluştur (IMS verisi sonradan yükleniyor olabilir)
-  const brickTTT = getBrickTTTMap();
-  // ECZANE_RAW'daki ttt=null satırlara brickTTTMap'ten ttt ata
-  if (ECZANE_RAW && ECZANE_RAW.length && Object.keys(brickTTT).length) {
-    ECZANE_RAW.forEach(r => {
-      if (!r.ttt && r.brick) {
-        r.ttt = brickTTT[r.brick.toUpperCase()] || null;
-      }
-    });
-  }
 
-  // Temsilci listesi - ALL_TTTS
-  const allT = [...ALL_TTTS];
-  if (!selEczaneTTT && allT.length) selEczaneTTT = allT[0];
-  document.getElementById('eczaneTttBar').innerHTML = allT.map(t =>
-    `<button class="sp-btn${t===selEczaneTTT?' active':''}" onclick="selEczaneTTT='${t}';buildEczaneFilters();renderEczaneContent()">${t}</button>`
-  ).join('');
 
-  // Seçili TTT'ye ait brickler
-  const tttBricks = [...new Set(
-    ECZANE_RAW.filter(r => r.ttt === selEczaneTTT).map(r => r.brick)
-  )].sort();
 
-  document.getElementById('eczaneBrickBar').innerHTML =
-    ['TÜMÜ', ...tttBricks].map(b =>
-      `<button class="sp-btn${b===selEczaneBrick?' active':''}" onclick="selEczaneBrick='${b}';buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${b}</button>`
-    ).join('');
 
-  // Ürünler
-  const uruns = [...new Set(ECZANE_RAW.map(r=>r.urun))].sort();
-  document.getElementById('eczaneUrunBar').innerHTML =
-    ['TÜMÜ', ...uruns].map(u =>
-      `<button class="sp-btn${u===selEczaneUrun?' active':''}" onclick="selEczaneUrun='${u}';buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${u}</button>`
-    ).join('');
 
-  // Aylar
-  const aylar = [...new Set(ECZANE_RAW.map(r=>r.ay))].sort();
-  const AY_LABELS = {
-    '01/2026':'Ocak 2026','02/2026':'Şubat 2026','03/2026':'Mart 2026',
-    '04/2026':'Nisan 2026','05/2026':'Mayıs 2026','06/2026':'Haziran 2026',
-    '07/2026':'Temmuz 2026','08/2026':'Ağustos 2026','09/2026':'Eylül 2026',
-    '10/2026':'Ekim 2026','11/2026':'Kasım 2026','12/2026':'Aralık 2026',
-  };
-  document.getElementById('eczaneAyBar').innerHTML =
-    ['TÜMÜ', ...aylar].map(a =>
-      `<button class="sp-btn${a===selEczaneAy?' active':''}" onclick="selEczaneAy='${a}';buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${a==='TÜMÜ'?'Tümü':AY_LABELS[a]||a}</button>`
-    ).join('');
-}
 
-function getFilteredEczane() {
-  return ECZANE_RAW.filter(r => {
-    if (selEczaneTTT && r.ttt !== selEczaneTTT) return false;
-    if (selEczaneBrick !== 'TÜMÜ' && r.brick !== selEczaneBrick) return false;
-    if (selEczaneUrun  !== 'TÜMÜ' && r.urun  !== selEczaneUrun)  return false;
-    if (selEczaneAy    !== 'TÜMÜ' && r.ay    !== selEczaneAy)    return false;
-    return true;
-  });
-}
 
-function renderEczaneContent() {
-  const filtered = getFilteredEczane();
 
-  // Eczane bazında aggregate
-  const eczMap = {};
-  // Hangi aylar var? dinamik
-  const mevcutAylar = [...new Set(filtered.map(r=>r.ay))].sort();
-  filtered.forEach(r => {
-    if (!eczMap[r.gln]) {
-      const ayInit = {};
-      mevcutAylar.forEach(a => { ayInit['ay_'+a] = 0; });
-      eczMap[r.gln] = { gln:r.gln, ad:r.ad, brick:r.brick, ttt:r.ttt, toplam:0, tutar:0, uruns:new Set(), ...ayInit };
-    }
-    const e = eczMap[r.gln];
-    e.toplam += r.adet; e.tutar += r.tutar;
-    e['ay_'+r.ay] = (e['ay_'+r.ay]||0) + r.adet;
-    e.uruns.add(r.urun);
-  });
 
-  const eczList = Object.values(eczMap);
-  eczList.forEach(e => {
-    e.uruns = [...e.uruns];
-    // Geriye uyumluluk
-    e.ocak  = e['ay_01/2026']||0;
-    e.subat = e['ay_02/2026']||0;
-  });
 
-  // Özet kartlar
-  const totAdet  = eczList.reduce((s,e)=>s+e.toplam,0);
-  const totTutar = eczList.reduce((s,e)=>s+e.tutar,0);
-  const totIade  = eczList.reduce((s,e)=>s+e.iade,0);
-  const aktif    = eczList.filter(e=>e.toplam>0).length;
-  const buyuyen  = eczList.filter(e=>e.subat>e.ocak).length;
 
-  document.getElementById('eczaneSummaryCards').innerHTML = [
-    {icon:'🏥',label:'Toplam Eczane',val:eczList.length,color:'var(--c1)'},
-    {icon:'✅',label:'Aktif Eczane',val:aktif,color:'#16A34A'},
-    {icon:'📦',label:'Toplam Adet',val:fK(totAdet),color:'#0891B2'},
-    {icon:'💰',label:'Toplam Tutar',val:fTL(totTutar),color:'#521FD1'},
-    {icon:'📈',label:'Büyüyen Eczane',val:buyuyen,color:'#D97706'},
-  ].map(c=>`<div style="background:#fff;border:1px solid var(--border);border-radius:9px;padding:10px 12px;text-align:center">
-    <div style="font-size:16px">${c.icon}</div>
-    <div style="font-size:18px;font-weight:800;color:${c.color}">${c.val}</div>
-    <div style="font-size:9px;color:var(--dim);font-weight:600;text-transform:uppercase;margin-top:2px">${c.label}</div>
-  </div>`).join('');
 
-  // Tablo
-  _eczaneData = eczList;
-  document.getElementById('eczaneTblBadge').textContent = `${eczList.length} eczane`;
-  renderEczaneTable(eczList);
 
-  // Grafikler
-  renderEczaneCharts(filtered, eczList);
-}
 
-let _eczaneData = [];
-let _eczaneSearchFilter = '';
 
-function filterEczaneTable() {
-  _eczaneSearchFilter = (document.getElementById('eczaneSearch')?.value||'').toLowerCase();
-  renderEczaneTable(_eczaneData);
-}
 
-function sortEczane(key) {
-  if (eczaneSortKey === key) eczaneSortAsc = !eczaneSortAsc;
-  else { eczaneSortKey = key; eczaneSortAsc = false; }
-  renderEczaneTable(_eczaneData);
-}
 
-function renderEczaneTable(data) {
-  // Arama filtresi
-  let list = _eczaneSearchFilter
-    ? data.filter(e => e.ad.toLowerCase().includes(_eczaneSearchFilter) || e.brick.toLowerCase().includes(_eczaneSearchFilter) || e.gln.includes(_eczaneSearchFilter))
-    : [...data];
 
-  // Sıralama
-  list.sort((a,b) => {
-    let av=a[eczaneSortKey]||0, bv=b[eczaneSortKey]||0;
-    if (typeof av==='string') av=av.toLowerCase(), bv=(bv||'').toLowerCase();
-    return eczaneSortAsc ? (av>bv?1:-1) : (av<bv?1:-1);
-  });
 
-  const MAX_ROWS = 200;
-  const shown = list.slice(0, MAX_ROWS);
 
-  document.getElementById('eczaneTblBadge').textContent =
-    `${list.length} eczane${list.length>MAX_ROWS?' (ilk '+MAX_ROWS+' gösteriliyor)':''}`;
 
-  // Aktif aylara göre thead güncelle
-  const _aylar = [...new Set(data.flatMap(e=>Object.keys(e).filter(k=>k.startsWith('ay_')).map(k=>k.slice(3))))].sort();
-  const _AY_K = {'01/2026':'Oca','02/2026':'Şub','03/2026':'Mar','04/2026':'Nis','05/2026':'May','06/2026':'Haz','07/2026':'Tem','08/2026':'Ağu','09/2026':'Eyl','10/2026':'Eki','11/2026':'Kas','12/2026':'Ara'};
-  const theadEl = document.getElementById('eczaneThead');
-  if (theadEl && _aylar.length > 0) {
-    theadEl.innerHTML = `<th onclick="sortEczane('ad')" style="cursor:pointer">Eczane ▾</th>
-      <th onclick="sortEczane('brick')" style="cursor:pointer">Brick ▾</th>
-      ${_aylar.map(a=>`<th onclick="sortEczane('ay_${a}')" style="cursor:pointer">${_AY_K[a]||a} ▾</th>`).join('')}
-      <th onclick="sortEczane('toplam')" style="cursor:pointer">Toplam ▾</th>
-      <th onclick="sortEczane('tutar')" style="cursor:pointer">Tutar ▾</th>
-      <th>Ürünler</th>`;
-  }
+// (duplicate removed: buildEczaneFilters — blok 1'de tanımlı)
 
-  document.getElementById('eczaneTbody').innerHTML = shown.map(e => {
-    // Trend: son ay vs ilk ay
-    const ilkAy = _aylar[0], sonAy = _aylar[_aylar.length-1];
-    const ilkVal = e['ay_'+ilkAy]||0, sonVal = e['ay_'+sonAy]||0;
-    const trend = _aylar.length>=2 ? (sonVal>ilkVal?'📈':sonVal<ilkVal&&sonVal>0?'📉':'') : '';
-    const durum = e.toplam===0?'<span style="color:#94A3B8">Pasif</span>':
-                  (sonVal>ilkVal&&_aylar.length>=2)?'<span style="color:#16A34A;font-weight:600">📈 Büyüyor</span>':
-                  '<span style="color:#64748B">—</span>';
-    const urunBadges = e.uruns.map(u=>`<span style="background:${URUN_CLR[u]||'#64748B'}22;color:${URUN_CLR[u]||'#64748B'};border-radius:3px;padding:1px 5px;font-size:8px;font-weight:700">${u}</span>`).join(' ');
-    const ayTds = _aylar.map(a=>{
-      const v=e['ay_'+a]||0;
-      const isLast=(a===sonAy);
-      return `<td class="mono" style="${v>0?(isLast?'font-weight:700':''):'color:#A0AEC0'}">${v>0?fK(v):'—'}</td>`;
-    }).join('');
-    return `<tr>
-      <td style="font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.ad}">${e.ad}</td>
-      <td style="font-size:10px;color:var(--dim)">${e.brick}</td>
-      ${ayTds}
-      <td class="mono" style="font-weight:700;color:var(--c1)">${e.toplam>0?fK(e.toplam):'—'}</td>
-      <td class="mono" style="font-size:10px">${e.tutar>0?fTL(e.tutar):'—'}</td>
-      <td>${urunBadges}</td>
-    </tr>`;
-  }).join('');
-}
 
-function renderEczaneCharts(filtered, eczList) {
-  // Brick bazlı
-  const brickMap = {};
-  filtered.forEach(r => {
-    if (!brickMap[r.brick]) brickMap[r.brick] = 0;
-    brickMap[r.brick] += r.adet;
-  });
-  const brickSorted = Object.entries(brickMap).sort((a,b)=>b[1]-a[1]).slice(0,12);
 
-  setTimeout(()=>{
-    mkChart('eczaneBrickChart','bar',{
-      labels: brickSorted.map(([b])=>b.length>16?b.substr(0,16)+'…':b),
-      datasets:[{label:'Satış Adet',data:brickSorted.map(([,v])=>v),
-        backgroundColor:'#4F008C44',borderColor:'#4F008C',borderWidth:2,borderRadius:4}]
-    },{plugins:{title:{display:true,text:'Brick Bazlı Satış',font:{size:11}}},
-      scales:{y:{ticks:{callback:v=>fK(v)}},x:{ticks:{font:{size:8},maxRotation:45}}}});
 
-    // Ürün dağılımı
-    const urunMap = {};
-    filtered.forEach(r=>{ urunMap[r.urun]=(urunMap[r.urun]||0)+r.adet; });
-    const urunEntries = Object.entries(urunMap).sort((a,b)=>b[1]-a[1]);
-    mkChart('eczaneUrunChart','doughnut',{
-      labels: urunEntries.map(([u])=>u),
-      datasets:[{data:urunEntries.map(([,v])=>v),
-        backgroundColor: urunEntries.map(([u])=>(URUN_CLR[u]||'#64748B')+'cc'),
-        borderColor: urunEntries.map(([u])=>URUN_CLR[u]||'#64748B'),
-        borderWidth:2}]
-    },{plugins:{legend:{position:'bottom',labels:{font:{size:10}}},
-      title:{display:true,text:'Ürün Dağılımı',font:{size:11}}}});
-  },50);
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// (duplicate removed: getFilteredEczane — blok 1'de tanımlı)
+
+
+
+
+
+
+
+
+
+// (duplicate removed: renderEczaneContent — blok 1'de tanımlı)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// (duplicate removed — _eczaneData blok 1'de tanımlı)
+// (duplicate removed — _eczaneSearchFilter blok 1'de tanımlı)
+
+// (duplicate removed: filterEczaneTable — blok 1'de tanımlı)
+
+
+
+
+// (duplicate removed: sortEczane — blok 1'de tanımlı)
+
+
+
+
+
+// (duplicate removed: renderEczaneTable — blok 1'de tanımlı)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// (duplicate removed: renderEczaneCharts — blok 1'de tanımlı)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // AI asistan eczane verisi context
-function buildEczaneContext(ttt) {
-  if (!eczaneLoaded || !ECZANE_RAW) {
-    // Eczane yüklü değilse AI'a not düş, arka planda yükle
-    if (!eczaneLoaded) {
-      // Arka planda yüklemeyi tetikle (async, sonuç bekleme)
-      fetch(GS_ECZANE_URL + '?v=' + Date.now(), { cache: 'no-store' })
-        .then(r => r.ok ? r.text() : Promise.reject('HTTP ' + r.status))
-        .then(csv => {
-          ECZANE_RAW = parseEczaneCSV(csv);
-          eczaneLoaded = true;
-          console.log('[ECZANE BG] Loaded:', ECZANE_RAW.length);
-        }).catch(e => console.warn('[ECZANE BG]', e));
-    }
-    return '\n\n--- ECZANE VERİSİ ---\n(Eczane sayfası henüz yüklenmedi - bir sonraki soruda dahil edilecek)';
-  }
-  const data = ECZANE_RAW.filter(r=>r.ttt===ttt);
-  if (!data.length) return '';
+// (duplicate removed: buildEczaneContext — blok 1'de tanımlı)
 
-  const eczMap = {};
-  data.forEach(r=>{
-    if(!eczMap[r.gln]) eczMap[r.gln]={ad:r.ad,brick:r.brick,ocak:0,subat:0,iade:0,uruns:new Set()};
-    if(r.ay==='01/2026') eczMap[r.gln].ocak+=r.adet;
-    if(r.ay==='02/2026') eczMap[r.gln].subat+=r.adet;
-    eczMap[r.gln].iade+=r.iade;
-    eczMap[r.gln].uruns.add(r.urun);
-  });
 
-  const list = Object.values(eczMap).sort((a,b)=>(b.ocak+b.subat)-(a.ocak+a.subat));
-  const top10 = list.slice(0,10);
-  const dusen = list.filter(e=>e.subat<e.ocak&&e.subat>0).slice(0,5);
-  const sifir = list.filter(e=>e.subat===0&&e.ocak>0).slice(0,5);
 
-  let ctx = `\n\n--- ECZANE SATIŞ VERİSİ (Oca-Şub 2026) ---\nToplam Eczane: ${list.length} | Aktif: ${list.filter(e=>e.ocak+e.subat>0).length}`;
-  ctx += `\n\nEn Çok Satan 10 Eczane:`;
-  top10.forEach(e=>{ ctx += `\n  ${e.ad} [${e.brick}]: Oca=${e.ocak}, Şub=${e.subat} ${[...e.uruns].join('/')}`; });
-  if (dusen.length) {
-    ctx += `\n\nDüşüş Gösteren Eczaneler (Şub<Oca):`;
-    dusen.forEach(e=>{ ctx += `\n  ${e.ad}: Oca=${e.ocak}→Şub=${e.subat}`; });
-  }
-  if (sifir.length) {
-    ctx += `\n\nŞubatta Alış Yapmayan (Oca Alımlı):`;
-    sifir.forEach(e=>{ ctx += `\n  ${e.ad} [${e.brick}]: Oca=${e.ocak}`; });
-  }
-  return ctx;
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 </script>
 </body>
 </html>
+
