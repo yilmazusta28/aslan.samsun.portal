@@ -71,6 +71,58 @@ let MIGI_KUTU_RAW    = [];
 let MIGI_BRICK_TL_RAW   = [];
 let MIGI_BRICK_KUTU_RAW = [];
 
+// ── GITHUB CSV URLS (FINAL) ─────────────────────────────
+const URLS = {
+  TL_TOPLAM:   'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI_TL_TOPLAM.csv',
+  KUTU_TOPLAM: 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI_KUTU_TOPLAM.csv',
+  TL_BRICK:    'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI-TL.csv',
+  KUTU_BRICK:  'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI-KUTU.csv'
+};
+
+
+// ── CSV YÜKLEYİCİ ─────────────────────────────
+async function loadCSV(url) {
+  const res = await fetch(url + '?v=' + Date.now(), { cache: 'no-store' });
+
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+
+  const text = await res.text();
+
+  if (text.startsWith('<')) {
+    throw new Error('RAW yerine HTML geldi!');
+  }
+
+  return parseCSVRows(text);
+}
+
+
+// ── TÜM MI&GI VERİLERİNİ YÜKLE ─────────────────────────
+async function loadMIGIData() {
+
+  console.log('⏳ MI&GI yükleniyor...');
+
+  const [
+    tlToplam,
+    kutuToplam,
+    tlBrick,
+    kutuBrick
+  ] = await Promise.all([
+    loadCSV(URLS.TL_TOPLAM),
+    loadCSV(URLS.KUTU_TOPLAM),
+    loadCSV(URLS.TL_BRICK),
+    loadCSV(URLS.KUTU_BRICK)
+  ]);
+
+  MIGI_TL_RAW         = tlToplam;
+  MIGI_KUTU_RAW       = kutuToplam;
+  MIGI_BRICK_TL_RAW   = tlBrick;
+  MIGI_BRICK_KUTU_RAW = kutuBrick;
+
+  console.log('✅ Yüklendi');
+
+  renderMIGI(); // 🔥 SENDE VAR OLAN FONKSİYON
+}
+
 // Bölüm-1 (TOPLAM) filtre state
 let mg1_tip   = 'TL';
 let mg1_donem = 'TÜMÜ';
@@ -4956,7 +5008,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
           style="padding:5px 10px;font-size:11px;width:160px" oninput="filterEczaneTable()">
       </div>
     </div>
-    <div class="card-body-0 scroll-x">
+    <div class="card-body-0 scroll-x">function loadMIGI()
       <table class="tbl" id="eczaneTable" style="min-width:700px">
         <thead>
           <tr id="eczaneThead">
@@ -4989,6 +5041,10 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;displ
 
 </div><!-- /main -->
 </div><!-- /app -->
+
+window.onload = () => {
+  loadMIGIData();
+};
 
 </body>
 </html>
