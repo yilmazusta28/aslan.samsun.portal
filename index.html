@@ -1868,7 +1868,14 @@ function renderMigi2() {
 
   if (!src.length) {
     if(tbody) tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--dim)">
-      ⚠️ Veri yüklenemedi — GitHub'da MI_GI-TL.csv ve MI_GI-KUTU.csv olmalı
+      <div style="font-size:14px;margin-bottom:8px">⚠️ Brick verisi yüklenemedi</div>
+      <div style="font-size:11px;color:var(--dim)">GitHub reposuna şu dosyaları yükleyin:</div>
+      <div style="font-size:11px;margin-top:6px;font-family:monospace;color:#fbbf24">
+        MI_GI-TL.csv &nbsp;|&nbsp; MI_GI-KUTU.csv
+      </div>
+      <div style="font-size:10px;margin-top:4px;color:var(--dim)">
+        (Dosya adlarında tire kullanın: MI_GI<strong>-</strong>TL.csv)
+      </div>
     </td></tr>`;
     return;
   }
@@ -1985,38 +1992,30 @@ async function syncData() {
       fetch(GS_GENEL_URL + '?v=' + ts, fetchOpts),
     ]);
 
-    // 4 MI_GI dosyası — biri yoksa diğerleri etkilenmesin
-    let respMiGiTL=null,respMiGiKutu=null,respMiGiBTL=null,respMiGiBKutu=null;
-    await Promise.allSettled([
-      fetch(GS_MIGI_TL_URL        +'?v='+ts,fetchOpts).then(r=>{respMiGiTL  =r;}).catch(()=>{}),
-      fetch(GS_MIGI_KUTU_URL      +'?v='+ts,fetchOpts).then(r=>{respMiGiKutu=r;}).catch(()=>{}),
-      fetch(GS_MIGI_BRICK_TL_URL  +'?v='+ts,fetchOpts).then(r=>{respMiGiBTL =r;}).catch(()=>{}),
-      fetch(GS_MIGI_BRICK_KUTU_URL+'?v='+ts,fetchOpts).then(r=>{respMiGiBKutu=r;}).catch(()=>{}),
-    ]);
-    
-    console.log('[fetch] IMS status:', respIMS.status);
-    console.log('[fetch] GENEL status:', respGenel.status);
-    console.log('[fetch] MIGI-TL status:', respMiGiTL?.status||'n/a');
-    console.log('[fetch] MIGI-KUTU status:', respMiGiKutu?.status||'n/a');
-    if (!respIMS.ok)   throw new Error(
-      'IMS_TABLO.csv bulunamadı (HTTP ' + respIMS.status + '). ' +
-      'GitHub reposunda ana klasörde IMS_TABLO.csv olduğundan emin olun. ' +
-      'URL: https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/IMS_TABLO.csv'
-    );
-    if (!respGenel.ok) throw new Error(
-      'GENEL_TABLO.csv bulunamadı (HTTP ' + respGenel.status + '). ' +
-      'GitHub reposunda ana klasörde GENEL_TABLO.csv olduğundan emin olun. ' +
-      'URL: https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/GENEL_TABLO.csv'
-    );
+    // Tüm CSV'leri güvenli şekilde çek — biri başarısız olursa diğerleri devam eder
+    const safeGet = async (url) => {
+      try {
+        const r = await fetch(url + '?v=' + ts, { cache:'no-store', mode:'cors' });
+        if (r.ok) { console.log('[OK]', url.split('/').pop()); return await r.text(); }
+        console.warn('[' + r.status + ']', url.split('/').pop());
+      } catch(e) { console.warn('[ERR]', url.split('/').pop(), e.message); }
+      return '';
+    };
 
-    const [csvIMS, csvGenel] = await Promise.all([
+    if (!respIMS.ok)   throw new Error('IMS_TABLO.csv yüklenemedi (HTTP ' + respIMS.status + ')');
+    if (!respGenel.ok) throw new Error('GENEL_TABLO.csv yüklenemedi (HTTP ' + respGenel.status + ')');
+
+    const [csvIMS, csvGenel, csvMiGiTL, csvMiGiKutu, csvMiGiBTL, csvMiGiBKutu] = await Promise.all([
       respIMS.text(),
       respGenel.text(),
+      safeGet('https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI_TL_TOPLAM.csv'),
+      safeGet('https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI_KUTU_TOPLAM.csv'),
+      safeGet('https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI-TL.csv'),
+      safeGet('https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI-KUTU.csv'),
     ]);
-    const csvMiGiTL    = (respMiGiTL   && respMiGiTL.ok)   ? await respMiGiTL.text()   : '';
-    const csvMiGiKutu  = (respMiGiKutu && respMiGiKutu.ok) ? await respMiGiKutu.text() : '';
-    const csvMiGiBTL   = (respMiGiBTL  && respMiGiBTL.ok)  ? await respMiGiBTL.text()  : '';
-    const csvMiGiBKutu = (respMiGiBKutu&& respMiGiBKutu.ok)? await respMiGiBKutu.text(): '';
+
+    console.log('[CSV] TOPLAM-TL:', csvMiGiTL.length, 'TOPLAM-KUTU:', csvMiGiKutu.length,
+      'BRICK-TL:', csvMiGiBTL.length, 'BRICK-KUTU:', csvMiGiBKutu.length);
 
     // Parse IMS + GENEL
     const newIMS = parseIMSCSV(csvIMS);
