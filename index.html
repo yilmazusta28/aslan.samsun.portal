@@ -1594,56 +1594,129 @@ function parseMiGiToplamCSV(csvText) {
 // ═══════════════════════════════════════════════════════════
 function parseMiGiBrickCSV(csvText) {
   if (!csvText || csvText.trim().startsWith('<')) return [];
+
   const pN = s => {
     s = String(s||'').trim().replace(/\s/g,'');
     if (!s || s === '-') return null;
     const v = parseFloat(s.replace(/\./g,'').replace(',','.'));
     return isNaN(v) ? null : v;
   };
-  const AY_MAP = {'OCAK':'01','ŞUBAT':'02','MART':'03','NİSAN':'04','MAYIS':'05','HAZİRAN':'06',
-    'TEMMUZ':'07','AĞUSTOS':'08','EYLÜL':'09','EKİM':'10','KASIM':'11','ARALIK':'12'};
 
-  const rawLines = csvText.replace(/^\uFEFF/,'').replace(/\r/g,'').split('\n');
+  const AY_MAP = {'OCAK':'01','SUBAT':'02','ŞUBAT':'02','MART':'03','NISAN':'04','NİSAN':'04',
+    'MAYIS':'05','HAZIRAN':'06','HAZİRAN':'06','TEMMUZ':'07','AGUSTOS':'08','AĞUSTOS':'08',
+    'EYLUL':'09','EYLÜL':'09','EKIM':'10','EKİM':'10','KASIM':'11','ARALIK':'12'};
 
-  // Separator otomatik tespiti (virgül veya noktalı virgül)
-  const _sep2 = detectSeparator(csvText);
+  const sep = detectSeparator(csvText);
+  const lines = csvText.replace(/^\uFEFF/,'').replace(/\r/g,'').split('\n');
 
-  // Pivot map: sira+person+brick+donem+ilac → {bi,evol,mi,pp}
-  const map = {};
-  for (let i = 1; i < rawLines.length; i++) {
-    const c = rawLines[i].split(_sep2);
-    if (c.length < 8) continue;
+  /*
+   * CSV geniş (wide) formatı:
+   *   Satır 0: ;;;;  2026 ŞUBAT ;;;;; 2026 MART ...   (her 5. sütunda ay adı)
+   *   Satır 1: ;;;;  BÜYÜME INDEX; EVOLATION; MARKET; PAZAR PAYI; ...
+   *   Satır 2: 333 SIRA;BÖLGE;PERSONEL;BRICK; PANOCER ; FAMTREC ; MOKSEFEN ; ACİDPASS ; GRİPORT COLD ; ...
+   *   Satır 3+: veri
+   *
+   * Sütun yapısı (0-indexed):
+   *   0=SIRA, 1=BÖLGE, 2=PERSONEL, 3=BRICK
+   *   Her ay için 5 ilaç × 4 metrik = 20 sütun
+   *   Ay başlığı satır0'da her 20 sütunda bir tekrarlanır
+   *   Metrik sırası (satır1): BI, EVOL, MI, PP — her metrik 5 ilaç bloğunu kapsar
+   *   İlaç sırası (satır2): PANOCER, FAMTREC, MOKSEFEN, ACİDPASS, GRİPORT COLD
+   */
+  const ILACLAR = ['PANOCER','FAMTREC','MOKSEFEN','ACİDPASS','GRİPORT COLD'];
+  const METRIKS = ['bi','evol','mi','pp']; // 4 metrik, her biri 5 ilaç = 20 sütun/ay
+
+  // Satır 0'dan ay adlarını çıkar
+  const row0 = (lines[0]||'').split(sep).map(s=>s.trim().toUpperCase());
+
+  // Her ay bloğunun başlangıç sütun indeksini bul
+  // Ay adı "2026 ŞUBAT" gibi geliyor — boş olmayan hücreleri bul
+  const ayBloklar = []; // [{donem:'02/2026', colStart:4}, ...]
+  let lastDonem = null;
+  for (let col = 4; col < row0.length; col++) {
+    const val = row0[col];
+    if (!val) continue;
+    // "2026 ŞUBAT" → yıl+ay parse
+    let donem = null;
+    for (const [ayAd, ayNo] of Object.entries(AY_MAP)) {
+      if (val.includes(ayAd)) {
+        const yilMatch = val.match(/\d{4}/);
+        const yil = yilMatch ? yilMatch[0] : '2026';
+        donem = ayNo + '/' + yil;
+        break;
+      }
+    }
+    if (donem && donem !== lastDonem) {
+      ayBloklar.push({ donem, colStart: col });
+      lastDonem = donem;
+    }
+  }
+
+  // Eğer satır0'dan ay bulunamazsa fallback: sabit aralıkla tahmin et
+  if (ayBloklar.length === 0) {
+    // Her 20 sütunda bir ay (4 metrik × 5 ilaç)
+    const ayler = ['02','03','04','05','06','07','08','09','10','11','12'];
+    ayler.forEach((ay, i) => {
+      ayBloklar.push({ donem: ay+'/2026', colStart: 4 + i * 20 });
+    });
+  }
+
+  // Header satırını bul ("333 SIRA" veya "SIRA" ile başlayan satır)
+  let dataStartIdx = 3; // varsayılan
+  for (let i = 0; i < Math.min(8, lines.length); i++) {
+    const firstCol = (lines[i].split(sep)[0] || '').trim().toUpperCase();
+    if (firstCol.includes('SIRA') || firstCol === '333 SIRA') {
+      dataStartIdx = i + 1;
+      break;
+    }
+  }
+  console.log('[parseMiGiBrickCSV] dataStartIdx:', dataStartIdx);
+
+  const result = [];
+
+  for (let i = dataStartIdx; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line || !line.trim()) continue;
+    const c = line.split(sep);
     const siraRaw = (c[0]||'').trim();
     if (!siraRaw || isNaN(parseInt(siraRaw))) continue;
     const personRaw = (c[2]||'').trim();
     const person = normTTT(personRaw) || personRaw;
-    if (!person || person.toUpperCase().includes('GİDİLMEYEN')) continue;
+    if (!person || person.toUpperCase().includes('GIDILMEYEN') ||
+        person.toUpperCase().includes('GİDİLMEYEN')) continue;
 
-    const kap = (c[5]||'').toUpperCase();
-    let alan = '';
-    if (kap.includes('EVOL'))                              alan = 'evol';
-    else if (kap.includes('PENETRASYON')||kap.includes('MARKET')) alan = 'mi';
-    else if (kap.includes('BÜYÜME'))                       alan = 'bi';
-    else if (kap.includes('PAZAR PAYI'))                   alan = 'pp';
-    if (!alan) continue;
+    const brick = (c[3]||'').trim();
+    if (!brick) continue;
 
-    const donemRaw = (c[4]||'').toUpperCase();
-    let donem = donemRaw;
-    for (const [ay, no] of Object.entries(AY_MAP)) {
-      if (donemRaw.includes(ay)) { donem = no + '/2026'; break; }
+    for (const { donem, colStart } of ayBloklar) {
+      // colStart'tan itibaren: 5 BI, 5 EVOL, 5 MI, 5 PP (toplam 20 sütun/ay)
+      for (let ilacIdx = 0; ilacIdx < ILACLAR.length; ilacIdx++) {
+        const ilac = ILACLAR[ilacIdx];
+        const bi   = pN(c[colStart + 0 * ILACLAR.length + ilacIdx]);
+        const evol = pN(c[colStart + 1 * ILACLAR.length + ilacIdx]);
+        const mi   = pN(c[colStart + 2 * ILACLAR.length + ilacIdx]);
+        const pp   = pN(c[colStart + 3 * ILACLAR.length + ilacIdx]);
+
+        // En az bir değer varsa kaydı ekle
+        if (bi !== null || evol !== null || mi !== null || pp !== null) {
+          result.push({
+            sira: parseInt(siraRaw),
+            bolge: (c[1]||'').trim(),
+            person,
+            brick,
+            donem,
+            ilac,
+            bi, evol, mi, pp
+          });
+        }
+      }
     }
-
-    const key = siraRaw+'|'+person+'|'+(c[3]||'').trim()+'|'+donem+'|'+(c[6]||'').trim();
-    if (!map[key]) map[key] = {
-      sira: parseInt(siraRaw), person, brick: (c[3]||'').trim(),
-      donem, ilac: (c[6]||'').trim(), bi:null, evol:null, mi:null, pp:null
-    };
-    map[key][alan] = pN(c[7]);
   }
 
-  const result = Object.values(map).sort((a,b)=>a.sira-b.sira);
-  console.log('[parseMiGiBrickCSV]', result.length, 'records |',
-    new Set(result.map(r=>r.brick)).size, 'bricks');
+  console.log('[parseMiGiBrickCSV] wide-format →', result.length, 'records |',
+    new Set(result.map(r=>r.brick)).size, 'bricks |',
+    new Set(result.map(r=>r.donem)).size, 'dönem |',
+    new Set(result.map(r=>r.person)).size, 'personel');
   return result;
 }
 
@@ -1875,13 +1948,17 @@ function renderMigi2() {
 
   if (!src.length) {
     if(tbody) tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--dim)">
-      <div style="font-size:14px;margin-bottom:8px">⚠️ Brick verisi yüklenemedi</div>
-      <div style="font-size:11px;color:var(--dim)">GitHub reposuna şu dosyaları yükleyin:</div>
-      <div style="font-size:11px;margin-top:6px;font-family:monospace;color:#fbbf24">
-        MI_GI-TL.csv &nbsp;|&nbsp; MI_GI-KUTU.csv
+      <div style="font-size:20px;margin-bottom:8px">⚠️</div>
+      <div style="font-size:14px;margin-bottom:6px;color:var(--fg)">Brick verisi henüz yüklenmedi</div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:12px">
+        Veriler arka planda çekiliyor olabilir. Lütfen bekleyin veya yenile butonuna basın.
       </div>
-      <div style="font-size:10px;margin-top:4px;color:var(--dim)">
-        (Dosya adlarında tire kullanın: MI_GI<strong>-</strong>TL.csv)
+      <button onclick="syncData()" style="padding:8px 18px;border-radius:8px;border:1px solid var(--c1);
+        background:var(--c1);color:#fff;cursor:pointer;font-size:12px">🔄 Verileri Yenile</button>
+      <div style="font-size:10px;margin-top:12px;color:var(--dim)">
+        Sorun devam ederse tarayıcı konsolunu (F12) kontrol edin.<br>
+        Beklenen dosya: <span style="font-family:monospace;color:#fbbf24">MI_GI-TL.csv</span> &nbsp;|&nbsp; 
+        <span style="font-family:monospace;color:#fbbf24">MI_GI-KUTU.csv</span>
       </div>
     </td></tr>`;
     return;
@@ -2001,20 +2078,29 @@ async function syncData() {
 
     // Tüm CSV'leri güvenli şekilde çek — biri başarısız olursa diğerleri devam eder
     const safeGet = async (url) => {
-      try {
-        const r = await fetch(url + '?v=' + ts, { cache:'no-store', mode:'cors' });
-        const fileName = url.split('/').pop();
-        if (r.ok) {
-          const text = await r.text();
-          console.log('[OK]', fileName, text.length, 'chars');
-          return text;
-        }
-        console.warn('[HTTP ' + r.status + '] ' + fileName + ' — URL: ' + url);
-        // 404 ise dosya adını kontrol et
-        if (r.status === 404) {
-          console.error('[404] Dosya bulunamadı:', fileName, '— GitHub reposunda bu dosyanın varlığını kontrol edin.');
-        }
-      } catch(e) { console.warn('[ERR]', url.split('/').pop(), e.message); }
+      const fileName = url.split('/').pop();
+      // 1. deneme: cache:no-store, redirect:follow (mode:cors YOK — preflight sorununu önler)
+      // 2. deneme: query string ile (CDN bypass)
+      const attempts = [
+        () => fetch(url, { cache: 'no-store', redirect: 'follow' }),
+        () => fetch(url + '?nocache=' + ts, { redirect: 'follow' }),
+      ];
+      for (const attempt of attempts) {
+        try {
+          const r = await attempt();
+          if (r.ok) {
+            const text = await r.text();
+            if (text && !text.trim().startsWith('<')) {
+              console.log('[OK]', fileName, text.length, 'chars');
+              return text;
+            }
+            console.warn('[WARN] CSV değil HTML geldi:', fileName);
+          } else {
+            console.warn('[HTTP ' + r.status + '] ' + fileName);
+          }
+        } catch(e) { console.warn('[ERR]', fileName, e.message); }
+      }
+      console.error('[FAIL] Yüklenemedi:', fileName, url);
       return '';
     };
 
