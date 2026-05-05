@@ -1546,16 +1546,19 @@ function parseMiGiToplamCSV(csvText) {
 
   const rawLines = csvText.replace(/^\uFEFF/,'').replace(/\r/g,'').split('\n');
 
+  // Separator otomatik tespiti (virgül veya noktalı virgül)
+  const _sep1 = detectSeparator(csvText);
+
   // Veri satırı başlangıcı — ilk AY adıyla başlayan satır
   let di = 0;
   for (let i = 0; i < Math.min(6, rawLines.length); i++) {
-    const f = (rawLines[i].split(';')[0] || '').trim().toUpperCase();
+    const f = (rawLines[i].split(_sep1)[0] || '').trim().toUpperCase();
     if (AYLAR.some(a => f === a)) { di = i; break; }
   }
 
   const records = [];
   for (let i = di; i < rawLines.length; i++) {
-    const c = rawLines[i].split(';').map(s => s.trim());
+    const c = rawLines[i].split(_sep1).map(s => s.trim());
     if (c.length < 5) continue;
     const ayRaw  = (c[0] || '').toUpperCase();
     const person = (c[1] || '').trim();
@@ -1602,14 +1605,18 @@ function parseMiGiBrickCSV(csvText) {
 
   const rawLines = csvText.replace(/^\uFEFF/,'').replace(/\r/g,'').split('\n');
 
+  // Separator otomatik tespiti (virgül veya noktalı virgül)
+  const _sep2 = detectSeparator(csvText);
+
   // Pivot map: sira+person+brick+donem+ilac → {bi,evol,mi,pp}
   const map = {};
   for (let i = 1; i < rawLines.length; i++) {
-    const c = rawLines[i].split(';');
+    const c = rawLines[i].split(_sep2);
     if (c.length < 8) continue;
     const siraRaw = (c[0]||'').trim();
     if (!siraRaw || isNaN(parseInt(siraRaw))) continue;
-    const person = (c[2]||'').trim();
+    const personRaw = (c[2]||'').trim();
+    const person = normTTT(personRaw) || personRaw;
     if (!person || person.toUpperCase().includes('GİDİLMEYEN')) continue;
 
     const kap = (c[5]||'').toUpperCase();
@@ -1996,8 +2003,17 @@ async function syncData() {
     const safeGet = async (url) => {
       try {
         const r = await fetch(url + '?v=' + ts, { cache:'no-store', mode:'cors' });
-        if (r.ok) { console.log('[OK]', url.split('/').pop()); return await r.text(); }
-        console.warn('[' + r.status + ']', url.split('/').pop());
+        const fileName = url.split('/').pop();
+        if (r.ok) {
+          const text = await r.text();
+          console.log('[OK]', fileName, text.length, 'chars');
+          return text;
+        }
+        console.warn('[HTTP ' + r.status + '] ' + fileName + ' — URL: ' + url);
+        // 404 ise dosya adını kontrol et
+        if (r.status === 404) {
+          console.error('[404] Dosya bulunamadı:', fileName, '— GitHub reposunda bu dosyanın varlığını kontrol edin.');
+        }
       } catch(e) { console.warn('[ERR]', url.split('/').pop(), e.message); }
       return '';
     };
