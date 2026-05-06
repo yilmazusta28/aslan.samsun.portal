@@ -778,7 +778,7 @@ function buildEczaneFilters() {
   const allT = [...ALL_TTTS];
   if (!selEczaneTTT && allT.length) selEczaneTTT = allT[0];
   document.getElementById('eczaneTttBar').innerHTML = allT.map(t =>
-    `<button class="sp-btn${t===selEczaneTTT?' active':''}" onclick="selEczaneTTT='${t}';buildEczaneFilters();renderEczaneContent()">${t}</button>`
+    `<button class="tfb-sp${t===selEczaneTTT?' active':''}" onclick="selEczaneTTT='${t}';buildEczaneFilters();renderEczaneContent()">${t.split(' ')[0]}</button>`
   ).join('');
 
   // Seçili TTT'ye ait brickler
@@ -788,14 +788,14 @@ function buildEczaneFilters() {
 
   document.getElementById('eczaneBrickBar').innerHTML =
     ['TÜMÜ', ...tttBricks].map(b =>
-      `<button class="sp-btn${b===selEczaneBrick?' active':''}" onclick="selEczaneBrick='${b}';buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${b}</button>`
+      `<button class="tfb-sp${b===selEczaneBrick?' active':''}" onclick="selEczaneBrick='${b}';buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${b}</button>`
     ).join('');
 
   // Ürünler
   const uruns = [...new Set(ECZANE_RAW.map(r=>r.urun))].sort();
   document.getElementById('eczaneUrunBar').innerHTML =
     ['TÜMÜ', ...uruns].map(u =>
-      `<button class="sp-btn${u===selEczaneUrun?' active':''}" onclick="selEczaneUrun='${u}';buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${u}</button>`
+      `<button class="tfb-sp${u===selEczaneUrun?' active':''}" onclick="selEczaneUrun='${u}';buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${u}</button>`
     ).join('');
 
   // Aylar
@@ -808,7 +808,7 @@ function buildEczaneFilters() {
   };
   document.getElementById('eczaneAyBar').innerHTML =
     ['TÜMÜ', ...aylar].map(a =>
-      `<button class="sp-btn${a===selEczaneAy?' active':''}" onclick="selEczaneAy='${a}';buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${a==='TÜMÜ'?'Tümü':AY_LABELS[a]||a}</button>`
+      `<button class="tfb-sp${a===selEczaneAy?' active':''}" onclick="selEczaneAy='${a}';buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${a==='TÜMÜ'?'Tümü':AY_LABELS[a]||a}</button>`
     ).join('');
 }
 
@@ -1766,33 +1766,33 @@ function mgDurumBadge(evol, mi) {
 function initMigi1() {
   const src = mg1_tip === 'TL' ? MIGI_TL_RAW : MIGI_KUTU_RAW;
 
-  // Tip butonları
-  document.getElementById('mg1_tipTL')  ?.classList.toggle('active', mg1_tip==='TL');
-  document.getElementById('mg1_tipKUTU')?.classList.toggle('active', mg1_tip==='KUTU');
-
-  // Dönem filtresi
   const donems = [...new Set(src.map(r=>r.donem))].filter(Boolean).sort();
-  const dEl = document.getElementById('mg1_donemBar');
-  if (dEl) {
-    dEl.innerHTML = ['TÜMÜ',...donems].map(d => {
-      const lbl = d==='TÜMÜ' ? 'Tümü' : (MG_AY_ADI[d.split('/')[0]] || d);
-      return `<button class="sp-btn${d===mg1_donem?' active':''}"
-        onclick="mg1_donem='${d}';renderMigi1()">${lbl}</button>`;
-    }).join('');
-  }
-
-  // VERİLER filtresi
   const veriOpts = [
-    {k:'TUM',l:'Tüm Ürünler'},{k:'BI',l:'Büyüme İndeksi'},
-    {k:'EVOL',l:'Evolution İnd.'},{k:'MI',l:'Market İndeksi'},{k:'PP',l:'Pazar Payı'}
+    {k:'TUM',l:'Tüm'},{k:'BI',l:'Büyüme'},{k:'EVOL',l:'EVOL'},{k:'MI',l:'Market'},{k:'PP',l:'Pazar Payı'}
   ];
-  const vEl = document.getElementById('mg1_veriBar');
-  if (vEl) {
-    vEl.innerHTML = veriOpts.map(v =>
-      `<button class="sp-btn${v.k===mg1_veri?' active':''}"
-        onclick="mg1_veri='${v.k}';renderMigi1()">${v.l}</button>`
-    ).join('');
-  }
+
+  const bar = document.getElementById('mg1TopFilterBar');
+  if (bar) bar.innerHTML = `
+    <div class="filter-row">
+      <div class="filter-group">
+        <span class="filter-label"><i class="fas fa-ruler-combined" style="margin-right:3px"></i>Tip</span>
+        <button class="tfb-sp${mg1_tip==='TL'?' active':''}" onclick="mg1_tip='TL';initMigi1()">TL</button>
+        <button class="tfb-sp${mg1_tip==='KUTU'?' active':''}" onclick="mg1_tip='KUTU';initMigi1()">Kutu</button>
+      </div>
+      <div class="filter-sep"></div>
+      <div class="filter-group">
+        <span class="filter-label"><i class="fas fa-calendar" style="margin-right:3px"></i>Dönem</span>
+        ${['TÜMÜ',...donems].map(d=>{
+          const lbl=d==='TÜMÜ'?'Tümü':(MG_AY_ADI[d.split('/')[0]]||d);
+          return `<button class="tfb-sp${d===mg1_donem?' active':''}" onclick="mg1_donem='${d}';renderMigi1()">${lbl}</button>`;
+        }).join('')}
+      </div>
+      <div class="filter-sep"></div>
+      <div class="filter-group">
+        <span class="filter-label"><i class="fas fa-database" style="margin-right:3px"></i>Veriler</span>
+        ${veriOpts.map(v=>`<button class="tfb-sp${v.k===mg1_veri?' active':''}" onclick="mg1_veri='${v.k}';renderMigi1()">${v.l}</button>`).join('')}
+      </div>
+    </div>`;
 
   renderMigi1();
 }
@@ -1801,17 +1801,6 @@ function renderMigi1() {
   const src = mg1_tip === 'TL' ? MIGI_TL_RAW : MIGI_KUTU_RAW;
   const tbody = document.getElementById('mg1_tbody');
   const badge = document.getElementById('mg1_badge');
-
-  // Filtre buton active state
-  document.getElementById('mg1_tipTL')  ?.classList.toggle('active', mg1_tip==='TL');
-  document.getElementById('mg1_tipKUTU')?.classList.toggle('active', mg1_tip==='KUTU');
-  document.querySelectorAll('#mg1_donemBar .sp-btn').forEach(b => {
-    b.classList.toggle('active', b.textContent.trim() === (mg1_donem==='TÜMÜ'?'Tümü':(MG_AY_ADI[mg1_donem.split('/')[0]]||mg1_donem)));
-  });
-  document.querySelectorAll('#mg1_veriBar .sp-btn').forEach(b => {
-    const vMap = {'TUM':'Tüm Ürünler','BI':'Büyüme İndeksi','EVOL':'Evolution İnd.','MI':'Market İndeksi','PP':'Pazar Payı'};
-    b.classList.toggle('active', b.textContent.trim() === (vMap[mg1_veri]||''));
-  });
 
   if (!src.length) {
     if(tbody) tbody.innerHTML = `<tr><td colspan="20" style="text-align:center;padding:32px;color:var(--dim)">
@@ -1895,62 +1884,68 @@ function renderMigi1() {
 function initMigi2() {
   const src = mg2_tip === 'TL' ? MIGI_BRICK_TL_RAW : MIGI_BRICK_KUTU_RAW;
 
-  document.getElementById('mg2_tipTL')  ?.classList.toggle('active', mg2_tip==='TL');
-  document.getElementById('mg2_tipKUTU')?.classList.toggle('active', mg2_tip==='KUTU');
-
-  // Temsilci
+  // Temsilci listesi
   const persons = [...new Set(src.map(r=>r.person))].filter(Boolean).sort();
   if (!mg2_ttt && persons.length) mg2_ttt = persons[0];
-  const pEl = document.getElementById('mg2_personBar');
-  if (pEl) {
-    pEl.innerHTML = persons.map(p => {
-      const short = p.split(' ')[0];
-      return `<button class="sp-btn${p===mg2_ttt?' active':''}"
-        onclick="mg2_ttt='${p.replace(/'/g,"\\'")}';mg2_brick='TÜMÜ';initMigi2()">${short}</button>`;
-    }).join('');
-  }
 
-  // Brick — seçili temsilciye ait
+  // Brick listesi — seçili temsilciye ait, sıraya göre
   const srcP = mg2_ttt ? src.filter(r=>r.person===mg2_ttt) : src;
-  // Sort by sira
   const bricksSorted = [...new Map(srcP.map(r=>[r.brick,r.sira])).entries()]
     .sort((a,b)=>a[1]-b[1]).map(([b])=>b);
-  const bEl = document.getElementById('mg2_brickBar');
-  if (bEl) {
-    bEl.innerHTML = ['TÜMÜ',...bricksSorted].map(b => {
-      const sira = srcP.find(r=>r.brick===b)?.sira;
-      const lbl = b==='TÜMÜ' ? 'Tümü' : `${sira?sira+' · ':''}${b}`;
-      return `<button class="sp-btn${b===mg2_brick?' active':''}" style="font-size:10px;text-align:left;white-space:normal;line-height:1.3"
-        onclick="mg2_brick='${b.replace(/'/g,"\\'")}';renderMigi2()">${lbl}</button>`;
-    }).join('');
-  }
 
-  // Dönem
+  // Dönem listesi
   const donems = [...new Set(srcP.map(r=>r.donem))].filter(Boolean).sort();
-  const dEl = document.getElementById('mg2_donemBar');
-  if (dEl) {
-    dEl.innerHTML = ['TÜMÜ',...donems].map(d => {
-      const lbl = d==='TÜMÜ' ? 'Tümü' : (MG_AY_ADI[d.split('/')[0]]||d);
-      return `<button class="sp-btn${d===mg2_donem?' active':''}"
-        onclick="mg2_donem='${d}';renderMigi2()">${lbl}</button>`;
-    }).join('');
-  }
 
-  // VERİLER
+  // Veriler seçenekleri
   const veriOpts = [
-    {k:'TUM',l:'Tüm Ürünler'},{k:'BI',l:'Büyüme İndeksi'},
-    {k:'EVOL',l:'Evolution İnd.'},{k:'MI',l:'Market İndeksi'},{k:'PP',l:'Pazar Payı'}
+    {k:'TUM',l:'Tüm'},{k:'BI',l:'Büyüme'},{k:'EVOL',l:'EVOL'},{k:'MI',l:'Market'},{k:'PP',l:'Pazar Payı'}
   ];
-  const vEl = document.getElementById('mg2_veriBar');
-  if (vEl) {
-    vEl.innerHTML = veriOpts.map(v =>
-      `<button class="sp-btn${v.k===mg2_veri?' active':''}"
-        onclick="mg2_veri='${v.k}';renderMigi2()">${v.l}</button>`
-    ).join('');
-  }
 
-  // 333 buton
-  document.getElementById('mg2_btn333')?.classList.toggle('active', mg2_333);
+  const bar = document.getElementById('mg2TopFilterBar');
+  if (bar) bar.innerHTML = `
+    <div class="filter-row" style="flex-wrap:wrap;gap:8px">
+      <div class="filter-group">
+        <span class="filter-label"><i class="fas fa-ruler-combined" style="margin-right:3px"></i>Tip</span>
+        <button class="tfb-sp${mg2_tip==='TL'?' active':''}" onclick="mg2_tip='TL';initMigi2()">TL</button>
+        <button class="tfb-sp${mg2_tip==='KUTU'?' active':''}" onclick="mg2_tip='KUTU';initMigi2()">Kutu</button>
+      </div>
+      <div class="filter-sep"></div>
+      <div class="filter-group">
+        <span class="filter-label"><i class="fas fa-user" style="margin-right:3px"></i>Temsilci</span>
+        ${persons.map(p=>`<button class="tfb-sp${p===mg2_ttt?' active':''}"
+          onclick="mg2_ttt='${p.replace(/'/g,"\\'")}';mg2_brick='TÜMÜ';initMigi2()">${p.split(' ')[0]}</button>`).join('')}
+      </div>
+      <div class="filter-sep"></div>
+      <div class="filter-group">
+        <span class="filter-label"><i class="fas fa-calendar" style="margin-right:3px"></i>Dönem</span>
+        ${['TÜMÜ',...donems].map(d=>{
+          const lbl=d==='TÜMÜ'?'Tümü':(MG_AY_ADI[d.split('/')[0]]||d);
+          return `<button class="tfb-sp${d===mg2_donem?' active':''}" onclick="mg2_donem='${d}';renderMigi2()">${lbl}</button>`;
+        }).join('')}
+      </div>
+      <div class="filter-sep"></div>
+      <div class="filter-group">
+        <span class="filter-label"><i class="fas fa-database" style="margin-right:3px"></i>Veriler</span>
+        ${veriOpts.map(v=>`<button class="tfb-sp${v.k===mg2_veri?' active':''}" onclick="mg2_veri='${v.k}';renderMigi2()">${v.l}</button>`).join('')}
+      </div>
+      <div class="filter-sep"></div>
+      <div class="filter-group">
+        <span class="filter-label"><i class="fas fa-bullseye" style="margin-right:3px"></i>Sıra</span>
+        <button class="tfb-sp${mg2_333?' active':''}" onclick="mg2Toggle333()">İlk 333</button>
+      </div>
+      <div class="filter-sep"></div>
+      <div class="filter-group" style="max-width:100%">
+        <span class="filter-label"><i class="fas fa-map-pin" style="margin-right:3px"></i>Brick</span>
+        <div style="display:flex;flex-wrap:wrap;gap:3px;max-height:68px;overflow-y:auto;padding-right:4px">
+          ${['TÜMÜ',...bricksSorted].map(b=>{
+            const sira = b==='TÜMÜ' ? null : srcP.find(r=>r.brick===b)?.sira;
+            const lbl = b==='TÜMÜ' ? 'Tümü' : `${sira?sira+' · ':''}${b}`;
+            return `<button class="tfb-sp${b===mg2_brick?' active':''}" style="font-size:10px"
+              onclick="mg2_brick='${b.replace(/'/g,"\\'")}';initMigi2()">${lbl}</button>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
 
   renderMigi2();
 }
@@ -2047,8 +2042,7 @@ function renderMigi2() {
 
 function mg2Toggle333() {
   mg2_333 = !mg2_333;
-  document.getElementById('mg2_btn333')?.classList.toggle('active', mg2_333);
-  renderMigi2();
+  initMigi2(); // filter bar'ı da güncelle
 }
 
 // Eski compat
@@ -2761,14 +2755,36 @@ function renderKutuDetail(){
 //  PAGE 1 — PAZAR ANALİZİ
 // ═══════════════════════════════════════════════════════════
 function buildPazarSlicers(){
-  document.getElementById('sp_ttt').innerHTML=ALL_TTTS.map(t=>
-    `<button class="sp-btn${t===selTTT_p1?' active':''}" onclick="setP1(0,'${t}')">${t.split(' ')[0]}</button>`).join('');
-  document.getElementById('sp_grp').innerHTML=ALL_GROUPS.map(g=>
-    `<button class="sp-btn${g===selGroup?' active':''}" onclick="setP1(1,'${g}')">${GRP_LBL[g]}</button>`).join('');
+  // Temsilci
+  const tttHtml = ALL_TTTS.map(t=>
+    `<button class="tfb-sp${t===selTTT_p1?' active':''}" onclick="setP1(0,'${t}')">${t.split(' ')[0]}</button>`).join('');
+  // Grup
+  const grpHtml = ALL_GROUPS.map(g=>
+    `<button class="tfb-sp${g===selGroup?' active':''}" onclick="setP1(1,'${g}')">${GRP_LBL[g]}</button>`).join('');
+  // Hafta
   const hl=['toplam','h1','h2','h3','h4','h5','h6','h7','h8','h9'];
-  const lb={'toplam':'Toplam','h1':'1.H','h2':'2.H','h3':'3.H','h4':'4.H','h5':'5.H','h6':'6.H','h7':'7.H','h8':'8.H','h9':'9.H'};
-  document.getElementById('sp_hafta').innerHTML=hl.map(h=>
-    `<button class="sp-btn${h===selHafta?' active-t':''}" onclick="setP1(2,'${h}')">${lb[h]}</button>`).join('');
+  const lb={toplam:'Toplam',h1:'1.H',h2:'2.H',h3:'3.H',h4:'4.H',h5:'5.H',h6:'6.H',h7:'7.H',h8:'8.H',h9:'9.H'};
+  const hftHtml = hl.map(h=>
+    `<button class="tfb-sp${h===selHafta?' active-t':''}" onclick="setP1(2,'${h}')">${lb[h]}</button>`).join('');
+
+  const bar = document.getElementById('pazarTopFilterBar');
+  if (bar) bar.innerHTML = `
+    <div class="filter-row">
+      <div class="filter-group">
+        <span class="filter-label"><i class="fas fa-user" style="margin-right:3px"></i>Temsilci</span>
+        ${tttHtml}
+      </div>
+      <div class="filter-sep"></div>
+      <div class="filter-group">
+        <span class="filter-label"><i class="fas fa-pills" style="margin-right:3px"></i>İlaç Grubu</span>
+        ${grpHtml}
+      </div>
+      <div class="filter-sep"></div>
+      <div class="filter-group">
+        <span class="filter-label"><i class="fas fa-calendar-week" style="margin-right:3px"></i>Hafta</span>
+        ${hftHtml}
+      </div>
+    </div>`;
 }
 function setP1(t,v){if(t===0)selTTT_p1=v;else if(t===1)selGroup=v;else selHafta=v;buildPazarSlicers();renderPazarCharts();}
 function getHV(r){return selHafta==='toplam'?r.toplam:(r[selHafta]||0)}
@@ -3016,13 +3032,19 @@ function resetCalc(){
 }
 // ═══════════════════════════════════════════════════════════
 function buildTTT2Slicer(){
-  document.getElementById('sl_ttt2').innerHTML=ALL_TTTS.map(t=>
-    `<button class="sp-btn${t===selTTT_p2?' active':''}" style="display:inline-block;width:auto;font-size:11px;font-weight:600;padding:6px 13px" onclick="setP2('${t}')">${t}</button>`
-  ).join('');
+  const bar = document.getElementById('takipTopFilterBar');
+  if (bar) bar.innerHTML = `
+    <div class="filter-row">
+      <div class="filter-group">
+        <span class="filter-label"><i class="fas fa-user" style="margin-right:3px"></i>Temsilci</span>
+        ${ALL_TTTS.map(t=>`<button class="tfb-sp${t===selTTT_p2?' active':''}" onclick="setP2('${t}')">${t.split(' ')[0]}</button>`).join('')}
+      </div>
+    </div>`;
+}
+function setP2(t){selTTT_p2=t;buildTTT2Slicer();
   document.getElementById('hftDokumBadge').textContent=selTTT_p2;
   const kb=document.getElementById('hftKutuBadge');if(kb)kb.textContent=selTTT_p2;
-}
-function setP2(t){selTTT_p2=t;buildTTT2Slicer();renderTakipContent();}
+  renderTakipContent();}
 
 function renderTakipContent(){renderKutuTable();renderCalcTable();renderWeeklyTable2();}
 
@@ -4535,15 +4557,33 @@ body{
 .ch-sm{position:relative;height:180px}.ch-md{position:relative;height:260px}.ch-lg{position:relative;height:330px}.ch-xl{position:relative;height:410px}
 
 /* ── PAZAR LAYOUT ── */
-.pazar-layout{display:flex;gap:18px;align-items:flex-start}
-.slicer-panel{width:170px;flex-shrink:0;background:#fff;border:1px solid var(--border);border-radius:var(--card-radius);padding:14px;position:sticky;top:12px;box-shadow:var(--card-shadow)}
+.pazar-layout{display:flex;flex-direction:column;gap:0}
+.slicer-panel{display:none}
 .sp-sec{margin-bottom:14px}
 .sp-label{font-size:9px;color:var(--c1);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:6px;display:block}
-.sp-btn{display:block;width:100%;text-align:left;padding:7px 10px;border-radius:9px;border:1px solid var(--border);background:#fff;color:var(--dim);cursor:pointer;font-family:'Poppins',sans-serif;font-size:11px;font-weight:500;transition:all .14s;margin-bottom:3px}
+.sp-btn{display:inline-block;text-align:left;padding:6px 12px;border-radius:9px;border:1px solid var(--border);background:#fff;color:var(--dim);cursor:pointer;font-family:'Poppins',sans-serif;font-size:11px;font-weight:500;transition:all .14s;margin-bottom:3px;white-space:nowrap}
 .sp-btn:hover{background:var(--surf2);color:var(--text);border-color:rgba(79,0,140,.2)}
 .sp-btn.active{background:linear-gradient(135deg,var(--c1),var(--c2));color:#fff;border-color:transparent;font-weight:600;box-shadow:0 3px 10px rgba(79,0,140,.3)}
 .sp-btn.active-t{background:linear-gradient(135deg,var(--c3),#0891B2);color:#fff;border-color:transparent}
 .pazar-content{flex:1;min-width:0}
+
+/* ── TOP STICKY FILTER BAR (tüm sayfalar) ── */
+.top-filter-bar{
+  position:sticky;top:0;z-index:120;
+  background:rgba(255,255,255,0.97);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--border);
+  padding:8px 16px;
+  margin:-4px -16px 16px;
+  box-shadow:0 2px 12px rgba(79,0,140,.08);
+}
+.top-filter-bar .filter-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.top-filter-bar .filter-group{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.top-filter-bar .filter-label{font-size:9px;font-weight:700;color:var(--c1);text-transform:uppercase;letter-spacing:1.2px;margin-right:3px;white-space:nowrap;flex-shrink:0}
+.top-filter-bar .filter-sep{width:1px;height:24px;background:var(--border);flex-shrink:0}
+.tfb-sp{display:inline-block;padding:5px 11px;border-radius:8px;border:1px solid var(--border);background:#fff;color:var(--dim);cursor:pointer;font-family:'Poppins',sans-serif;font-size:11px;font-weight:500;transition:all .13s;white-space:nowrap}
+.tfb-sp:hover{background:var(--surf2);color:var(--text);border-color:rgba(79,0,140,.2)}
+.tfb-sp.active{background:linear-gradient(135deg,var(--c1),var(--c2));color:#fff;border-color:transparent;font-weight:600;box-shadow:0 2px 8px rgba(79,0,140,.28)}
 
 /* ── TTT SUMMARY BOX ── */
 .tsb{background:linear-gradient(135deg,var(--c1),var(--c2));border-radius:var(--card-radius);padding:18px;color:#fff;margin-bottom:18px;box-shadow:0 8px 28px rgba(79,0,140,.3)}
@@ -4649,7 +4689,10 @@ body{
   .g2,.g3{grid-template-columns:1fr}
   .tsb-grid{grid-template-columns:repeat(2,1fr)}
   .pazar-layout{flex-direction:column}
-  .slicer-panel{width:100%;position:static}
+  .slicer-panel{width:100%;position:static;display:none}
+  .top-filter-bar{padding:6px 12px;margin:-4px -14px 12px}
+  .top-filter-bar .filter-row{gap:6px}
+  .tfb-sp{font-size:10px;padding:4px 9px}
   #tttPickerGrid{grid-template-columns:repeat(auto-fill,minmax(155px,1fr))!important;gap:7px!important}
   #main{padding:14px}
 }
@@ -4919,80 +4962,62 @@ body{
 
 <!-- ══════ PAGE 1: PAZAR ANALİZİ ══════ -->
 <div class="page" id="page1">
-  <div class="pazar-layout">
-    <div class="slicer-panel">
-      <!-- Temsilci akordion -->
-      <div class="acc-group open">
-        <div class="acc-header" onclick="toggleAcc(this)">
-          <span><i class="fas fa-user" style="margin-right:6px;opacity:.7"></i>Temsilci</span>
-          <i class="fas fa-chevron-down acc-chevron"></i>
-        </div>
-        <div class="acc-body open"><div id="sp_ttt"></div></div>
-      </div>
-      <!-- İlaç Grubu akordion -->
-      <div class="acc-group">
-        <div class="acc-header" onclick="toggleAcc(this)">
-          <span><i class="fas fa-pills" style="margin-right:6px;opacity:.7"></i>İlaç Grubu</span>
-          <i class="fas fa-chevron-down acc-chevron"></i>
-        </div>
-        <div class="acc-body"><div id="sp_grp"></div></div>
-      </div>
-      <!-- Hafta akordion -->
-      <div class="acc-group">
-        <div class="acc-header" onclick="toggleAcc(this)">
-          <span><i class="fas fa-calendar-week" style="margin-right:6px;opacity:.7"></i>Hafta</span>
-          <i class="fas fa-chevron-down acc-chevron"></i>
-        </div>
-        <div class="acc-body"><div id="sp_hafta"></div></div>
+  <!-- TOP STICKY FILTER BAR -->
+  <div class="top-filter-bar">
+    <div id="pazarTopFilterBar">
+      <div class="filter-row"><span style="color:var(--dim);font-size:12px">Veriler yükleniyor…</span></div>
+    </div>
+  </div>
+  <!-- İçerik -->
+  <div class="insight mb16" id="pazarInsight">
+    <div class="insight-title">📊 Pazar Analizi</div>
+    <div class="insight-body" id="pazarInsightBody">Temsilci ve ilaç grubu seçin.</div>
+  </div>
+  <div class="card">
+    <div class="card-hd"><span class="card-title">Brick Bazlı Ürün Karşılaştırması (Kutu)</span><span class="card-badge" id="pp_badge">—</span></div>
+    <div class="card-body"><div class="ch-xl"><canvas id="brickBarChart"></canvas></div></div>
+  </div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-hd"><span class="card-title">Ürün Pazar Payı</span><span class="card-badge" id="mktbar_badge">Kutu</span></div>
+      <div class="card-body"><div class="ch-md"><canvas id="marketBarChart"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><span class="card-title">Rakip Haftalık Satışlar</span><span class="card-badge">Kutu</span></div>
+      <div class="card-body-0 scroll-x">
+        <table class="tbl" id="rakipTable">
+          <thead><tr><th>Ürün</th><th>1.H</th><th>2.H</th><th>3.H</th><th>4.H</th><th>5.H</th><th>6.H</th><th>7.H</th><th>8.H</th><th>9.H</th><th>Toplam</th></tr></thead>
+          <tbody id="rakipBody"></tbody>
+        </table>
       </div>
     </div>
-    <div class="pazar-content">
-      <div class="insight mb16" id="pazarInsight">
-        <div class="insight-title">📊 Pazar Analizi</div>
-        <div class="insight-body" id="pazarInsightBody">Temsilci ve ilaç grubu seçin.</div>
-      </div>
-      <div class="card">
-        <div class="card-hd"><span class="card-title">Brick Bazlı Ürün Karşılaştırması (Kutu)</span><span class="card-badge" id="pp_badge">—</span></div>
-        <div class="card-body"><div class="ch-xl"><canvas id="brickBarChart"></canvas></div></div>
-      </div>
-      <div class="g2">
-        <div class="card">
-          <div class="card-hd"><span class="card-title">Ürün Pazar Payı</span><span class="card-badge" id="mktbar_badge">Kutu</span></div>
-          <div class="card-body"><div class="ch-md"><canvas id="marketBarChart"></canvas></div></div>
-        </div>
-        <div class="card">
-          <div class="card-hd"><span class="card-title">Rakip Haftalık Satışlar</span><span class="card-badge">Kutu</span></div>
-          <div class="card-body-0 scroll-x">
-            <table class="tbl" id="rakipTable">
-              <thead><tr><th>Ürün</th><th>1.H</th><th>2.H</th><th>3.H</th><th>4.H</th><th>5.H</th><th>6.H</th><th>7.H</th><th>8.H</th><th>9.H</th><th>Toplam</th></tr></thead>
-              <tbody id="rakipBody"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-hd"><span class="card-title">Haftalık Pazar Payı Trendi</span><span class="card-badge">PPI %</span></div>
-        <div class="card-body"><div class="ch-md"><canvas id="trendChart"></canvas></div></div>
-      </div>
-      <div class="card">
-        <div class="card-hd"><span class="card-title">İlaç & Brick Detay</span><span class="card-badge" id="tbl_badge">Kutu</span></div>
-        <div class="card-body-0 scroll-x">
-          <table class="tbl" id="marketDetailTable">
-            <thead><tr><th>Ürün</th><th>Brick</th><th>Toplam</th><th>PPI %</th><th>1.H</th><th>2.H</th><th>3.H</th><th>4.H</th><th>5.H</th><th>6.H</th><th>7.H</th><th>8.H</th><th>9.H</th></tr></thead>
-            <tbody id="marketDetailBody"></tbody>
-          </table>
-        </div>
-      </div>
+  </div>
+  <div class="card">
+    <div class="card-hd"><span class="card-title">Haftalık Pazar Payı Trendi</span><span class="card-badge">PPI %</span></div>
+    <div class="card-body"><div class="ch-md"><canvas id="trendChart"></canvas></div></div>
+  </div>
+  <div class="card">
+    <div class="card-hd"><span class="card-title">İlaç &amp; Brick Detay</span><span class="card-badge" id="tbl_badge">Kutu</span></div>
+    <div class="card-body-0 scroll-x">
+      <table class="tbl" id="marketDetailTable">
+        <thead><tr><th>Ürün</th><th>Brick</th><th>Toplam</th><th>PPI %</th><th>1.H</th><th>2.H</th><th>3.H</th><th>4.H</th><th>5.H</th><th>6.H</th><th>7.H</th><th>8.H</th><th>9.H</th></tr></thead>
+        <tbody id="marketDetailBody"></tbody>
+      </table>
     </div>
   </div>
 </div>
 
 <!-- ══════ PAGE 2: SATIŞ TAKİBİ ══════ -->
 <div class="page" id="page2">
-  <div class="ttt-slicer-row" id="sl_ttt2"></div>
+  <!-- TOP STICKY FILTER BAR -->
+  <div class="top-filter-bar">
+    <div id="takipTopFilterBar">
+      <div class="filter-row"><span style="color:var(--dim);font-size:12px">Veriler yükleniyor…</span></div>
+    </div>
+  </div>
 
   <!-- 1. Anamal Kutu Tablosu (ÜSTTE) -->
-  <div style="height:16px"></div>
+  <div style="height:4px"></div>
   <div class="card mb16">
     <div class="card-hd"><span class="card-title">IMS TL Kutu Hedef &amp; Kalan</span><span class="card-badge" style="font-size:9px">IMS TL Hesabına Göre Kutu Hesaplaması Yapılmıştır</span></div>
     <div class="card-body-0 scroll-x">
@@ -5078,187 +5103,59 @@ body{
 <!-- ══════ PAGE 3: MI & GI ANALİZİ ══════ -->
 <div class="page" id="page3">
 
-  <!-- ───────────────────────────────────────────
-       BÖLÜM 1: TOPLAM (MI_GI_TL/KUTU_TOPLAM.csv)
-       Sol: Filtreler  |  Sağ: Tablo
-  ─────────────────────────────────────────────── -->
+  <!-- ── BÖLÜM 1: TOPLAM ── -->
   <div class="card" style="margin-bottom:16px">
     <div class="card-hd">
       <span class="card-title">📊 Bölüm 1 — Temsilci &amp; Dönem Özeti</span>
       <span class="card-badge" id="mg1_badge">—</span>
     </div>
-
-    <div style="display:grid;grid-template-columns:200px 1fr;min-height:380px">
-
-      <!-- SOL FİLTRE PANELİ (Akordion) -->
-      <div class="mg-filter-panel">
-
-        <div class="acc-group open">
-          <div class="acc-header" onclick="toggleAcc(this)">
-            <span><i class="fas fa-ruler-combined" style="margin-right:5px;opacity:.7"></i>Tip</span>
-            <i class="fas fa-chevron-down acc-chevron"></i>
-          </div>
-          <div class="acc-body open" style="padding:8px">
-            <div style="display:flex;gap:4px">
-              <button class="sp-btn active" id="mg1_tipTL"
-                onclick="mg1_tip='TL';initMigi1()" style="flex:1;text-align:center">TL</button>
-              <button class="sp-btn" id="mg1_tipKUTU"
-                onclick="mg1_tip='KUTU';initMigi1()" style="flex:1;text-align:center">Kutu</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="acc-group open">
-          <div class="acc-header" onclick="toggleAcc(this)">
-            <span><i class="fas fa-calendar" style="margin-right:5px;opacity:.7"></i>Dönem</span>
-            <i class="fas fa-chevron-down acc-chevron"></i>
-          </div>
-          <div class="acc-body open" style="padding:8px">
-            <div id="mg1_donemBar" style="display:flex;flex-direction:column;gap:4px"></div>
-          </div>
-        </div>
-
-        <div class="acc-group">
-          <div class="acc-header" onclick="toggleAcc(this)">
-            <span><i class="fas fa-database" style="margin-right:5px;opacity:.7"></i>Veriler</span>
-            <i class="fas fa-chevron-down acc-chevron"></i>
-          </div>
-          <div class="acc-body" style="padding:8px">
-            <div id="mg1_veriBar" style="display:flex;flex-direction:column;gap:4px"></div>
-          </div>
-        </div>
-
+    <!-- TOP FILTER BAR B1 -->
+    <div class="top-filter-bar" style="margin:0;border-radius:0;border-left:none;border-right:none;border-top:1px solid var(--border)">
+      <div id="mg1TopFilterBar">
+        <div class="filter-row"><span style="color:var(--dim);font-size:12px">Veriler yükleniyor…</span></div>
       </div>
-
-      <!-- SAĞ TABLO -->
-      <div style="display:flex;flex-direction:column;overflow:hidden">
-        <div class="scroll-x" style="flex:1">
-          <table class="tbl" style="min-width:700px">
-            <thead id="mg1_thead">
-              <tr>
-                <th>Temsilci</th><th>Dönem</th>
-                <th>Büyüme İnd.</th><th>EVOL İnd.</th><th>Market İnd.</th>
-                <th>Pazar Payı%</th><th>PP Büyüme</th><th>TL Real%</th><th>Durum</th>
-              </tr>
-            </thead>
-            <tbody id="mg1_tbody">
-              <tr><td colspan="9" style="text-align:center;padding:32px;color:var(--dim)">
-                ⏳ Veri yükleniyor…
-              </td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
+    </div>
+    <div class="scroll-x">
+      <table class="tbl" style="min-width:700px">
+        <thead id="mg1_thead">
+          <tr>
+            <th>Temsilci</th><th>Dönem</th>
+            <th>Büyüme İnd.</th><th>EVOL İnd.</th><th>Market İnd.</th>
+            <th>Pazar Payı%</th><th>PP Büyüme</th><th>TL Real%</th><th>Durum</th>
+          </tr>
+        </thead>
+        <tbody id="mg1_tbody">
+          <tr><td colspan="9" style="text-align:center;padding:32px;color:var(--dim)">⏳ Veri yükleniyor…</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
-  <!-- ───────────────────────────────────────────
-       BÖLÜM 2: BRICK (MI_GI-TL/KUTU.csv)
-       Sol: Filtreler  |  Sağ: Tablo
-  ─────────────────────────────────────────────── -->
+  <!-- ── BÖLÜM 2: BRICK ── -->
   <div class="card">
     <div class="card-hd">
       <span class="card-title">🧱 Bölüm 2 — Brick Detay Analizi</span>
       <span class="card-badge" id="mg2_badge">—</span>
     </div>
-
-    <div style="display:grid;grid-template-columns:200px 1fr;min-height:480px">
-
-      <!-- SOL FİLTRE PANELİ (Akordion) -->
-      <div class="mg-filter-panel">
-
-        <div class="acc-group open">
-          <div class="acc-header" onclick="toggleAcc(this)">
-            <span><i class="fas fa-ruler-combined" style="margin-right:5px;opacity:.7"></i>Tip</span>
-            <i class="fas fa-chevron-down acc-chevron"></i>
-          </div>
-          <div class="acc-body open" style="padding:8px">
-            <div style="display:flex;gap:4px">
-              <button class="sp-btn active" id="mg2_tipTL"
-                onclick="mg2_tip='TL';initMigi2()" style="flex:1;text-align:center">TL</button>
-              <button class="sp-btn" id="mg2_tipKUTU"
-                onclick="mg2_tip='KUTU';initMigi2()" style="flex:1;text-align:center">Kutu</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="acc-group open">
-          <div class="acc-header" onclick="toggleAcc(this)">
-            <span><i class="fas fa-user" style="margin-right:5px;opacity:.7"></i>Temsilci</span>
-            <i class="fas fa-chevron-down acc-chevron"></i>
-          </div>
-          <div class="acc-body open" style="padding:8px">
-            <div id="mg2_personBar" style="display:flex;flex-direction:column;gap:4px"></div>
-          </div>
-        </div>
-
-        <div class="acc-group open">
-          <div class="acc-header" onclick="toggleAcc(this)">
-            <span><i class="fas fa-calendar" style="margin-right:5px;opacity:.7"></i>Dönem</span>
-            <i class="fas fa-chevron-down acc-chevron"></i>
-          </div>
-          <div class="acc-body open" style="padding:8px">
-            <div id="mg2_donemBar" style="display:flex;flex-wrap:wrap;gap:4px"></div>
-          </div>
-        </div>
-
-        <div class="acc-group">
-          <div class="acc-header" onclick="toggleAcc(this)">
-            <span><i class="fas fa-database" style="margin-right:5px;opacity:.7"></i>Veriler</span>
-            <i class="fas fa-chevron-down acc-chevron"></i>
-          </div>
-          <div class="acc-body" style="padding:8px">
-            <div id="mg2_veriBar" style="display:flex;flex-direction:column;gap:4px"></div>
-          </div>
-        </div>
-
-        <div class="acc-group">
-          <div class="acc-header" onclick="toggleAcc(this)">
-            <span><i class="fas fa-filter" style="margin-right:5px;opacity:.7"></i>İlk 333</span>
-            <i class="fas fa-chevron-down acc-chevron"></i>
-          </div>
-          <div class="acc-body" style="padding:8px">
-            <button class="sp-btn" id="mg2_btn333"
-              onclick="mg2Toggle333()" style="width:100%">
-              <i class="fas fa-bullseye" style="margin-right:4px"></i>İlk 333 Sıra
-            </button>
-          </div>
-        </div>
-
-        <div class="acc-group" style="flex:1;display:flex;flex-direction:column;min-height:0">
-          <div class="acc-header" onclick="toggleAcc(this)">
-            <span><i class="fas fa-map-pin" style="margin-right:5px;opacity:.7"></i>Brick</span>
-            <i class="fas fa-chevron-down acc-chevron"></i>
-          </div>
-          <div class="acc-body" style="padding:8px;flex:1;overflow:hidden;display:flex;flex-direction:column">
-            <div id="mg2_brickBar"
-              style="display:flex;flex-direction:column;gap:3px;overflow-y:auto;flex:1;padding-right:2px"></div>
-          </div>
-        </div>
-
+    <!-- TOP FILTER BAR B2 -->
+    <div class="top-filter-bar" style="margin:0;border-radius:0;border-left:none;border-right:none;border-top:1px solid var(--border)">
+      <div id="mg2TopFilterBar">
+        <div class="filter-row"><span style="color:var(--dim);font-size:12px">Veriler yükleniyor…</span></div>
       </div>
-
-      <!-- SAĞ TABLO -->
-      <div style="display:flex;flex-direction:column;overflow:hidden">
-        <div class="scroll-x" style="flex:1">
-          <table class="tbl" style="min-width:760px">
-            <thead id="mg2_thead">
-              <tr>
-                <th>Sıra</th><th>Brick</th><th>Temsilci</th><th>Dönem</th><th>İlaç</th>
-                <th>Büyüme İnd.</th><th>EVOL İnd.</th><th>Market İnd.</th>
-                <th>Pazar Payı%</th><th>Durum</th>
-              </tr>
-            </thead>
-            <tbody id="mg2_tbody">
-              <tr><td colspan="10" style="text-align:center;padding:32px;color:var(--dim)">
-                ⏳ Veri yükleniyor…
-              </td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
+    </div>
+    <div class="scroll-x">
+      <table class="tbl" style="min-width:760px">
+        <thead id="mg2_thead">
+          <tr>
+            <th>Sıra</th><th>Brick</th><th>Temsilci</th><th>Dönem</th><th>İlaç</th>
+            <th>Büyüme İnd.</th><th>EVOL İnd.</th><th>Market İnd.</th>
+            <th>Pazar Payı%</th><th>Durum</th>
+          </tr>
+        </thead>
+        <tbody id="mg2_tbody">
+          <tr><td colspan="10" style="text-align:center;padding:32px;color:var(--dim)">⏳ Veri yükleniyor…</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
@@ -5415,35 +5312,33 @@ body{
 
 <!-- ══════ PAGE 6: ECZANE SATIŞ TAKİBİ ══════ -->
 <div class="page" id="page6">
-  <!-- Başlık + Yükleme durumu -->
-  <div class="card mb16">
-    <div class="card-hd">
-      <span class="card-title">🏥 Eczane Satış Takibi</span>
-      <span class="card-badge" id="eczaneBadge">Ocak–Şubat 2026</span>
-      <span id="eczaneLoadStatus" style="margin-left:8px;font-size:10px;color:var(--dim)">Veriler yükleniyor...</span>
-    </div>
-    <div class="card-body" style="padding:10px 16px">
-      <!-- Temsilci + Brick yan yana -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">
-        <div>
-          <div class="section-h">Temsilci</div>
-          <div id="eczaneTttBar" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+  <!-- TOP STICKY FILTER BAR -->
+  <div class="top-filter-bar">
+    <div class="filter-row" style="align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;flex:1">
+        <div class="filter-group">
+          <span class="filter-label"><i class="fas fa-user" style="margin-right:3px"></i>Temsilci</span>
+          <div id="eczaneTttBar" style="display:flex;flex-wrap:wrap;gap:4px"></div>
         </div>
-        <div>
-          <div class="section-h">Brick</div>
-          <div id="eczaneBrickBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+        <div class="filter-sep"></div>
+        <div class="filter-group">
+          <span class="filter-label"><i class="fas fa-map-pin" style="margin-right:3px"></i>Brick</span>
+          <div id="eczaneBrickBar" style="display:flex;flex-wrap:wrap;gap:4px;max-height:56px;overflow-y:auto"></div>
+        </div>
+        <div class="filter-sep"></div>
+        <div class="filter-group">
+          <span class="filter-label"><i class="fas fa-pills" style="margin-right:3px"></i>Ürün</span>
+          <div id="eczaneUrunBar" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+        </div>
+        <div class="filter-sep"></div>
+        <div class="filter-group">
+          <span class="filter-label"><i class="fas fa-calendar" style="margin-right:3px"></i>Dönem</span>
+          <div id="eczaneAyBar" style="display:flex;flex-wrap:wrap;gap:4px"></div>
         </div>
       </div>
-      <!-- Ürün + Dönem yan yana -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div>
-          <div class="section-h">Ürün</div>
-          <div id="eczaneUrunBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
-        </div>
-        <div>
-          <div class="section-h">Dönem</div>
-          <div id="eczaneAyBar" style="display:flex;flex-wrap:wrap;gap:5px"></div>
-        </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <span class="card-badge" id="eczaneBadge">Ocak–Şubat 2026</span>
+        <span id="eczaneLoadStatus" style="font-size:10px;color:var(--dim)"></span>
       </div>
     </div>
   </div>
