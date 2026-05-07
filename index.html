@@ -1076,7 +1076,7 @@ function doLogin(){
     const _sr=document.getElementById('sidebarRole');
     const _sa=document.getElementById('sidebarAvatarWrap');
     if(_sn) _sn.textContent=user;
-    if(_sr) _sr.textContent=LOGGED_IN_USER?'Satış Temsilcisi':'Bölge Yöneticisi';
+    if(_sr) _sr.textContent=LOGGED_IN_USER==='ŞENOL YILMAZ'?'Bölge Müdürü':LOGGED_IN_USER?'Uzman Tıbbi Tanıtım Temsilcisi':'Bölge Müdürü';
     if(_sa){
       const _photoUrl=getTTTPhoto(LOGGED_IN_USER||user.toUpperCase());
       if(_photoUrl){
@@ -1784,13 +1784,13 @@ function initMigi1() {
         <span class="filter-label"><i class="fas fa-calendar" style="margin-right:3px"></i>Dönem</span>
         ${['TÜMÜ',...donems].map(d=>{
           const lbl=d==='TÜMÜ'?'Tümü':(MG_AY_ADI[d.split('/')[0]]||d);
-          return `<button class="tfb-sp${d===mg1_donem?' active':''}" onclick="mg1_donem='${d}';renderMigi1()">${lbl}</button>`;
+          return `<button class="tfb-sp${d===mg1_donem?' active':''}" onclick="mg1_donem='${d}';initMigi1()">${lbl}</button>`;
         }).join('')}
       </div>
       <div class="filter-sep"></div>
       <div class="filter-group">
         <span class="filter-label"><i class="fas fa-database" style="margin-right:3px"></i>Veriler</span>
-        ${veriOpts.map(v=>`<button class="tfb-sp${v.k===mg1_veri?' active':''}" onclick="mg1_veri='${v.k}';renderMigi1()">${v.l}</button>`).join('')}
+        ${veriOpts.map(v=>`<button class="tfb-sp${v.k===mg1_veri?' active':''}" onclick="mg1_veri='${v.k}';initMigi1()">${v.l}</button>`).join('')}
       </div>
     </div>`;
 
@@ -1920,13 +1920,13 @@ function initMigi2() {
         <span class="filter-label"><i class="fas fa-calendar" style="margin-right:3px"></i>Dönem</span>
         ${['TÜMÜ',...donems].map(d=>{
           const lbl=d==='TÜMÜ'?'Tümü':(MG_AY_ADI[d.split('/')[0]]||d);
-          return `<button class="tfb-sp${d===mg2_donem?' active':''}" onclick="mg2_donem='${d}';renderMigi2()">${lbl}</button>`;
+          return `<button class="tfb-sp${d===mg2_donem?' active':''}" onclick="mg2_donem='${d}';initMigi2()">${lbl}</button>`;
         }).join('')}
       </div>
       <div class="filter-sep"></div>
       <div class="filter-group">
         <span class="filter-label"><i class="fas fa-database" style="margin-right:3px"></i>Veriler</span>
-        ${veriOpts.map(v=>`<button class="tfb-sp${v.k===mg2_veri?' active':''}" onclick="mg2_veri='${v.k}';renderMigi2()">${v.l}</button>`).join('')}
+        ${veriOpts.map(v=>`<button class="tfb-sp${v.k===mg2_veri?' active':''}" onclick="mg2_veri='${v.k}';initMigi2()">${v.l}</button>`).join('')}
       </div>
       <div class="filter-sep"></div>
       <div class="filter-group">
@@ -2618,7 +2618,7 @@ function renderTTTDetail(){
     .sort((a,b)=>URUN_ORDER.indexOf(a.urun)-URUN_ORDER.indexOf(b.urun));
   const gen=GENEL.find(r=>r.ttt===selTTT&&r.urun==='GENEL TOPLAM')||{};
 
-  const roleLabel=isSenol?'🏢 Bölge Müdürü':'Temsilci';
+  const roleLabel=isSenol?'🏢 Bölge Müdürü':'Uzman Tıbbi Tanıtım Temsilcisi';
   const _bannerPhoto = getTTTPhoto(selTTT);
   const _initials = selTTT.split(' ').map(s=>s[0]).slice(0,2).join('');
   const _bannerImg = _bannerPhoto
@@ -4584,6 +4584,7 @@ body{
 .tfb-sp{display:inline-block;padding:5px 11px;border-radius:8px;border:1px solid var(--border);background:#fff;color:var(--dim);cursor:pointer;font-family:'Poppins',sans-serif;font-size:11px;font-weight:500;transition:all .13s;white-space:nowrap}
 .tfb-sp:hover{background:var(--surf2);color:var(--text);border-color:rgba(79,0,140,.2)}
 .tfb-sp.active{background:linear-gradient(135deg,var(--c1),var(--c2));color:#fff;border-color:transparent;font-weight:600;box-shadow:0 2px 8px rgba(79,0,140,.28)}
+.tfb-sp.active-t{background:linear-gradient(135deg,var(--c3),#0891B2);color:#fff;border-color:transparent;font-weight:600;box-shadow:0 2px 8px rgba(8,145,178,.28)}
 
 /* ── TTT SUMMARY BOX ── */
 .tsb{background:linear-gradient(135deg,var(--c1),var(--c2));border-radius:var(--card-radius);padding:18px;color:#fff;margin-bottom:18px;box-shadow:0 8px 28px rgba(79,0,140,.3)}
