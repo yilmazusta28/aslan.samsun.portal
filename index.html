@@ -4751,7 +4751,11 @@ body{
   <div class="topbar-inner">
     <button class="ham-btn" onclick="toggleSidebar()" aria-label="Menü"><i class="fas fa-bars"></i></button>
     <div class="brand">
-      <div class="brand-icon">2D</div>
+      <div class="brand-icon" style="background:transparent;box-shadow:none;padding:0;overflow:hidden">
+        <img src="https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/images/aslan.png"
+             alt="Logo" style="width:40px;height:40px;object-fit:contain;border-radius:10px"
+             onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\'font-size:13px;font-weight:800;color:#fff\'>2D</span>'">
+      </div>
       <div><div class="brand-name">Samsun Satış Portalı</div><div class="brand-sub">2D Dashboard</div></div>
     </div>
     <div class="sync-bar">
@@ -4800,7 +4804,11 @@ body{
 
   <!-- Marka -->
   <div class="sidebar-brand">
-    <div class="sidebar-brand-icon">2D</div>
+    <div class="sidebar-brand-icon" style="background:transparent;padding:0;overflow:hidden;display:flex;align-items:center;justify-content:center">
+      <img src="https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/images/aslan.png"
+           alt="Logo" style="width:36px;height:36px;object-fit:contain;border-radius:8px"
+           onerror="this.style.display='none';this.parentElement.textContent='2D'">
+    </div>
     <div>
       <div class="sidebar-brand-text">Samsun Portalı</div>
       <div class="sidebar-brand-sub">Sales Dashboard</div>
