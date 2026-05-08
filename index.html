@@ -2321,7 +2321,7 @@ function goPage(i){
   curPage=i;
   document.querySelectorAll('.page').forEach((p,j)=>p.classList.toggle('active',j===i));
   document.querySelectorAll('.nav-tab').forEach((t,j)=>t.classList.toggle('active',j===i));
-  for(let k=0;k<=6;k++){const el=document.getElementById('snav'+k);if(el)el.classList.toggle('active',k===i);}
+  for(let k=0;k<=7;k++){const el=document.getElementById('snav'+k);if(el)el.classList.toggle('active',k===i);}
   if(window.innerWidth<=1024)closeSidebar();
   if(i===0)renderAna();
   else if(i===1)renderPazar();
@@ -2330,6 +2330,7 @@ function goPage(i){
   else if(i===4)buildPrimInputs();
   else if(i===5)renderAiAsistan();
   else if(i===6)renderEczane();
+  else if(i===7)renderEngine();
 }
 function selectTTT(ttt){
   selTTT=selTTT===ttt?'':ttt;
@@ -4295,6 +4296,473 @@ function toggleAcc(el){
   });
   if(!isOpen){grp.classList.add('open');body?.classList.add('open');}
 }
+
+// ════════════════════════════════════════════════════════════
+//  AI GÖREV MOTORU
+// ════════════════════════════════════════════════════════════
+
+let engineSelTTT = '';
+
+function renderEngine() {
+  // Temsilci bar oluştur
+  const bar = document.getElementById('engineTttBar');
+  if (!bar) return;
+  const allT = ['ŞENOL YILMAZ', ...ALL_TTTS];
+  if (!engineSelTTT && ALL_TTTS.length) engineSelTTT = ALL_TTTS[0];
+
+  bar.innerHTML = allT.map(t => {
+    const isSenol = t === 'ŞENOL YILMAZ';
+    const photoUrl = getTTTPhoto(t);
+    const initials = t.split(' ').map(w=>w[0]).slice(0,2).join('');
+    const avatarHtml = photoUrl
+      ? `<img src="${photoUrl}" onerror="this.style.display='none'" crossorigin="anonymous">`
+      : `<div class="etb-avatar" style="background:${URUN_CLR[isSenol?'PANOCER':'ACİDPASS']||'#4F008C'}">${initials}</div>`;
+    return `<button class="engine-ttt-btn${t===engineSelTTT?' active':''}" onclick="engineSelTTT='${t}';renderEngine()">
+      ${avatarHtml}
+      <span>${isSenol?'🏢 '+t:t}</span>
+    </button>`;
+  }).join('');
+
+  // Hero meta güncelle
+  const today = new Date().toISOString().slice(0,10);
+  const cur = PERIODS.find(p=>today>=p.start&&today<=p.end);
+  const rem = cur ? workDays(today, cur.end) : '—';
+
+  const gt = GENEL.find(r=>r.ttt===engineSelTTT&&r.urun==='GENEL TOPLAM');
+  document.getElementById('emv_ttt').textContent   = engineSelTTT.split(' ')[0];
+  document.getElementById('emv_real').textContent  = gt ? fPct(gt.tl_pct) : '—';
+  document.getElementById('emv_real').className    = 'engine-meta-val ' + (gt?.tl_pct>=91?'good':gt?.tl_pct>=70?'warn':'danger');
+  document.getElementById('emv_gun').textContent   = rem + ' gün';
+  document.getElementById('emv_kalan').textContent = gt ? fTL(Math.max(0,gt.kalan_tl)) : '—';
+  document.getElementById('emv_donem').textContent = cur ? cur.label : '—';
+  document.getElementById('engineTttBadge').textContent = engineSelTTT;
+
+  // Eğer daha önce çalıştırıldıysa output koru
+}
+
+// ── Motoru çalıştır ─────────────────────────────────────────
+function runEngine() {
+  if (!engineSelTTT) { alert('Temsilci seçin!'); return; }
+  const btn = document.getElementById('engineRunBtn');
+  btn.disabled = true;
+  btn.classList.add('running');
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analiz ediliyor...';
+
+  // Küçük gecikmeyle (UI güncellenmesi için)
+  setTimeout(() => {
+    try {
+      _runEngineCore();
+    } catch(e) {
+      console.error('Engine error:', e);
+    }
+    btn.disabled = false;
+    btn.classList.remove('running');
+    btn.innerHTML = '<i class="fas fa-bolt"></i> Motoru Çalıştır';
+  }, 120);
+}
+
+function _runEngineCore() {
+  const ttt = engineSelTTT;
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0,10);
+  const todayDisplay = today.toLocaleDateString('tr-TR',{weekday:'long',day:'numeric',month:'long'});
+
+  // ── Veri topla ──────────────────────────────────────────
+  const cur     = PERIODS.find(p=>todayStr>=p.start&&todayStr<=p.end);
+  const remDays = cur ? workDays(todayStr, cur.end) : 0;
+  const gt      = GENEL.find(r=>r.ttt===ttt&&r.urun==='GENEL TOPLAM');
+  const urunRows= GENEL.filter(r=>r.ttt===ttt&&r.urun!=='GENEL TOPLAM');
+  const migiRows= (MIGI_TL_RAW||[]).filter(r=>r.ttt===ttt);
+  const eczRows = (ECZANE_RAW||[]).filter(r=>r.ttt===ttt);
+
+  // IMS verileri
+  const imsRows = (IMS||[]).filter(r=>r.ttt===ttt);
+
+  // ── KPI hesapla ─────────────────────────────────────────
+  const kalanTL   = gt ? Math.max(0, gt.kalan_tl)  : 0;
+  const totalReal = gt ? gt.tl_pct : 0;
+  const kalanPerDay = remDays > 0 ? kalanTL / remDays : 0;
+
+  // Ürün bazlı kalan & günlük hedef
+  const urunKPI = urunRows.map(r => {
+    const p     = IMS_TL_MAP[r.urun] || 0;
+    const kalan = Math.max(0, r.kalan_tl);
+    const kalanKutu = p > 0 ? Math.round(kalan / p) : 0;
+    const gunlukKutu= remDays > 0 && kalanKutu > 0 ? Math.ceil(kalanKutu / remDays) : 0;
+    return { ...r, kalan, kalanKutu, gunlukKutu, imsFiyat: p };
+  });
+
+  // ── Brick analizi ───────────────────────────────────────
+  const top333    = migiRows.filter(r=>r.sira<=333);
+  const riskBricks= top333.filter(r=>r.mi<90||r.gi<90).sort((a,b)=>a.sira-b.sira).slice(0,5);
+  const oppBricks = top333.filter(r=>r.mi>=110&&r.gi>=100).sort((a,b)=>a.sira-b.sira).slice(0,5);
+  const critBricks= riskBricks.slice(0,3); // ilk 3 risk brick = bugün git
+
+  // IMS'ten risk brickler (pazar payı düşük)
+  const imsRiskBricks = [];
+  if (imsRows.length) {
+    const brickSet = [...new Set(imsRows.map(r=>r.brick))];
+    brickSet.forEach(b => {
+      const mkt  = imsRows.filter(r=>r.brick===b&&r.is_mkt).reduce((s,r)=>s+r.toplam,0);
+      const own  = imsRows.filter(r=>r.brick===b&&!r.is_mkt&&Object.values(OWN_IMS).includes(r.ilac)).reduce((s,r)=>s+r.toplam,0);
+      if (mkt > 300 && own / Math.max(1,mkt) < 0.15) {
+        imsRiskBricks.push({ brick: b, ppi: (own/mkt*100).toFixed(0), mkt });
+      }
+    });
+    imsRiskBricks.sort((a,b)=>b.mkt-a.mkt);
+  }
+
+  // ── Eczane analizi ──────────────────────────────────────
+  const aktifEcz = eczRows.filter(r=>(r.ocak||0)+(r.subat||0)+(r.mart||0)+(r.nisan||0)>0);
+  const topEcz   = [...aktifEcz].sort((a,b)=>{
+    const ta=(a.ocak||0)+(a.subat||0)+(a.mart||0)+(a.nisan||0);
+    const tb=(b.ocak||0)+(b.subat||0)+(b.mart||0)+(b.nisan||0);
+    return tb-ta;
+  }).slice(0,5);
+
+  // ── Prim durumu hesapla ─────────────────────────────────
+  const primTL   = gt?.tl_pct >= 91 ? 55000 * (gt.tl_pct>=130?2.5:gt.tl_pct>=120?2.0:gt.tl_pct>=110?1.6:gt.tl_pct>=105?1.3:gt.tl_pct>=100?1.1:gt.tl_pct>=95?1.0:0.9) : 0;
+  const primPuan = calcPrimPuani(Object.fromEntries(urunRows.map(r=>[r.urun,r.tl_pct])));
+  const primPort = (gt?.tl_pct>=91 && primPuan>=91) ? 11000 : 0;
+  const primMIGI = gt?.tl_pct>=70 ? 14000 * (migiRows.length > 0 ? (() => {
+    const miAvg = migiRows.reduce((s,r)=>s+r.mi,0)/Math.max(1,migiRows.length);
+    const giAvg = migiRows.reduce((s,r)=>s+r.gi,0)/Math.max(1,migiRows.length);
+    return Math.min((miAvg/100)*(giAvg/100),2.5).toFixed(2);
+  })() : 1) : 0;
+  const toplamPrim = primTL + primPort + primMIGI;
+
+  // ── Günlük görev kartları oluştur ───────────────────────
+  // Kart 1: Bugün git (Brick rotası)
+  let brickTasks = '';
+  if (critBricks.length) {
+    brickTasks = critBricks.map((b,i)=>`
+      <div class="task-row">
+        <div class="task-priority tp-${i===0?'1':i===1?'2':'3'}">${i+1}</div>
+        <div class="task-text">
+          <div class="task-main">${b.brick}</div>
+          <div class="task-detail">
+            <span class="task-tag tt-brick">Sıra #${b.sira}</span>
+            MI: ${b.mi?.toFixed(0)||'—'} · GI: ${b.gi?.toFixed(0)||'—'}
+            ${b.mi<90?'<span class="task-tag tt-risk">MI Riski</span>':b.gi<90?'<span class="task-tag tt-risk">GI Riski</span>':''}
+          </div>
+        </div>
+      </div>`).join('');
+  } else {
+    brickTasks = '<div style="color:var(--dim);font-size:12px;text-align:center;padding:20px">İlk 333\'te risk brick yok 🎉</div>';
+  }
+
+  // Kart 2: Bugün sat (Ürün hedefleri)
+  const urunTasks = urunKPI.filter(r=>r.kalan>0).map((r,i)=>`
+    <div class="task-row">
+      <div class="task-priority ${r.tl_pct<70?'tp-1':r.tl_pct<91?'tp-2':'tp-ok'}">${r.tl_pct<70?'!':r.tl_pct<91?'↑':'✓'}</div>
+      <div class="task-text">
+        <div class="task-main">${r.urun} <span style="font-size:10px;color:var(--dim)">%${r.tl_pct?.toFixed(0)||0}</span></div>
+        <div class="task-detail">
+          <span class="task-tag tt-urun">Günlük ${r.gunlukKutu} kutu</span>
+          Kalan: ${fTL(r.kalan)} · ${r.kalanKutu} kutu · ${r.imsFiyat}₺/kutu
+        </div>
+      </div>
+    </div>`).join('') || '<div style="color:var(--dim);font-size:12px;text-align:center;padding:20px">Tüm ürünler hedefe ulaştı 🏆</div>';
+
+  // Kart 3: Eczane öncelikleri
+  const eczTasks = topEcz.slice(0,4).map((e,i)=>{
+    const tot = (e.ocak||0)+(e.subat||0)+(e.mart||0)+(e.nisan||0);
+    return `
+    <div class="task-row">
+      <div class="task-priority tp-${i<2?'2':'3'}">${i+1}</div>
+      <div class="task-text">
+        <div class="task-main">${e.ad||e.eczane||'Eczane'}</div>
+        <div class="task-detail">
+          <span class="task-tag tt-brick">${e.brick||'—'}</span>
+          Toplam ${fK(tot)} kutu · ${e.urun||''}
+        </div>
+      </div>
+    </div>`;
+  }).join('') || '<div style="color:var(--dim);font-size:12px;text-align:center;padding:20px">Eczane verisi yok</div>';
+
+  // Kart 4: Prim durumu
+  const primTasks = `
+    <div class="task-row">
+      <div class="task-priority ${primTL>0?'tp-ok':'tp-1'}">${primTL>0?'✓':'!'}</div>
+      <div class="task-text">
+        <div class="task-main">TL Real Primi <span style="font-size:10px;color:var(--dim)">%${totalReal?.toFixed(0)||0}</span></div>
+        <div class="task-detail"><span class="task-tag tt-prim">${primTL>0?fTL(primTL):'Henüz yok'}</span> Eşik: %91 · Mevcut: %${totalReal?.toFixed(1)||0}</div>
+      </div>
+    </div>
+    <div class="task-row">
+      <div class="task-priority ${primPort>0?'tp-ok':'tp-2'}">${primPort>0?'✓':'↑'}</div>
+      <div class="task-text">
+        <div class="task-main">Portföy Primi <span style="font-size:10px;color:var(--dim)">Puan: ${primPuan?.toFixed(0)||0}</span></div>
+        <div class="task-detail"><span class="task-tag tt-prim">${primPort>0?fTL(primPort):'Henüz yok'}</span> Puan eşiği: 91 · Mevcut: ${primPuan?.toFixed(1)||0}</div>
+      </div>
+    </div>
+    <div class="task-row">
+      <div class="task-priority ${primMIGI>0?'tp-ok':'tp-3'}">${primMIGI>0?'✓':'↑'}</div>
+      <div class="task-text">
+        <div class="task-main">MI&GI Primi</div>
+        <div class="task-detail"><span class="task-tag tt-prim">${fTL(Math.round(Number(primMIGI)))}</span> Baz: 14.000₺ · Katsayı çarpımı</div>
+      </div>
+    </div>
+    <div class="task-row" style="background:linear-gradient(90deg,rgba(79,0,140,.04),rgba(27,206,216,.02));border:1px solid rgba(79,0,140,.1)">
+      <div class="task-priority" style="background:linear-gradient(135deg,#4F008C,#1BCED8)">Σ</div>
+      <div class="task-text">
+        <div class="task-main" style="color:var(--c1)">Tahmini Toplam Prim</div>
+        <div class="task-detail" style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;color:var(--c2)">${fTL(Math.round(toplamPrim))}</div>
+      </div>
+    </div>`;
+
+  // Task grid doldur
+  document.getElementById('engineTaskGrid').innerHTML = `
+    <div class="task-card">
+      <div class="task-card-header">
+        <div class="task-card-icon" style="background:linear-gradient(135deg,rgba(79,0,140,.1),rgba(79,0,140,.05))">🗺️</div>
+        <div><div class="task-card-title">Bugün Git</div><div class="task-card-sub">Öncelikli Brick Rotası</div></div>
+      </div>
+      ${brickTasks}
+    </div>
+    <div class="task-card">
+      <div class="task-card-header">
+        <div class="task-card-icon" style="background:linear-gradient(135deg,rgba(27,206,216,.1),rgba(27,206,216,.05))">💊</div>
+        <div><div class="task-card-title">Bugün Sat</div><div class="task-card-sub">Ürün Günlük Hedef</div></div>
+      </div>
+      ${urunTasks}
+    </div>
+    <div class="task-card">
+      <div class="task-card-header">
+        <div class="task-card-icon" style="background:linear-gradient(135deg,rgba(217,119,6,.1),rgba(217,119,6,.05))">🏥</div>
+        <div><div class="task-card-title">Öncelikli Eczaneler</div><div class="task-card-sub">Top ${Math.min(4,topEcz.length)} Müşteri</div></div>
+      </div>
+      ${eczTasks}
+    </div>
+    <div class="task-card">
+      <div class="task-card-header">
+        <div class="task-card-icon" style="background:linear-gradient(135deg,rgba(5,150,105,.1),rgba(5,150,105,.05))">💰</div>
+        <div><div class="task-card-title">Prim Durumu</div><div class="task-card-sub">Dönemlik Tahmin</div></div>
+      </div>
+      ${primTasks}
+    </div>`;
+
+  // ── Risk paneli ─────────────────────────────────────────
+  const riskHtml = [
+    ...riskBricks.slice(0,4).map(b=>`
+      <div class="risk-item ri-danger">
+        <div class="risk-item-name">⚠️ ${b.brick}</div>
+        <div class="risk-item-detail">Sıra #${b.sira} · MI: ${b.mi?.toFixed(0)||'—'} · GI: ${b.gi?.toFixed(0)||'—'}<br>
+        ${b.mi<90?'<b>MI indeksi kritik!</b>':''} ${b.gi<90?'<b>GI indeksi kritik!</b>':''}</div>
+      </div>`),
+    ...urunKPI.filter(r=>r.tl_pct<70).map(r=>`
+      <div class="risk-item ri-warn">
+        <div class="risk-item-name">📉 ${r.urun}</div>
+        <div class="risk-item-detail">Gerçekleşme: %${r.tl_pct?.toFixed(1)||0} · Kalan: ${fTL(r.kalan)}<br>
+        Günlük hedef: ${r.gunlukKutu} kutu (${remDays} gün kaldı)</div>
+      </div>`),
+    ...imsRiskBricks.slice(0,2).map(b=>`
+      <div class="risk-item ri-warn">
+        <div class="risk-item-name">📊 ${b.brick}</div>
+        <div class="risk-item-detail">IMS Pay: %${b.ppi} (eşik %15) · Pazar: ${fK(b.mkt)} kutu<br>Rakip baskısı yüksek!</div>
+      </div>`),
+  ].join('') || '<div style="color:var(--good);font-size:12px;padding:12px;text-align:center">Risk tespit edilmedi 🎉</div>';
+
+  // ── Fırsat paneli ───────────────────────────────────────
+  const oppHtml = [
+    ...oppBricks.slice(0,4).map(b=>`
+      <div class="risk-item ri-good">
+        <div class="risk-item-name">🚀 ${b.brick}</div>
+        <div class="risk-item-detail">Sıra #${b.sira} · MI: ${b.mi?.toFixed(0)||'—'} · GI: ${b.gi?.toFixed(0)||'—'}<br>
+        Güçlü performans — payı artır!</div>
+      </div>`),
+    ...urunKPI.filter(r=>r.tl_pct>=91).map(r=>`
+      <div class="risk-item ri-blue">
+        <div class="risk-item-name">✅ ${r.urun}</div>
+        <div class="risk-item-detail">%${r.tl_pct?.toFixed(1)||0} gerçekleşme · Hedefe ulaşıldı<br>
+        ${r.kalanKutu>0?'Ekstra satış bonus artırır':'Hedef üstü sat!'}</div>
+      </div>`),
+  ].slice(0,5).join('') || '<div style="color:var(--dim);font-size:12px;padding:12px;text-align:center">Analiz için daha fazla veri gerekli</div>';
+
+  document.getElementById('engineRisks').innerHTML = riskHtml;
+  document.getElementById('engineOpps').innerHTML  = oppHtml;
+
+  // ── Haftalık Strateji Timeline ──────────────────────────
+  const totalWeeks = Math.ceil(remDays / 5);
+  const wks = [];
+  let cumDays = 0;
+  for (let w=0; w<Math.min(totalWeeks,4); w++) {
+    const wDays  = Math.min(5, remDays - cumDays);
+    const wKalan = kalanTL > 0 ? Math.round(kalanTL * wDays / Math.max(1,remDays)) : 0;
+    const wKutu  = urunKPI.map(r=>({urun:r.urun,kutu:Math.ceil((r.kalanKutu||0)*wDays/Math.max(1,remDays))}));
+    const dotCls = w===0?'danger':w===1?'warn':'good';
+    const brickFocus = critBricks.slice(0,2+w).map(b=>b.brick).join(', ') || 'Tüm brickler';
+    wks.push(`
+      <div class="stl-item">
+        <div class="stl-dot ${dotCls}"></div>
+        <div class="stl-week">${w===0?'Bu Hafta':'Hafta '+(w+1)} · ${wDays} iş günü</div>
+        <div class="stl-content">
+          <div class="stl-title">${w===0?'🔥 Kritik Görevler':w===1?'📈 Büyüme Hedefi':w===2?'🎯 Konsolidasyon':'🏁 Sprint Finish'}</div>
+          <div class="stl-tasks">
+            <b>TL Hedef:</b> ${fTL(wKalan)} (günlük ${fTL(Math.round(wKalan/Math.max(1,wDays)))})<br>
+            <b>Brick Fokus:</b> ${brickFocus}<br>
+            <b>Ürün önceliği:</b> ${wKutu.filter(k=>k.kutu>0).map(k=>`${k.urun}: ${k.kutu} kutu`).join(' · ')||'—'}
+          </div>
+        </div>
+      </div>`);
+    cumDays += wDays;
+  }
+
+  document.getElementById('engineTimeline').innerHTML = wks.join('');
+  document.getElementById('engineWeekBadge').textContent = totalWeeks + ' Hafta Kaldı';
+
+  // ── Prim Optimizasyon Senaryosu ─────────────────────────
+  const hedefReal = 91;
+  const gerekliKalanTL = gt && gt.hedef_tl ? gt.hedef_tl * hedefReal/100 - gt.satis_tl : 0;
+  const gerekliTLStr = gerekliKalanTL > 0 ? fTL(Math.max(0,gerekliKalanTL)) + ' daha satmalı' : '✅ Hedef aşıldı';
+
+  document.getElementById('enginePrimPanel').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:16px">
+      <div style="background:linear-gradient(135deg,rgba(79,0,140,.07),rgba(79,0,140,.03));border:1px solid rgba(79,0,140,.12);border-radius:14px;padding:16px">
+        <div style="font-size:10px;color:var(--c1);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">%91 İçin Gereken</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:800;color:var(--c2)">${gerekliTLStr}</div>
+        <div style="font-size:10px;color:var(--dim);margin-top:4px">Mevcut: %${totalReal?.toFixed(1)||0}</div>
+      </div>
+      <div style="background:linear-gradient(135deg,rgba(217,119,6,.07),rgba(217,119,6,.03));border:1px solid rgba(217,119,6,.15);border-radius:14px;padding:16px">
+        <div style="font-size:10px;color:#D97706;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Tahmini TL Prim</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:800;color:#D97706">${fTL(Math.round(primTL))}</div>
+        <div style="font-size:10px;color:var(--dim);margin-top:4px">Baz: 55.000₺/dönem</div>
+      </div>
+      <div style="background:linear-gradient(135deg,rgba(5,150,105,.07),rgba(5,150,105,.03));border:1px solid rgba(5,150,105,.15);border-radius:14px;padding:16px">
+        <div style="font-size:10px;color:#059669;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Portföy Primi</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:800;color:#059669">${primPort>0?fTL(primPort):'Henüz yok'}</div>
+        <div style="font-size:10px;color:var(--dim);margin-top:4px">Prim Puanı: ${primPuan?.toFixed(1)||0} (eşik: 91)</div>
+      </div>
+      <div style="background:linear-gradient(135deg,rgba(14,116,144,.07),rgba(14,116,144,.03));border:1px solid rgba(14,116,144,.15);border-radius:14px;padding:16px">
+        <div style="font-size:10px;color:#0E7490;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">MI&GI Primi</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:800;color:#0E7490">${fTL(Math.round(Number(primMIGI)))}</div>
+        <div style="font-size:10px;color:var(--dim);margin-top:4px">Baz: 14.000₺</div>
+      </div>
+    </div>
+    <div style="background:linear-gradient(135deg,var(--c1),var(--c2));border-radius:14px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;color:#fff;flex-wrap:wrap;gap:10px">
+      <div>
+        <div style="font-size:10px;opacity:.7;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:4px">Tahmini Dönem Toplam Prim</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:800">${fTL(Math.round(toplamPrim))}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:10px;opacity:.7;margin-bottom:3px">%91 hedefe ulaşıldığında</div>
+        <div style="font-size:11px;opacity:.85">${gerekliKalanTL>0?'Kalan: '+fTL(Math.round(gerekliKalanTL)):' Hedef aşıldı 🎉'}</div>
+      </div>
+    </div>`;
+
+  document.getElementById('enginePrimBadge').textContent = fTL(Math.round(toplamPrim));
+
+  // ── Tarih badge ─────────────────────────────────────────
+  document.getElementById('taskDateBadge').textContent = todayDisplay + ' · ' + remDays + ' iş günü';
+
+  // Output göster, empty gizle
+  document.getElementById('engineOutput').style.display = 'block';
+  document.getElementById('engineEmpty').style.display  = 'none';
+
+  // AI çıktı alanını sıfırla
+  document.getElementById('engineAiOutput').style.display = 'none';
+  document.getElementById('engineAiChatArea').innerHTML = '';
+}
+
+// ── Engine AI Analizi ────────────────────────────────────────
+async function engineAiAnalysis(type) {
+  const aiOut  = document.getElementById('engineAiOutput');
+  const aiArea = document.getElementById('engineAiChatArea');
+  aiOut.style.display = 'block';
+
+  const loadId = 'eng_ai_' + Date.now();
+  aiArea.innerHTML += `<div id="${loadId}" class="ai-bubble-ai">
+    <strong style="color:var(--c1)"><i class="fas fa-brain" style="margin-right:5px"></i>Strateji Motoru</strong><br>
+    <span style="color:var(--dim)">⏳ Analiz hazırlanıyor...</span>
+  </div>`;
+  aiArea.scrollTop = aiArea.scrollHeight;
+
+  const ctx = buildTTTContext(engineSelTTT);
+  const today = new Date();
+  const cur = PERIODS.find(p=>{const t=today.toISOString().slice(0,10);return t>=p.start&&t<=p.end;});
+  const remDays = cur ? workDays(today.toISOString().slice(0,10), cur.end) : 0;
+
+  const prompts = {
+    full: `Görev Motoru seni Samsun 2D satış stratejisti olarak çalıştırıyor.
+
+Temsilci: ${engineSelTTT} | Kalan: ${remDays} iş günü
+
+Aşağıdaki veriye dayanarak KAPSAMLI günlük yürütme planı üret:
+1. BUGÜN NE YAP? → En kritik 3 brick ziyareti (adres düzeyinde), öncelikli ürün ve hedef kutu sayısı
+2. BU HAFTA NE YAP? → Günlük TL hedefi, brick rotası, eczane öncelikleri
+3. RİSK KAPAT → %91 altındaki ürünler için acil eylem planı
+4. PRİM STRATEJİSİ → Hangi ürüne odaklanılmalı, prim puanı nasıl artırılır
+5. SOMUT SAYILAR → Her öneri için kutu, TL ve eczane ismi ver
+
+${ctx}`,
+
+    bricks: `Görev Motoru — Brick Ziyaret Planı
+
+Temsilci: ${engineSelTTT} | Kalan: ${remDays} iş günü
+
+Verilen MI&GI ve IMS verilerine göre:
+1. Bugün gidilecek İLK 5 brick (öncelik sırası ile) — neden öncelikli olduğunu say
+2. Her brick için: hangi eczanelere git, hangi ürünü sun, kaç kutu hedefle
+3. Risk bricklerde (MI<90 veya GI<90) rakip analizi yap ve savunma stratejisi öner
+4. Bir haftalık brick rotası planı — hangi gün nereye git
+
+${ctx}`,
+
+    prim: `Görev Motoru — Prim Maksimizasyon Planı
+
+Temsilci: ${engineSelTTT} | Kalan: ${remDays} iş günü
+
+Mevcut realizasyon verilerine göre:
+1. %91 TL Real hedefine ulaşmak için ürün bazlı günlük kutu hedefi
+2. Portföy primini almak için prim puanı nasıl 91'e çıkar — hangi ürüne kaç kutu ek satış gerekli
+3. MI&GI primini artırmak için brick öncelikleri
+4. Kalan ${remDays} günde ulaşılabilir maksimum prim tutarı ve senaryolar (iyi/orta/kötü)
+5. Hangi ürün/brick kombine edildiğinde en yüksek prim? Somut tablo ver.
+
+${ctx}`,
+
+    eczane: `Görev Motoru — Eczane Sipariş Planı
+
+Temsilci: ${engineSelTTT}
+
+Eczane satış geçmişine göre:
+1. Bu hafta sipariş zamanı gelen TOP 10 eczane (son alış tarihi + tüketim hızı)
+2. Her eczane için önerilen ürün, paket büyüklüğü ve satış şartı
+3. Kampanya alımı yapıp uzun süre almayacak eczaneleri işaretle
+4. Brick bazında eczane yoğunlaşma analizi — hangi brickte eczane potansiyeli var
+
+${ctx}`
+  };
+
+  const systemPrompt = `Sen Samsun 2D bölgesi için çalışan uzman satış stratejistsin.
+Net, somut, uygulanabilir Türkçe yanıtlar ver. Her öneri için sayısal hedef belirt.
+Brick ve eczane isimlerini mutlaka kullan.
+Format: başlıklar bold (**Başlık**), maddeler net ve kısa.`;
+
+  try {
+    const AI_PROXY = window.AI_PROXY_URL || 'https://samsun.yilmazusta28.workers.dev';
+    const response = await fetch(AI_PROXY, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1500,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: prompts[type] || prompts.full }]
+      })
+    });
+    const data   = await response.json();
+    const reply  = data.content?.[0]?.text || 'Yanıt alınamadı.';
+    const fmt    = reply.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+    const el     = document.getElementById(loadId);
+    if (el) el.innerHTML = `<strong style="color:var(--c1)"><i class="fas fa-brain" style="margin-right:5px"></i>Strateji Motoru</strong><br><div style="margin-top:8px;line-height:1.7">${fmt}</div>`;
+  } catch(err) {
+    const el = document.getElementById(loadId);
+    if (el) el.innerHTML = `<strong style="color:#DC2626">⚠️ Hata</strong><br>${err.message}`;
+  }
+  aiArea.scrollTop = aiArea.scrollHeight;
+}
+
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -4708,6 +5176,146 @@ body{
   .sync-status{display:none}
 }
 @media(max-width:400px){#tttPickerGrid{grid-template-columns:1fr!important}}
+
+/* ── AI GÖREV MOTORU ─────────────────────────────────────── */
+.engine-hero{
+  background:linear-gradient(135deg,#0f0035 0%,#4F008C 45%,#0E4F5C 100%);
+  border-radius:20px;padding:24px 28px;color:#fff;
+  margin-bottom:20px;position:relative;overflow:hidden;
+  box-shadow:0 10px 40px rgba(79,0,140,.35);
+}
+.engine-hero::before{
+  content:'';position:absolute;right:-60px;top:-60px;
+  width:220px;height:220px;border-radius:50%;
+  background:rgba(27,206,216,.08);pointer-events:none;
+}
+.engine-hero::after{
+  content:'';position:absolute;left:40%;bottom:-80px;
+  width:180px;height:180px;border-radius:50%;
+  background:rgba(255,255,255,.04);pointer-events:none;
+}
+.engine-hero-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+.engine-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:5px 14px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+.engine-title{font-size:22px;font-weight:800;margin-bottom:4px;letter-spacing:-.3px}
+.engine-subtitle{font-size:12px;opacity:.7}
+.engine-meta{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
+.engine-meta-item{display:flex;flex-direction:column;gap:1px}
+.engine-meta-label{font-size:8px;opacity:.5;text-transform:uppercase;letter-spacing:1.5px;font-weight:700}
+.engine-meta-val{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700}
+.engine-meta-val.good{color:#34D399}.engine-meta-val.warn{color:#FBBF24}.engine-meta-val.danger{color:#F87171}
+
+/* Görev kartları */
+.task-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+.task-card{
+  background:#fff;border-radius:16px;padding:18px;
+  border:1px solid var(--border);
+  box-shadow:0 2px 16px rgba(79,0,140,.06);
+  transition:transform .2s,box-shadow .2s;
+}
+.task-card:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(79,0,140,.12)}
+.task-card-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.task-card-icon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.task-card-title{font-size:13px;font-weight:700;color:var(--text)}
+.task-card-sub{font-size:10px;color:var(--dim);margin-top:1px}
+
+/* Görev satırları */
+.task-row{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:10px 12px;border-radius:11px;
+  margin-bottom:6px;border:1px solid transparent;
+  transition:all .15s;cursor:default;
+}
+.task-row:hover{background:var(--surf2);border-color:var(--border)}
+.task-row:last-child{margin-bottom:0}
+.task-priority{
+  width:22px;height:22px;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:800;flex-shrink:0;margin-top:1px;
+  color:#fff;
+}
+.tp-1{background:linear-gradient(135deg,#DC2626,#EF4444)}
+.tp-2{background:linear-gradient(135deg,#D97706,#F59E0B)}
+.tp-3{background:linear-gradient(135deg,#4F008C,#7B2FBE)}
+.tp-ok{background:linear-gradient(135deg,#059669,#10B981)}
+.task-text{flex:1;min-width:0}
+.task-main{font-size:12px;font-weight:600;color:var(--text);line-height:1.4;margin-bottom:2px}
+.task-detail{font-size:10px;color:var(--dim);line-height:1.4}
+.task-tag{display:inline-block;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:700;margin-right:3px;vertical-align:middle}
+.tt-brick{background:rgba(79,0,140,.09);color:var(--c1)}
+.tt-urun{background:rgba(27,206,216,.1);color:#0E7490}
+.tt-risk{background:rgba(239,68,68,.1);color:#B91C1C}
+.tt-fırsat{background:rgba(16,185,129,.1);color:#065F46}
+.tt-prim{background:rgba(217,119,6,.1);color:#92400E}
+.tt-rakip{background:rgba(124,58,237,.1);color:#6D28D9}
+
+/* Risk & Fırsat paneli */
+.risk-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.risk-panel{background:#fff;border-radius:16px;padding:18px;border:1px solid var(--border);box-shadow:0 2px 16px rgba(79,0,140,.06)}
+.risk-panel-title{font-size:11px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:7px}
+.risk-item{padding:9px 12px;border-radius:10px;margin-bottom:6px;border:1px solid}
+.risk-item:last-child{margin-bottom:0}
+.risk-item-name{font-size:11px;font-weight:700;margin-bottom:3px}
+.risk-item-detail{font-size:10px;color:var(--dim);line-height:1.4}
+.ri-danger{background:#FEF2F2;border-color:#FECACA}
+.ri-warn{background:#FFFBEB;border-color:#FDE68A}
+.ri-good{background:#ECFDF5;border-color:#A7F3D0}
+.ri-blue{background:rgba(79,0,140,.04);border-color:rgba(79,0,140,.15)}
+
+/* Strateji timeline */
+.strategy-timeline{position:relative;padding-left:24px}
+.strategy-timeline::before{content:'';position:absolute;left:8px;top:0;bottom:0;width:2px;background:linear-gradient(180deg,var(--c1),var(--c3))}
+.stl-item{position:relative;margin-bottom:14px}
+.stl-item:last-child{margin-bottom:0}
+.stl-dot{position:absolute;left:-20px;top:4px;width:10px;height:10px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 2px var(--c1)}
+.stl-dot.warn{box-shadow:0 0 0 2px #D97706}
+.stl-dot.danger{box-shadow:0 0 0 2px #DC2626;background:#DC2626}
+.stl-dot.good{box-shadow:0 0 0 2px #059669;background:#059669}
+.stl-week{font-size:9px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:3px}
+.stl-content{background:#fff;border:1px solid var(--border);border-radius:11px;padding:11px 14px;box-shadow:0 1px 8px rgba(79,0,140,.05)}
+.stl-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px}
+.stl-tasks{font-size:11px;color:var(--dim);line-height:1.6}
+
+/* Temsilci seçim çubuğu motor için */
+.engine-ttt-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.engine-ttt-btn{
+  display:flex;align-items:center;gap:7px;
+  padding:7px 14px;border-radius:20px;
+  border:1.5px solid var(--border);background:#fff;
+  color:var(--dim);cursor:pointer;font-family:'Poppins',sans-serif;
+  font-size:11px;font-weight:600;transition:all .16s;
+}
+.engine-ttt-btn:hover{border-color:rgba(79,0,140,.3);color:var(--c1);background:rgba(79,0,140,.04)}
+.engine-ttt-btn.active{background:linear-gradient(135deg,var(--c1),var(--c2));color:#fff;border-color:transparent;box-shadow:0 3px 12px rgba(79,0,140,.3)}
+.engine-ttt-btn img{width:24px;height:24px;border-radius:50%;object-fit:cover;border:1.5px solid rgba(255,255,255,.4)}
+.engine-ttt-btn .etb-avatar{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;flex-shrink:0}
+
+/* Çalıştır butonu */
+.engine-run-btn{
+  background:linear-gradient(135deg,#D97706,#F59E0B);
+  color:#fff;border:none;padding:12px 28px;
+  border-radius:14px;font-family:'Poppins',sans-serif;
+  font-size:13px;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;gap:8px;
+  box-shadow:0 5px 20px rgba(217,119,6,.4);
+  transition:all .2s;
+}
+.engine-run-btn:hover{opacity:.9;transform:translateY(-2px);box-shadow:0 8px 28px rgba(217,119,6,.5)}
+.engine-run-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.engine-run-btn.running{background:linear-gradient(135deg,#4F008C,#7B2FBE);box-shadow:0 5px 20px rgba(79,0,140,.4)}
+
+/* Yükleniyor animasyonu */
+.engine-skeleton{
+  background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);
+  background-size:200% 100%;
+  animation:shimmer 1.5s infinite;
+  border-radius:8px;height:14px;margin-bottom:8px;
+}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+@media(max-width:768px){
+  .task-grid{grid-template-columns:1fr}
+  .risk-grid{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
@@ -4868,6 +5476,12 @@ body{
   </div>
   <div class="nav-item pg" id="snav6" onclick="goPage(6)">
     <span class="nav-icon"><i class="fas fa-clinic-medical"></i></span><span>Eczane Satış</span>
+  </div>
+
+  <div class="nav-sec">Motor</div>
+  <div class="nav-item pg" id="snav7" onclick="goPage(7)" style="background:linear-gradient(90deg,rgba(217,119,6,.18),rgba(217,119,6,.06));color:#FBBF24;border-left-color:#F59E0B">
+    <span class="nav-icon" style="color:#FBBF24"><i class="fas fa-brain"></i></span>
+    <span style="color:#FBBF24;font-weight:700">AI Görev Motoru</span>
   </div>
 
   <!-- Footer: Kullanıcı -->
@@ -5395,6 +6009,167 @@ body{
     </div>
   </div>
 </div>
+
+
+<!-- ══════ PAGE 7: AI GÖREV MOTORU ══════ -->
+<div class="page" id="page7">
+
+  <!-- Hero başlık -->
+  <div class="engine-hero">
+    <div class="engine-hero-top">
+      <div>
+        <div class="engine-badge"><i class="fas fa-brain"></i> Auto Strategy Engine</div>
+        <div class="engine-title" style="margin-top:10px">🎯 AI Görev Motoru</div>
+        <div class="engine-subtitle">Günlük satış planı · Risk analizi · Prim optimizasyonu</div>
+      </div>
+      <button class="engine-run-btn" id="engineRunBtn" onclick="runEngine()">
+        <i class="fas fa-bolt"></i> Motoru Çalıştır
+      </button>
+    </div>
+    <div class="engine-meta" id="engineHeroMeta">
+      <div class="engine-meta-item">
+        <div class="engine-meta-label">Temsilci</div>
+        <div class="engine-meta-val" id="emv_ttt">—</div>
+      </div>
+      <div class="engine-meta-item">
+        <div class="engine-meta-label">Gerçekleşme</div>
+        <div class="engine-meta-val" id="emv_real">—</div>
+      </div>
+      <div class="engine-meta-item">
+        <div class="engine-meta-label">Kalan İş Günü</div>
+        <div class="engine-meta-val warn" id="emv_gun">—</div>
+      </div>
+      <div class="engine-meta-item">
+        <div class="engine-meta-label">Kalan Hedef</div>
+        <div class="engine-meta-val danger" id="emv_kalan">—</div>
+      </div>
+      <div class="engine-meta-item">
+        <div class="engine-meta-label">Dönem</div>
+        <div class="engine-meta-val" id="emv_donem">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Temsilci seçim -->
+  <div class="card mb16">
+    <div class="card-hd">
+      <span class="card-title"><i class="fas fa-user"></i> Temsilci Seç</span>
+      <span class="card-badge" id="engineTttBadge">Seçim Yap</span>
+    </div>
+    <div class="card-body" style="padding:14px 18px">
+      <div class="engine-ttt-bar" id="engineTttBar"></div>
+    </div>
+  </div>
+
+  <!-- Motor çıktısı (başta gizli) -->
+  <div id="engineOutput" style="display:none">
+
+    <!-- Günlük Görev Listesi -->
+    <div class="card mb16">
+      <div class="card-hd">
+        <span class="card-title"><i class="fas fa-list-check"></i> Bugünün Görev Listesi</span>
+        <span class="card-badge" id="taskDateBadge">—</span>
+      </div>
+      <div class="card-body" style="padding:14px 18px">
+        <div class="task-grid" id="engineTaskGrid"></div>
+      </div>
+    </div>
+
+    <!-- Risk & Fırsat -->
+    <div class="risk-grid mb16">
+      <div class="risk-panel">
+        <div class="risk-panel-title" style="color:#DC2626">
+          <div style="width:32px;height:32px;border-radius:10px;background:#FEF2F2;display:flex;align-items:center;justify-content:center;font-size:15px">⚠️</div>
+          Acil Riskler
+        </div>
+        <div id="engineRisks"></div>
+      </div>
+      <div class="risk-panel">
+        <div class="risk-panel-title" style="color:#059669">
+          <div style="width:32px;height:32px;border-radius:10px;background:#ECFDF5;display:flex;align-items:center;justify-content:center;font-size:15px">🚀</div>
+          Büyüme Fırsatları
+        </div>
+        <div id="engineOpps"></div>
+      </div>
+    </div>
+
+    <!-- Haftalık Strateji -->
+    <div class="card mb16">
+      <div class="card-hd">
+        <span class="card-title"><i class="fas fa-road"></i> Haftalık Aksiyon Planı</span>
+        <span class="card-badge" id="engineWeekBadge">—</span>
+      </div>
+      <div class="card-body" style="padding:14px 18px">
+        <div class="strategy-timeline" id="engineTimeline"></div>
+      </div>
+    </div>
+
+    <!-- Prim Optimizasyonu -->
+    <div class="card mb16">
+      <div class="card-hd">
+        <span class="card-title"><i class="fas fa-coins"></i> Prim Optimizasyon Senaryosu</span>
+        <span class="card-badge" id="enginePrimBadge">—</span>
+      </div>
+      <div class="card-body" style="padding:14px 18px">
+        <div id="enginePrimPanel"></div>
+      </div>
+    </div>
+
+    <!-- AI Detaylı Analiz butonu -->
+    <div class="card mb16">
+      <div class="card-hd">
+        <span class="card-title"><i class="fas fa-robot"></i> AI Detaylı Strateji</span>
+        <span class="card-badge" style="background:linear-gradient(135deg,#4F008C,#1BCED8);color:#fff">Claude AI</span>
+      </div>
+      <div class="card-body" style="padding:14px 18px">
+        <p style="font-size:12px;color:var(--dim);margin-bottom:14px">Motor çıktısını temel alarak Claude AI detaylı strateji üretsin. Brick bazlı ziyaret planı, eczane öncelikleri ve haftalık kutu hedefleri içerir.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <button class="btn-calc" onclick="engineAiAnalysis('full')" style="border-radius:11px">
+            <i class="fas fa-brain" style="margin-right:6px"></i>Tam Strateji Üret
+          </button>
+          <button class="btn-calc" onclick="engineAiAnalysis('bricks')" style="border-radius:11px;background:linear-gradient(135deg,#D97706,#F59E0B)">
+            <i class="fas fa-map-pin" style="margin-right:6px"></i>Brick Ziyaret Planı
+          </button>
+          <button class="btn-calc" onclick="engineAiAnalysis('prim')" style="border-radius:11px;background:linear-gradient(135deg,#059669,#10B981)">
+            <i class="fas fa-coins" style="margin-right:6px"></i>Prim Maksimize Planı
+          </button>
+          <button class="btn-calc" onclick="engineAiAnalysis('eczane')" style="border-radius:11px;background:linear-gradient(135deg,#0E7490,#1BCED8)">
+            <i class="fas fa-clinic-medical" style="margin-right:6px"></i>Eczane Sipariş Planı
+          </button>
+        </div>
+        <div id="engineAiOutput" style="margin-top:14px;display:none">
+          <div id="engineAiChatArea" style="display:flex;flex-direction:column;gap:12px;min-height:80px"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /engineOutput -->
+
+  <!-- Başlangıç durumu -->
+  <div id="engineEmpty" style="text-align:center;padding:60px 20px">
+    <div style="font-size:48px;margin-bottom:16px">🧠</div>
+    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px">Motor Hazır</div>
+    <div style="font-size:13px;color:var(--dim);margin-bottom:24px">Temsilci seçin ve "Motoru Çalıştır" butonuna tıklayın.</div>
+    <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px;max-width:500px;margin:0 auto">
+      <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 16px;text-align:left;flex:1;min-width:180px;box-shadow:0 2px 8px rgba(79,0,140,.06)">
+        <div style="font-size:16px;margin-bottom:6px">📊</div>
+        <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:3px">KPI Analizi</div>
+        <div style="font-size:10px;color:var(--dim)">Hedef, satış, kalan TL ve prim durumu</div>
+      </div>
+      <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 16px;text-align:left;flex:1;min-width:180px;box-shadow:0 2px 8px rgba(79,0,140,.06)">
+        <div style="font-size:16px;margin-bottom:6px">🗺️</div>
+        <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:3px">Brick Öncelikleri</div>
+        <div style="font-size:10px;color:var(--dim)">İlk 333 / risk / fırsat brick rotası</div>
+      </div>
+      <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 16px;text-align:left;flex:1;min-width:180px;box-shadow:0 2px 8px rgba(79,0,140,.06)">
+        <div style="font-size:16px;margin-bottom:6px">💰</div>
+        <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:3px">Prim Optimizasyonu</div>
+        <div style="font-size:10px;color:var(--dim)">TL Real / Portföy / MI&GI prim senaryosu</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page7 -->
 
 </div><!-- /main -->
 </div><!-- /app -->
