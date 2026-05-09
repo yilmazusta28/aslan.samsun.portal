@@ -210,6 +210,9 @@ function calcPrim() {
   const urunReals = {};
   let toplam_hedef = 0, toplam_satis = 0;
 
+  // ── hasManualInput önce tanımlanmalı ──
+  const hasManualInput = URUN_ORDER.some(u => document.getElementById(getPrimRealId(u))?.value);
+
   // ── Kaynak seçimi: Hesaplayıcı verisi varsa onu kullan, yoksa manuel input ──
   const hasCalcData = CALC_SYNC.timestamp > 0 && CALC_SYNC.ttt === ttt;
 
@@ -256,7 +259,6 @@ function calcPrim() {
 
   // ── Prim Puanı ──
   // Öncelik: 1) Hesaplayıcı verisi  2) Manuel input yeniden hesap  3) CSV'deki prim_pct (en doğru)
-  const hasManualInput = URUN_ORDER.some(u => document.getElementById(getPrimRealId(u))?.value);
   let primPuani;
   if (hasCalcData && CALC_SYNC.totPrimPuan > 0 && !hasManualInput) {
     // Hesaplayıcıdan gelen değer (kutu girişi yapılmış)
