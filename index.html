@@ -117,44 +117,16 @@ function getPriorityLabel(sira, mi, gi) {
 
 
 function buildPrimInputs() {
-  // ── Resimli TTT buton bar ───────────────────────────────
+  // TTT select
   const sel = document.getElementById('primTTT');
-  const bar = document.getElementById('primTttBar');
-
-  // Select'i doldur (calcPrim() okumaya devam etsin)
-  if (sel && sel.options.length <= 1) {
+  if (sel.options.length <= 1) {
     ALL_TTTS.forEach(t => {
       const opt = document.createElement('option');
       opt.value = opt.textContent = t;
       sel.appendChild(opt);
     });
   }
-  if (sel && !sel.value && ALL_TTTS.length) sel.value = ALL_TTTS[0];
-
-  // Resimli buton bar'ı oluştur
-  if (bar) {
-    const currentTTT = sel?.value || (ALL_TTTS[0] || '');
-    bar.innerHTML = ALL_TTTS.map(t => {
-      const photoUrl = getTTTPhoto(t);
-      const initials = t.split(' ').map(w => w[0]).slice(0, 2).join('');
-      const clr      = URUN_CLR['PANOCER'] || '#4F008C';
-      const avatarHtml = photoUrl
-        ? `<img src="${photoUrl}" crossorigin="anonymous"
-             style="width:26px;height:26px;border-radius:50%;object-fit:cover;border:1.5px solid rgba(255,255,255,.4);flex-shrink:0"
-             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
-        : '';
-      const fallbackHtml = `<div style="width:26px;height:26px;border-radius:50%;background:${clr};
-        display:${photoUrl ? 'none' : 'flex'};align-items:center;justify-content:center;
-        font-size:9px;font-weight:800;color:#fff;flex-shrink:0">${initials}</div>`;
-      const isActive = t === currentTTT;
-      return `<button class="engine-ttt-btn${isActive ? ' active' : ''}"
-          onclick="setPrimTTT('${t.replace(/'/g, "\\'")}')"
-          style="padding:6px 12px;gap:7px">
-          ${avatarHtml}${fallbackHtml}
-          <span style="font-size:11px">${t.split(' ')[0]}</span>
-        </button>`;
-    }).join('');
-  }
+  if (!sel.value && ALL_TTTS.length) { sel.value = ALL_TTTS[0]; }
 
   // Ürün girişleri
   const container = document.getElementById('primUrunInputs');
@@ -176,25 +148,6 @@ function getPrimRealId(u) {
 
 // ── HESAPLAYICI → PRİM SENKRON ─────────────────────────────
 // Prim sayfası açıkken hesaplayıcıdan gelen verileri yansıtır
-// Prim sayfası resimli temsilci seçimi
-function setPrimTTT(ttt) {
-  const sel = document.getElementById('primTTT');
-  if (sel) sel.value = ttt;
-  // Butonların active sınıfını güncelle
-  document.querySelectorAll('#primTttBar .engine-ttt-btn').forEach(btn => {
-    const isActive = btn.textContent.trim().startsWith(ttt.split(' ')[0]);
-    btn.classList.toggle('active', btn.onclick?.toString().includes(ttt) ||
-      (btn.getAttribute('onclick') || '').includes("setPrimTTT('" + ttt + "')"));
-  });
-  // Active durumu doğrudan onclick'e göre ayarla
-  document.querySelectorAll('#primTttBar .engine-ttt-btn').forEach(btn => {
-    const onclk = btn.getAttribute('onclick') || '';
-    btn.classList.toggle('active', onclk.includes("setPrimTTT('" + ttt + "')") ||
-      onclk.includes('setPrimTTT('' + ttt + '')'));
-  });
-  calcPrim();
-}
-
 function syncPrimFromCalc() {
   const page4 = document.getElementById('page4');
   if (!page4 || !page4.classList.contains('active')) return;
@@ -205,8 +158,6 @@ function syncPrimFromCalc() {
   if (primTTTEl && CALC_SYNC.ttt) {
     if (primTTTEl.value !== CALC_SYNC.ttt) {
       primTTTEl.value = CALC_SYNC.ttt;
-      // Buton bar'ı da güncelle
-      if (typeof setPrimTTT === 'function') setPrimTTT(CALC_SYNC.ttt);
     }
   }
 
@@ -2300,13 +2251,15 @@ async function syncData() {
       return '';
     };
 
-    if (!respIMS.ok)   throw new Error('IMS_TABLO.csv yüklenemedi (HTTP ' + respIMS.status + ')');
-    if (!respGenel.ok) throw new Error('GENEL_TABLO.csv yüklenemedi (HTTP ' + respGenel.status + ')');
+    if (!respIMS.ok)   console.warn('[syncData] IMS_TABLO.csv HTTP ' + respIMS.status + ' — gömülü veriyle devam');
+    if (!respGenel.ok) console.warn('[syncData] GENEL_TABLO.csv HTTP ' + respGenel.status + ' — gömülü veriyle devam');
 
-    const [csvIMS, csvGenel, csvMiGiTL, csvMiGiKutu, csvMiGiBTL, csvMiGiBKutu] = await Promise.all([
-      respIMS.text(),
-      respGenel.text(),
-      safeGet('https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI_TL_TOPLAM.csv'),
+    const csvIMS   = respIMS.ok   ? await respIMS.text()   : '';
+    const csvGenel = respGenel.ok ? await respGenel.text() : '';
+
+    if (!csvIMS && !csvGenel) throw new Error('IMS ve GENEL verileri yüklenemedi');
+
+    const [csvMiGiTL, csvMiGiKutu, csvMiGiBTL, csvMiGiBKutu] = await Promise.all([
       safeGet('https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI_KUTU_TOPLAM.csv'),
       safeGet('https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI-TL.csv'),
       safeGet('https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI-KUTU.csv'),
@@ -3492,23 +3445,31 @@ async function initApp(){
   const loadMsg = document.getElementById('loadMsg');
   const loadDiv = document.getElementById('loading');
   try {
-    loadMsg.textContent = '⏳ GitHub deposundan veri yükleniyor…';
+    if (loadMsg) loadMsg.textContent = '⏳ GitHub deposundan veri yükleniyor…';
     await syncData();  // veriyi çek ve UI'ı hazırla
-    loadDiv.style.display = 'none';
   } catch(err) {
-    // Sync başarısız — hata mesajını göster, loading ekranını değiştir
-    loadMsg.textContent = '❌ CSV dosyaları yüklenemedi. GitHub reposunda IMS_TABLO.csv ve GENEL_TABLO.csv olduğunu kontrol edin.';
-    loadMsg.style.color = '#DC2626';
-    loadMsg.style.fontSize = '13px';
-    loadMsg.style.maxWidth = '320px';
-    loadMsg.style.textAlign = 'center';
+    // Sync başarısız — hata logla ama uygulamayı yine de aç
     console.error('[initApp] sync error:', err);
-    // Yenile butonu ekle
-    const btn = document.createElement('button');
-    btn.textContent = '🔄 Yeniden Dene';
-    btn.style.cssText = 'margin-top:16px;padding:10px 24px;background:#4F008C;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif';
-    btn.onclick = () => { location.reload(); };
-    loadDiv.appendChild(btn);
+    const statusEl = document.getElementById('syncStatus');
+    if (statusEl) {
+      statusEl.textContent = '⚠️ Veri yüklenemedi';
+      statusEl.title = err.message;
+    }
+    // Yenile butonu topbar'a ekle
+    const syncBar = document.querySelector('.sync-bar');
+    if (syncBar && !document.getElementById('retryBtn')) {
+      const btn = document.createElement('button');
+      btn.id = 'retryBtn';
+      btn.textContent = '🔄 Yeniden Dene';
+      btn.style.cssText = 'padding:6px 12px;background:#DC2626;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:Poppins,sans-serif';
+      btn.onclick = () => { location.reload(); };
+      syncBar.appendChild(btn);
+    }
+  } finally {
+    // Her durumda loading ekranını kapat ve uygulamayı göster
+    if (loadDiv) loadDiv.style.display = 'none';
+    // İlk sayfayı render et
+    if (typeof goPage === 'function') goPage(0);
   }
 }
 
@@ -6053,10 +6014,8 @@ body{
         <div>
           <div class="section-h">Temsilci & Dönem</div>
           <div style="margin-bottom:10px">
-            <label style="font-size:10px;font-weight:600;color:var(--dim);display:block;margin-bottom:6px">Temsilci</label>
-            <div class="engine-ttt-bar" id="primTttBar" style="flex-wrap:wrap;gap:6px"></div>
-            <!-- Gizli select — calcPrim() okumaya devam etsin -->
-            <select id="primTTT" style="display:none" onchange="calcPrim()">
+            <label style="font-size:10px;font-weight:600;color:var(--dim);display:block;margin-bottom:4px">Temsilci</label>
+            <select id="primTTT" class="inp" style="padding:6px 10px" onchange="calcPrim()">
               <option value="">Seçin...</option>
             </select>
           </div>
