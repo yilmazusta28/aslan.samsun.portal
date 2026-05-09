@@ -50,14 +50,11 @@ const URUN_AGIRLIK = {
   'GRİPORT COLD': 0.20, 'MOKSEFEN': 0.15, 'FAMTREC': 0.15
 };
 
-function calcPrimPuani(urunReals, ttt) {
+function calcPrimPuani(urunReals) {
   let total = 0;
-  for (const urun of Object.keys(URUN_AGIRLIK)) {
+  for (const [urun, agirlik] of Object.entries(URUN_AGIRLIK)) {
     const real = urunReals[urun] || 0;
     if (real >= 70) {
-      // CSV'den temsilciye ait ağırlığı al, yoksa sabit değeri kullan
-      const r = ttt ? GENEL.find(g => g.ttt === ttt && g.urun === urun) : null;
-      const agirlik = (r && r.urun_agirlik > 0) ? r.urun_agirlik : (URUN_AGIRLIK[urun] || 0);
       const cappedReal = Math.min(real, 130);
       total += cappedReal * agirlik;
     }
@@ -210,9 +207,6 @@ function calcPrim() {
   const urunReals = {};
   let toplam_hedef = 0, toplam_satis = 0;
 
-  // ── hasManualInput önce tanımlanmalı ──
-  const hasManualInput = URUN_ORDER.some(u => document.getElementById(getPrimRealId(u))?.value);
-
   // ── Kaynak seçimi: Hesaplayıcı verisi varsa onu kullan, yoksa manuel input ──
   const hasCalcData = CALC_SYNC.timestamp > 0 && CALC_SYNC.ttt === ttt;
 
@@ -238,38 +232,28 @@ function calcPrim() {
   });
 
   // ── Efektif TL Real % ──
+  // Hesaplayıcıdan gelen toplam % direkt kullan (ağırlıklı doğru hesap)
   let effReal;
-  if (hasCalcData && CALC_SYNC.totPct > 0 && !hasManualInput) {
-    // Hesaplayıcıdan gelen ağırlıklı toplam
+  if (hasCalcData && CALC_SYNC.totPct > 0 && !URUN_ORDER.some(u => document.getElementById(getPrimRealId(u))?.value)) {
     effReal = CALC_SYNC.totPct;
-  } else if (!hasManualInput) {
-    // CSV'deki GENEL TOPLAM tl_pct (en doğru mevcut değer)
-    const rGenel = GENEL.find(g => g.ttt === ttt && g.urun === 'GENEL TOPLAM');
-    effReal = rGenel?.tl_pct || (toplam_hedef > 0 ? (toplam_satis / toplam_hedef * 100) : 0);
   } else {
-    // Manuel giriş var → CSV ağırlıklarıyla ağırlıklı ortalama
-    effReal = URUN_ORDER.reduce((s, u) => {
+    const inputReal = URUN_ORDER.map(u => {
       const inp = document.getElementById(getPrimRealId(u));
-      const val = inp?.value ? parseFloat(inp.value) : 0;
-      const r2 = GENEL.find(g => g.ttt === ttt && g.urun === u);
-      const agirlik = (r2 && r2.urun_agirlik > 0) ? r2.urun_agirlik : (URUN_AGIRLIK[u] || 0.2);
-      return s + val * agirlik;
-    }, 0);
+      return inp?.value ? parseFloat(inp.value) : null;
+    });
+    const hasInputs = inputReal.some(v => v !== null);
+    effReal = hasInputs
+      ? URUN_ORDER.reduce((s, u, i) => s + (inputReal[i] || 0) * (URUN_AGIRLIK[u] || 0.2), 0)
+      : (toplam_hedef > 0 ? (toplam_satis / toplam_hedef * 100) : 0);
   }
 
   // ── Prim Puanı ──
-  // Öncelik: 1) Hesaplayıcı verisi  2) Manuel input yeniden hesap  3) CSV'deki prim_pct (en doğru)
+  // Hesaplayıcıdan gelen totPrimPuan direkt kullan (daha doğru)
   let primPuani;
-  if (hasCalcData && CALC_SYNC.totPrimPuan > 0 && !hasManualInput) {
-    // Hesaplayıcıdan gelen değer (kutu girişi yapılmış)
+  if (hasCalcData && CALC_SYNC.totPrimPuan > 0 && !URUN_ORDER.some(u => document.getElementById(getPrimRealId(u))?.value)) {
     primPuani = CALC_SYNC.totPrimPuan;
-  } else if (!hasManualInput) {
-    // Manuel giriş yok, hesaplayıcı da yok → CSV'deki hazır prim_pct değerini kullan
-    const rGenel = GENEL.find(g => g.ttt === ttt && g.urun === 'GENEL TOPLAM');
-    primPuani = rGenel?.prim_pct || calcPrimPuani(urunReals, ttt);
   } else {
-    // Manuel giriş var → CSV ağırlıklarıyla yeniden hesapla
-    primPuani = calcPrimPuani(urunReals, ttt);
+    primPuani = calcPrimPuani(urunReals);
   }
 
   const mi = parseFloat(document.getElementById('primMI')?.value) || 100;
@@ -2714,7 +2698,6 @@ function renderGenelTablo(){
   document.getElementById('genelTbody').innerHTML=rows.map((r,i)=>{
     const trSira=TR_SIRA_MAP[r.ttt]||0;
     const trCol=trSira<=30?'#0BA87E':trSira<=60?'#D97706':'#DC2626';
-    const pp=r.prim_pct||0;
     return `<tr>
       <td><span class="rk ${i===0?'rk-1':i===1?'rk-2':i===2?'rk-3':'rk-n'}">${i+1}</span></td>
       <td style="font-weight:600;cursor:pointer;color:var(--c1)" onclick="selectTTT('${r.ttt}')">${r.ttt}</td>
@@ -2722,7 +2705,6 @@ function renderGenelTablo(){
       <td class="mono" style="font-weight:700">${fTL(r.satis_tl)}</td>
       <td class="mono ${r.kalan_tl<0?'negative':'positive'}">${fTL(r.kalan_tl)}</td>
       <td><span class="bdg ${pCls(r.tl_pct)}">${fPct(r.tl_pct)}</span></td>
-      <td><span class="bdg bdg-blue" style="${pp>=91?'background:#16A34A;color:#fff':pp>=70?'background:#D97706;color:#fff':''}">${fPct(pp)}</span></td>
       <td><div class="prog" style="width:80px"><div class="prog-fill ${barCls(r.tl_pct)}" style="width:${Math.min(r.tl_pct,100)}%"></div></div></td>
       <td style="color:${trCol};font-weight:700">${trSira?'#'+trSira:'—'}</td>
     </tr>`;
@@ -4573,7 +4555,7 @@ function _runEngineCore() {
 
   // ── Prim durumu hesapla ─────────────────────────────────
   const primTL   = gt?.tl_pct >= 91 ? 55000 * (gt.tl_pct>=130?2.5:gt.tl_pct>=120?2.0:gt.tl_pct>=110?1.6:gt.tl_pct>=105?1.3:gt.tl_pct>=100?1.1:gt.tl_pct>=95?1.0:0.9) : 0;
-  const primPuan = gt?.prim_pct || calcPrimPuani(Object.fromEntries(urunRows.map(r=>[r.urun,r.tl_pct])), ttt);
+  const primPuan = calcPrimPuani(Object.fromEntries(urunRows.map(r=>[r.urun,r.tl_pct])));
   const primPort = (gt?.tl_pct>=91 && primPuan>=91) ? 11000 : 0;
   const primMIGI = gt?.tl_pct>=70 ? 14000 * (migiRows.length > 0 ? (() => {
     const miAvg = migiRows.reduce((s,r)=>s+r.mi,0)/Math.max(1,migiRows.length);
@@ -5725,7 +5707,7 @@ body{
       <div class="card-hd"><span class="card-title">Ekip Performans Sıralaması</span><span class="card-badge">Genel Toplam</span></div>
       <div class="card-body-0 scroll-x">
         <table class="tbl" id="genelTablo">
-          <thead><tr><th>Sıra</th><th>Temsilci</th><th>Hedef TL</th><th>Satış TL</th><th>Kalan TL</th><th>TL %</th><th>PP %</th><th>Gerçekleşme</th><th>TR Sıra</th></tr></thead>
+          <thead><tr><th>Sıra</th><th>Temsilci</th><th>Hedef TL</th><th>Satış TL</th><th>Kalan TL</th><th>TL %</th><th>Gerçekleşme</th><th>TR Sıra</th></tr></thead>
           <tbody id="genelTbody"></tbody>
         </table>
       </div>
