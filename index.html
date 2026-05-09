@@ -2477,11 +2477,15 @@ function buildTTTPicker(){
     const isSenol=t==='ŞENOL YILMAZ';
     const r=GENEL.find(g=>g.ttt===t&&g.urun==='GENEL TOPLAM');
     const p=r?r.tl_pct:0;
+    const pp=r?( r.prim_pct||0):0;
     const trSira=TR_SIRA_MAP[t]||0;
     const pCol=p>=91?'#059669':p>=70?'#D97706':'#DC2626';
+    const ppCol=pp>=91?'#059669':pp>=70?'#D97706':'#DC2626';
     const trCol=trSira<=30?'#059669':trSira<=60?'#D97706':'#DC2626';
     const progCol=p>=91?'#059669':p>=70?'#f59e0b':'#ef4444';
+    const ppProgCol=pp>=91?'#059669':pp>=70?'#f59e0b':'#ef4444';
     const progW=Math.min(p,130).toFixed(0);
+    const ppProgW=Math.min(pp,130).toFixed(0);
     const isSel=selTTT===t;
     const photoUrl=getTTTPhoto(t);
     const avatarBg=isSenol
@@ -2505,10 +2509,15 @@ function buildTTTPicker(){
       <div class="tp-info">
         <div class="tp-name">${isSenol?'🏢 ':''}<strong>${shortName}</strong></div>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:1px">
-          <div class="tp-pct" style="color:${pCol}">${fPct(p)}</div>
+          <div class="tp-pct" style="color:${pCol};font-size:11px" title="TL Real%">TL ${fPct(p)}</div>
           <div style="font-size:8px;color:${trCol};font-weight:700">${isSenol?'BM':('#'+trSira)}</div>
         </div>
         <div class="tp-prog"><div class="tp-prog-fill" style="width:${progW}%;background:${progCol}"></div></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:3px">
+          <div style="font-size:9px;font-weight:700;color:${ppCol}" title="Prim Puan%">PP ${fPct(pp)}</div>
+          ${pp>=91?'<div style="font-size:8px;color:#059669;font-weight:700">✓</div>':'<div style="font-size:8px;color:#DC2626">⚠️</div>'}
+        </div>
+        <div class="tp-prog" style="margin-top:2px"><div class="tp-prog-fill" style="width:${ppProgW}%;background:${ppProgCol};opacity:.7"></div></div>
       </div>
     </div>`;
   }).join('');
@@ -5274,7 +5283,7 @@ body{
 .ttt-pick:hover{transform:translateY(-3px) scale(1.03);box-shadow:0 10px 24px rgba(79,0,140,.17);border-color:var(--c1)}
 .ttt-pick.sel{border-color:var(--c1);background:rgba(79,0,140,.03);box-shadow:0 4px 16px rgba(79,0,140,.17),0 0 0 2px rgba(79,0,140,.1);transform:translateY(-2px)}
 .ttt-pick.sel-senol{border-color:var(--c3);background:rgba(27,206,216,.03);box-shadow:0 4px 16px rgba(27,206,216,.17),0 0 0 2px rgba(27,206,216,.12);transform:translateY(-2px)}
-.tp-photo-wrap{width:44px;height:44px;flex-shrink:0;border-radius:50%;overflow:hidden;position:relative;background:linear-gradient(135deg,#e2e8f0,#f1f5f9);border:2px solid var(--border)}
+.tp-photo-wrap{width:44px;height:52px;flex-shrink:0;border-radius:10px;overflow:hidden;position:relative;background:linear-gradient(135deg,#e2e8f0,#f1f5f9);border:2px solid var(--border)}
 .ttt-pick.sel .tp-photo-wrap{border-color:var(--c1)}.ttt-pick.sel-senol .tp-photo-wrap{border-color:var(--c3)}
 .tp-photo-wrap img{width:100%;height:100%;object-fit:cover;object-position:top center;transition:transform .3s}
 .ttt-pick:hover .tp-photo-wrap img{transform:scale(1.1)}
@@ -5282,7 +5291,7 @@ body{
 .tp-info{flex:1;min-width:0}
 .tp-name{font-size:10px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;line-height:1.2}
 .tp-pct{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:800;line-height:1}
-.tp-prog{height:3px;background:#f1f5f9;margin-top:4px;border-radius:2px;overflow:hidden}
+.tp-prog{height:3px;background:#f1f5f9;margin-top:3px;border-radius:2px;overflow:hidden}
 .tp-prog-fill{height:100%;border-radius:2px;transition:width .6s}
 .tp-sel-badge{position:absolute;bottom:-1px;right:-1px;background:var(--c1);color:#fff;border-radius:50%;width:14px;height:14px;font-size:7px;display:flex;align-items:center;justify-content:center;font-weight:700;border:1.5px solid #fff}
 .tp-sira-badge{display:none}
