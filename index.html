@@ -232,27 +232,36 @@ function calcPrim() {
   });
 
   // ── Efektif TL Real % ──
-  // Hesaplayıcıdan gelen toplam % direkt kullan (ağırlıklı doğru hesap)
   let effReal;
-  if (hasCalcData && CALC_SYNC.totPct > 0 && !URUN_ORDER.some(u => document.getElementById(getPrimRealId(u))?.value)) {
+  if (hasCalcData && CALC_SYNC.totPct > 0 && !hasManualInput) {
+    // Hesaplayıcıdan gelen ağırlıklı toplam
     effReal = CALC_SYNC.totPct;
+  } else if (!hasManualInput) {
+    // CSV'deki GENEL TOPLAM tl_pct (en doğru mevcut değer)
+    const rGenel = GENEL.find(g => g.ttt === ttt && g.urun === 'GENEL TOPLAM');
+    effReal = rGenel?.tl_pct || (toplam_hedef > 0 ? (toplam_satis / toplam_hedef * 100) : 0);
   } else {
+    // Manuel giriş var → ağırlıklı ortalama hesapla
     const inputReal = URUN_ORDER.map(u => {
       const inp = document.getElementById(getPrimRealId(u));
       return inp?.value ? parseFloat(inp.value) : null;
     });
-    const hasInputs = inputReal.some(v => v !== null);
-    effReal = hasInputs
-      ? URUN_ORDER.reduce((s, u, i) => s + (inputReal[i] || 0) * (URUN_AGIRLIK[u] || 0.2), 0)
-      : (toplam_hedef > 0 ? (toplam_satis / toplam_hedef * 100) : 0);
+    effReal = URUN_ORDER.reduce((s, u, i) => s + (inputReal[i] || 0) * (URUN_AGIRLIK[u] || 0.2), 0);
   }
 
   // ── Prim Puanı ──
-  // Hesaplayıcıdan gelen totPrimPuan direkt kullan (daha doğru)
+  // Öncelik: 1) Hesaplayıcı verisi  2) Manuel input yeniden hesap  3) CSV'deki prim_pct (en doğru)
+  const hasManualInput = URUN_ORDER.some(u => document.getElementById(getPrimRealId(u))?.value);
   let primPuani;
-  if (hasCalcData && CALC_SYNC.totPrimPuan > 0 && !URUN_ORDER.some(u => document.getElementById(getPrimRealId(u))?.value)) {
+  if (hasCalcData && CALC_SYNC.totPrimPuan > 0 && !hasManualInput) {
+    // Hesaplayıcıdan gelen değer (kutu girişi yapılmış)
     primPuani = CALC_SYNC.totPrimPuan;
+  } else if (!hasManualInput) {
+    // Manuel giriş yok, hesaplayıcı da yok → CSV'deki hazır prim_pct değerini kullan
+    const rGenel = GENEL.find(g => g.ttt === ttt && g.urun === 'GENEL TOPLAM');
+    primPuani = rGenel?.prim_pct || calcPrimPuani(urunReals);
   } else {
+    // Manuel giriş var → ürün TL real'lerinden yeniden hesapla
     primPuani = calcPrimPuani(urunReals);
   }
 
