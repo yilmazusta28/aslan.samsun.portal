@@ -50,11 +50,14 @@ const URUN_AGIRLIK = {
   'GRİPORT COLD': 0.20, 'MOKSEFEN': 0.15, 'FAMTREC': 0.15
 };
 
-function calcPrimPuani(urunReals) {
+function calcPrimPuani(urunReals, ttt) {
   let total = 0;
-  for (const [urun, agirlik] of Object.entries(URUN_AGIRLIK)) {
+  for (const urun of Object.keys(URUN_AGIRLIK)) {
     const real = urunReals[urun] || 0;
     if (real >= 70) {
+      // CSV'den temsilciye ait ağırlığı al, yoksa sabit değeri kullan
+      const r = ttt ? GENEL.find(g => g.ttt === ttt && g.urun === urun) : null;
+      const agirlik = (r && r.urun_agirlik > 0) ? r.urun_agirlik : (URUN_AGIRLIK[urun] || 0);
       const cappedReal = Math.min(real, 130);
       total += cappedReal * agirlik;
     }
@@ -241,12 +244,14 @@ function calcPrim() {
     const rGenel = GENEL.find(g => g.ttt === ttt && g.urun === 'GENEL TOPLAM');
     effReal = rGenel?.tl_pct || (toplam_hedef > 0 ? (toplam_satis / toplam_hedef * 100) : 0);
   } else {
-    // Manuel giriş var → ağırlıklı ortalama hesapla
-    const inputReal = URUN_ORDER.map(u => {
+    // Manuel giriş var → CSV ağırlıklarıyla ağırlıklı ortalama
+    effReal = URUN_ORDER.reduce((s, u) => {
       const inp = document.getElementById(getPrimRealId(u));
-      return inp?.value ? parseFloat(inp.value) : null;
-    });
-    effReal = URUN_ORDER.reduce((s, u, i) => s + (inputReal[i] || 0) * (URUN_AGIRLIK[u] || 0.2), 0);
+      const val = inp?.value ? parseFloat(inp.value) : 0;
+      const r2 = GENEL.find(g => g.ttt === ttt && g.urun === u);
+      const agirlik = (r2 && r2.urun_agirlik > 0) ? r2.urun_agirlik : (URUN_AGIRLIK[u] || 0.2);
+      return s + val * agirlik;
+    }, 0);
   }
 
   // ── Prim Puanı ──
@@ -259,10 +264,10 @@ function calcPrim() {
   } else if (!hasManualInput) {
     // Manuel giriş yok, hesaplayıcı da yok → CSV'deki hazır prim_pct değerini kullan
     const rGenel = GENEL.find(g => g.ttt === ttt && g.urun === 'GENEL TOPLAM');
-    primPuani = rGenel?.prim_pct || calcPrimPuani(urunReals);
+    primPuani = rGenel?.prim_pct || calcPrimPuani(urunReals, ttt);
   } else {
-    // Manuel giriş var → ürün TL real'lerinden yeniden hesapla
-    primPuani = calcPrimPuani(urunReals);
+    // Manuel giriş var → CSV ağırlıklarıyla yeniden hesapla
+    primPuani = calcPrimPuani(urunReals, ttt);
   }
 
   const mi = parseFloat(document.getElementById('primMI')?.value) || 100;
@@ -4566,7 +4571,7 @@ function _runEngineCore() {
 
   // ── Prim durumu hesapla ─────────────────────────────────
   const primTL   = gt?.tl_pct >= 91 ? 55000 * (gt.tl_pct>=130?2.5:gt.tl_pct>=120?2.0:gt.tl_pct>=110?1.6:gt.tl_pct>=105?1.3:gt.tl_pct>=100?1.1:gt.tl_pct>=95?1.0:0.9) : 0;
-  const primPuan = calcPrimPuani(Object.fromEntries(urunRows.map(r=>[r.urun,r.tl_pct])));
+  const primPuan = gt?.prim_pct || calcPrimPuani(Object.fromEntries(urunRows.map(r=>[r.urun,r.tl_pct])), ttt);
   const primPort = (gt?.tl_pct>=91 && primPuan>=91) ? 11000 : 0;
   const primMIGI = gt?.tl_pct>=70 ? 14000 * (migiRows.length > 0 ? (() => {
     const miAvg = migiRows.reduce((s,r)=>s+r.mi,0)/Math.max(1,migiRows.length);
