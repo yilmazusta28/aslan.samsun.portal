@@ -50,6 +50,32 @@ const URUN_AGIRLIK = {
   'GRİPORT COLD': 0.20, 'MOKSEFEN': 0.15, 'FAMTREC': 0.15
 };
 
+// ── TSB bar için: herhangi bir TTT'nin prim toplamını GENEL'den hesapla ──
+function calcPrimForTTT(ttt) {
+  // Eğer prim hesaplama sayfasında bu temsilci zaten hesaplandıysa onu kullan
+  if (window._lastCalcPrim && window._lastCalcPrim.ttt === ttt) {
+    return window._lastCalcPrim.toplamPrim;
+  }
+  const rGenel = GENEL.find(g => g.ttt === ttt && g.urun === 'GENEL TOPLAM');
+  if (!rGenel) return 0;
+  const effReal   = rGenel.tl_pct || 0;
+  const urunRows  = GENEL.filter(g => g.ttt === ttt && g.urun !== 'GENEL TOPLAM' && g.urun !== 'DESTEVIT');
+  const urunReals = Object.fromEntries(urunRows.map(r => [r.urun, r.tl_pct]));
+  const primPuani = rGenel.prim_pct || calcPrimPuani(urunReals, ttt);
+  const carpan    = effReal >= 91 ? getCarpan(effReal) : 0;
+  // MI/GI: MIGI_TL_RAW'dan bu TTT'nin ortalamasını al
+  const migiRows  = (typeof MIGI_TL_RAW !== 'undefined' ? MIGI_TL_RAW : []).filter(r => r.ttt === ttt);
+  const miAvg     = migiRows.length ? migiRows.reduce((s, r) => s + (r.mi || 100), 0) / migiRows.length : 100;
+  const giAvg     = migiRows.length ? migiRows.reduce((s, r) => s + (r.gi || 100), 0) / migiRows.length : 100;
+  const migiKatsayi = effReal >= 70 ? getMiGiKatsayi(Math.round(miAvg), Math.round(giAvg)) : 0;
+  const BAZ_TL_REAL = 55000;
+  const BAZ_MIGI    = 14000;
+  const tlRealPrim  = carpan * BAZ_TL_REAL;
+  const portfoyPrim = (effReal >= 91 && primPuani >= 91) ? 0.20 * BAZ_TL_REAL * carpan : 0;
+  const migiPrim    = migiKatsayi * BAZ_MIGI;
+  return tlRealPrim + portfoyPrim + migiPrim;
+}
+
 function calcPrimPuani(urunReals, ttt) {
   let total = 0;
   for (const urun of Object.keys(URUN_AGIRLIK)) {
@@ -284,6 +310,9 @@ function calcPrim() {
   const portfoyPrim  = (effReal >= 91 && primPuani >= 91) ? 0.20 * BAZ_TL_REAL * carpan : 0;
   const migiPrim     = migiKatsayi * BAZ_MIGI;
   const toplamPrim   = tlRealPrim + portfoyPrim + migiPrim;
+
+  // Global'e yaz — TSB bar'ın Toplam Prim alanı buradan okur
+  window._lastCalcPrim = { ttt, toplamPrim, effReal, primPuani };
 
   const okStyle = v => v > 0 ? 'color:#16A34A;font-weight:700' : 'color:#DC2626;font-weight:700';
 
@@ -2770,36 +2799,67 @@ function renderTTTDetail(){
   const _trSira = TR_SIRA_MAP[selTTT]||0;
   const _trCol  = _trSira<=30?'#16A34A':_trSira<=60?'#D97706':'#DC2626';
 
+  // calcPrimForTTT: prim hesaplama sayfasından son değeri al, yoksa GENEL'den hesapla
+  const _toplamPrim = calcPrimForTTT(selTTT);
+
   document.getElementById('tttSummaryBox').innerHTML=`
-    <div style="display:flex;align-items:flex-start;gap:20px">
-      <!-- Sol: Fotoğraf + İsim -->
-      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;flex-shrink:0">
-        <div style="width:150px;height:150px;border-radius:50%;overflow:hidden;
+    <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+
+      <!-- Sol: Sadece fotoğraf + ünvan -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex-shrink:0">
+        <div style="width:100px;height:100px;border-radius:50%;overflow:hidden;
                     background:linear-gradient(135deg,rgba(255,255,255,.15),rgba(255,255,255,.05));
                     border:3px solid rgba(255,255,255,.35);
                     box-shadow:0 4px 20px rgba(0,0,0,.25);
                     display:flex;align-items:center;justify-content:center">
           ${_bannerImg}
-          <div style="width:100%;height:100%;display:${_bannerPhoto?'none':'flex'};align-items:center;justify-content:center;font-size:42px;font-weight:900;color:#fff">${_initials}</div>
+          <div style="width:100%;height:100%;display:${_bannerPhoto?'none':'flex'};align-items:center;justify-content:center;font-size:30px;font-weight:900;color:#fff">${_initials}</div>
         </div>
-        <div style="text-align:center">
-          <div style="font-size:15px;font-weight:800;color:#fff;letter-spacing:-.2px">${selTTT}</div>
-          <div style="font-size:10px;opacity:.6;margin-top:2px">${roleLabel}</div>
-          <div style="margin-top:6px;font-size:11px;font-weight:700;color:${_trCol}">TR Sırası #${_trSira||'—'}</div>
+        <div style="text-align:center;max-width:110px">
+          <div style="font-size:11px;font-weight:800;color:#fff;line-height:1.3">${selTTT}</div>
+          <div style="font-size:8px;opacity:.5;margin-top:3px;line-height:1.3">${roleLabel}</div>
         </div>
       </div>
-      <!-- Sağ: İstatistikler -->
-      <div style="flex:1;min-width:0">
-    <div class="tsb-grid">
-      <div><div class="tsb-lbl">Toplam Hedef</div><div class="tsb-val">${fTL(gen.hedef_tl)}</div></div>
-      <div><div class="tsb-lbl">Toplam Satış</div><div class="tsb-val">${fTL(gen.satis_tl)}</div></div>
-      <div><div class="tsb-lbl">Kalan TL</div><div class="tsb-val">${fTL(gen.kalan_tl)}</div></div>
-      <div><div class="tsb-lbl">TL %</div><div class="tsb-val">${fPct(gen.tl_pct)}</div></div>
 
-      <div><div class="tsb-lbl">Brüt Prim</div><div class="tsb-val">${fTL(gen.brut_prim)}</div></div>
-      <div><div class="tsb-lbl">Dönem Prim</div><div class="tsb-val" style="color:${gen.net_prim>0?'#16A34A':'var(--dim)'}">${gen.net_prim>0?fTL(gen.net_prim):'—'}</div></div>
-    </div>
+      <!-- Orta: 6 stat -->
+      <div style="flex:1;min-width:0">
+        <div class="tsb-grid" style="grid-template-columns:repeat(3,1fr)">
+          <div>
+            <div class="tsb-lbl">Toplam Hedef</div>
+            <div class="tsb-val">${fTL(gen.hedef_tl)}</div>
+          </div>
+          <div>
+            <div class="tsb-lbl">Toplam Satış</div>
+            <div class="tsb-val">${fTL(gen.satis_tl)}</div>
+          </div>
+          <div>
+            <div class="tsb-lbl">Kalan TL</div>
+            <div class="tsb-val" style="color:${gen.kalan_tl<=0?'#34D399':'#FCD34D'}">${fTL(Math.abs(gen.kalan_tl))}${gen.kalan_tl<=0?' ✓':''}</div>
+          </div>
+          <div>
+            <div class="tsb-lbl">TL %</div>
+            <div class="tsb-val" style="color:${gen.tl_pct>=91?'#34D399':gen.tl_pct>=70?'#FCD34D':'#F87171'}">${fPct(gen.tl_pct)}</div>
+          </div>
+          <div>
+            <div class="tsb-lbl">PPI %</div>
+            <div class="tsb-val" style="color:${(gen.prim_pct||0)>=91?'#34D399':(gen.prim_pct||0)>=70?'#FCD34D':'#F87171'}">${fPct(gen.prim_pct||0)}</div>
+          </div>
+          <div>
+            <div class="tsb-lbl">Toplam Prim</div>
+            <div class="tsb-val" style="color:${_toplamPrim>0?'#34D399':'rgba(255,255,255,.4)'}">${_toplamPrim>0?fTL(Math.round(_toplamPrim)):'—'}</div>
+          </div>
+        </div>
       </div>
+
+      <!-- Sağ: TR Sırası rozeti -->
+      <div style="flex-shrink:0;text-align:center">
+        <div style="background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.2);border-radius:14px;padding:12px 16px;min-width:76px">
+          <div style="font-size:8px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px">TR Sırası</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:900;color:${_trCol};line-height:1">#${_trSira||'—'}</div>
+          <div style="font-size:9px;margin-top:4px;color:${_trCol};font-weight:700">${_trSira?(_trSira<=30?'🏆 İlk 30':_trSira<=60?'🥈 İlk 60':'📊 Sıralamada'):'—'}</div>
+        </div>
+      </div>
+
     </div>`;
 
   document.getElementById('tttUrunTableTitle').textContent=`${selTTT} — Ürün Bazlı Performans`;
