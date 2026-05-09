@@ -343,10 +343,14 @@ let aiChatHistory = [];
 function renderAiAsistan() {
   const allTTTs = ALL_TTTS.length ? ALL_TTTS : ['AYKUT DİNLER'];
   if (!selAiTTT && allTTTs.length) selAiTTT = allTTTs[0];
+  // Motor ile senkronize et
+  if (!engineSelTTT) engineSelTTT = selAiTTT;
+  if (typeof switchAiTab === 'function') switchAiTab('motor');
+  renderEngine();
 
   const aiAll = ['ŞENOL YILMAZ', ...allTTTs];
   document.getElementById('aiTttBar').innerHTML = aiAll.map(t =>
-    `<button class="sp-btn${t===selAiTTT?' active':''}" onclick="selAiTTT='${t}';renderAiAsistan()">${t==='ŞENOL YILMAZ'?'🏢 '+t:t}</button>`
+    `<button class="sp-btn${t===selAiTTT?' active':''}" onclick="setAiTTT('${t}')">${t==='ŞENOL YILMAZ'?'🏢 '+t:t}</button>`
   ).join('');
 }
 
@@ -492,6 +496,7 @@ Fırsat Brick (İlk333 + MI≥110 + GI≥100): ${migiRows.filter(r=>r.sira<=333&
 }
 
 function aiQuick(type) {
+  if (typeof switchAiTab === 'function') switchAiTab('chat');
   const prompts = {
     genel: 'Bu temsilcinin genel satış durumunu analiz et. Güçlü ve zayıf yönleri, kalan iş günlerine göre acil durumları belirt. Şenol Yılmaz için tüm ekibi değerlendir.',
     risk: 'Bu temsilci için prim riski analizi yap. Kalan iş günü dikkate alarak hangi ürünler %91 hedefin altında, kaç iş günü kaldığı baz alınarak haftalık gereken satışı hesapla.',
@@ -524,6 +529,7 @@ async function sendAiMsg() {
 }
 
 async function sendAiMsgWithText(text) {
+  if (!selAiTTT && engineSelTTT) selAiTTT = engineSelTTT;
   if (!selAiTTT) { alert('Lütfen temsilci seçin.'); return; }
   
   const chatArea = document.getElementById('aiChatArea');
@@ -2438,7 +2444,7 @@ function goPage(i){
   curPage=i;
   document.querySelectorAll('.page').forEach((p,j)=>p.classList.toggle('active',j===i));
   document.querySelectorAll('.nav-tab').forEach((t,j)=>t.classList.toggle('active',j===i));
-  for(let k=0;k<=7;k++){const el=document.getElementById('snav'+k);if(el)el.classList.toggle('active',k===i);}
+  for(let k=0;k<=6;k++){const el=document.getElementById('snav'+k);if(el)el.classList.toggle('active',k===i);}
   if(window.innerWidth<=1024)closeSidebar();
   if(i===0)renderAna();
   else if(i===1)renderPazar();
@@ -2447,7 +2453,6 @@ function goPage(i){
   else if(i===4){ buildPrimInputs(); syncPrimFromCalc(); }
   else if(i===5)renderAiAsistan();
   else if(i===6)renderEczane();
-  else if(i===7)renderEngine();
 }
 function selectTTT(ttt){
   selTTT=selTTT===ttt?'':ttt;
@@ -4445,7 +4450,7 @@ function renderEngine() {
     const avatarHtml = photoUrl
       ? `<img src="${photoUrl}" onerror="this.style.display='none'" crossorigin="anonymous">`
       : `<div class="etb-avatar" style="background:${URUN_CLR[isSenol?'PANOCER':'ACİDPASS']||'#4F008C'}">${initials}</div>`;
-    return `<button class="engine-ttt-btn${t===engineSelTTT?' active':''}" onclick="engineSelTTT='${t}';renderEngine()">
+    return `<button class="engine-ttt-btn${t===engineSelTTT?' active':''}" onclick="setAiTTT('${t}')">
       ${avatarHtml}
       <span>${isSenol?'🏢 '+t:t}</span>
     </button>`;
@@ -4891,6 +4896,58 @@ Format: başlıklar bold (**Başlık**), maddeler net ve kısa.`;
   aiArea.scrollTop = aiArea.scrollHeight;
 }
 
+
+// ── SEKMELİ AI SAYFA ──────────────────────────────────────────────────────
+function switchAiTab(tab) {
+  // Tüm sekme içeriklerini gizle
+  ['motor','chat','quick'].forEach(t => {
+    const el = document.getElementById('aiTab_' + t);
+    const btn = document.getElementById('tab_' + t);
+    if (el) el.style.display = 'none';
+    if (btn) {
+      btn.style.background = 'transparent';
+      btn.style.color = 'var(--dim)';
+      btn.style.borderBottomColor = 'transparent';
+      btn.style.fontWeight = '600';
+    }
+  });
+  // Seçili sekmeyi göster
+  const active = document.getElementById('aiTab_' + tab);
+  const activeBtn = document.getElementById('tab_' + tab);
+  if (active) active.style.display = 'block';
+  if (activeBtn) {
+    activeBtn.style.background = 'linear-gradient(135deg,rgba(79,0,140,.06),rgba(27,206,216,.03))';
+    activeBtn.style.color = 'var(--c1)';
+    activeBtn.style.borderBottomColor = 'var(--c1)';
+    activeBtn.style.fontWeight = '700';
+  }
+}
+
+// ── renderEngine'da selAiTTT←→engineSelTTT senkronizasyonu ─────────────
+// Temsilci seçilince her iki değişkeni güncelle
+function setAiTTT(ttt) {
+  selAiTTT    = ttt;
+  engineSelTTT = ttt;
+  renderAiAsistan();
+}
+
+// ── showZamHesap: quick sekmesindeki zam panelini göster ────────────────
+const _origShowZamHesap = typeof showZamHesap === 'function' ? showZamHesap : null;
+function showZamHesap() {
+  const qp = document.getElementById('zamPanelQuick');
+  if (qp) {
+    qp.style.display = qp.style.display==='none'?'block':'none';
+    // zamInputsQ'yu doldur
+    if (qp.style.display === 'block') {
+      const inp = document.getElementById('zamInputsQ');
+      const inpSrc = document.getElementById('zamInputs');
+      if (inp && inpSrc) inp.innerHTML = inpSrc.innerHTML;
+    }
+  }
+  // Eski davranış: zamPanel (chat sekmesinde)
+  const zp = document.getElementById('zamPanel');
+  if (zp) zp.style.display = zp.style.display==='none'?'block':'none';
+}
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -5523,7 +5580,7 @@ body{
       </button>
       <button class="nav-tab" id="ntab5" onclick="goPage(5)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
-        <span class="tab-label">AI Asistan</span>
+        <span class="tab-label">AI & Motor</span>
       </button>
       <button class="nav-tab" id="ntab6" onclick="goPage(6)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 3h18v18H3z"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
@@ -5600,17 +5657,12 @@ body{
     <span class="nav-icon"><i class="fas fa-coins"></i></span><span>Prim Hesapla</span>
   </div>
   <div class="nav-item pg" id="snav5" onclick="goPage(5)">
-    <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Asistan</span>
+    <span class="nav-icon"><i class="fas fa-brain"></i></span><span>AI & Görev Motoru</span>
   </div>
   <div class="nav-item pg" id="snav6" onclick="goPage(6)">
     <span class="nav-icon"><i class="fas fa-clinic-medical"></i></span><span>Eczane Satış</span>
   </div>
 
-  <div class="nav-sec">Motor</div>
-  <div class="nav-item pg" id="snav7" onclick="goPage(7)" style="background:linear-gradient(90deg,rgba(217,119,6,.18),rgba(217,119,6,.06));color:#FBBF24;border-left-color:#F59E0B">
-    <span class="nav-icon" style="color:#FBBF24"><i class="fas fa-brain"></i></span>
-    <span style="color:#FBBF24;font-weight:700">AI Görev Motoru</span>
-  </div>
 
   <!-- Footer: Kullanıcı -->
   <div class="sidebar-footer">
@@ -5979,37 +6031,238 @@ body{
   </div>
 </div>
 
-<!-- ══════ PAGE 5: AI ASİSTAN ══════ -->
+<!-- ══════ PAGE 5: AI ASISTAN + GÖREV MOTORU ══════ -->
 <div class="page" id="page5">
-  <div class="card mb16">
-    <div class="card-hd"><span class="card-title">🤖 AI Satış Asistanı</span><span class="card-badge" style="background:linear-gradient(135deg,#4F008C,#1BCED8);color:#fff">Claude AI</span></div>
-    <div class="card-body" style="padding:10px 16px">
-      <div style="margin-bottom:10px">
-        <label style="font-size:10px;font-weight:600;color:var(--dim);display:block;margin-bottom:6px">Temsilci Seç</label>
-        <div id="aiTttBar" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+
+  <!-- ═══ HERO BAŞLIK (Motor'dan alındı) ═══ -->
+  <div class="engine-hero">
+    <div class="engine-hero-top">
+      <div>
+        <div class="engine-badge"><i class="fas fa-brain"></i> Auto Strategy Engine</div>
+        <div class="engine-title" style="margin-top:10px">🧠 AI Asistan & Görev Motoru</div>
+        <div class="engine-subtitle">Günlük satış planı · Risk analizi · Prim optimizasyonu · Serbest sohbet</div>
+      </div>
+      <button class="engine-run-btn" id="engineRunBtn" onclick="runEngine()">
+        <i class="fas fa-bolt"></i> Motoru Çalıştır
+      </button>
+    </div>
+    <div class="engine-meta" id="engineHeroMeta">
+      <div class="engine-meta-item">
+        <div class="engine-meta-label">Temsilci</div>
+        <div class="engine-meta-val" id="emv_ttt">—</div>
+      </div>
+      <div class="engine-meta-item">
+        <div class="engine-meta-label">Gerçekleşme</div>
+        <div class="engine-meta-val" id="emv_real">—</div>
+      </div>
+      <div class="engine-meta-item">
+        <div class="engine-meta-label">Kalan İş Günü</div>
+        <div class="engine-meta-val warn" id="emv_gun">—</div>
+      </div>
+      <div class="engine-meta-item">
+        <div class="engine-meta-label">Kalan Hedef</div>
+        <div class="engine-meta-val danger" id="emv_kalan">—</div>
+      </div>
+      <div class="engine-meta-item">
+        <div class="engine-meta-label">Dönem</div>
+        <div class="engine-meta-val" id="emv_donem">—</div>
       </div>
     </div>
   </div>
 
-  <!-- Proxy Kurulum Paneli -->
-  <div class="card mb16" id="proxySetupCard" style="display:none">
-    <div class="card-hd"><span class="card-title">⚙️ API Bağlantısı</span><span class="card-badge" id="proxyStatus">Yapılandırılmadı</span></div>
-    <div class="card-body" style="padding:12px 16px">
-      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
-        <div style="flex:1;min-width:200px">
-          <label style="font-size:10px;font-weight:600;color:var(--dim);display:block;margin-bottom:4px">Cloudflare Worker URL</label>
-          <input type="text" class="inp" id="proxyUrlInput" placeholder="https://your-worker.workers.dev" oninput="saveProxyUrl()">
+  <!-- ═══ TEMSİLCİ SEÇİM ═══ -->
+  <div class="card mb16">
+    <div class="card-hd">
+      <span class="card-title"><i class="fas fa-users"></i> Temsilci Seç</span>
+      <span class="card-badge" id="engineTttBadge">Seçim Yap</span>
+      <span class="card-badge" id="aiStatus" style="margin-left:6px">Hazır</span>
+    </div>
+    <div class="card-body" style="padding:12px 18px">
+      <div class="engine-ttt-bar" id="engineTttBar"></div>
+    </div>
+  </div>
+
+  <!-- ═══ SEKMELİ GÖRÜNÜM: Motor | Sohbet ═══ -->
+  <div class="card mb16" style="overflow:visible">
+    <!-- Sekme başlıkları -->
+    <div style="display:flex;border-bottom:2px solid var(--border);background:#fff;border-radius:var(--card-radius) var(--card-radius) 0 0;overflow:hidden">
+      <button id="tab_motor" onclick="switchAiTab('motor')"
+        style="flex:1;padding:13px 10px;background:linear-gradient(135deg,rgba(79,0,140,.06),rgba(27,206,216,.03));border:none;cursor:pointer;font-family:'Poppins',sans-serif;font-size:12px;font-weight:700;color:var(--c1);border-bottom:3px solid var(--c1);display:flex;align-items:center;justify-content:center;gap:7px;transition:all .2s">
+        <i class="fas fa-bolt"></i> Görev Motoru
+      </button>
+      <button id="tab_chat" onclick="switchAiTab('chat')"
+        style="flex:1;padding:13px 10px;background:transparent;border:none;cursor:pointer;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;color:var(--dim);border-bottom:3px solid transparent;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .2s">
+        <i class="fas fa-comments"></i> AI Sohbet
+      </button>
+      <button id="tab_quick" onclick="switchAiTab('quick')"
+        style="flex:1;padding:13px 10px;background:transparent;border:none;cursor:pointer;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;color:var(--dim);border-bottom:3px solid transparent;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .2s">
+        <i class="fas fa-bolt"></i> Hızlı Analiz
+      </button>
+    </div>
+
+    <!-- ─── SEKME 1: GÖREV MOTORU ─── -->
+    <div id="aiTab_motor" style="padding:0">
+
+      <!-- Motor çıktısı (başta gizli) -->
+      <div id="engineOutput" style="display:none;padding:18px">
+
+        <!-- Günlük Görev Listesi -->
+        <div class="card mb16" style="border:1.5px solid rgba(79,0,140,.15)">
+          <div class="card-hd" style="background:linear-gradient(90deg,rgba(79,0,140,.04),transparent)">
+            <span class="card-title"><i class="fas fa-list-check"></i> Bugünün Görev Listesi</span>
+            <span class="card-badge" id="taskDateBadge">—</span>
+          </div>
+          <div class="card-body" style="padding:14px 18px">
+            <div class="task-grid" id="engineTaskGrid"></div>
+          </div>
         </div>
-        <button class="btn-calc" onclick="testProxy()" style="padding:8px 16px;white-space:nowrap">🔌 Test Et</button>
+
+        <!-- Risk & Fırsat -->
+        <div class="risk-grid mb16">
+          <div class="risk-panel">
+            <div class="risk-panel-title" style="color:#DC2626">
+              <div style="width:32px;height:32px;border-radius:10px;background:#FEF2F2;display:flex;align-items:center;justify-content:center;font-size:15px">⚠️</div>
+              Acil Riskler
+            </div>
+            <div id="engineRisks"></div>
+          </div>
+          <div class="risk-panel">
+            <div class="risk-panel-title" style="color:#059669">
+              <div style="width:32px;height:32px;border-radius:10px;background:#ECFDF5;display:flex;align-items:center;justify-content:center;font-size:15px">🚀</div>
+              Büyüme Fırsatları
+            </div>
+            <div id="engineOpps"></div>
+          </div>
+        </div>
+
+        <!-- Haftalık Strateji -->
+        <div class="card mb16">
+          <div class="card-hd">
+            <span class="card-title"><i class="fas fa-road"></i> Haftalık Aksiyon Planı</span>
+            <span class="card-badge" id="engineWeekBadge">—</span>
+          </div>
+          <div class="card-body" style="padding:14px 18px">
+            <div class="strategy-timeline" id="engineTimeline"></div>
+          </div>
+        </div>
+
+        <!-- Prim Optimizasyonu -->
+        <div class="card mb16">
+          <div class="card-hd">
+            <span class="card-title"><i class="fas fa-coins"></i> Prim Optimizasyon Senaryosu</span>
+            <span class="card-badge" id="enginePrimBadge">—</span>
+          </div>
+          <div class="card-body" style="padding:14px 18px">
+            <div id="enginePrimPanel"></div>
+          </div>
+        </div>
+
+        <!-- AI Detaylı Strateji butonları — motorun altında -->
+        <div class="card mb16" style="border:1.5px solid rgba(27,206,216,.2)">
+          <div class="card-hd" style="background:linear-gradient(90deg,rgba(27,206,216,.04),transparent)">
+            <span class="card-title"><i class="fas fa-robot"></i> AI Detaylı Strateji</span>
+            <span class="card-badge" style="background:linear-gradient(135deg,#4F008C,#1BCED8);color:#fff">Claude AI</span>
+          </div>
+          <div class="card-body" style="padding:14px 18px">
+            <p style="font-size:12px;color:var(--dim);margin-bottom:12px">Motor çıktısını temel alarak Claude AI detaylı strateji üretsin.</p>
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+              <button class="btn-calc" onclick="engineAiAnalysis('full')" style="border-radius:11px;font-size:11px">
+                <i class="fas fa-brain" style="margin-right:5px"></i>Tam Strateji
+              </button>
+              <button class="btn-calc" onclick="engineAiAnalysis('bricks')" style="border-radius:11px;background:linear-gradient(135deg,#D97706,#F59E0B);font-size:11px">
+                <i class="fas fa-map-pin" style="margin-right:5px"></i>Brick Planı
+              </button>
+              <button class="btn-calc" onclick="engineAiAnalysis('prim')" style="border-radius:11px;background:linear-gradient(135deg,#059669,#10B981);font-size:11px">
+                <i class="fas fa-coins" style="margin-right:5px"></i>Prim Maks
+              </button>
+              <button class="btn-calc" onclick="engineAiAnalysis('eczane')" style="border-radius:11px;background:linear-gradient(135deg,#0E7490,#1BCED8);font-size:11px">
+                <i class="fas fa-clinic-medical" style="margin-right:5px"></i>Eczane Planı
+              </button>
+            </div>
+            <div id="engineAiOutput" style="margin-top:12px;display:none">
+              <div id="engineAiChatArea" style="display:flex;flex-direction:column;gap:12px;min-height:60px"></div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /engineOutput -->
+
+      <!-- Motor başlangıç boş durumu -->
+      <div id="engineEmpty" style="text-align:center;padding:48px 20px">
+        <div style="font-size:44px;margin-bottom:14px">🧠</div>
+        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px">Motor Hazır</div>
+        <div style="font-size:12px;color:var(--dim);margin-bottom:20px">Temsilci seçin ve <b>"Motoru Çalıştır"</b> butonuna tıklayın.</div>
+        <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px;max-width:480px;margin:0 auto">
+          <div style="background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;text-align:left;flex:1;min-width:140px">
+            <div style="font-size:16px;margin-bottom:5px">🗺️</div>
+            <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:2px">Brick Rotası</div>
+            <div style="font-size:10px;color:var(--dim)">İlk 333 / risk brickler</div>
+          </div>
+          <div style="background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;text-align:left;flex:1;min-width:140px">
+            <div style="font-size:16px;margin-bottom:5px">💊</div>
+            <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:2px">Günlük Kutu</div>
+            <div style="font-size:10px;color:var(--dim)">Ürün bazlı hedefler</div>
+          </div>
+          <div style="background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;text-align:left;flex:1;min-width:140px">
+            <div style="font-size:16px;margin-bottom:5px">💰</div>
+            <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:2px">Prim Senaryosu</div>
+            <div style="font-size:10px;color:var(--dim)">TL / Portföy / MI&GI</div>
+          </div>
+        </div>
       </div>
-      <div style="margin-top:10px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:10px 12px;font-size:11px;color:#166534;line-height:1.7" id="proxyInstructions">
-        <strong>Cloudflare Worker kurulum adımları (ücretsiz):</strong><br>
-        1. <a href="https://dash.cloudflare.com" target="_blank" style="color:#1D4ED8">dash.cloudflare.com</a> → Workers & Pages → Create Worker<br>
-        2. Worker kodunu yapıştırın → <strong>Save & Deploy</strong><br>
-        3. Settings → Variables → <code>ANTHROPIC_API_KEY</code> değişkeni ekleyin (API key değeriniz)<br>
-        4. Worker URL'nizi (xxx.workers.dev) yukarıya girin → Test Et<br>
-        <details style="margin-top:6px"><summary style="cursor:pointer;font-weight:700">Worker kodunu göster 👁</summary>
-        <pre style="background:#1E293B;color:#E2E8F0;padding:10px;border-radius:6px;margin-top:6px;overflow-x:auto;font-size:10px;line-height:1.5">export default {
+
+    </div><!-- /aiTab_motor -->
+
+    <!-- ─── SEKME 2: AI SOHBET ─── -->
+    <div id="aiTab_chat" style="display:none">
+
+      <!-- Zam simülasyon paneli (gizli) -->
+      <div id="zamPanel" style="display:none;padding:14px 18px;border-bottom:1px solid var(--border);background:var(--surf2)">
+        <div style="font-size:11px;font-weight:700;color:var(--c1);margin-bottom:8px">💹 Fiyat Artışı Simülasyonu</div>
+        <p style="font-size:10px;color:var(--dim);margin-bottom:8px">Fiyat artışı sonrası yeni gerçekleşme % hesapla.</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:7px" id="zamInputs"></div>
+        <button class="btn-calc" onclick="calcZam()" style="margin-top:8px;font-size:11px">📊 Hesapla</button>
+        <div id="zamResult" style="margin-top:10px"></div>
+      </div>
+
+      <!-- Chat alanı -->
+      <div id="aiChatArea" style="min-height:340px;max-height:520px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;overscroll-behavior:contain;scroll-behavior:smooth">
+        <div style="background:linear-gradient(135deg,rgba(79,0,140,.06),rgba(27,206,216,.04));border:1px solid rgba(79,0,140,.15);border-radius:14px;padding:14px;font-size:12px;color:var(--text);line-height:1.6">
+          <strong style="color:var(--c1)">🤖 AI Asistan</strong><br>
+          Merhaba! Ben Samsun 2D ekibinin satış asistanıyım. Temsilci seçin, soru sorun ya da <b>Görev Motoru</b> sekmesinden otomatik analiz alın.
+        </div>
+      </div>
+
+      <!-- Mesaj girişi -->
+      <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;background:#fff;border-radius:0 0 var(--card-radius) var(--card-radius)">
+        <input type="text" class="inp" id="aiInput"
+          placeholder="Soru sorun... (ör: Kürşad için bu hafta nereye gideyim?)"
+          style="flex:1;border-radius:10px"
+          onkeydown="if(event.key==='Enter')sendAiMsg()">
+        <button class="btn-calc" onclick="sendAiMsg()" style="padding:9px 18px;border-radius:10px;white-space:nowrap">
+          <i class="fas fa-paper-plane"></i>
+        </button>
+      </div>
+
+    </div><!-- /aiTab_chat -->
+
+    <!-- ─── SEKME 3: HIZLI ANALİZ ─── -->
+    <div id="aiTab_quick" style="display:none;padding:16px 18px">
+
+      <!-- Proxy kurulum (gizli varsayılan) -->
+      <div id="proxySetupCard" style="display:none;background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;color:var(--c1);margin-bottom:8px">⚙️ API Bağlantısı</div>
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+          <div style="flex:1;min-width:180px">
+            <label style="font-size:9px;font-weight:700;color:var(--dim);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">Cloudflare Worker URL</label>
+            <input type="text" class="inp" id="proxyUrlInput" placeholder="https://your-worker.workers.dev" oninput="saveProxyUrl()" style="font-size:11px">
+          </div>
+          <button class="btn-calc" onclick="testProxy()" style="padding:8px 14px;font-size:11px;white-space:nowrap">🔌 Test Et</button>
+        </div>
+        <div style="margin-top:8px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:10px 12px;font-size:10px;color:#166534;line-height:1.6" id="proxyInstructions">
+          <strong>Kurulum:</strong> dash.cloudflare.com → Workers → Create → API key ekle → URL yapıştır
+          <details style="margin-top:5px"><summary style="cursor:pointer;font-weight:700;font-size:10px">Worker kodunu göster 👁</summary>
+          <pre style="background:#1E293B;color:#E2E8F0;padding:8px;border-radius:5px;margin-top:5px;overflow-x:auto;font-size:9px;line-height:1.4">export default {
   async fetch(request, env) {
     const ALLOWED = 'https://yilmazusta28.github.io';
     if (request.method === 'OPTIONS') {
@@ -6031,61 +6284,60 @@ body{
     });
     const data = await resp.json();
     return new Response(JSON.stringify(data), {
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': ALLOWED,
-      }
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED }
     });
   }
 };</pre></details>
+        </div>
       </div>
-    </div>
-  </div>
 
-  <!-- Hızlı analiz butonları -->
-  <div class="card mb16">
-    <div class="card-hd"><span class="card-title">⚡ Hızlı Analiz</span></div>
-    <div class="card-body" style="padding:10px 16px">
-      <div style="display:flex;flex-wrap:wrap;gap:8px" id="aiQuickBtns">
-        <button class="btn-calc" style="font-size:11px;padding:7px 14px" onclick="aiQuick('genel')">📊 Genel Durum</button>
-        <button class="btn-calc" style="font-size:11px;padding:7px 14px" onclick="aiQuick('risk')">⚠️ Risk Analizi</button>
-        <button class="btn-calc" style="font-size:11px;padding:7px 14px" onclick="aiQuick('prim')">💰 Prim Tahmini</button>
-        <button class="btn-calc" style="font-size:11px;padding:7px 14px" onclick="aiQuick('brick')">📍 Brick Öncelikleri</button>
-        <button class="btn-calc" style="font-size:11px;padding:7px 14px" onclick="aiQuick('strateji')">🎯 Strateji Önerisi</button>
-        <button class="btn-calc" style="font-size:11px;padding:7px 14px" onclick="aiQuick('eczane')">🏥 Eczane Analiz</button>
-        <button class="btn-calc" style="font-size:11px;padding:7px 14px" onclick="aiQuick('rakip')">⚔️ Rakip Analiz</button>
-        <button class="btn-calc" style="font-size:11px;padding:7px 14px" onclick="showZamHesap()">💹 Zam Simülasyonu</button>
+      <!-- Hızlı Analiz başlık -->
+      <div style="font-size:10px;font-weight:700;color:var(--c1);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px;display:flex;align-items:center;gap:6px">
+        <i class="fas fa-bolt"></i> Hazır Analiz Şablonları
       </div>
-    </div>
-  </div>
 
-  <!-- Zam Simülasyon Paneli -->
-  <div class="card mb16" id="zamPanel" style="display:none">
-    <div class="card-hd"><span class="card-title">💹 Fiyat Artışı Simülasyonu</span><span class="card-badge">Hedef Güncelleme</span></div>
-    <div class="card-body" style="padding:12px 16px">
-      <p style="font-size:11px;color:var(--dim);margin-bottom:10px">Ürün fiyat artışı gerçekleştiğinde mevcut satış rakamları değişmese de TL hedefler otomatik artar. Beklenen artış oranını girerek yeni gerçekleşme % hesaplayın.</p>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px" id="zamInputs"></div>
-      <button class="btn-calc" onclick="calcZam()" style="margin-top:10px">📊 Hesapla</button>
-      <div id="zamResult" style="margin-top:12px"></div>
-    </div>
-  </div>
-
-  <!-- Sohbet alanı -->
-  <div class="card mb16">
-    <div class="card-hd"><span class="card-title">💬 AI Yorum & Analiz</span><span id="aiStatus" class="card-badge">Hazır</span></div>
-    <div id="aiChatArea" style="min-height:300px;max-height:480px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;overscroll-behavior:contain;scroll-behavior:smooth">
-      <div style="background:linear-gradient(135deg,rgba(79,0,140,.06),rgba(27,206,216,.04));border:1px solid rgba(79,0,140,.15);border-radius:10px;padding:14px;font-size:12px;color:var(--text);line-height:1.6">
-        <strong style="color:var(--c1)">🤖 AI Asistan</strong><br>
-        Merhaba! Ben Samsun 2D ekibinin satış asistanıyım. Temsilci seçin ve analiz butonlarından birini kullanın ya da aşağıdan soru sorun.
+      <!-- Hızlı buton ızgarası -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:14px" id="aiQuickBtns">
+        <button class="btn-calc" onclick="aiQuick('genel');switchAiTab('chat')" style="font-size:11px;padding:10px 14px;border-radius:11px;justify-content:flex-start;text-align:left;background:linear-gradient(135deg,rgba(79,0,140,.08),rgba(79,0,140,.04));color:var(--c1);border:1px solid rgba(79,0,140,.2);box-shadow:none">
+          <i class="fas fa-chart-pie" style="margin-right:7px;width:14px"></i>Genel Durum
+        </button>
+        <button class="btn-calc" onclick="aiQuick('risk');switchAiTab('chat')" style="font-size:11px;padding:10px 14px;border-radius:11px;justify-content:flex-start;text-align:left;background:linear-gradient(135deg,rgba(239,68,68,.08),rgba(239,68,68,.04));color:#DC2626;border:1px solid rgba(239,68,68,.2);box-shadow:none">
+          <i class="fas fa-exclamation-triangle" style="margin-right:7px;width:14px"></i>Risk Analizi
+        </button>
+        <button class="btn-calc" onclick="aiQuick('prim');switchAiTab('chat')" style="font-size:11px;padding:10px 14px;border-radius:11px;justify-content:flex-start;text-align:left;background:linear-gradient(135deg,rgba(217,119,6,.08),rgba(217,119,6,.04));color:#D97706;border:1px solid rgba(217,119,6,.2);box-shadow:none">
+          <i class="fas fa-coins" style="margin-right:7px;width:14px"></i>Prim Tahmini
+        </button>
+        <button class="btn-calc" onclick="aiQuick('brick');switchAiTab('chat')" style="font-size:11px;padding:10px 14px;border-radius:11px;justify-content:flex-start;text-align:left;background:linear-gradient(135deg,rgba(27,206,216,.08),rgba(27,206,216,.04));color:#0E7490;border:1px solid rgba(27,206,216,.2);box-shadow:none">
+          <i class="fas fa-map-pin" style="margin-right:7px;width:14px"></i>Brick Öncelikleri
+        </button>
+        <button class="btn-calc" onclick="aiQuick('strateji');switchAiTab('chat')" style="font-size:11px;padding:10px 14px;border-radius:11px;justify-content:flex-start;text-align:left;background:linear-gradient(135deg,rgba(79,0,140,.08),rgba(27,206,216,.04));color:var(--c2);border:1px solid rgba(79,0,140,.15);box-shadow:none">
+          <i class="fas fa-bullseye" style="margin-right:7px;width:14px"></i>Strateji Önerisi
+        </button>
+        <button class="btn-calc" onclick="aiQuick('eczane');switchAiTab('chat')" style="font-size:11px;padding:10px 14px;border-radius:11px;justify-content:flex-start;text-align:left;background:linear-gradient(135deg,rgba(16,185,129,.08),rgba(16,185,129,.04));color:#059669;border:1px solid rgba(16,185,129,.2);box-shadow:none">
+          <i class="fas fa-clinic-medical" style="margin-right:7px;width:14px"></i>Eczane Analiz
+        </button>
+        <button class="btn-calc" onclick="aiQuick('rakip');switchAiTab('chat')" style="font-size:11px;padding:10px 14px;border-radius:11px;justify-content:flex-start;text-align:left;background:linear-gradient(135deg,rgba(239,68,68,.08),rgba(239,68,68,.04));color:#B91C1C;border:1px solid rgba(239,68,68,.15);box-shadow:none">
+          <i class="fas fa-sword" style="margin-right:7px;width:14px"></i>Rakip Analiz
+        </button>
+        <button class="btn-calc" onclick="showZamHesap()" style="font-size:11px;padding:10px 14px;border-radius:11px;justify-content:flex-start;text-align:left;background:linear-gradient(135deg,rgba(124,58,237,.08),rgba(124,58,237,.04));color:#7C3AED;border:1px solid rgba(124,58,237,.2);box-shadow:none">
+          <i class="fas fa-percent" style="margin-right:7px;width:14px"></i>Zam Simülasyonu
+        </button>
       </div>
-    </div>
-    <!-- Mesaj girişi -->
-    <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px">
-      <input type="text" class="inp" id="aiInput" placeholder="Soru sorun... (ör: Kürşad için bu hafta hangi bricklere gitmeliyim?)" style="flex:1" onkeydown="if(event.key==='Enter')sendAiMsg()">
-      <button class="btn-calc" onclick="sendAiMsg()" style="padding:8px 16px;white-space:nowrap">Gönder ↗</button>
-    </div>
-  </div>
-</div>
+
+      <!-- Zam simülasyon (quick sekmesinde de göster) -->
+      <div id="zamPanelQuick" style="display:none;background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:14px">
+        <div style="font-size:11px;font-weight:700;color:var(--c1);margin-bottom:8px">💹 Fiyat Artışı Simülasyonu</div>
+        <p style="font-size:10px;color:var(--dim);margin-bottom:8px">Ürün fiyat artışı gerçekleştiğinde mevcut satış rakamları değişmese de TL hedefler otomatik artar.</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:7px" id="zamInputsQ"></div>
+        <button class="btn-calc" onclick="calcZam(true)" style="margin-top:8px;font-size:11px">📊 Hesapla</button>
+        <div id="zamResultQ" style="margin-top:10px"></div>
+      </div>
+
+    </div><!-- /aiTab_quick -->
+
+  </div><!-- /tab card -->
+
+</div><!-- /page5 -->
 
 <!-- ══════ PAGE 6: ECZANE SATIŞ TAKİBİ ══════ -->
 <div class="page" id="page6">
@@ -6165,165 +6417,6 @@ body{
 </div>
 
 
-<!-- ══════ PAGE 7: AI GÖREV MOTORU ══════ -->
-<div class="page" id="page7">
-
-  <!-- Hero başlık -->
-  <div class="engine-hero">
-    <div class="engine-hero-top">
-      <div>
-        <div class="engine-badge"><i class="fas fa-brain"></i> Auto Strategy Engine</div>
-        <div class="engine-title" style="margin-top:10px">🎯 AI Görev Motoru</div>
-        <div class="engine-subtitle">Günlük satış planı · Risk analizi · Prim optimizasyonu</div>
-      </div>
-      <button class="engine-run-btn" id="engineRunBtn" onclick="runEngine()">
-        <i class="fas fa-bolt"></i> Motoru Çalıştır
-      </button>
-    </div>
-    <div class="engine-meta" id="engineHeroMeta">
-      <div class="engine-meta-item">
-        <div class="engine-meta-label">Temsilci</div>
-        <div class="engine-meta-val" id="emv_ttt">—</div>
-      </div>
-      <div class="engine-meta-item">
-        <div class="engine-meta-label">Gerçekleşme</div>
-        <div class="engine-meta-val" id="emv_real">—</div>
-      </div>
-      <div class="engine-meta-item">
-        <div class="engine-meta-label">Kalan İş Günü</div>
-        <div class="engine-meta-val warn" id="emv_gun">—</div>
-      </div>
-      <div class="engine-meta-item">
-        <div class="engine-meta-label">Kalan Hedef</div>
-        <div class="engine-meta-val danger" id="emv_kalan">—</div>
-      </div>
-      <div class="engine-meta-item">
-        <div class="engine-meta-label">Dönem</div>
-        <div class="engine-meta-val" id="emv_donem">—</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Temsilci seçim -->
-  <div class="card mb16">
-    <div class="card-hd">
-      <span class="card-title"><i class="fas fa-user"></i> Temsilci Seç</span>
-      <span class="card-badge" id="engineTttBadge">Seçim Yap</span>
-    </div>
-    <div class="card-body" style="padding:14px 18px">
-      <div class="engine-ttt-bar" id="engineTttBar"></div>
-    </div>
-  </div>
-
-  <!-- Motor çıktısı (başta gizli) -->
-  <div id="engineOutput" style="display:none">
-
-    <!-- Günlük Görev Listesi -->
-    <div class="card mb16">
-      <div class="card-hd">
-        <span class="card-title"><i class="fas fa-list-check"></i> Bugünün Görev Listesi</span>
-        <span class="card-badge" id="taskDateBadge">—</span>
-      </div>
-      <div class="card-body" style="padding:14px 18px">
-        <div class="task-grid" id="engineTaskGrid"></div>
-      </div>
-    </div>
-
-    <!-- Risk & Fırsat -->
-    <div class="risk-grid mb16">
-      <div class="risk-panel">
-        <div class="risk-panel-title" style="color:#DC2626">
-          <div style="width:32px;height:32px;border-radius:10px;background:#FEF2F2;display:flex;align-items:center;justify-content:center;font-size:15px">⚠️</div>
-          Acil Riskler
-        </div>
-        <div id="engineRisks"></div>
-      </div>
-      <div class="risk-panel">
-        <div class="risk-panel-title" style="color:#059669">
-          <div style="width:32px;height:32px;border-radius:10px;background:#ECFDF5;display:flex;align-items:center;justify-content:center;font-size:15px">🚀</div>
-          Büyüme Fırsatları
-        </div>
-        <div id="engineOpps"></div>
-      </div>
-    </div>
-
-    <!-- Haftalık Strateji -->
-    <div class="card mb16">
-      <div class="card-hd">
-        <span class="card-title"><i class="fas fa-road"></i> Haftalık Aksiyon Planı</span>
-        <span class="card-badge" id="engineWeekBadge">—</span>
-      </div>
-      <div class="card-body" style="padding:14px 18px">
-        <div class="strategy-timeline" id="engineTimeline"></div>
-      </div>
-    </div>
-
-    <!-- Prim Optimizasyonu -->
-    <div class="card mb16">
-      <div class="card-hd">
-        <span class="card-title"><i class="fas fa-coins"></i> Prim Optimizasyon Senaryosu</span>
-        <span class="card-badge" id="enginePrimBadge">—</span>
-      </div>
-      <div class="card-body" style="padding:14px 18px">
-        <div id="enginePrimPanel"></div>
-      </div>
-    </div>
-
-    <!-- AI Detaylı Analiz butonu -->
-    <div class="card mb16">
-      <div class="card-hd">
-        <span class="card-title"><i class="fas fa-robot"></i> AI Detaylı Strateji</span>
-        <span class="card-badge" style="background:linear-gradient(135deg,#4F008C,#1BCED8);color:#fff">Claude AI</span>
-      </div>
-      <div class="card-body" style="padding:14px 18px">
-        <p style="font-size:12px;color:var(--dim);margin-bottom:14px">Motor çıktısını temel alarak Claude AI detaylı strateji üretsin. Brick bazlı ziyaret planı, eczane öncelikleri ve haftalık kutu hedefleri içerir.</p>
-        <div style="display:flex;flex-wrap:wrap;gap:8px">
-          <button class="btn-calc" onclick="engineAiAnalysis('full')" style="border-radius:11px">
-            <i class="fas fa-brain" style="margin-right:6px"></i>Tam Strateji Üret
-          </button>
-          <button class="btn-calc" onclick="engineAiAnalysis('bricks')" style="border-radius:11px;background:linear-gradient(135deg,#D97706,#F59E0B)">
-            <i class="fas fa-map-pin" style="margin-right:6px"></i>Brick Ziyaret Planı
-          </button>
-          <button class="btn-calc" onclick="engineAiAnalysis('prim')" style="border-radius:11px;background:linear-gradient(135deg,#059669,#10B981)">
-            <i class="fas fa-coins" style="margin-right:6px"></i>Prim Maksimize Planı
-          </button>
-          <button class="btn-calc" onclick="engineAiAnalysis('eczane')" style="border-radius:11px;background:linear-gradient(135deg,#0E7490,#1BCED8)">
-            <i class="fas fa-clinic-medical" style="margin-right:6px"></i>Eczane Sipariş Planı
-          </button>
-        </div>
-        <div id="engineAiOutput" style="margin-top:14px;display:none">
-          <div id="engineAiChatArea" style="display:flex;flex-direction:column;gap:12px;min-height:80px"></div>
-        </div>
-      </div>
-    </div>
-
-  </div><!-- /engineOutput -->
-
-  <!-- Başlangıç durumu -->
-  <div id="engineEmpty" style="text-align:center;padding:60px 20px">
-    <div style="font-size:48px;margin-bottom:16px">🧠</div>
-    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px">Motor Hazır</div>
-    <div style="font-size:13px;color:var(--dim);margin-bottom:24px">Temsilci seçin ve "Motoru Çalıştır" butonuna tıklayın.</div>
-    <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px;max-width:500px;margin:0 auto">
-      <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 16px;text-align:left;flex:1;min-width:180px;box-shadow:0 2px 8px rgba(79,0,140,.06)">
-        <div style="font-size:16px;margin-bottom:6px">📊</div>
-        <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:3px">KPI Analizi</div>
-        <div style="font-size:10px;color:var(--dim)">Hedef, satış, kalan TL ve prim durumu</div>
-      </div>
-      <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 16px;text-align:left;flex:1;min-width:180px;box-shadow:0 2px 8px rgba(79,0,140,.06)">
-        <div style="font-size:16px;margin-bottom:6px">🗺️</div>
-        <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:3px">Brick Öncelikleri</div>
-        <div style="font-size:10px;color:var(--dim)">İlk 333 / risk / fırsat brick rotası</div>
-      </div>
-      <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 16px;text-align:left;flex:1;min-width:180px;box-shadow:0 2px 8px rgba(79,0,140,.06)">
-        <div style="font-size:16px;margin-bottom:6px">💰</div>
-        <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:3px">Prim Optimizasyonu</div>
-        <div style="font-size:10px;color:var(--dim)">TL Real / Portföy / MI&GI prim senaryosu</div>
-      </div>
-    </div>
-  </div>
-
-</div><!-- /page7 -->
 
 </div><!-- /main -->
 </div><!-- /app -->
