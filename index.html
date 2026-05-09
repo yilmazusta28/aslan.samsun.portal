@@ -143,6 +143,63 @@ function getPrimRealId(u) {
   return 'primReal_' + u.replace(/\s/g,'_').replace(/[^a-zA-Z0-9_]/g,'X');
 }
 
+// ── HESAPLAYICI → PRİM SENKRON ─────────────────────────────
+// Prim sayfası açıkken hesaplayıcıdan gelen verileri yansıtır
+function syncPrimFromCalc() {
+  const page4 = document.getElementById('page4');
+  if (!page4 || !page4.classList.contains('active')) return;
+  if (!CALC_SYNC.timestamp) return;
+
+  // Prim TTT seçimini hesaplayıcıyla eşleştir
+  const primTTTEl = document.getElementById('primTTT');
+  if (primTTTEl && CALC_SYNC.ttt) {
+    if (primTTTEl.value !== CALC_SYNC.ttt) {
+      primTTTEl.value = CALC_SYNC.ttt;
+    }
+  }
+
+  // Senkron göstergesini güncelle
+  updateSyncBadge();
+
+  // Prim hesabını yenile
+  calcPrim();
+}
+
+function updateSyncBadge() {
+  const badge = document.getElementById('primSyncBadge');
+  if (!badge) return;
+  if (CALC_SYNC.timestamp) {
+    const saniye = Math.round((Date.now() - CALC_SYNC.timestamp) / 1000);
+    const zaman = saniye < 5 ? 'az önce' : saniye + 's önce';
+    badge.innerHTML = `<span style="color:#16A34A">🔗 Hesaplayıcı bağlı</span> <span style="color:var(--dim);font-size:9px">(${CALC_SYNC.ttt} · ${zaman})</span>`;
+    badge.style.background = '#F0FDF4';
+    badge.style.border = '1px solid #BBF7D0';
+  } else {
+    badge.innerHTML = `<span style="color:#D97706">⚠️ Hesaplayıcıdan veri yok — Satış Takibi sayfasında kutu girin</span>`;
+    badge.style.background = '#FFFBEB';
+    badge.style.border = '1px solid #FDE68A';
+  }
+}
+
+function applyCalcToPrim() {
+  // "Hesaplayıcıdan Al" butonu — mevcut değerlerin üzerine yazar
+  if (!CALC_SYNC.timestamp) {
+    alert('Önce Satış Takibi → Tahminli Hesaplayıcı\'ya kutu değeri girin.');
+    return;
+  }
+  const primTTTEl = document.getElementById('primTTT');
+  if (primTTTEl && CALC_SYNC.ttt) primTTTEl.value = CALC_SYNC.ttt;
+
+  // Her ürünün tahmini TL Real % değerini input'a yaz
+  URUN_ORDER.forEach(u => {
+    const el = document.getElementById(getPrimRealId(u));
+    if (el && CALC_SYNC.urunReals[u] !== undefined) {
+      el.value = CALC_SYNC.urunReals[u].toFixed(1);
+    }
+  });
+  calcPrim();
+}
+
 function calcPrim() {
   const ttt = document.getElementById('primTTT')?.value;
   if (!ttt) return;
@@ -150,40 +207,63 @@ function calcPrim() {
   const urunReals = {};
   let toplam_hedef = 0, toplam_satis = 0;
 
+  // ── Kaynak seçimi: Hesaplayıcı verisi varsa onu kullan, yoksa manuel input ──
+  const hasCalcData = CALC_SYNC.timestamp > 0 && CALC_SYNC.ttt === ttt;
+
   URUN_ORDER.forEach(u => {
-    const r = GENEL.find(g=>g.ttt===ttt&&g.urun===u);
+    const r = GENEL.find(g => g.ttt === ttt && g.urun === u);
     const inp = document.getElementById(getPrimRealId(u));
-    let realPct = inp ? parseFloat(inp.value) : 0;
-    if (!realPct && r) realPct = r.tl_pct;  // mevcut gerçekleşme
-    if (inp && !inp.value && r) inp.placeholder = r.tl_pct.toFixed(1) + '% (mevcut)';
+
+    let realPct = 0;
+    if (inp?.value) {
+      // Manuel giriş öncelikli
+      realPct = parseFloat(inp.value);
+    } else if (hasCalcData && CALC_SYNC.urunReals[u] !== undefined) {
+      // Hesaplayıcıdan besle
+      realPct = CALC_SYNC.urunReals[u];
+      if (inp) inp.placeholder = realPct.toFixed(1) + '% (Hesaplayıcı)';
+    } else if (r) {
+      realPct = r.tl_pct;
+      if (inp) inp.placeholder = r.tl_pct.toFixed(1) + '% (mevcut)';
+    }
+
     urunReals[u] = realPct || 0;
     if (r) { toplam_hedef += r.hedef_tl; toplam_satis += r.satis_tl; }
   });
 
-  const toplamReal = toplam_hedef > 0 ? (toplam_satis / toplam_hedef * 100) : 0;
-  // Input'lardan hesapla (dolu ise)
-  const inputReal = URUN_ORDER.map(u=>{
-    const inp = document.getElementById(getPrimRealId(u));
-    return inp?.value ? parseFloat(inp.value) : null;
-  });
-  const hasInputs = inputReal.some(v=>v!==null);
-  const effReal = hasInputs
-    ? (URUN_ORDER.reduce((s,u,i)=>s+(inputReal[i]||0)*(URUN_AGIRLIK[u]||0.2),0))
-    : toplamReal;
+  // ── Efektif TL Real % ──
+  // Hesaplayıcıdan gelen toplam % direkt kullan (ağırlıklı doğru hesap)
+  let effReal;
+  if (hasCalcData && CALC_SYNC.totPct > 0 && !URUN_ORDER.some(u => document.getElementById(getPrimRealId(u))?.value)) {
+    effReal = CALC_SYNC.totPct;
+  } else {
+    const inputReal = URUN_ORDER.map(u => {
+      const inp = document.getElementById(getPrimRealId(u));
+      return inp?.value ? parseFloat(inp.value) : null;
+    });
+    const hasInputs = inputReal.some(v => v !== null);
+    effReal = hasInputs
+      ? URUN_ORDER.reduce((s, u, i) => s + (inputReal[i] || 0) * (URUN_AGIRLIK[u] || 0.2), 0)
+      : (toplam_hedef > 0 ? (toplam_satis / toplam_hedef * 100) : 0);
+  }
+
+  // ── Prim Puanı ──
+  // Hesaplayıcıdan gelen totPrimPuan direkt kullan (daha doğru)
+  let primPuani;
+  if (hasCalcData && CALC_SYNC.totPrimPuan > 0 && !URUN_ORDER.some(u => document.getElementById(getPrimRealId(u))?.value)) {
+    primPuani = CALC_SYNC.totPrimPuan;
+  } else {
+    primPuani = calcPrimPuani(urunReals);
+  }
 
   const mi = parseFloat(document.getElementById('primMI')?.value) || 100;
   const gi = parseFloat(document.getElementById('primGI')?.value) || 100;
 
-  // Prim puanı
-  const primPuani = calcPrimPuani(urunReals);
-  const carpan = effReal >= 91 ? getCarpan(effReal) : 0;
-  const migiKatsayi = effReal >= 70 ? getMiGiKatsayi(mi, gi) : 0;
+  const carpan       = effReal >= 91 ? getCarpan(effReal) : 0;
+  const migiKatsayi  = effReal >= 70 ? getMiGiKatsayi(mi, gi) : 0;
 
-  // Baz primler (dönemlik)
   const BAZ_TL_REAL  = 55000;
-  
   const BAZ_MIGI     = 14000;
-
   const tlRealPrim   = carpan * BAZ_TL_REAL;
   const portfoyPrim  = (effReal >= 91 && primPuani >= 91) ? 0.20 * BAZ_TL_REAL * carpan : 0;
   const migiPrim     = migiKatsayi * BAZ_MIGI;
@@ -191,28 +271,65 @@ function calcPrim() {
 
   const okStyle = v => v > 0 ? 'color:#16A34A;font-weight:700' : 'color:#DC2626;font-weight:700';
 
+  // ── Kaynak etiketi ──
+  const kaynakLabel = hasCalcData && !URUN_ORDER.some(u => document.getElementById(getPrimRealId(u))?.value)
+    ? `<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;padding:6px 10px;font-size:10px;color:#1D4ED8;margin-bottom:8px">
+        🔗 <strong>Hesaplayıcıdan besleniyor</strong> — ${CALC_SYNC.ttt} · 
+        TL Real: <strong>${CALC_SYNC.totPct.toFixed(1)}%</strong> · 
+        Prim Puanı: <strong>${CALC_SYNC.totPrimPuan.toFixed(1)}%</strong>
+       </div>`
+    : `<div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:6px;padding:6px 10px;font-size:10px;color:#C2410C;margin-bottom:8px">
+        ✏️ <strong>Manuel giriş modu</strong> — aşağıdaki alanları doldurarak hesaplayın
+       </div>`;
+
   document.getElementById('primResult').innerHTML = `
     <div style="display:grid;gap:8px">
+      ${kaynakLabel}
       <div style="background:#fff;border-radius:8px;padding:10px;border:1px solid var(--border)">
         <div style="font-size:10px;color:var(--dim);font-weight:600;margin-bottom:6px">KOŞUL KONTROLÜ</div>
-        <div style="font-size:11px;display:grid;gap:4px">
-          <div>TL Realizasyon: <strong style="${effReal>=91?'color:#16A34A':'color:#DC2626'}">${effReal.toFixed(1)}%</strong> ${effReal>=91?'✅ (≥91%)':'❌ (<91%)'}</div>
-          <div>Prim Puanı: <strong style="${primPuani>=91?'color:#16A34A':'color:#DC2626'}">${primPuani.toFixed(1)}%</strong> ${primPuani>=91?'✅':'⚠️ Portföy primi yok'}</div>
-          <div>MI İndeks: <strong style="color:${getIndeksColor(mi)}">${mi}</strong> | GI İndeks: <strong style="color:${getIndeksColor(gi)}">${gi}</strong></div>
-          <div>MI&GI Katsayı: <strong>${migiKatsayi}x</strong></div>
+        <div style="font-size:11px;display:grid;gap:5px">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
+            <span>TL Realizasyon</span>
+            <strong style="${effReal>=91?'color:#16A34A':'color:#DC2626'}">${effReal.toFixed(1)}% ${effReal>=91?'✅ (≥91%)':'❌ (<91%)'}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
+            <span>Prim Puanı</span>
+            <strong style="${primPuani>=91?'color:#16A34A':'color:#DC2626'}">${primPuani.toFixed(1)}% ${primPuani>=91?'✅':' ⚠️ Portföy yok'}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
+            <span>MI İndeks</span>
+            <strong style="color:${getIndeksColor(mi)}">${mi} — ${getIndeksLabel(mi)}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">
+            <span>GI İndeks</span>
+            <strong style="color:${getIndeksColor(gi)}">${gi} — ${getIndeksLabel(gi)}</strong>
+          </div>
         </div>
       </div>
       <div style="background:#fff;border-radius:8px;padding:10px;border:1px solid var(--border)">
         <div style="font-size:10px;color:var(--dim);font-weight:600;margin-bottom:6px">PRİM HESABI (DÖNEMLİK)</div>
         <table style="width:100%;font-size:11px;border-collapse:collapse">
-          <tr style="border-bottom:1px solid var(--border)"><td style="padding:4px">TL Real Primi</td><td style="text-align:right"><span style="${okStyle(tlRealPrim)}">${tlRealPrim.toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺</span></td></tr>
-          <tr style="border-bottom:1px solid var(--border)"><td style="padding:4px">Portföy Primi (+%20)</td><td style="text-align:right"><span style="${okStyle(portfoyPrim)}">${portfoyPrim.toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺</span></td></tr>
-          <tr style="border-bottom:2px solid var(--c1)"><td style="padding:4px">MI & GI Primi</td><td style="text-align:right"><span style="${okStyle(migiPrim)}">${migiPrim.toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺</span></td></tr>
-          <tr><td style="padding:6px;font-weight:700;color:var(--c1)">TOPLAM PRİM</td><td style="text-align:right;font-size:15px;font-weight:800;color:var(--c1)">${toplamPrim.toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺</td></tr>
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:5px">TL Real Primi <span style="color:var(--dim);font-size:9px">(${carpan>0?'çarpan: '+carpan.toFixed(2):'TL %<91'})</span></td>
+            <td style="text-align:right"><span style="${okStyle(tlRealPrim)}">${tlRealPrim.toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺</span></td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:5px">Portföy Primi <span style="color:var(--dim);font-size:9px">(+%20${primPuani<91?' — Prim puan <91':''})</span></td>
+            <td style="text-align:right"><span style="${okStyle(portfoyPrim)}">${portfoyPrim.toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺</span></td>
+          </tr>
+          <tr style="border-bottom:2px solid var(--c1)">
+            <td style="padding:5px">MI & GI Primi <span style="color:var(--dim);font-size:9px">(katsayı: ${migiKatsayi}x)</span></td>
+            <td style="text-align:right"><span style="${okStyle(migiPrim)}">${migiPrim.toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺</span></td>
+          </tr>
+          <tr style="background:rgba(79,0,140,.04)">
+            <td style="padding:8px;font-weight:700;color:var(--c1);font-size:13px">TOPLAM PRİM</td>
+            <td style="text-align:right;font-size:16px;font-weight:800;color:var(--c1)">${toplamPrim.toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺</td>
+          </tr>
         </table>
       </div>
       <div style="font-size:9px;color:var(--dim);background:#F7F9FC;padding:8px;border-radius:6px">
-        * Dönemlik hesaplama. %100 üzeri realizasyonlar kompanzasyon döneminde işlenir.
+        * Dönemlik hesaplama. %100 üzeri realizasyonlar kompanzasyon döneminde işlenir.<br>
+        * MI &amp; GI değerleri manuel girilir — dönem bitiminde kesinleşir.
       </div>
     </div>
   `;
@@ -2327,7 +2444,7 @@ function goPage(i){
   else if(i===1)renderPazar();
   else if(i===2)renderTakip();
   else if(i===3){ initMigi1(); initMigi2(); }
-  else if(i===4)buildPrimInputs();
+  else if(i===4){ buildPrimInputs(); syncPrimFromCalc(); }
   else if(i===5)renderAiAsistan();
   else if(i===6)renderEczane();
   else if(i===7)renderEngine();
@@ -3166,8 +3283,19 @@ function liveCalcRow(urun){
   runCalcSummary();
 }
 
+// ── HESAPLAYICI ↔ PRİM SENKRON STATE ─────────────────────
+// runCalcSummary her çalıştığında burası güncellenir
+let CALC_SYNC = {
+  ttt:         '',
+  totPct:      0,    // Tahmini TL Real %
+  totPrimPuan: 0,    // Tahmini Prim Puan %
+  urunReals:   {},   // {PANOCER: 87.3, ...}
+  timestamp:   0,
+};
+
 function runCalcSummary(){
   let totH=0, totS=0, totAnamal=0, totPrimPuan=0;
+  const urunReals = {};
 
   URUN_ORDER.forEach(urun=>{
     const r=GENEL.find(g=>g.ttt===selTTT_p2&&g.urun===urun);
@@ -3179,16 +3307,12 @@ function runCalcSummary(){
     const toplamS   = r.satis_tl + tahAnamal;
     const tahPct    = r.hedef_tl > 0 ? (toplamS / r.hedef_tl * 100) : 0;
 
-    // ─── Prim Puan katkısı (formül) ───────────────────────────
-    // CSV'den ağırlık al (L sütunu = urun_agirlik)
     const agirlik = r.urun_agirlik > 0 ? r.urun_agirlik : (URUN_AGIRLIK[urun]||0);
-    // clamp(70, real, 130): real<70 → 0, real>130 → 130, else real
     let clampedReal = 0;
     if (tahPct >= 70) clampedReal = Math.min(tahPct, 130);
-    // Katkı = clamp(real) × ağırlık
     totPrimPuan += clampedReal * agirlik;
-    // ──────────────────────────────────────────────────────────
 
+    urunReals[urun] = tahPct;
     totH      += r.hedef_tl;
     totS      += toplamS;
     totAnamal += tahAnamal;
@@ -3210,6 +3334,10 @@ function runCalcSummary(){
 
   document.getElementById('calcInsight').style.display = totAnamal>0 ? 'block' : 'none';
   document.getElementById('calcInsightBody').innerHTML = `Tahmini gerçekleşme: <strong>${fPct(totPct)}</strong> | Hedefe kalan: <strong>${fTL(totKalan)}</strong> | Tahmini prim puan: <strong>${fPct(totPrimPuan)}</strong>`;
+
+  // ── Hesaplayıcı → Prim senkronu ──────────────────────────
+  CALC_SYNC = { ttt: selTTT_p2, totPct, totPrimPuan, urunReals, timestamp: Date.now() };
+  syncPrimFromCalc(); // prim sayfası açıksa anında güncelle
 }
 
 
@@ -5786,8 +5914,20 @@ body{
 
 <!-- ══════ PAGE 4: PRİM HESAPLAMA ══════ -->
 <div class="page" id="page4">
+
+  <!-- Senkron Bilgi Bandı -->
+  <div id="primSyncBadge" style="border-radius:8px;padding:8px 14px;font-size:11px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;background:#FFFBEB;border:1px solid #FDE68A">
+    <span style="color:#D97706">⚠️ Hesaplayıcıdan veri yok — Satış Takibi sayfasında kutu girin</span>
+    <button onclick="applyCalcToPrim()" style="padding:5px 14px;border-radius:6px;border:1px solid var(--c1);background:var(--c1);color:#fff;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">
+      📥 Hesaplayıcıdan Al
+    </button>
+  </div>
+
 <div class="card mb16">
-    <div class="card-hd"><span class="card-title">💰 Prim Hesaplama Şablonu</span><span class="card-badge">2026 İLKO TTT</span></div>
+    <div class="card-hd">
+      <span class="card-title">💰 Prim Hesaplama Şablonu</span>
+      <span class="card-badge">2026 İLKO TTT</span>
+    </div>
     <div class="card-body">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
         <!-- Girişler -->
@@ -5799,11 +5939,23 @@ body{
               <option value="">Seçin...</option>
             </select>
           </div>
-          <div class="section-h" style="margin-top:12px">Ürün TL Realizasyonları (%)</div>
+
+          <div class="section-h" style="margin-top:12px">
+            Ürün TL Realizasyonları (%)
+            <span style="font-size:9px;font-weight:400;color:var(--dim);margin-left:6px">Boş bırakırsanız Hesaplayıcı/mevcut veri kullanılır</span>
+          </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="primUrunInputs"></div>
+
+          <div style="margin-top:10px">
+            <button onclick="URUN_ORDER.forEach(u=>{const el=document.getElementById(getPrimRealId(u));if(el)el.value='';});calcPrim();"
+              style="padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:#fff;font-size:10px;cursor:pointer;color:var(--dim)">
+              ↺ Manuel girişleri temizle (Hesaplayıcıya dön)
+            </button>
+          </div>
+
           <div style="margin-top:12px">
             <div style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:10px;color:#92400E">
-              ⚠️ <strong>Not:</strong> MI & GI değerleri manuel girilir. Tablodaki referans değerler 2025 yılına ait olup prim hesabında kullanılmaz.
+              ⚠️ <strong>Not:</strong> MI & GI değerleri manuel girilir. Dönem sonunda kesinleşir.
             </div>
             <label style="font-size:10px;font-weight:600;color:var(--dim);display:block;margin-bottom:4px">MI İndeksi <span style="color:#6B7280;font-weight:400">(dönem sonucu)</span></label>
             <input type="number" class="inp" id="primMI" value="100" min="0" oninput="calcPrim()" style="width:100%" placeholder="Dönem MI sonucu...">
@@ -5817,7 +5969,9 @@ body{
         <div id="primSonuc">
           <div class="section-h">Prim Hesaplama Sonucu</div>
           <div style="background:#F7F9FC;border-radius:10px;padding:16px;min-height:200px" id="primResult">
-            <div style="color:var(--dim);font-size:12px;text-align:center;padding-top:40px">Değerleri girin ve temsilci seçin...</div>
+            <div style="color:var(--dim);font-size:12px;text-align:center;padding-top:40px">
+              Temsilci seçin veya Satış Takibi'nden Hesaplayıcıya kutu girin...
+            </div>
           </div>
         </div>
       </div>
