@@ -49,14 +49,16 @@ function getTTTPhoto(ttt){
 }
 
 // ── GİRİŞ ────────────────────────────────────────────────────
+function trLower(s){return s.replace(/\u0130/g,'i').replace(/I/g,'\u0131').toLocaleLowerCase('tr-TR');}
 function doLogin(){
   const user=document.getElementById('loginUser').value.trim();
   const pass=document.getElementById('loginPass').value;
   const errEl=document.getElementById('loginErr');
-  if(VALID_USERS.some(u=>u.toLowerCase()===user.toLowerCase())&&pass===VALID_PASS){
+  const userLow=trLower(user);
+  if((VALID_USERS.some(u=>trLower(u)===userLow)||Object.keys(USER_TO_TTT).some(k=>k===userLow))&&pass===VALID_PASS){
     document.getElementById('loginScreen').style.display='none';
     errEl.style.display='none';
-    LOGGED_IN_USER=USER_TO_TTT[user.toLowerCase()]||'';
+    LOGGED_IN_USER=USER_TO_TTT[userLow]||USER_TO_TTT[user.toLowerCase()]||'';
     const _sn=document.getElementById('sidebarUserName'),_sa=document.getElementById('sidebarAvatarWrap');
     if(_sn) _sn.textContent=user;
     if(_sa){const pu=getTTTPhoto(LOGGED_IN_USER||user.toUpperCase());if(pu){_sa.innerHTML='<img src="'+pu+'" alt="'+user+'" crossorigin="anonymous" onerror="this.style.display=\'none\'">';}else{_sa.innerHTML='<span>'+user.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()+'</span>';}}
