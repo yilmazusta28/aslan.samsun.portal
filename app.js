@@ -156,8 +156,7 @@ async function syncData(){
   }catch(err){
     statusEl.textContent='❌ '+err.message;statusEl.title=err.message;
     console.error('[syncData]',err);
-    if(loadMsg) loadMsg.textContent='❌ Veri yüklenemedi: '+err.message;
-    throw err;
+    if(loadMsg) loadMsg.textContent='⚠️ Veri yüklenemedi: '+err.message;
   }finally{setTimeout(()=>{_syncLock=false;},3000);}
 }
 
@@ -953,11 +952,11 @@ async function initApp(){
   try{
     if(loadMsg) loadMsg.textContent='⏳ Veriler yükleniyor…';
     await syncData();
-    if(loadDiv) loadDiv.style.display='none';
   }catch(err){
-    if(loadMsg){loadMsg.textContent='❌ CSV dosyaları yüklenemedi. GitHub reposunu kontrol edin.';loadMsg.style.color='#DC2626';loadMsg.style.maxWidth='320px';loadMsg.style.textAlign='center';}
     console.error('[initApp]',err);
-    if(loadDiv){const btn=document.createElement('button');btn.textContent='🔄 Yeniden Dene';btn.style.cssText='margin-top:16px;padding:10px 24px;background:#4F008C;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:Poppins,sans-serif';btn.onclick=()=>location.reload();loadDiv.appendChild(btn);}
+  }finally{
+    if(loadDiv) loadDiv.style.display='none';
+    goPage(0);
   }
 }
 
