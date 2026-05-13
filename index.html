@@ -1236,10 +1236,12 @@ const VALID_USERS=[
 
 // Kullanıcı adı → temsilci adı eşleşmesi
 const USER_TO_TTT = {
-  'şenol yılmaz': 'ŞENOL YILMAZ',
-  'yılmaz usta':  'YILMAZ USTA',
-  'murat kandiş': 'MURAT KANDİŞ',
-  'murat kandis': 'MURAT KANDİŞ',
+  'şenol yılmaz':  'ŞENOL YILMAZ',
+  'senol yilmaz':  'ŞENOL YILMAZ',
+  'yılmaz usta':   'YILMAZ USTA',
+  'yilmaz usta':   'YILMAZ USTA',   // I→i varyantı
+  'murat kandiş':  'MURAT KANDİŞ',
+  'murat kandis':  'MURAT KANDİŞ',
   'kürşad karadağ': 'KÜRŞAD KARADAĞ',
   'kursad karadag': 'KÜRŞAD KARADAĞ',
   'emrah yıldız':  'EMRAH YILDIZ',
@@ -1272,7 +1274,13 @@ function doLogin(){
   if(isUserOk&&pass===VALID_PASS){
     document.getElementById('loginScreen').style.display='none';
     errEl.style.display='none';
-    LOGGED_IN_USER = USER_TO_TTT[user.toLowerCase()] || '';
+    // Login → canonical TTT adı: USER_TO_TTT, yoksa normTTT(), yoksa stripTR karşılaştırma
+    const _userKey = user.toLowerCase();
+    LOGGED_IN_USER = USER_TO_TTT[_userKey]
+      || normTTT(user)
+      || CANONICAL_TTTS.find(t => stripTR(t).toLowerCase() === stripTR(user).toLowerCase())
+      || '';
+    console.log('[LOGIN] user:', user, '| key:', _userKey, '| LOGGED_IN_USER:', LOGGED_IN_USER);
     // Sidebar kullanıcı bilgisi + fotoğraf
     const _sn=document.getElementById('sidebarName');
     const _sr=document.getElementById('sidebarRole');
@@ -2365,8 +2373,12 @@ async function syncData() {
     // UI'ı yenile
     renderTopBar();
     // Giriş yapan kullanıcının temsilcisini otomatik seç (ŞENOL YILMAZ hariç)
-    if (LOGGED_IN_USER && LOGGED_IN_USER !== 'ŞENOL YILMAZ' && ALL_TTTS.includes(LOGGED_IN_USER)) {
-      const lu = LOGGED_IN_USER;
+    // Includes kontrolü: direkt veya normTTT ile eşleşen canonical adla karşılaştır
+    const _lu_norm = normTTT(LOGGED_IN_USER) || LOGGED_IN_USER;
+    const _lu_match = ALL_TTTS.find(t => t === _lu_norm || normTTT(t) === _lu_norm) || null;
+    console.log('[SYNC] LOGGED_IN_USER:', LOGGED_IN_USER, '| norm:', _lu_norm, '| match:', _lu_match, '| ALL_TTTS:', ALL_TTTS);
+    if (_lu_match && _lu_match !== 'ŞENOL YILMAZ') {
+      const lu = _lu_match;
       selTTT       = lu;   // Ana sayfa TTT picker
       selTTT_p2    = lu;   // Satış Takibi
       selTTT_p1    = lu;   // Pazar Analizi
