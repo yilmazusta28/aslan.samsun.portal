@@ -941,6 +941,8 @@ function renderEczaneCharts(filtered,eczList){
 }
 
 // ── INIT ─────────────────────────────────────────────────────
+const GS_IMS_URL='https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/IMS_TABLO.csv';
+const GS_GENEL_URL='https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/GENEL_TABLO.csv';
 const GS_ECZANE_URL='https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/ECZANE.csv';
 const GITHUB_IMG_BASE='https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/images/';
 
