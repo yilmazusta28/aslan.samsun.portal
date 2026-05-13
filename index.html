@@ -387,7 +387,7 @@ let aiChatHistory = [];
 
 function renderAiAsistan() {
   const allTTTs = ALL_TTTS.length ? ALL_TTTS : ['AYKUT DİNLER'];
-  if (!selAiTTT && allTTTs.length) selAiTTT = (LOGGED_IN_USER && LOGGED_IN_USER !== 'ŞENOL YILMAZ' && allTTTs.includes(LOGGED_IN_USER)) ? LOGGED_IN_USER : allTTTs[0];
+  if (!selAiTTT && allTTTs.length) selAiTTT = _autoSelTTT(allTTTs[0]);
   // Motor ile senkronize et
   if (!engineSelTTT) engineSelTTT = selAiTTT;
   if (typeof switchAiTab === 'function') switchAiTab('motor');
@@ -944,7 +944,7 @@ function buildEczaneFilters() {
 
   // Temsilci listesi - ALL_TTTS
   const allT = [...ALL_TTTS];
-  if (!selEczaneTTT && allT.length) selEczaneTTT = (LOGGED_IN_USER && LOGGED_IN_USER !== 'ŞENOL YILMAZ' && allT.includes(LOGGED_IN_USER)) ? LOGGED_IN_USER : allT[0];
+  if (!selEczaneTTT && allT.length) selEczaneTTT = _autoSelTTT(allT[0]);
   // mf-select değerlerini güncelle
   const _eTttEl = document.getElementById('eczMfTttVal');
   if(_eTttEl) _eTttEl.textContent = selEczaneTTT ? selEczaneTTT.split(' ')[0] : '—';
@@ -1252,6 +1252,15 @@ const USER_TO_TTT = {
   'samet cetin':   'SAMET ÇETİN',
 };
 let LOGGED_IN_USER = ''; // giriş yapan kullanıcı canonical adı
+
+// ── Auto-select helper: girişe göre aktif TTT'yi döndürür ────────────────
+function _autoSelTTT(fallback) {
+  if (LOGGED_IN_USER && LOGGED_IN_USER !== 'ŞENOL YILMAZ' && ALL_TTTS.includes(LOGGED_IN_USER)) {
+    return LOGGED_IN_USER;
+  }
+  return fallback || (ALL_TTTS[0] || '');
+}
+
 
 const VALID_PASS='Saslan.9';
 
@@ -2079,7 +2088,7 @@ function initMigi2() {
 
   // Temsilci listesi
   const persons = [...new Set(src.map(r=>r.person))].filter(Boolean).sort();
-  if (!mg2_ttt && persons.length) mg2_ttt = (LOGGED_IN_USER && LOGGED_IN_USER !== 'ŞENOL YILMAZ' && persons.includes(LOGGED_IN_USER)) ? LOGGED_IN_USER : persons[0];
+  if (!mg2_ttt && persons.length) mg2_ttt = _autoSelTTT(persons[0]);
 
   // Brick listesi — seçili temsilciye ait, sıraya göre
   const srcP = mg2_ttt ? src.filter(r=>r.person===mg2_ttt) : src;
@@ -2355,27 +2364,31 @@ async function syncData() {
 
     // UI'ı yenile
     renderTopBar();
-    // Giriş yapan kullanıcının temsilcisini otomatik seç
+    // Giriş yapan kullanıcının temsilcisini otomatik seç (ŞENOL YILMAZ hariç)
     if (LOGGED_IN_USER && LOGGED_IN_USER !== 'ŞENOL YILMAZ' && ALL_TTTS.includes(LOGGED_IN_USER)) {
       const lu = LOGGED_IN_USER;
       selTTT       = lu;   // Ana sayfa TTT picker
       selTTT_p2    = lu;   // Satış Takibi
       selTTT_p1    = lu;   // Pazar Analizi
-      selMigiTTT   = lu; mg2_ttt = lu; // MI/GI
+      selMigiTTT   = lu;
+      mg2_ttt      = lu;   // MI/GI Brick
       selAiTTT     = lu;   // AI Asistan
+      engineSelTTT = lu;   // AI Motor
       selEczaneTTT = lu;   // Eczane
-      // Prim sayfası TTT select (DOM hazırsa hemen set et)
-      const primTTTEl = document.getElementById('primTTT');
-      if (primTTTEl) primTTTEl.value = lu;
-      window._autoTTT = lu; // buildPrimInputs() ilk çalışınca da kullanılır
-    } else if (!LOGGED_IN_USER || LOGGED_IN_USER === 'ŞENOL YILMAZ') {
-      // Şenol Yılmaz: filtreler sıfır — tüm temsilciler görünür
+      // Prim sayfası select (DOM hazırsa hemen, değilse _autoTTT ile)
+      const _primSel = document.getElementById('primTTT');
+      if (_primSel) _primSel.value = lu;
+      window._autoTTT = lu;
+    } else {
+      // Şenol Yılmaz veya eşleşme yok: tüm temsilciler görünür, ilk temsilci seçili
       selTTT       = '';
       selTTT_p2    = ALL_TTTS[0] || '';
       selTTT_p1    = ALL_TTTS[0] || '';
       selMigiTTT   = ''; mg2_ttt = '';
       selAiTTT     = 'ŞENOL YILMAZ';
+      engineSelTTT = ALL_TTTS[0] || '';
       selEczaneTTT = '';
+      window._autoTTT = null;
     }
     if (curPage === 0)      renderAna();
     else if (curPage === 1) renderPazar();
@@ -4634,7 +4647,7 @@ function renderEngine() {
   const bar = document.getElementById('engineTttBar');
   if (!bar) return;
   const allT = ['ŞENOL YILMAZ', ...ALL_TTTS];
-  if (!engineSelTTT && ALL_TTTS.length) engineSelTTT = ALL_TTTS[0];
+  if (!engineSelTTT && ALL_TTTS.length) engineSelTTT = _autoSelTTT(ALL_TTTS[0]);
 
   bar.innerHTML = allT.map(t => {
     const isSenol = t === 'ŞENOL YILMAZ';
