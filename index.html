@@ -1981,28 +1981,54 @@ function initMigi1() {
     {k:'TUM',l:'Tüm'},{k:'BI',l:'Büyüme'},{k:'EVOL',l:'EVOL'},{k:'MI',l:'Market'},{k:'PP',l:'Pazar Payı'}
   ];
 
+  const tipLabel   = mg1_tip;
+  const donemLabel = mg1_donem==='TÜMÜ'?'Tüm Dönemler':(MG_AY_ADI[mg1_donem.split('/')[0]]||mg1_donem);
+  const veriLabel  = {TUM:'Tüm Veriler',BI:'Büyüme İnd.',EVOL:'EVOL İnd.',MI:'Market İnd.',PP:'Pazar Payı'}[mg1_veri]||mg1_veri;
+
   const bar = document.getElementById('mg1TopFilterBar');
   if (bar) bar.innerHTML = `
     <div class="filter-row">
-      <div class="filter-group">
-        <span class="filter-label"><i class="fas fa-ruler-combined" style="margin-right:3px"></i>Tip</span>
-        <button class="tfb-sp${mg1_tip==='TL'?' active':''}" onclick="mg1_tip='TL';initMigi1()">TL</button>
-        <button class="tfb-sp${mg1_tip==='KUTU'?' active':''}" onclick="mg1_tip='KUTU';initMigi1()">Kutu</button>
+      <div class="mf-select${mg1_tip==='KUTU'?' active-box':''}" onclick="toggleMfDrawer('mg1Drawer')">
+        <div class="mf-icon">📐</div>
+        <div class="mf-content">
+          <div class="mf-label">Tip</div>
+          <div class="mf-value">${tipLabel}</div>
+        </div>
+        <div class="mf-arrow">▼</div>
       </div>
-      <div class="filter-sep"></div>
-      <div class="filter-group">
-        <span class="filter-label"><i class="fas fa-calendar" style="margin-right:3px"></i>Dönem</span>
-        ${['TÜMÜ',...donems].map(d=>{
-          const lbl=d==='TÜMÜ'?'Tümü':(MG_AY_ADI[d.split('/')[0]]||d);
-          return `<button class="tfb-sp${d===mg1_donem?' active':''}" onclick="mg1_donem='${d}';initMigi1()">${lbl}</button>`;
-        }).join('')}
+      <div class="mf-select${mg1_donem!=='TÜMÜ'?' active-box':''}" onclick="toggleMfDrawer('mg1Drawer')">
+        <div class="mf-icon">📅</div>
+        <div class="mf-content">
+          <div class="mf-label">Dönem</div>
+          <div class="mf-value">${donemLabel}</div>
+        </div>
+        <div class="mf-arrow">▼</div>
       </div>
-      <div class="filter-sep"></div>
-      <div class="filter-group">
-        <span class="filter-label"><i class="fas fa-database" style="margin-right:3px"></i>Veriler</span>
-        ${veriOpts.map(v=>`<button class="tfb-sp${v.k===mg1_veri?' active':''}" onclick="mg1_veri='${v.k}';initMigi1()">${v.l}</button>`).join('')}
+      <div class="mf-select${mg1_veri!=='TUM'?' active-box':''}" onclick="toggleMfDrawer('mg1Drawer')">
+        <div class="mf-icon">📊</div>
+        <div class="mf-content">
+          <div class="mf-label">Veri</div>
+          <div class="mf-value">${veriLabel}</div>
+        </div>
+        <div class="mf-arrow">▼</div>
       </div>
-    </div>`;
+      <button class="mf-detail-btn" onclick="toggleMfDrawer('mg1Drawer')">
+        <i class="fas fa-sliders-h"></i> Filtrele
+      </button>
+    </div>
+    <div class="active-filters" id="mg1Chips"></div>
+  `;
+  // Chip satırı
+  const mg1c = document.getElementById('mg1Chips');
+  if(mg1c){
+    const parts=[];
+    if(mg1_tip!=='TL') parts.push(`<div class="filter-chip-tag">📐 ${mg1_tip} <span class="fct-x" onclick="mg1_tip='TL';initMigi1()">✕</span></div>`);
+    if(mg1_donem!=='TÜMÜ') parts.push(`<div class="filter-chip-tag">📅 ${donemLabel} <span class="fct-x" onclick="mg1_donem='TÜMÜ';initMigi1()">✕</span></div>`);
+    if(mg1_veri!=='TUM') parts.push(`<div class="filter-chip-tag">📊 ${veriLabel} <span class="fct-x" onclick="mg1_veri='TUM';initMigi1()">✕</span></div>`);
+    mg1c.innerHTML=parts.join('');
+    mg1c.style.display=parts.length?'flex':'none';
+  }
+  _buildMg1Drawer(donems,veriOpts);
 
   renderMigi1();
 }
@@ -2111,51 +2137,75 @@ function initMigi2() {
     {k:'TUM',l:'Tüm'},{k:'BI',l:'Büyüme'},{k:'EVOL',l:'EVOL'},{k:'MI',l:'Market'},{k:'PP',l:'Pazar Payı'}
   ];
 
+  const mg2TipLbl   = mg2_tip;
+  const mg2TttLbl   = mg2_ttt ? mg2_ttt.split(' ')[0] : 'Tümü';
+  const mg2DonemLbl = mg2_donem==='TÜMÜ'?'Tüm Dönemler':(MG_AY_ADI[mg2_donem.split('/')[0]]||mg2_donem);
+  const mg2VeriLbl  = {TUM:'Tüm Veriler',BI:'Büyüme İnd.',EVOL:'EVOL İnd.',MI:'Market İnd.',PP:'Pazar Payı'}[mg2_veri]||mg2_veri;
+  const mg2BrickLbl = mg2_brick==='TÜMÜ'?'Tüm Brickler':mg2_brick;
+
   const bar = document.getElementById('mg2TopFilterBar');
   if (bar) bar.innerHTML = `
-    <div class="filter-row" style="flex-wrap:wrap;gap:8px">
-      <div class="filter-group">
-        <span class="filter-label"><i class="fas fa-ruler-combined" style="margin-right:3px"></i>Tip</span>
-        <button class="tfb-sp${mg2_tip==='TL'?' active':''}" onclick="mg2_tip='TL';initMigi2()">TL</button>
-        <button class="tfb-sp${mg2_tip==='KUTU'?' active':''}" onclick="mg2_tip='KUTU';initMigi2()">Kutu</button>
-      </div>
-      <div class="filter-sep"></div>
-      <div class="filter-group">
-        <span class="filter-label"><i class="fas fa-user" style="margin-right:3px"></i>Temsilci</span>
-        ${persons.map(p=>`<button class="tfb-sp${p===mg2_ttt?' active':''}"
-          onclick="mg2_ttt='${p.replace(/'/g,"\\'")}';mg2_brick='TÜMÜ';initMigi2()">${p.split(' ')[0]}</button>`).join('')}
-      </div>
-      <div class="filter-sep"></div>
-      <div class="filter-group">
-        <span class="filter-label"><i class="fas fa-calendar" style="margin-right:3px"></i>Dönem</span>
-        ${['TÜMÜ',...donems].map(d=>{
-          const lbl=d==='TÜMÜ'?'Tümü':(MG_AY_ADI[d.split('/')[0]]||d);
-          return `<button class="tfb-sp${d===mg2_donem?' active':''}" onclick="mg2_donem='${d}';initMigi2()">${lbl}</button>`;
-        }).join('')}
-      </div>
-      <div class="filter-sep"></div>
-      <div class="filter-group">
-        <span class="filter-label"><i class="fas fa-database" style="margin-right:3px"></i>Veriler</span>
-        ${veriOpts.map(v=>`<button class="tfb-sp${v.k===mg2_veri?' active':''}" onclick="mg2_veri='${v.k}';initMigi2()">${v.l}</button>`).join('')}
-      </div>
-      <div class="filter-sep"></div>
-      <div class="filter-group">
-        <span class="filter-label"><i class="fas fa-bullseye" style="margin-right:3px"></i>Sıra</span>
-        <button class="tfb-sp${mg2_333?' active':''}" onclick="mg2Toggle333()">İlk 333</button>
-      </div>
-      <div class="filter-sep"></div>
-      <div class="filter-group" style="max-width:100%">
-        <span class="filter-label"><i class="fas fa-map-pin" style="margin-right:3px"></i>Brick</span>
-        <div style="display:flex;flex-wrap:wrap;gap:3px;max-height:68px;overflow-y:auto;padding-right:4px">
-          ${['TÜMÜ',...bricksSorted].map(b=>{
-            const sira = b==='TÜMÜ' ? null : srcP.find(r=>r.brick===b)?.sira;
-            const lbl = b==='TÜMÜ' ? 'Tümü' : `${sira?sira+' · ':''}${b}`;
-            return `<button class="tfb-sp${b===mg2_brick?' active':''}" style="font-size:10px"
-              onclick="mg2_brick='${b.replace(/'/g,"\\'")}';initMigi2()">${lbl}</button>`;
-          }).join('')}
+    <div class="filter-row">
+      <div class="mf-select${mg2_tip==='KUTU'?' active-box':''}" onclick="toggleMfDrawer('mg2Drawer')">
+        <div class="mf-icon">📐</div>
+        <div class="mf-content">
+          <div class="mf-label">Tip</div>
+          <div class="mf-value">${mg2TipLbl}</div>
         </div>
+        <div class="mf-arrow">▼</div>
       </div>
-    </div>`;
+      <div class="mf-select${mg2_ttt?' active-box':''}" onclick="toggleMfDrawer('mg2Drawer')">
+        <div class="mf-icon">👤</div>
+        <div class="mf-content">
+          <div class="mf-label">Temsilci</div>
+          <div class="mf-value">${mg2TttLbl}</div>
+        </div>
+        <div class="mf-arrow">▼</div>
+      </div>
+      <div class="mf-select${mg2_donem!=='TÜMÜ'?' active-box':''}" onclick="toggleMfDrawer('mg2Drawer')">
+        <div class="mf-icon">📅</div>
+        <div class="mf-content">
+          <div class="mf-label">Dönem</div>
+          <div class="mf-value">${mg2DonemLbl}</div>
+        </div>
+        <div class="mf-arrow">▼</div>
+      </div>
+      <div class="mf-select${mg2_veri!=='TUM'?' active-box':''}" onclick="toggleMfDrawer('mg2Drawer')">
+        <div class="mf-icon">📊</div>
+        <div class="mf-content">
+          <div class="mf-label">Veri</div>
+          <div class="mf-value">${mg2VeriLbl}</div>
+        </div>
+        <div class="mf-arrow">▼</div>
+      </div>
+      <div class="mf-select${mg2_brick!=='TÜMÜ'?' active-box':''}" onclick="toggleMfDrawer('mg2Drawer')">
+        <div class="mf-icon">🧱</div>
+        <div class="mf-content">
+          <div class="mf-label">Brick</div>
+          <div class="mf-value" style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${mg2BrickLbl}</div>
+        </div>
+        <div class="mf-arrow">▼</div>
+      </div>
+      <button class="mf-detail-btn" onclick="toggleMfDrawer('mg2Drawer')">
+        <i class="fas fa-sliders-h"></i> Filtrele
+      </button>
+    </div>
+    <div class="active-filters" id="mg2Chips"></div>
+  `;
+  // Chip satırı
+  const mg2c = document.getElementById('mg2Chips');
+  if(mg2c){
+    const parts=[];
+    if(mg2_tip!=='TL') parts.push(`<div class="filter-chip-tag">📐 ${mg2TipLbl} <span class="fct-x" onclick="mg2_tip='TL';initMigi2()">✕</span></div>`);
+    if(mg2_ttt) parts.push(`<div class="filter-chip-tag">👤 ${mg2TttLbl} <span class="fct-x" onclick="mg2_ttt='';initMigi2()">✕</span></div>`);
+    if(mg2_donem!=='TÜMÜ') parts.push(`<div class="filter-chip-tag">📅 ${mg2DonemLbl} <span class="fct-x" onclick="mg2_donem='TÜMÜ';initMigi2()">✕</span></div>`);
+    if(mg2_veri!=='TUM') parts.push(`<div class="filter-chip-tag">📊 ${mg2VeriLbl} <span class="fct-x" onclick="mg2_veri='TUM';initMigi2()">✕</span></div>`);
+    if(mg2_brick!=='TÜMÜ') parts.push(`<div class="filter-chip-tag">🧱 ${mg2BrickLbl} <span class="fct-x" onclick="mg2_brick='TÜMÜ';initMigi2()">✕</span></div>`);
+    if(mg2_333) parts.push(`<div class="filter-chip-tag">🎯 İlk 333 <span class="fct-x" onclick="mg2_333=false;initMigi2()">✕</span></div>`);
+    mg2c.innerHTML=parts.join('');
+    mg2c.style.display=parts.length?'flex':'none';
+  }
+  _buildMg2Drawer(persons,donems,bricksSorted,veriOpts);
 
   renderMigi2();
 }
@@ -3099,6 +3149,74 @@ function _buildPazarDrawer(){
       <button class="btn-drawer-apply" onclick="closeMfDrawer('pazarDrawer')">Uygula</button>
     </div>`;
 }
+function _buildMg1Drawer(donems,veriOpts){
+  const d=document.getElementById('mg1Drawer');
+  if(!d) return;
+  const ay=(x)=>x==='TÜMÜ'?'Tümü':(MG_AY_ADI[x.split('/')[0]]||x);
+  d.innerHTML=`
+    <div class="drawer-title"><i class="fas fa-filter"></i> MI &amp; GI — Bölüm 1 Filtresi</div>
+    <div class="drawer-group">
+      <label><i class="fas fa-ruler-combined" style="margin-right:5px"></i>Tip</label>
+      <div class="drawer-btns">
+        <button class="drawer-btn-item${mg1_tip==='TL'?' active':''}" onclick="mg1_tip='TL';initMigi1();_buildMg1Drawer([...new Set((mg1_tip==='TL'?MIGI_TL_RAW:MIGI_KUTU_RAW).map(r=>r.donem))].filter(Boolean).sort(),[{k:'TUM',l:'Tüm'},{k:'BI',l:'Büyüme'},{k:'EVOL',l:'EVOL'},{k:'MI',l:'Market'},{k:'PP',l:'Pazar Payı'}])">TL</button>
+        <button class="drawer-btn-item${mg1_tip==='KUTU'?' active':''}" onclick="mg1_tip='KUTU';initMigi1();_buildMg1Drawer([...new Set((mg1_tip==='TL'?MIGI_TL_RAW:MIGI_KUTU_RAW).map(r=>r.donem))].filter(Boolean).sort(),[{k:'TUM',l:'Tüm'},{k:'BI',l:'Büyüme'},{k:'EVOL',l:'EVOL'},{k:'MI',l:'Market'},{k:'PP',l:'Pazar Payı'}])">Kutu</button>
+      </div>
+    </div>
+    <div class="drawer-group">
+      <label><i class="fas fa-calendar" style="margin-right:5px"></i>Dönem</label>
+      <div class="drawer-btns">${['TÜMÜ',...(donems||[])].map(d=>`<button class="drawer-btn-item${d===mg1_donem?' active':''}" onclick="mg1_donem='${d}';initMigi1()">${ay(d)}</button>`).join('')}</div>
+    </div>
+    <div class="drawer-group">
+      <label><i class="fas fa-database" style="margin-right:5px"></i>Veri</label>
+      <div class="drawer-btns">${(veriOpts||[]).map(v=>`<button class="drawer-btn-item${v.k===mg1_veri?' active':''}" onclick="mg1_veri='${v.k}';initMigi1()">${v.l}</button>`).join('')}</div>
+    </div>
+    <div class="drawer-actions">
+      <button class="btn-drawer-clear" onclick="mg1_tip='TL';mg1_donem='TÜMÜ';mg1_veri='TUM';initMigi1()">Sıfırla</button>
+      <button class="btn-drawer-apply" onclick="closeMfDrawer('mg1Drawer')">Uygula</button>
+    </div>`;
+}
+
+function _buildMg2Drawer(persons,donems,bricksSorted,veriOpts){
+  const d=document.getElementById('mg2Drawer');
+  if(!d) return;
+  const ay=(x)=>x==='TÜMÜ'?'Tümü':(MG_AY_ADI[x.split('/')[0]]||x);
+  d.innerHTML=`
+    <div class="drawer-title"><i class="fas fa-filter"></i> MI &amp; GI — Bölüm 2 Filtresi</div>
+    <div class="drawer-group">
+      <label><i class="fas fa-ruler-combined" style="margin-right:5px"></i>Tip</label>
+      <div class="drawer-btns">
+        <button class="drawer-btn-item${mg2_tip==='TL'?' active':''}" onclick="mg2_tip='TL';mg2_brick='TÜMÜ';initMigi2()">TL</button>
+        <button class="drawer-btn-item${mg2_tip==='KUTU'?' active':''}" onclick="mg2_tip='KUTU';mg2_brick='TÜMÜ';initMigi2()">Kutu</button>
+      </div>
+    </div>
+    <div class="drawer-group">
+      <label><i class="fas fa-user" style="margin-right:5px"></i>Temsilci</label>
+      <div class="drawer-btns">${(persons||[]).map(p=>`<button class="drawer-btn-item${p===mg2_ttt?' active':''}" onclick="mg2_ttt='${p.replace(/'/g,"\'")}';mg2_brick='TÜMÜ';initMigi2()">${p.split(' ')[0]}</button>`).join('')}</div>
+    </div>
+    <div class="drawer-group">
+      <label><i class="fas fa-calendar" style="margin-right:5px"></i>Dönem</label>
+      <div class="drawer-btns">${['TÜMÜ',...(donems||[])].map(d=>`<button class="drawer-btn-item${d===mg2_donem?' active':''}" onclick="mg2_donem='${d}';initMigi2()">${ay(d)}</button>`).join('')}</div>
+    </div>
+    <div class="drawer-group">
+      <label><i class="fas fa-database" style="margin-right:5px"></i>Veri</label>
+      <div class="drawer-btns">${(veriOpts||[]).map(v=>`<button class="drawer-btn-item${v.k===mg2_veri?' active':''}" onclick="mg2_veri='${v.k}';initMigi2()">${v.l}</button>`).join('')}</div>
+    </div>
+    <div class="drawer-group">
+      <label><i class="fas fa-bullseye" style="margin-right:5px"></i>Sıra</label>
+      <div class="drawer-btns">
+        <button class="drawer-btn-item${mg2_333?' active':''}" onclick="mg2Toggle333();initMigi2()">İlk 333</button>
+      </div>
+    </div>
+    <div class="drawer-group">
+      <label><i class="fas fa-map-pin" style="margin-right:5px"></i>Brick</label>
+      <div class="drawer-btns" style="max-height:120px;overflow-y:auto">${['TÜMÜ',...(bricksSorted||[])].map(b=>`<button class="drawer-btn-item${b===mg2_brick?' active':''}" style="font-size:10px" onclick="mg2_brick='${b.replace(/'/g,"\'")}';initMigi2()">${b==='TÜMÜ'?'Tümü':b}</button>`).join('')}</div>
+    </div>
+    <div class="drawer-actions">
+      <button class="btn-drawer-clear" onclick="mg2_tip='TL';mg2_ttt='';mg2_donem='TÜMÜ';mg2_veri='TUM';mg2_brick='TÜMÜ';mg2_333=false;initMigi2()">Sıfırla</button>
+      <button class="btn-drawer-apply" onclick="closeMfDrawer('mg2Drawer')">Uygula</button>
+    </div>`;
+}
+
 function setP1(t,v){if(t===0)selTTT_p1=v;else if(t===1)selGroup=v;else selHafta=v;buildPazarSlicers();renderPazarCharts();}
 function getHV(r){return selHafta==='toplam'?r.toplam:(r[selHafta]||0)}
 
@@ -6812,6 +6930,12 @@ body{
 
 <!-- Satış Takibi Drawer -->
 <div class="filter-drawer" id="takipDrawer"></div>
+
+<!-- MI GI Bölüm 1 Drawer -->
+<div class="filter-drawer" id="mg1Drawer"></div>
+
+<!-- MI GI Bölüm 2 Drawer -->
+<div class="filter-drawer" id="mg2Drawer"></div>
 
 <!-- Eczane Drawer -->
 <div class="filter-drawer" id="eczaneDrawer"></div>
