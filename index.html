@@ -407,15 +407,57 @@ function buildTTTContext(ttt) {
   const top333 = migiRows.filter(r=>r.sira<=333);
   const trSira = TR_SIRA_MAP[ttt] || '?';
 
+  // Dönem hesaplamaları
+  const _now2 = new Date();
+  const _pad2 = n => String(n).padStart(2,'0');
+  const _todayStr2 = `${_now2.getFullYear()}-${_pad2(_now2.getMonth()+1)}-${_pad2(_now2.getDate())}`;
+  const _curPeriod = PERIODS.find(p => _todayStr2 >= p.start && _todayStr2 <= p.end);
+  const _remDays2  = _curPeriod ? workDays(_todayStr2, _curPeriod.end) : 0;
+  const _totDays   = _curPeriod ? workDays(_curPeriod.start, _curPeriod.end) : 0;
+  const _passedDays = Math.max(1, _totDays - _remDays2);
+
+  // Projeksiyon hesabı — günlük run-rate × toplam dönem günü
+  const _satisNow   = genelTotal?.satis_tl || 0;
+  const _hedefTL    = genelTotal?.hedef_tl  || 0;
+  const _runRateGunluk = _passedDays > 0 ? _satisNow / _passedDays : 0;
+  const _projEOD    = Math.round(_runRateGunluk * _totDays); // dönem sonu tahmini (mevcut ivmeyle)
+  const _projPct    = _hedefTL > 0 ? (_projEOD / _hedefTL * 100).toFixed(1) : '—';
+  const _gunlukIhtiyac = _remDays2 > 0 ? Math.round((Math.max(0, _hedefTL * 0.91 - _satisNow)) / _remDays2) : 0;
+  const _kalanGap91  = Math.max(0, _hedefTL * 0.91 - _satisNow);
+  const _ihtiyacMevcut = _runRateGunluk > 0 ? (_gunlukIhtiyac / _runRateGunluk).toFixed(2) : '—';
+
+  // Senaryo modeli
+  const _senIyi    = Math.round(_satisNow + _runRateGunluk * 1.20 * _remDays2); // +%20 ivme artışı
+  const _senOrta   = Math.round(_satisNow + _runRateGunluk * _remDays2);        // mevcut ivme
+  const _senKotu   = Math.round(_satisNow + _runRateGunluk * 0.80 * _remDays2); // -%20 düşüş
+  const _senIyiPct   = _hedefTL > 0 ? (_senIyi  /_hedefTL*100).toFixed(1) : '—';
+  const _senOrtaPct  = _hedefTL > 0 ? (_senOrta /_hedefTL*100).toFixed(1) : '—';
+  const _senKotuPct  = _hedefTL > 0 ? (_senKotu /_hedefTL*100).toFixed(1) : '—';
+
   let ctx = `=== SAMSUN 2D SATIŞ VERİLERİ ===
 Temsilci: ${ttt} | TR Sırası: #${trSira}
-Dönem: 2026 2.Dönem (Mart-Nisan)
+Dönem: ${_curPeriod ? _curPeriod.label + ' (' + _curPeriod.months + ')' : '2026 Dönemi'}
+Dönem aralığı: ${_curPeriod ? _curPeriod.start + ' → ' + _curPeriod.end : '—'}
+Geçen iş günü: ${_passedDays} | Kalan iş günü: ${_remDays2} | Toplam: ${_totDays}
 
---- GENEL PERFORMANS ---
-Toplam Gerçekleşme: %${genelTotal?.tl_pct?.toFixed(2)||0}
-Hedef TL: ${(genelTotal?.hedef_tl||0).toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺
-Satış TL: ${(genelTotal?.satis_tl||0).toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺
+--- GENEL PERFORMANS (ANLИК) ---
+Anlık Gerçekleşme: %${genelTotal?.tl_pct?.toFixed(2)||0}
+Hedef TL: ${(_hedefTL||0).toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺
+Satış TL (bugüne kadar): ${(_satisNow||0).toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺
 Kalan TL: ${(genelTotal?.kalan_tl||0).toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺
+
+--- PROJEKSİYON ANALİZİ (ÖNEMLİ) ---
+⚠️ ANLİK realizasyon dönem bitmeden değerlendirilemez. Aşağıdaki proyeksiyonları kullan:
+Günlük satış ortalaması (run-rate): ${Math.round(_runRateGunluk).toLocaleString('tr-TR')} ₺/gün
+Mevcut ivmeyle dönem sonu tahmini: ${_projEOD.toLocaleString('tr-TR')} ₺ → %${_projPct}
+%91 hedefi için günlük ihtiyaç: ${_gunlukIhtiyac.toLocaleString('tr-TR')} ₺/gün
+Mevcut oran/ihtiyaç oranı: ${_ihtiyacMevcut}x (1.0x = hedef rotasında, >1.0x = hedef aşılıyor)
+
+DÖNEM SONU SENARYOLARI:
+• İyi senaryo (+%20 ivme): ${_senIyi.toLocaleString('tr-TR')} ₺ → %${_senIyiPct}
+• Baz senaryo (mevcut ivme): ${_senOrta.toLocaleString('tr-TR')} ₺ → %${_senOrtaPct}
+• Kötü senaryo (-%20 ivme): ${_senKotu.toLocaleString('tr-TR')} ₺ → %${_senKotuPct}
+%91 için kalan gap: ${Math.round(_kalanGap91).toLocaleString('tr-TR')} ₺ (${_remDays2} günde kapatılmalı)
 
 --- ÜRÜN BAZLI PERFORMANS ---`;
   genelRows.forEach(r=>{
@@ -525,16 +567,8 @@ Fırsat Brick (İlk333 + MI≥110 + GI≥100): ${migiRows.filter(r=>r.sira<=333&
   const periodEnd = PERIODS.find(p => todayStr >= p.start && todayStr <= p.end);
   let remainingWorkDays = 0;
   if (periodEnd) {
-    let _d = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate());
-    const [_ey,_em,_ed] = periodEnd.end.split('-').map(Number);
-    const _endDate = new Date(_ey, _em-1, _ed);
-    while (_d <= _endDate) {
-      const _dow = _d.getDay();
-      const _ds = `${_d.getFullYear()}-${_pad(_d.getMonth()+1)}-${_pad(_d.getDate())}`;
-      if (_dow !== 0 && _dow !== 6 && !HOLIDAYS.has(_ds)) remainingWorkDays++;
-      _d.setDate(_d.getDate()+1);
-    }
-    ctx += `\n\n--- SÜRE ---\nBugün: ${todayStr}\nAktif dönem: ${periodEnd.label} (${periodEnd.months})\nDönem sonu: ${periodEnd.end}\nKalan iş günü (bugün dahil): ${remainingWorkDays} gün`;
+    // Süre bilgisi artık başlıkta mevcut — sadece ek notlar
+    ctx += `\n\n--- SÜRE ÖZETI ---\nBugün: ${todayStr} | Aktif dönem: ${periodEnd.label} | Dönem sonu: ${periodEnd.end}`;
   }
 
   return ctx;
@@ -610,6 +644,16 @@ IMS Analiz Kuralları:
 - Rakibin pay >%30 ve bizim <%15 ise öncelikli hedef brick
 - İlk 333 brick yatırım önceliği taşır
 - Eczane önerisi yaparken: hedefi / IMS TL fiyatı = kutu, brick başına dağıt
+
+ZAMAN DUYARLI DEĞERLENDİRME KURALLARI (KRİTİK):
+- Hedefler 2 aylık (dönemlik) periyotta değerlendirilir — anlık realizasyon yanıltıcıdır
+- Analiz yaparken MUTLAKA verimdeki 'Projeksiyon Analizi' bölümünü kullan: run-rate, senaryo ve gap verilerini değerlendir
+- 'Hedefi tutamazsın' demeden önce: kalan iş günü × günlük ihtiyaç = ulaşılabilir mi? hesapla
+- Mevcut ivme/ihtiyaç oranı >0.8x ise hedef hâlâ ulaşılabilir — temsilciyi motive et
+- Değerlendirme sırası: (1) Run-rate ile dönem sonu projeksiyonu → (2) Gap analizi → (3) Eylem planı
+- Senaryo bazlı konuş: 'Mevcut ivmeyle dönem sonunda %X realizasyona ulaşırsın. %91 için günlük Y₺ daha gerekiyor.'
+- Dönemin başındaysa (kalan gün > toplam günün %60'ı): motivasyon ve büyüme odaklı plan ver
+- Dönemin sonundaysa (kalan gün < %30): gerçekçi acil eylem planı, somut günlük kutu/TL hedefi ver
 Yanıtlar: Net, somut sayılı, uygulanabilir Türkçe. Brick ve eczane isimleri ile öner.`;
 
   aiChatHistory.push({ role: 'user', content: `${context}
@@ -5152,16 +5196,24 @@ async function engineAiAnalysis(type) {
   const remDays = cur ? workDays(today.toISOString().slice(0,10), cur.end) : 0;
 
   const prompts = {
-    full: `Görev Motoru seni Samsun 2D satış stratejisti olarak çalıştırıyor.
+    full: `Görev Motoru — Samsun 2D Kapsamlı Analiz
 
 Temsilci: ${engineSelTTT} | Kalan: ${remDays} iş günü
 
-Aşağıdaki veriye dayanarak KAPSAMLI günlük yürütme planı üret:
-1. BUGÜN NE YAP? → En kritik 3 brick ziyareti (adres düzeyinde), öncelikli ürün ve hedef kutu sayısı
-2. BU HAFTA NE YAP? → Günlük TL hedefi, brick rotası, eczane öncelikleri
-3. RİSK KAPAT → %91 altındaki ürünler için acil eylem planı
-4. PRİM STRATEJİSİ → Hangi ürüne odaklanılmalı, prim puanı nasıl artırılır
-5. SOMUT SAYILAR → Her öneri için kutu, TL ve eczane ismi ver
+ÖNCELİKLE projeksiyon verilerini değerlendir:
+- Mevcut günlük run-rate ile dönem sonunda hangi %realizasyona ulaşılır?
+- %91 hedefi için gereken günlük satış vs mevcut günlük ortalama farkı nedir?
+- Buna göre hedef "ulaşılabilir / zorlu / kritik" kategorisinden hangisine giriyor?
+
+Sonra aşağıdakileri üret:
+1. DURUM DEĞERLENDİRMESİ → Projeksiyon bazlı gerçekçi dönem sonu tahmini ve hedef mesafesi
+2. BUGÜN NE YAP? → En kritik 3 brick ziyareti, öncelikli ürün ve hedef kutu sayısı
+3. BU HAFTA PLANI → Günlük TL hedefi, brick rotası, eczane öncelikleri
+4. GAP KAPATMA STRATEJİSİ → %91 için hangi ürün/brick kombinasyonu, somut kutu hedefi
+5. PRİM YOLU → Hangi ürüne odaklanılmalı, prim puanı nasıl artırılır
+6. SOMUT SAYILAR → Her öneri için kutu, TL ve eczane ismi ver
+
+Not: "Hedefi tutamazsın" yerine "Şu anda X hızındasın, %91 için Y₺/gün daha gerekiyor, bunu Z brick/ürün ile kapatabilirsin" formatında yanıt ver.
 
 ${ctx}`,
 
@@ -5169,11 +5221,13 @@ ${ctx}`,
 
 Temsilci: ${engineSelTTT} | Kalan: ${remDays} iş günü
 
-Verilen MI&GI ve IMS verilerine göre:
+Önce projeksiyon verisini oku: dönem sonu tahmini ve günlük gap ne kadar?
+Bu gap'i hangi bricklerde kapatmak en verimli? Buna göre:
 1. Bugün gidilecek İLK 5 brick (öncelik sırası ile) — neden öncelikli olduğunu say
 2. Her brick için: hangi eczanelere git, hangi ürünü sun, kaç kutu hedefle
 3. Risk bricklerde (MI<90 veya GI<90) rakip analizi yap ve savunma stratejisi öner
 4. Bir haftalık brick rotası planı — hangi gün nereye git
+5. Kalan ${remDays} günde brick başına düşen TL hedefi
 
 ${ctx}`,
 
@@ -5181,32 +5235,48 @@ ${ctx}`,
 
 Temsilci: ${engineSelTTT} | Kalan: ${remDays} iş günü
 
-Mevcut realizasyon verilerine göre:
-1. %91 TL Real hedefine ulaşmak için ürün bazlı günlük kutu hedefi
-2. Portföy primini almak için prim puanı nasıl 91'e çıkar — hangi ürüne kaç kutu ek satış gerekli
-3. MI&GI primini artırmak için brick öncelikleri
-4. Kalan ${remDays} günde ulaşılabilir maksimum prim tutarı ve senaryolar (iyi/orta/kötü)
-5. Hangi ürün/brick kombine edildiğinde en yüksek prim? Somut tablo ver.
+ÖNCELİKLE projeksiyon verilerini değerlendir:
+- Mevcut run-rate ile dönem sonu %kaçta biter?
+- %91 eşiğine ulaşmak için kalan ${remDays} günde günlük kaç ₺ gerekiyor?
+- Bu rakam mevcut günlük ortalamaya göre gerçekçi mi?
+
+Sonra:
+1. Üç senaryo analizi: iyi/baz/kötü — her birinde tahmini prim tutarı
+2. %91 TL Real için ürün bazlı günlük kutu hedefi (somut, isimli)
+3. Portföy primini almak için prim puanı nasıl 91'e çıkar
+4. MI&GI primini artırmak için brick öncelikleri
+5. En yüksek prim için hangi ürün/brick kombinasyonu — tablo formatında ver
 
 ${ctx}`,
 
     eczane: `Görev Motoru — Eczane Sipariş Planı
 
-Temsilci: ${engineSelTTT}
+Temsilci: ${engineSelTTT} | Kalan: ${remDays} iş günü
 
-Eczane satış geçmişine göre:
-1. Bu hafta sipariş zamanı gelen TOP 10 eczane (son alış tarihi + tüketim hızı)
-2. Her eczane için önerilen ürün, paket büyüklüğü ve satış şartı
-3. Kampanya alımı yapıp uzun süre almayacak eczaneleri işaretle
-4. Brick bazında eczane yoğunlaşma analizi — hangi brickte eczane potansiyeli var
+Projeksiyon verilerini göz önünde bulundur: günlük gap ne kadar?
+Bu gap'i eczane bazında nasıl dağıt?
+
+1. Bu hafta sipariş zamanı gelen TOP 10 eczane (tüketim hızı bazlı)
+2. Her eczane için önerilen ürün, hedef kutu ve günlük gap'e katkısı
+3. Kalan ${remDays} günde eczane başına düşen satış hedefi
+4. Kampanya alımı yapıp uzun süre almayacak eczaneleri işaretle
+5. Brick bazında eczane yoğunlaşma analizi — hangi brickte potansiyel var
 
 ${ctx}`
   };
 
-  const systemPrompt = `Sen Samsun 2D bölgesi için çalışan uzman satış stratejistsin.
+  const systemPrompt = `Sen İLKO İlaç Samsun 2D bölgesi için çalışan uzman satış stratejistsin.
 Net, somut, uygulanabilir Türkçe yanıtlar ver. Her öneri için sayısal hedef belirt.
 Brick ve eczane isimlerini mutlaka kullan.
-Format: başlıklar bold (**Başlık**), maddeler net ve kısa.`;
+Format: başlıklar bold (**Başlık**), maddeler net ve kısa.
+
+ZAMAN DUYARLI DEĞERLENDİRME — MUTLAKA UYGULA:
+- Hedefler 2 aylık dönemde değerlendirilir. Anlık realizasyon tek başına yorum yapılamaz.
+- Verilen 'Projeksiyon Analizi' bölümünü analiz et: run-rate, senaryo ve gap verilerini kullan.
+- Değerlendirme çerçeven: (1) Mevcut ivme ile dönem sonu projeksiyonu → (2) %91 için günlük gap → (3) Eylem planı
+- 'Hedefi tutamazsın' yerine: 'Mevcut hızla dönem sonunda %X realizasyona ulaşırsın. %91 için günlük Y₺ daha gerekiyor. Bunu Z ürünü/brick ile kapatabilirsin.' de.
+- Kalan gün > toplam günün %60'ı ise: motivasyon yüksek tut, büyüme odaklı plan ver.
+- Kalan gün < %30 ise: somut acil eylem planı, günlük kutu hedefleri ve eczane listesi ver.`;
 
   try {
     const AI_PROXY = window.AI_PROXY_URL || 'https://samsun.yilmazusta28.workers.dev';
