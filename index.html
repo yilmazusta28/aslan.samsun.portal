@@ -7189,7 +7189,7 @@ document.addEventListener('click', function(e) {
       const t  = ac.currentTime;
       const sr = ac.sampleRate;
       const masterGain = ac.createGain();
-      masterGain.gain.setValueAtTime(intensity * 0.18, t);
+      masterGain.gain.setValueAtTime(intensity * 0.036, t);
       masterGain.connect(ac.destination);
 
       // ── Katman 1: Damped sine — "thump" gövdesi ──────────────
