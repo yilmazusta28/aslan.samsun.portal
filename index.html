@@ -7164,7 +7164,7 @@ document.addEventListener('click', function(e) {
 (function() {
   let _ac = null;
   let _lastTick = 0;
-  const MIN_INTERVAL = 120; // ms — yumuşak, seyrek vuruş
+  const MIN_INTERVAL = 80; // ms — çift-tık engeli
 
   function getAC() {
     if (!_ac) {
@@ -7174,9 +7174,7 @@ document.addEventListener('click', function(e) {
     return _ac;
   }
 
-  // iPhone wheel — tek oscillator, çok kısa, saf sine
-  // Kompresör yok, pitch sweep yok — sadece 420Hz sine, 22ms decay
-  // iPhone'un sesi aslında bu kadar sade
+  // İnce, kısa bir "detent" tık — iPhone wheel'e benzer
   function tick(intensity) {
     const now = performance.now();
     if (now - _lastTick < MIN_INTERVAL) return;
@@ -7186,22 +7184,35 @@ document.addEventListener('click', function(e) {
     if (!ac) return;
 
     try {
-      const t = ac.currentTime;
+      const t   = ac.currentTime;
+      const dur = 0.018;          // 18ms — çok kısa darbe
 
-      const osc  = ac.createOscillator();
-      osc.type   = 'sine';
-      osc.frequency.setValueAtTime(420, t);
-      osc.frequency.exponentialRampToValueAtTime(260, t + 0.022);
-
+      // Gain zarfı: anlık yüksel → hızla söndür
       const gain = ac.createGain();
-      gain.gain.setValueAtTime(intensity * 0.032, t);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.022);
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(intensity * 0.07, t + 0.002);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
 
-      osc.connect(gain);
+      // Bandpass filtre — 2400–3200 Hz arası: "tık" frekansı
+      const bp = ac.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 2800;
+      bp.Q.value = 1.8;
+
+      // Beyaz gürültü kaynağı — kısa buffer
+      const bufSize = Math.ceil(ac.sampleRate * dur);
+      const buf  = ac.createBuffer(1, bufSize, ac.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+
+      const src = ac.createBufferSource();
+      src.buffer = buf;
+
+      src.connect(bp);
+      bp.connect(gain);
       gain.connect(ac.destination);
-
-      osc.start(t);
-      osc.stop(t + 0.022);
+      src.start(t);
+      src.stop(t + dur);
     } catch(e) {}
   }
 
@@ -7223,10 +7234,10 @@ document.addEventListener('click', function(e) {
         const dy  = Math.abs(pos - lastScroll);
         const dt  = now - lastTime || 16;
 
-        if (dy > 18) {
+        if (dy > 4) {
           const speed = dy / dt;
           // Hız arttıkça biraz daha güçlü tık (0.4–1.0 arası)
-          const intensity = Math.min(0.6, 0.25 + speed * 0.4);
+          const intensity = Math.min(1.0, 0.4 + speed * 1.2);
           tick(intensity);
         }
 
