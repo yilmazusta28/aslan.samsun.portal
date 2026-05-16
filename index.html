@@ -7161,45 +7161,77 @@ document.addEventListener('click', function(e) {
 </script>
 <script>
 // ── SCROLL SES EFEKTİ (iPhone Wheel) ─────────────────────────
-// Kaydırma hızına göre ses seviyesi artar, throttle ile
-// gereksiz çağrı engellenir.
+// #main ve sidebar gibi scroll eden tüm container'lara bağlanır.
+// AudioContext kullanıcı etkileşimiyle açıldıktan sonra çalışır.
 (function() {
-  let lastY      = 0;
-  let lastTime   = 0;
-  let ticking    = false;
-  let silentTimer = null;
+  // Her container için bağımsız state
+  function attachWheelSound(el) {
+    if (!el || el._wheelSoundAttached) return;
+    el._wheelSoundAttached = true;
 
-  // Kaydırma durduğunda ses kesilsin
-  function onScrollEnd() {
-    // Ses zaten kısa süreli — ek aksiyon gerekmez
+    let lastY       = 0;
+    let lastTime    = performance.now();
+    let ticking     = false;
+    let silentTimer = null;
+    let minInterval = 40; // ms — çok sık tetiklenmeyi önle
+
+    el.addEventListener('scroll', function() {
+      if (ticking) return;
+      ticking = true;
+
+      requestAnimationFrame(function() {
+        const now = performance.now();
+        const dt  = now - lastTime || 16;
+
+        // Throttle: çok kısa aralıkta tekrar çalışmasın
+        if (dt < minInterval) { ticking = false; return; }
+
+        const y  = el.scrollTop;
+        const dy = Math.abs(y - lastY);
+
+        if (dy > 3) {
+          const speed = dy / dt;           // px/ms
+          // Hıza göre ses seviyesi: yavaş=0.12, hızlı=0.5
+          const vol = Math.min(0.5, 0.12 + speed * 0.5);
+          try { SoundFX.scroll(vol); } catch(e) {}
+        }
+
+        lastY    = y;
+        lastTime = now;
+        ticking  = false;
+
+        clearTimeout(silentTimer);
+        silentTimer = setTimeout(function() { lastY = el.scrollTop; }, 200);
+      });
+    }, { passive: true });
   }
 
-  window.addEventListener('scroll', function() {
-    if (ticking) return;
-    ticking = true;
-
-    requestAnimationFrame(function() {
-      const now  = performance.now();
-      const y    = window.scrollY;
-      const dy   = Math.abs(y - lastY);
-      const dt   = now - lastTime || 16;
-
-      if (dy > 2) {                         // çok küçük micro-kaydırmayı atla
-        const speed = dy / dt;              // px/ms
-        // Hıza göre ses seviyesi: yavaş=0.15, hızlı=0.55
-        const vol = Math.min(0.55, 0.15 + speed * 0.6);
-        SoundFX.scroll(vol);
-      }
-
-      lastY    = y;
-      lastTime = now;
-      ticking  = false;
-
-      // Kaydırma durma zamanlayıcısı
-      clearTimeout(silentTimer);
-      silentTimer = setTimeout(onScrollEnd, 150);
+  // DOM hazır olduğunda ve sayfa geçişlerinde container'ları bağla
+  function bindAll() {
+    ['main', 'sidenav'].forEach(id => {
+      attachWheelSound(document.getElementById(id));
     });
-  }, { passive: true });
+    // Drawer'lar ve diğer scroll alanları
+    document.querySelectorAll('.filter-drawer, #aiChatArea, #aiArea').forEach(el => {
+      attachWheelSound(el);
+    });
+  }
+
+  // İlk bağlama — DOM hazır
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindAll);
+  } else {
+    bindAll();
+  }
+
+  // goPage çağrıldığında yeni sayfalar için tekrar bağla
+  const _origGoPage = window.goPage;
+  if (typeof _origGoPage === 'function') {
+    window.goPage = function() {
+      _origGoPage.apply(this, arguments);
+      setTimeout(bindAll, 100);
+    };
+  }
 })();
 </script>
 </body>
