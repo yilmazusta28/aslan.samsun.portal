@@ -5476,7 +5476,7 @@ function toggleMfDrawer(id) {
     if (ov) ov.classList.remove('show');
     _activeMfDrawer = null;
   } else {
-    SoundFX.success();
+    SoundFX.uiOpen();
     d.classList.add('open');
     if (ov) ov.classList.add('show');
     _activeMfDrawer = id;
@@ -7120,40 +7120,29 @@ body{
 
 <script>
 // ── SoundFX Global Delegated Click Listener ───────────────────
-//
-// Kural:
-//   click()   → Her türlü UI tıklaması (buton, sekme, sıralama vb.)
-//   success() → Menü/Drawer açılışı  (toggleMfDrawer içinde tetiklenir)
-//   uiOpen()  → Drawer içinde "Uygula / Kapat" ile seçim onaylanınca
-//
+// Butonlar, sekmeler, badge'ler ve sıralama başlıkları için
+// SoundFX.click() — calcPrim / calcZam / sortEczane zaten
+// kendi içinde success() veya click() çağırıyor; burada
+// sadece genel UI elemanları yakalanır.
 document.addEventListener('click', function(e) {
-  const el = e.target.closest('button, .tab-btn, .nav-item, .page-tab, .mf-select, th[onclick]');
+  const el = e.target.closest(
+    'button, .btn-calc, .tab-btn, .nav-item, .page-tab, ' +
+    '.mf-select, .filter-chip, [data-tab], ' +
+    'th[onclick], .card-badge[onclick]'
+  );
   if (!el) return;
 
-  const oc = el.getAttribute('onclick') || '';
+  // calcPrim / calcZam / sortEczane kendi sesini çalıyor — tekrarlama
+  const skip = el.getAttribute('onclick') || el.getAttribute('data-sound-skip');
+  if (skip && (
+    skip.includes('calcPrim') ||
+    skip.includes('calcZam') ||
+    skip.includes('sortEczane') ||
+    skip.includes('switchAiTab') ||
+    skip.includes('toggleMfDrawer') ||
+    skip.includes('setAiTTT')
+  )) return;
 
-  // ── Uygula / Kapat butonları → uiOpen (seçim onayı) ──────────
-  if (el.classList.contains('btn-drawer-apply')) {
-    SoundFX.uiOpen();
-    return;
-  }
-
-  // ── Drawer içindeki seçim butonları → click ───────────────────
-  if (el.classList.contains('drawer-btn-item')) {
-    SoundFX.click();
-    return;
-  }
-
-  // ── Drawer açan mf-select elemanları → success (toggleMfDrawer içinde çalıyor, burada atla) ──
-  if (oc.includes('toggleMfDrawer')) return;
-
-  // ── calcPrim / calcZam → success() zaten fonksiyon içinde ─────
-  if (oc.includes('calcPrim') || oc.includes('calcZam')) return;
-
-  // ── sortEczane, switchAiTab, setAiTTT → click() zaten içerde ──
-  if (oc.includes('sortEczane') || oc.includes('switchAiTab') || oc.includes('setAiTTT')) return;
-
-  // ── Diğer her tıklama → click ─────────────────────────────────
   SoundFX.click();
 }, true);
 </script>
