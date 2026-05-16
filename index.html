@@ -7164,7 +7164,7 @@ document.addEventListener('click', function(e) {
 (function() {
   let _ac = null;
   let _lastTick = 0;
-  const MIN_INTERVAL = 48; // ms — iPhone wheel hızına uygun
+  const MIN_INTERVAL = 120; // ms — yumuşak, seyrek vuruş
 
   function getAC() {
     if (!_ac) {
@@ -7223,10 +7223,10 @@ document.addEventListener('click', function(e) {
         const dy  = Math.abs(pos - lastScroll);
         const dt  = now - lastTime || 16;
 
-        if (dy > 4) {
+        if (dy > 18) {
           const speed = dy / dt;
           // Hız arttıkça biraz daha güçlü tık (0.4–1.0 arası)
-          const intensity = Math.min(1.0, 0.4 + speed * 1.2);
+          const intensity = Math.min(0.6, 0.25 + speed * 0.4);
           tick(intensity);
         }
 
