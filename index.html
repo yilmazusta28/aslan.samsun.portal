@@ -7174,10 +7174,9 @@ document.addEventListener('click', function(e) {
     return _ac;
   }
 
-  // iPhone wheel detent — 3 katman:
-  // 1) Pitch-swept sine  → yumuşak "tık" gövdesi (frekans hızla düşer)
-  // 2) Lowpass noise     → havanın "puf" hissi
-  // 3) Kompresör benzeri limiter → dinamiği düzleştir, daha "polished"
+  // iPhone wheel — tek oscillator, çok kısa, saf sine
+  // Kompresör yok, pitch sweep yok — sadece 420Hz sine, 22ms decay
+  // iPhone'un sesi aslında bu kadar sade
   function tick(intensity) {
     const now = performance.now();
     if (now - _lastTick < MIN_INTERVAL) return;
@@ -7187,65 +7186,22 @@ document.addEventListener('click', function(e) {
     if (!ac) return;
 
     try {
-      const t  = ac.currentTime;
-      const sr = ac.sampleRate;
+      const t = ac.currentTime;
 
-      // ── Master kompresör — iPhone'un karakteristik "clean" sesi ──
-      const comp = ac.createDynamicsCompressor();
-      comp.threshold.value = -18;
-      comp.knee.value      = 8;
-      comp.ratio.value     = 4;
-      comp.attack.value    = 0.001;
-      comp.release.value   = 0.05;
+      const osc  = ac.createOscillator();
+      osc.type   = 'sine';
+      osc.frequency.setValueAtTime(420, t);
+      osc.frequency.exponentialRampToValueAtTime(260, t + 0.022);
 
-      const master = ac.createGain();
-      master.gain.setValueAtTime(intensity * 0.028, t);
-      comp.connect(master);
-      master.connect(ac.destination);
+      const gain = ac.createGain();
+      gain.gain.setValueAtTime(intensity * 0.032, t);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.022);
 
-      // ── Katman 1: Pitch-swept damped sine ────────────────────
-      // iPhone wheel'in özü: başta ~900Hz, 8ms içinde ~220Hz'e düşer
-      // Bu pitch sweep "yumuşak tık" hissini verir, sert "crack" değil
-      const swLen  = Math.ceil(sr * 0.055);
-      const swBuf  = ac.createBuffer(1, swLen, sr);
-      const swData = swBuf.getChannelData(0);
-      let phase = 0;
-      for (let i = 0; i < swLen; i++) {
-        const tau    = i / sr;
-        // Frekans logaritmik olarak 900→200Hz sweep
-        const freq   = 900 * Math.pow(200 / 900, tau / 0.04);
-        phase       += (2 * Math.PI * freq) / sr;
-        // Envelope: hızlı attack (0.5ms), yumuşak exponential decay
-        const attack = Math.min(1, tau / 0.0005);
-        const decay  = Math.exp(-tau * 68);
-        swData[i]    = Math.sin(phase) * attack * decay;
-      }
-      const swSrc  = ac.createBufferSource();
-      swSrc.buffer = swBuf;
-      // Hafif lowpass — çok parlak olmasın
-      const lp1 = ac.createBiquadFilter();
-      lp1.type = 'lowpass'; lp1.frequency.value = 1800; lp1.Q.value = 0.5;
-      const g1 = ac.createGain(); g1.gain.value = 0.80;
-      swSrc.connect(lp1); lp1.connect(g1); g1.connect(comp);
-      swSrc.start(t);
+      osc.connect(gain);
+      gain.connect(ac.destination);
 
-      // ── Katman 2: "Puf" — çok kısa lowpass noise ─────────────
-      // Mekanik detent'in hava sızıntısı hissi — iPhone'da var ama fark edilmez
-      const pufLen  = Math.ceil(sr * 0.008);
-      const pufBuf  = ac.createBuffer(1, pufLen, sr);
-      const pufData = pufBuf.getChannelData(0);
-      for (let i = 0; i < pufLen; i++) {
-        const env    = Math.exp(-(i / sr) * 600);
-        pufData[i]   = (Math.random() * 2 - 1) * env;
-      }
-      const pufSrc = ac.createBufferSource();
-      pufSrc.buffer = pufBuf;
-      const lp2 = ac.createBiquadFilter();
-      lp2.type = 'lowpass'; lp2.frequency.value = 900; lp2.Q.value = 0.7;
-      const g2 = ac.createGain(); g2.gain.value = 0.22;
-      pufSrc.connect(lp2); lp2.connect(g2); g2.connect(comp);
-      pufSrc.start(t);
-
+      osc.start(t);
+      osc.stop(t + 0.022);
     } catch(e) {}
   }
 
