@@ -406,19 +406,19 @@ function calcPrim() {
 
   // ── Kaynak etiketi ──
   const kaynakLabel = hasCalcData && !URUN_ORDER.some(u => document.getElementById(getPrimRealId(u))?.value)
-    ? `<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;padding:6px 10px;font-size:10px;color:#1D4ED8;margin-bottom:8px">
+    ? `<div style="background:rgba(29,78,216,.1);border:1px solid rgba(29,78,216,.25);border-radius:6px;padding:6px 10px;font-size:10px;color:var(--c3);margin-bottom:8px">
         🔗 <strong>Hesaplayıcıdan besleniyor</strong> — ${CALC_SYNC.ttt} · 
         TL Real: <strong>${CALC_SYNC.totPct.toFixed(1)}%</strong> · 
         Prim Puanı: <strong>${CALC_SYNC.totPrimPuan.toFixed(1)}%</strong>
        </div>`
-    : `<div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:6px;padding:6px 10px;font-size:10px;color:#C2410C;margin-bottom:8px">
+    : `<div style="background:rgba(194,65,12,.08);border:1px solid rgba(194,65,12,.2);border-radius:6px;padding:6px 10px;font-size:10px;color:var(--c7);margin-bottom:8px">
         ✏️ <strong>Manuel giriş modu</strong> — aşağıdaki alanları doldurarak hesaplayın
        </div>`;
 
   document.getElementById('primResult').innerHTML = `
     <div style="display:grid;gap:8px">
       ${kaynakLabel}
-      <div style="background:#fff;border-radius:8px;padding:10px;border:1px solid var(--border)">
+      <div style="background:var(--surf);border-radius:8px;padding:10px;border:1px solid var(--border)">
         <div style="font-size:10px;color:var(--dim);font-weight:600;margin-bottom:6px">KOŞUL KONTROLÜ</div>
         <div style="font-size:11px;display:grid;gap:5px">
           <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
@@ -439,7 +439,7 @@ function calcPrim() {
           </div>
         </div>
       </div>
-      <div style="background:#fff;border-radius:8px;padding:10px;border:1px solid var(--border)">
+      <div style="background:var(--surf);border-radius:8px;padding:10px;border:1px solid var(--border)">
         <div style="font-size:10px;color:var(--dim);font-weight:600;margin-bottom:6px">PRİM HESABI (DÖNEMLİK)</div>
         <table style="width:100%;font-size:11px;border-collapse:collapse">
           <tr style="border-bottom:1px solid var(--border)">
@@ -454,13 +454,13 @@ function calcPrim() {
             <td style="padding:5px">MI & GI Primi <span style="color:var(--dim);font-size:9px">(katsayı: ${migiKatsayi}x)</span></td>
             <td style="text-align:right"><span style="${okStyle(migiPrim)}">${migiPrim.toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺</span></td>
           </tr>
-          <tr style="background:rgba(79,0,140,.04)">
+          <tr style="background:rgba(139,92,246,.07)">
             <td style="padding:8px;font-weight:700;color:var(--c1);font-size:13px">TOPLAM PRİM</td>
             <td style="text-align:right;font-size:16px;font-weight:800;color:var(--c1)">${toplamPrim.toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺</td>
           </tr>
         </table>
       </div>
-      <div style="font-size:9px;color:var(--dim);background:#F7F9FC;padding:8px;border-radius:6px">
+      <div style="font-size:9px;color:var(--dim);background:var(--surf2);padding:8px;border-radius:6px;border:1px solid var(--border)">
         * Dönemlik hesaplama. %100 üzeri realizasyonlar kompanzasyon döneminde işlenir.<br>
         * MI &amp; GI değerleri manuel girilir — dönem bitiminde kesinleşir.
       </div>
@@ -2763,20 +2763,35 @@ function goPage(i){
 }
 
 // ── DARK MODE ────────────────────────────────────────────
-function toggleDarkMode(){
-  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
-  const newTheme = isDark ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', newTheme);
-  document.getElementById('darkToggleIcon').textContent = newTheme==='dark' ? '☀️' : '🌙';
-  try{ localStorage.setItem('samsun_theme', newTheme); }catch(e){}
-  // Chart.js grafiklerini dark moda göre yenile (opsiyonel)
-  if(newTheme==='dark'){
+function _applyDarkUI(isDark){
+  // Topbar ikon
+  const icon=document.getElementById('darkToggleIcon');
+  if(icon) icon.textContent=isDark?'☀️':'🌙';
+  // Sidebar buton
+  const sIcon=document.getElementById('sidebarDarkIcon');
+  const sLabel=document.getElementById('sidebarDarkLabel');
+  const sToggle=document.getElementById('sidebarDarkToggle');
+  const sKnob=document.getElementById('sidebarDarkKnob');
+  if(sIcon) sIcon.textContent=isDark?'☀️':'🌙';
+  if(sLabel) sLabel.textContent=isDark?'Gündüz Modu':'Gece Modu';
+  if(sToggle) sToggle.style.background=isDark?'rgba(139,92,246,.7)':'rgba(255,255,255,.2)';
+  if(sKnob) sKnob.style.transform=isDark?'translateX(16px)':'translateX(0)';
+  // Chart.js
+  if(isDark){
     Chart.defaults.color='#718096';
     Chart.defaults.borderColor='#2A2A45';
   } else {
     Chart.defaults.color='#374151';
     Chart.defaults.borderColor='#EAECF3';
   }
+}
+
+function toggleDarkMode(){
+  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+  const newTheme = isDark ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', newTheme);
+  _applyDarkUI(newTheme==='dark');
+  try{ localStorage.setItem('samsun_theme', newTheme); }catch(e){}
 }
 
 // Sayfa yüklenince kaydedilmiş temayı uygula
@@ -2786,12 +2801,7 @@ function toggleDarkMode(){
   // Sistem tercihi (kayıt yoksa)
   if(!localStorage.getItem('samsun_theme') && window.matchMedia('(prefers-color-scheme: dark)').matches) saved='dark';
   document.documentElement.setAttribute('data-theme',saved);
-  const icon=document.getElementById('darkToggleIcon');
-  if(icon) icon.textContent=saved==='dark'?'☀️':'🌙';
-  if(saved==='dark'){
-    Chart.defaults.color='#718096';
-    Chart.defaults.borderColor='#2A2A45';
-  }
+  _applyDarkUI(saved==='dark');
 })();
 function selectTTT(ttt){
   selTTT=selTTT===ttt?'':ttt;
@@ -3486,8 +3496,9 @@ function renderPazarCharts(){
           animation:{onComplete:function(){
             const ch=this;const c=ch.ctx;
             c.save();
-            // Bar labels (rotated)
-            c.font='bold 11px Inter';c.textAlign='center';c.textBaseline='bottom';c.fillStyle='#1A202C';
+            // Bar labels (rotated) — dark mode farkında
+            const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+            c.font='bold 11px Inter';c.textAlign='center';c.textBaseline='bottom';c.fillStyle=isDark?'#E2E8F0':'#1A202C';
             ch.data.datasets.forEach((ds,di)=>{
               if(ds.type==='line')return; // skip line
               const meta=ch.getDatasetMeta(di);
@@ -3535,7 +3546,8 @@ function renderPazarCharts(){
           scales:{x:{display:false},y:{ticks:{font:{size:9},maxRotation:0}}},
           animation:{onComplete:function(){
             const ch=this;const c=ch.ctx;
-            c.save();c.font='bold 12px JetBrains Mono,monospace';c.textAlign='left';c.textBaseline='middle';c.fillStyle='#1A202C';
+            const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+            c.save();c.font='bold 12px JetBrains Mono,monospace';c.textAlign='left';c.textBaseline='middle';c.fillStyle=isDark?'#E2E8F0':'#1A202C';
             const meta=ch.getDatasetMeta(0);
             const allData=ch.data.datasets[0].data;
             const tot=allData.reduce((a,b)=>a+b,0);
@@ -6616,6 +6628,26 @@ body{
 
   <!-- Footer: Kullanıcı -->
   <div class="sidebar-footer">
+    <!-- Dark Mode Geçiş Butonu (Sidebar) -->
+    <button onclick="toggleDarkMode()" id="sidebarDarkBtn"
+      style="width:100%;display:flex;align-items:center;justify-content:space-between;
+      background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);
+      border-radius:11px;padding:10px 14px;cursor:pointer;
+      font-family:'Poppins',sans-serif;font-size:11px;font-weight:600;
+      color:rgba(255,255,255,.7);margin-bottom:10px;
+      transition:background .2s,border-color .2s">
+      <span style="display:flex;align-items:center;gap:8px">
+        <span id="sidebarDarkIcon">🌙</span>
+        <span id="sidebarDarkLabel">Gece Modu</span>
+      </span>
+      <span id="sidebarDarkToggle"
+        style="width:36px;height:20px;border-radius:10px;background:rgba(255,255,255,.2);
+        position:relative;transition:background .25s;flex-shrink:0">
+        <span id="sidebarDarkKnob"
+          style="position:absolute;top:2px;left:2px;width:16px;height:16px;
+          border-radius:50%;background:#fff;transition:transform .25s;display:block"></span>
+      </span>
+    </button>
     <div class="sidebar-user">
       <div class="sidebar-avatar-wrap" id="sidebarAvatarWrap">?</div>
       <div>
