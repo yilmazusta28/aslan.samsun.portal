@@ -15,16 +15,32 @@
 //  Android Chrome/Edge destekler; iOS Safari desteklemez (sessiz).
 // ══════════════════════════════════════════════════════════════
 const HapticFX = (() => {
-  const isTouchDevice = () => navigator.maxTouchPoints > 0;
-  const canVibrate    = () => isTouchDevice() && 'vibrate' in navigator;
+  // Chrome Android: vibrate() bazen ilk gesture'da çalışmaz.
+  // Kısa bir setTimeout + try/catch + sonuç kontrolü ile güvenilir hale getiriyoruz.
+  let _supported = null; // null=henüz test edilmedi, true/false=sonuç
+
+  function _vib(pattern) {
+    // iOS Safari zaten desteklemiyor — sessizce çık
+    if (!('vibrate' in navigator)) { _supported = false; return; }
+    // Desteklenmediği zaten belirlendiyse çık
+    if (_supported === false) return;
+    try {
+      // Chrome bazı sürümlerde false döner (izin yok / kapalı)
+      const ok = navigator.vibrate(pattern);
+      if (ok === false) _supported = false;
+      else _supported = true;
+    } catch(e) {
+      _supported = false;
+    }
+  }
 
   return {
     // Hafif dokunuş — genel buton/sekme tıklaması
-    tap()     { if (canVibrate()) navigator.vibrate(8);  },
+    tap()     { _vib(10); },
     // Onay/başarı — drawer uygula, hesap vb.
-    confirm() { if (canVibrate()) navigator.vibrate(15); },
+    confirm() { _vib(18); },
     // Çift darbe — menü açılışı
-    open()    { if (canVibrate()) navigator.vibrate([6, 30, 6]); },
+    open()    { _vib([8, 40, 8]); },
   };
 })();
 
