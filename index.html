@@ -2743,6 +2743,15 @@ function goPage(i){
   document.querySelectorAll('.page').forEach((p,j)=>p.classList.toggle('active',j===i));
   document.querySelectorAll('.nav-tab').forEach((t,j)=>t.classList.toggle('active',j===i));
   for(let k=0;k<=6;k++){const el=document.getElementById('snav'+k);if(el)el.classList.toggle('active',k===i);}
+  // ── Mobil tab bar güncelle ──────────────────────────────
+  for(let k=0;k<=6;k++){
+    const btn=document.getElementById('mtb'+k);
+    if(btn) btn.classList.toggle('active',k===i);
+  }
+  // ── Tab bar gösterge şeridini kaydır ──────────────────
+  const ind=document.getElementById('mtbIndicator');
+  if(ind){ ind.style.transform=`translateX(${i*100}%)`; }
+  // ────────────────────────────────────────────────────────
   if(window.innerWidth<=1024)closeSidebar();
   if(i===0)renderAna();
   else if(i===1)renderPazar();
@@ -2752,6 +2761,38 @@ function goPage(i){
   else if(i===5)renderAiAsistan();
   else if(i===6)renderEczane();
 }
+
+// ── DARK MODE ────────────────────────────────────────────
+function toggleDarkMode(){
+  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+  const newTheme = isDark ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', newTheme);
+  document.getElementById('darkToggleIcon').textContent = newTheme==='dark' ? '☀️' : '🌙';
+  try{ localStorage.setItem('samsun_theme', newTheme); }catch(e){}
+  // Chart.js grafiklerini dark moda göre yenile (opsiyonel)
+  if(newTheme==='dark'){
+    Chart.defaults.color='#718096';
+    Chart.defaults.borderColor='#2A2A45';
+  } else {
+    Chart.defaults.color='#374151';
+    Chart.defaults.borderColor='#EAECF3';
+  }
+}
+
+// Sayfa yüklenince kaydedilmiş temayı uygula
+(function initTheme(){
+  let saved='light';
+  try{ saved=localStorage.getItem('samsun_theme')||'light'; }catch(e){}
+  // Sistem tercihi (kayıt yoksa)
+  if(!localStorage.getItem('samsun_theme') && window.matchMedia('(prefers-color-scheme: dark)').matches) saved='dark';
+  document.documentElement.setAttribute('data-theme',saved);
+  const icon=document.getElementById('darkToggleIcon');
+  if(icon) icon.textContent=saved==='dark'?'☀️':'🌙';
+  if(saved==='dark'){
+    Chart.defaults.color='#718096';
+    Chart.defaults.borderColor='#2A2A45';
+  }
+})();
 function selectTTT(ttt){
   selTTT=selTTT===ttt?'':ttt;
   SoundFX.secim();
@@ -5570,6 +5611,80 @@ function _buildEczaneDrawerRefresh(){
   --good:#10B981;--warn:#F59E0B;--danger:#EF4444;
   --nav-w:262px;--topbar-h:60px;
   --card-radius:18px;--card-shadow:0 2px 20px rgba(79,0,140,.07);
+  --tabbar-h:0px;
+}
+
+/* ══════════════════════════════════════════════
+   DARK MODE — [data-theme="dark"] üzerinden
+   ══════════════════════════════════════════════ */
+[data-theme="dark"]{
+  --bg:#0E0E16;--surf:#17172B;--surf2:#1F1F38;--border:#2A2A45;
+  --text:#E2E8F0;--dim:#718096;--dim2:#4A5568;
+  --c1:#8B5CF6;--c2:#A78BFA;--c3:#22D3EE;--c4:#FB7185;
+  --c5:#C084FC;--c6:#FDA4AF;--c7:#FBBF24;--c8:#34D399;
+  --good:#34D399;--warn:#FBBF24;--danger:#F87171;
+  --card-shadow:0 2px 20px rgba(0,0,0,.4);
+}
+[data-theme="dark"] body{background:var(--bg);color:var(--text)}
+[data-theme="dark"] #topbar{background:#13132A!important;border-color:var(--border)!important;box-shadow:0 2px 14px rgba(0,0,0,.4)!important}
+[data-theme="dark"] .card{background:var(--surf)!important;border-color:var(--border)!important}
+[data-theme="dark"] .card-hd{background:var(--surf)!important;border-color:var(--border)!important}
+[data-theme="dark"] .tbl th{background:linear-gradient(135deg,#1F1F38,#17172B)!important;color:var(--c2)!important}
+[data-theme="dark"] .tbl td{border-color:var(--border)!important}
+[data-theme="dark"] .tbl tr:hover td{background:linear-gradient(90deg,rgba(139,92,246,.06),rgba(34,211,238,.04))!important}
+[data-theme="dark"] .stat-c{background:var(--surf)!important;border-color:var(--border)!important}
+[data-theme="dark"] .top-filter-bar{background:rgba(19,19,42,.95)!important;border-color:var(--border)!important}
+[data-theme="dark"] .mf-select{background:var(--surf2)!important;border-color:var(--border)!important}
+[data-theme="dark"] .mf-select:hover{border-color:var(--c1)!important}
+[data-theme="dark"] .mf-select.active-box{background:rgba(139,92,246,.1)!important;border-color:var(--c1)!important}
+[data-theme="dark"] .filter-drawer{background:#1A1A32!important}
+[data-theme="dark"] .drawer-group select{background:var(--surf2)!important;border-color:var(--border)!important;color:var(--text)!important}
+[data-theme="dark"] .drawer-btn-item{background:var(--surf2)!important;border-color:var(--border)!important;color:var(--dim)!important}
+[data-theme="dark"] .drawer-btn-item.active{background:linear-gradient(135deg,var(--c1),var(--c2))!important;color:#fff!important;border-color:transparent!important}
+[data-theme="dark"] .tfb-sp,[data-theme="dark"] .mf-chip{background:var(--surf2)!important;border-color:var(--border)!important;color:var(--dim)!important}
+[data-theme="dark"] .tfb-sp.active,[data-theme="dark"] .mf-chip.active{background:linear-gradient(135deg,var(--c1),var(--c2))!important;color:#fff!important;border-color:transparent!important}
+[data-theme="dark"] .bdg-good{background:rgba(52,211,153,.15)!important;color:#34D399!important}
+[data-theme="dark"] .bdg-mid{background:rgba(251,191,36,.15)!important;color:#FBBF24!important}
+[data-theme="dark"] .bdg-bad{background:rgba(248,113,113,.15)!important;color:#F87171!important}
+[data-theme="dark"] .bdg-blue{background:rgba(139,92,246,.15)!important;color:var(--c2)!important}
+[data-theme="dark"] .bdg-teal{background:rgba(34,211,238,.12)!important;color:var(--c3)!important}
+[data-theme="dark"] .inp{background:var(--surf2)!important;border-color:var(--border)!important;color:var(--text)!important}
+[data-theme="dark"] .inp:focus{background:var(--surf)!important;border-color:var(--c1)!important}
+[data-theme="dark"] .task-card{background:var(--surf)!important;border-color:var(--border)!important}
+[data-theme="dark"] .risk-panel{background:var(--surf)!important;border-color:var(--border)!important}
+[data-theme="dark"] .stl-content{background:var(--surf)!important;border-color:var(--border)!important}
+[data-theme="dark"] .alert-box{background:rgba(248,113,113,.1)!important;border-color:rgba(248,113,113,.25)!important}
+[data-theme="dark"] .insight{background:linear-gradient(135deg,rgba(139,92,246,.06),rgba(34,211,238,.06))!important;border-color:rgba(34,211,238,.2)!important}
+[data-theme="dark"] .acc-group{background:var(--surf)!important;border-color:var(--border)!important}
+[data-theme="dark"] .acc-body{background:var(--surf2)!important}
+[data-theme="dark"] .ttt-pick{background:var(--surf)!important;border-color:var(--border)!important}
+[data-theme="dark"] .filter-chip-tag{background:var(--surf2)!important;color:var(--text)!important}
+[data-theme="dark"] .ri-danger{background:rgba(248,113,113,.1)!important;border-color:rgba(248,113,113,.25)!important}
+[data-theme="dark"] .ri-warn{background:rgba(251,191,36,.08)!important;border-color:rgba(251,191,36,.2)!important}
+[data-theme="dark"] .ri-good{background:rgba(52,211,153,.08)!important;border-color:rgba(52,211,153,.2)!important}
+[data-theme="dark"] .ri-blue{background:rgba(139,92,246,.06)!important;border-color:rgba(139,92,246,.15)!important}
+[data-theme="dark"] #loading{background:#0E0E16!important;color:var(--text)!important}
+[data-theme="dark"] .login-box{background:#17172B!important}
+[data-theme="dark"] .login-input{background:var(--surf2)!important;border-color:var(--border)!important;color:var(--text)!important}
+[data-theme="dark"] .login-title{color:var(--text)!important}
+[data-theme="dark"] .login-sub,.login-label{color:var(--dim)!important}
+[data-theme="dark"] .btn-reset{background:var(--surf2)!important;color:var(--dim)!important;border-color:var(--border)!important}
+[data-theme="dark"] .engine-skeleton{background:linear-gradient(90deg,#1F1F38 25%,#252542 50%,#1F1F38 75%)!important}
+[data-theme="dark"] #sideOverlay{background:rgba(0,0,0,.7)!important}
+[data-theme="dark"] .drawer-overlay{background:rgba(0,0,0,.6)!important}
+[data-theme="dark"] #topbar .nav-tab{color:var(--dim)!important}
+[data-theme="dark"] #topbar .nav-tab:hover{color:var(--c2)!important;background:rgba(139,92,246,.08)!important}
+[data-theme="dark"] #topbar .nav-tab.active{color:var(--c2)!important;border-bottom-color:var(--c2)!important;background:rgba(139,92,246,.1)!important}
+[data-theme="dark"] #mobileTabBar{background:#13132A!important;border-color:var(--border)!important}
+[data-theme="dark"] .mtb-btn.active{color:var(--c2)!important}
+[data-theme="dark"] .mtb-indicator{background:linear-gradient(135deg,var(--c1),var(--c2))!important}
+
+/* ── GEÇİŞ ANİMASYONU (dark/light smooth) ── */
+body,#topbar,.card,.card-hd,.stat-c,.tbl th,.tbl td,
+.mf-select,.filter-drawer,.drawer-btn-item,.tfb-sp,.mf-chip,
+.top-filter-bar,.inp,.task-card,.risk-panel,
+#sidenav,#mobileTabBar,.acc-group,.ttt-pick,.login-box{
+  transition:background .28s ease,border-color .28s ease,color .22s ease,box-shadow .28s ease;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
@@ -6245,9 +6360,69 @@ body{
 }
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 
+/* ═══════════════════════════════════════════════
+   MOBİL ALT TAB BAR — sadece ≤768px görünür
+   ═══════════════════════════════════════════════ */
+#mobileTabBar{
+  display:none;
+  position:fixed;bottom:0;left:0;right:0;
+  z-index:250;
+  background:#fff;
+  border-top:1px solid var(--border);
+  box-shadow:0 -4px 20px rgba(0,0,0,.08);
+  height:62px;
+  padding-bottom:env(safe-area-inset-bottom,0);
+  /* Grid: 7 eşit sütun */
+  flex-direction:row;
+  align-items:stretch;
+  justify-content:stretch;
+  overflow:hidden;
+}
+/* Hareketli seçili gösterge şeridi (üst kenar) */
+.mtb-indicator{
+  position:absolute;top:0;left:0;
+  height:3px;
+  background:linear-gradient(90deg,var(--c1),var(--c3));
+  border-radius:0 0 3px 3px;
+  width:calc(100% / 7);
+  transition:transform .32s cubic-bezier(.34,1.56,.64,1);
+  z-index:1;
+}
+.mtb-btn{
+  flex:1;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;border:none;background:transparent;
+  color:var(--dim);cursor:pointer;
+  font-family:'Poppins',sans-serif;
+  padding:6px 0;
+  transition:color .18s,transform .18s;
+  position:relative;z-index:2;
+  -webkit-tap-highlight-color:transparent;
+}
+.mtb-btn.active{
+  color:var(--c1);
+}
+.mtb-btn:active{transform:scale(.88)}
+.mtb-icon{
+  font-size:17px;line-height:1;
+  transition:transform .22s cubic-bezier(.34,1.56,.64,1);
+}
+.mtb-btn.active .mtb-icon{
+  transform:translateY(-2px) scale(1.15);
+}
+.mtb-label{
+  font-size:8.5px;font-weight:600;
+  letter-spacing:.3px;white-space:nowrap;line-height:1;
+}
+
+/* Mobil: tab bar görünür, içerik altından taşmasın */
 @media(max-width:768px){
-  .task-grid{grid-template-columns:1fr}
-  .risk-grid{grid-template-columns:1fr}
+  #mobileTabBar{display:flex}
+  :root{--tabbar-h:62px}
+  #main{padding-bottom:calc(62px + env(safe-area-inset-bottom,8px))!important}
+}
+@media(min-width:769px){
+  #mobileTabBar{display:none!important}
 }
 </style>
 </head>
@@ -6300,6 +6475,13 @@ body{
     <div class="sync-bar">
       <button class="sync-btn" onclick="syncData()" style="display:none"><i class="fas fa-sync-alt"></i> Güncelle</button>
       <span class="sync-status" id="syncStatus">Gömülü veri</span>
+      <!-- Dark Mode Toggle -->
+      <button id="darkToggleBtn" onclick="toggleDarkMode()" title="Karanlık/Aydınlık mod"
+        style="background:none;border:1.5px solid var(--border);border-radius:10px;padding:7px 10px;
+        cursor:pointer;font-size:15px;color:var(--dim);transition:all .22s;line-height:1;
+        display:flex;align-items:center;gap:5px;flex-shrink:0">
+        <span id="darkToggleIcon">🌙</span>
+      </button>
     </div>
   </div>
   <div class="topbar-nav">
@@ -6334,6 +6516,39 @@ body{
       </button>
     </div>
   </div>
+</div>
+
+<!-- ═══ MOBİL ALT TAB BAR ═══ -->
+<div id="mobileTabBar">
+  <div class="mtb-indicator" id="mtbIndicator"></div>
+  <button class="mtb-btn active" id="mtb0" onclick="goPage(0)">
+    <span class="mtb-icon"><i class="fas fa-chart-pie"></i></span>
+    <span class="mtb-label">Ana</span>
+  </button>
+  <button class="mtb-btn" id="mtb1" onclick="goPage(1)">
+    <span class="mtb-icon"><i class="fas fa-search-dollar"></i></span>
+    <span class="mtb-label">Pazar</span>
+  </button>
+  <button class="mtb-btn" id="mtb2" onclick="goPage(2)">
+    <span class="mtb-icon"><i class="fas fa-chart-line"></i></span>
+    <span class="mtb-label">Satış</span>
+  </button>
+  <button class="mtb-btn" id="mtb3" onclick="goPage(3)">
+    <span class="mtb-icon"><i class="fas fa-map-marker-alt"></i></span>
+    <span class="mtb-label">MI&GI</span>
+  </button>
+  <button class="mtb-btn" id="mtb4" onclick="goPage(4)">
+    <span class="mtb-icon"><i class="fas fa-coins"></i></span>
+    <span class="mtb-label">Prim</span>
+  </button>
+  <button class="mtb-btn" id="mtb5" onclick="goPage(5)">
+    <span class="mtb-icon"><i class="fas fa-brain"></i></span>
+    <span class="mtb-label">AI</span>
+  </button>
+  <button class="mtb-btn" id="mtb6" onclick="goPage(6)">
+    <span class="mtb-icon"><i class="fas fa-clinic-medical"></i></span>
+    <span class="mtb-label">Eczane</span>
+  </button>
 </div>
 
 <div id="app">
