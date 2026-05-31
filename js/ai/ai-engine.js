@@ -136,14 +136,22 @@ function _runEngineCore() {
   const imsRows = (IMS||[]).filter(r=>r.ttt===ttt);
 
   // ── KPI hesapla ─────────────────────────────────────────
-  const kalanTL   = gt ? Math.max(0, gt.kalan_tl)  : 0;
+  // FIX-KPI-01: kalan_tl in CSV (column R) may be 0 when the sheet was exported
+  // after period close or with the column cleared. hedef_tl and satis_tl (columns P, Q)
+  // are reliable. Recompute kalan when CSV value is zero but real gap clearly exists.
+  const _kalanFromCSV   = gt ? gt.kalan_tl : 0;
+  const _kalanRecomputed = gt ? (gt.hedef_tl || 0) - (gt.satis_tl || 0) : 0;
+  const kalanTL   = gt ? Math.max(0, _kalanFromCSV !== 0 ? _kalanFromCSV : _kalanRecomputed) : 0;
   const totalReal = gt ? gt.tl_pct : 0;
   const kalanPerDay = remDays > 0 ? kalanTL / remDays : 0;
 
   // Ürün bazlı kalan & günlük hedef
   const urunKPI = urunRows.map(r => {
     const p     = IMS_TL_MAP[r.urun] || 0;
-    const kalan = Math.max(0, r.kalan_tl);
+    // FIX-KPI-02: same recompute guard per product row
+    const _rKalanCSV  = r.kalan_tl;
+    const _rKalanCalc = (r.hedef_tl || 0) - (r.satis_tl || 0);
+    const kalan = Math.max(0, _rKalanCSV !== 0 ? _rKalanCSV : _rKalanCalc);
     const kalanKutu = p > 0 ? Math.round(kalan / p) : 0;
     const gunlukKutu= remDays > 0 && kalanKutu > 0 ? Math.ceil(kalanKutu / remDays) : 0;
     return { ...r, kalan, kalanKutu, gunlukKutu, imsFiyat: p };
@@ -389,12 +397,10 @@ function _runEngineCore() {
 
   // ── Prim Optimizasyon Senaryosu ─────────────────────────
   const hedefReal = 91;
-  // BUG-2 FIX: gerekliKalanTL must agree with kalanTL (line 139).
-  // When kalanTL === 0 (CSV column R = 0 or parseN returned 0), showing a large
-  // recomputed value creates a logical contradiction ("0 ₺ kalan" vs "972K daha satmalı").
-  // Solution: only recompute when CSV kalan_tl is positive (reliable); otherwise use 0.
-  const _recomputedGap = gt && gt.hedef_tl ? gt.hedef_tl * hedefReal/100 - gt.satis_tl : 0;
-  const gerekliKalanTL = kalanTL > 0 ? Math.max(0, _recomputedGap) : 0;
+  // FIX-PRIM-01: kalanTL is now reliably computed (FIX-KPI-01 above).
+  // gerekliKalanTL = gap to reach 91% — cannot exceed kalanTL (total remaining).
+  const _gap91 = gt && gt.hedef_tl ? gt.hedef_tl * hedefReal/100 - (gt.satis_tl || 0) : 0;
+  const gerekliKalanTL = kalanTL > 0 ? Math.max(0, _gap91) : 0;
   const gerekliTLStr = gerekliKalanTL > 0 ? fTL(Math.max(0,gerekliKalanTL)) + ' daha satmalı' : '✅ Hedef aşıldı';
 
   document.getElementById('enginePrimPanel').innerHTML = `
