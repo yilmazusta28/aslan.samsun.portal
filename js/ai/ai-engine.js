@@ -136,9 +136,14 @@ function _runEngineCore() {
   const imsRows = (IMS||[]).filter(r=>r.ttt===ttt);
 
   // ── KPI hesapla ─────────────────────────────────────────
-  const kalanTL   = gt ? Math.max(0, gt.kalan_tl)  : 0;
-  const totalReal = gt ? gt.tl_pct : 0;
-  const kalanPerDay = remDays > 0 ? kalanTL / remDays : 0;
+  // kalanTL: CSV sütun R sıfırsa hedef_tl - satis_tl ile türet
+  const _gtKalanRaw  = gt ? gt.kalan_tl : 0;
+  const _gtKalanCalc = (gt && gt.hedef_tl > 0)
+    ? Math.max(0, gt.hedef_tl - (gt.satis_tl || 0))
+    : 0;
+  const kalanTL     = _gtKalanRaw > 0 ? _gtKalanRaw : _gtKalanCalc;
+  const totalReal   = gt ? gt.tl_pct : 0;
+  const kalanPerDay = remDays > 0 && kalanTL > 0 ? kalanTL / remDays : 0;
 
   // Ürün bazlı kalan & günlük hedef
   const urunKPI = urunRows.map(r => {
@@ -149,7 +154,10 @@ function _runEngineCore() {
       ? Math.max(0, r.hedef_tl * (1 - r.tl_pct / 100))
       : 0;
     const kalan = (rawKalan > 0) ? rawKalan : calcKalan;
-    const kalanKutu = p > 0 ? Math.round(kalan / p) : 0;
+    // kalanKutu: CSV kalan_kutu_100 > TL/fiyat hesabı > 0
+    const kalanKutu = (r.kalan_kutu_100 > 0)
+      ? r.kalan_kutu_100
+      : (p > 0 && kalan > 0 ? Math.round(kalan / p) : 0);
     const gunlukKutu = remDays > 0 && kalanKutu > 0 ? Math.ceil(kalanKutu / remDays) : 0;
     // tl_pct < 100 ise henüz hedefe ulaşılmamış — kalan sıfır gösterme
     const hedeyeUlasti = r.tl_pct >= 100;
@@ -372,7 +380,20 @@ function _runEngineCore() {
   for (let w=0; w<Math.min(totalWeeks,4); w++) {
     const wDays  = Math.min(5, remDays - cumDays);
     const wKalan = kalanTL > 0 ? Math.round(kalanTL * wDays / Math.max(1,remDays)) : 0;
-    const wKutu  = urunKPI.map(r=>({urun:r.urun,kutu:Math.ceil((r.kalanKutu||0)*wDays/Math.max(1,remDays))}));
+    const wKutu  = urunKPI.map(r=>{
+      // kalanKutu 0 ise hedef_kutu × kalan% / remDays ile türet
+      let kutu = r.kalanKutu || 0;
+      if (kutu === 0) {
+        // Önce CSV'deki kalan_kutu_100 alanını kullan
+        if (r.kalan_kutu_100 > 0) {
+          kutu = r.kalan_kutu_100;
+        } else if (r.hedef_kutu > 0 && r.tl_pct < 100) {
+          // CSV'de yoksa hedef × kalan% hesapla
+          kutu = Math.round(r.hedef_kutu * (1 - r.tl_pct / 100));
+        }
+      }
+      return {urun:r.urun, kutu: Math.ceil(kutu * wDays / Math.max(1,remDays))};
+    });
     const dotCls = w===0?'danger':w===1?'warn':'good';
     const brickFocus = critBricks.slice(0,2+w).map(b=>b.brick).join(', ') || 'Tüm brickler';
     wks.push(`
