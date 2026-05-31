@@ -51,6 +51,8 @@ function parseN(v) {
   if (!s || s === '-' || s === '--' || s === '') return 0;
   s = s.replace('%', '').trim();   // % işaretini kaldır
   if (!s || s === '-') return 0;
+  // BUG-1 FIX: Excel Accounting/Currency format: "(1.234,56)" → "-1.234,56"
+  s = s.replace(/^\((.+)\)$/, '-$1');
 
   const hasDot   = s.includes('.');
   const hasComma = s.includes(',');

@@ -389,7 +389,12 @@ function _runEngineCore() {
 
   // ── Prim Optimizasyon Senaryosu ─────────────────────────
   const hedefReal = 91;
-  const gerekliKalanTL = gt && gt.hedef_tl ? gt.hedef_tl * hedefReal/100 - gt.satis_tl : 0;
+  // BUG-2 FIX: gerekliKalanTL must agree with kalanTL (line 139).
+  // When kalanTL === 0 (CSV column R = 0 or parseN returned 0), showing a large
+  // recomputed value creates a logical contradiction ("0 ₺ kalan" vs "972K daha satmalı").
+  // Solution: only recompute when CSV kalan_tl is positive (reliable); otherwise use 0.
+  const _recomputedGap = gt && gt.hedef_tl ? gt.hedef_tl * hedefReal/100 - gt.satis_tl : 0;
+  const gerekliKalanTL = kalanTL > 0 ? Math.max(0, _recomputedGap) : 0;
   const gerekliTLStr = gerekliKalanTL > 0 ? fTL(Math.max(0,gerekliKalanTL)) + ' daha satmalı' : '✅ Hedef aşıldı';
 
   document.getElementById('enginePrimPanel').innerHTML = `

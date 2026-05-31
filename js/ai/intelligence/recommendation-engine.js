@@ -71,8 +71,14 @@
 
       // ── R2: Düşük realizasyon → günlük hedef hesabı ──────
       if (genelTotal && (genelTotal.tl_pct || 0) < 91) {
-        var kalanTL  = Math.max(0, (genelTotal.hedef_tl || 0) * 0.91 - (genelTotal.satis_tl || 0));
-        var gunlukTL = remDays > 0 ? Math.round(kalanTL / remDays) : 0;
+        // BUG-4 FIX: Use CSV kalan_tl as authoritative source.
+        // Independent recompute from hedef*0.91-satis would use active-period remDays
+        // against prior-period GENEL data → inflated daily recommendation.
+        // Primary: CSV kalan_tl (column R); fallback recompute only when kalan_tl > 0.
+        var _csvKalan     = genelTotal.kalan_tl || 0;
+        var _recomputed91 = Math.max(0, (genelTotal.hedef_tl || 0) * 0.91 - (genelTotal.satis_tl || 0));
+        var kalanTL  = _csvKalan > 0 ? Math.min(_csvKalan, _recomputed91) : 0;
+        var gunlukTL = (remDays > 0 && kalanTL > 0) ? Math.round(kalanTL / remDays) : 0;
 
         if (gunlukTL > 0) {
           // En düşük realizasyonlu ürüne odaklan

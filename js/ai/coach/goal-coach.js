@@ -64,7 +64,12 @@
 
       // Run rate
       var rr = (typeof calculateRunRate === 'function') ? calculateRunRate(ttt) : {};
-      var remaining   = rr.remainingDays || 0;
+      // BUG-3 FIX: rr.remainingDays is from the ACTIVE calendar period (today's date).
+      // If GENEL data is from a CLOSED period (elapsedDays === 0 means data predates active
+      // period, or elapsedDays === totalDays means period ended), dailyReq would be computed
+      // as (prior-period gap) / (active-period remaining days) → wildly inflated.
+      // Guard: only use remainingDays when elapsedDays > 0 (period is genuinely in progress).
+      var remaining   = (rr.remainingDays > 0 && (rr.elapsedDays || 0) > 0) ? rr.remainingDays : 0;
       var dailyRate   = rr.dailyRunRate  || 0;
 
       // En uygun hedefi belirle (verilmemişse en düşük ulaşılabilir)
