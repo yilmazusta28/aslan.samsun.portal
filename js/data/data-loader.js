@@ -314,31 +314,16 @@ async function syncData() {
     // Dizileri güncelle
     IMS.length   = 0;  IMS.push(...newIMS);
 
-    // ── GENEL DEDUP (Phase 3.4 fix) ─────────────────────────────────
-    // CSV'de aynı ttt+urun kombinasyonu birden fazla satır olabilir
-    // (farklı dönem veya barem satırları). Son satır kazanır (en güncel veri).
-    // hedef_tl / satis_tl / tl_pct / prim_pct alanları son satırdan alınır;
-    // haftalık h1..h9 sütunları toplanır (her satır farklı haftayı temsil edebilir).
+    // ── GENEL DEDUP ──────────────────────────────────────────────────
+    // CSV'de aynı ttt+urun kombinasyonu birden fazla satır olabilir.
+    // İLK SATIR kazanır — kullanıcı tarafından ilk sıradaki veri doğru/güncel.
     const _genelMap = new Map();
     for (const row of newGenel) {
       const key = row.ttt + '||' + row.urun;
       if (!_genelMap.has(key)) {
         _genelMap.set(key, Object.assign({}, row));
-      } else {
-        // Scalar alanlar: son satırın değeri (daha güncel)
-        const existing = _genelMap.get(key);
-        const merged = Object.assign({}, existing, row);
-        // Haftalık TL sütunları: iki satır farklı dönemleri temsil ediyorsa topla;
-        // aksi hâlde son satır zaten doğru değeri taşır.
-        // Güvenli yaklaşım: her ikisi de > 0 ise topla, yoksa büyük olanı al.
-        for (let wi = 1; wi <= 9; wi++) {
-          const wk = 'h' + wi;
-          const a = existing[wk] || 0;
-          const b = row[wk] || 0;
-          merged[wk] = (a > 0 && b > 0) ? a + b : Math.max(a, b);
-        }
-        _genelMap.set(key, merged);
       }
+      // Duplicate satırlar sessizce atlanır
     }
     const dedupedGenel = Array.from(_genelMap.values());
     console.log('[GENEL DEDUP] Önce:', newGenel.length, '→ Sonra:', dedupedGenel.length,
