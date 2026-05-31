@@ -30,12 +30,9 @@
 [data-theme="dark"] #topbar{background:#13132A!important;border-color:var(--border)!important;box-shadow:0 2px 14px rgba(0,0,0,.4)!important}
 [data-theme="dark"] .card{background:var(--surf)!important;border-color:var(--border)!important}
 [data-theme="dark"] .card-hd{background:var(--surf)!important;border-color:var(--border)!important}
-[data-theme="dark"] .tbl th{background:linear-gradient(135deg,#1F1F38,#17172B)!important;color:var(--c2)!important;border-bottom-color:var(--c1)!important}
-[data-theme="dark"] .tbl td{border-bottom-color:var(--border)!important;color:var(--text)!important}
+[data-theme="dark"] .tbl th{background:linear-gradient(135deg,#1F1F38,#17172B)!important;color:var(--c2)!important}
+[data-theme="dark"] .tbl td{color:var(--text)!important}
 [data-theme="dark"] .tbl tr:hover td{background:linear-gradient(90deg,rgba(139,92,246,.06),rgba(34,211,238,.04))!important}
-/* ── Tablo kenarlık geçiş fix (dark mode) ── */
-[data-theme="dark"] .tbl th,
-[data-theme="dark"] .tbl td{transition:background .28s ease,border-color .28s ease,color .22s ease!important}
 [data-theme="dark"] .stat-c{background:var(--surf)!important;border-color:var(--border)!important}
 [data-theme="dark"] .top-filter-bar{background:rgba(19,19,42,.95)!important;border-color:var(--border)!important}
 [data-theme="dark"] .mf-select{background:var(--surf2)!important;border-color:var(--border)!important}

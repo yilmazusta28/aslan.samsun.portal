@@ -126,22 +126,6 @@
 <script src="js/ai/territory/territory-engine.js"></script>
 <!-- END PHASE 3.3 Territory Optimization Engine -->
 
-<!-- PHASE 3.4: AI Sales Coach ──────────────────────────────────────────
-     Yükleme sırası: performance-coach → goal-coach → habit-engine
-                     → daily-plan-engine → coach-engine
-     Bağımlılık: Phase 3.0 risk/opportunity + Phase 3.1 runrate/forecast
-                 + Phase 3.2 simulator + Phase 3.3 territory
-     Rollback: bu 5 satırı sil.
-     ai-context.js Phase 3.4 bloğu try/catch ile sarılı — dosyalar yoksa
-     context bozulmadan devam eder.
-  ─────────────────────────────────────────────────────────────────────── -->
-<script src="js/ai/coach/performance-coach.js"></script>
-<script src="js/ai/coach/goal-coach.js"></script>
-<script src="js/ai/coach/habit-engine.js"></script>
-<script src="js/ai/coach/daily-plan-engine.js"></script>
-<script src="js/ai/coach/coach-engine.js"></script>
-<!-- END PHASE 3.4 AI Sales Coach -->
-
 <script src="js/ai/ai-context.js"></script>
 <script src="js/ai/ai-service.js"></script>
 <script src="js/ai/ai-engine.js"></script>
@@ -439,16 +423,10 @@ function renderAiAsistan() {
   if (typeof switchAiTab === 'function') switchAiTab('motor');
   renderEngine();
 
-  // PATCH-3.0.2-FIX1: aiTttBar was removed from DOM during Phase 2.x extraction.
-  // engineTttBar (populated by renderEngine() above) is now the authoritative TTT bar.
-  // Guard retained to prevent crash if element is re-added in future.
   const aiAll = ['ŞENOL YILMAZ', ...allTTTs];
-  const _aiTttBar = document.getElementById('aiTttBar');
-  if (_aiTttBar) {
-    _aiTttBar.innerHTML = aiAll.map(t =>
-      `<button class="sp-btn${t===selAiTTT?' active':''}" onclick="setAiTTT('${t}')">${t==='ŞENOL YILMAZ'?'🏢 '+t:t}</button>`
-    ).join('');
-  }
+  document.getElementById('aiTttBar').innerHTML = aiAll.map(t =>
+    `<button class="sp-btn${t===selAiTTT?' active':''}" onclick="setAiTTT('${t}')">${t==='ŞENOL YILMAZ'?'🏢 '+t:t}</button>`
+  ).join('');
 }
 
 // PHASE2-STUB: buildTTTContext → js/ai/ai-context.js
@@ -502,9 +480,8 @@ async function testProxy() {
     alert('Geçerli bir URL girin.');
     return;
   }
-  // PATCH-3.0.2-FIX2: proxyStatus missing from DOM — guard prevents crash.
   const statusEl = document.getElementById('proxyStatus');
-  if (statusEl) statusEl.textContent = '⏳ Test...';
+  statusEl.textContent = '⏳ Test...';
   try {
     const resp = await fetch(url, {
       method: 'POST',
@@ -519,13 +496,17 @@ async function testProxy() {
     if (data.content || data.type) {
       window.AI_PROXY_URL = url;
       try { sessionStorage.setItem('ai_proxy_url', url); } catch(e) {}
-      if (statusEl) { statusEl.textContent = '✅ Bağlandı!'; statusEl.style.background = '#16A34A'; statusEl.style.color = '#fff'; }
+      statusEl.textContent = '✅ Bağlandı!';
+      statusEl.style.background = '#16A34A';
+      statusEl.style.color = '#fff';
       document.getElementById('proxyInstructions').style.display = 'none';
     } else {
       throw new Error(data.error?.message || 'Yanıt formatı hatalı');
     }
   } catch(err) {
-    if (statusEl) { statusEl.textContent = '❌ Bağlanamadı'; statusEl.style.background = '#DC2626'; statusEl.style.color = '#fff'; }
+    statusEl.textContent = '❌ Bağlanamadı';
+    statusEl.style.background = '#DC2626';
+    statusEl.style.color = '#fff';
     alert('Bağlantı hatası: ' + err.message + '\nWorker URL ve API key doğru mu?');
   }
 }
@@ -1605,6 +1586,12 @@ function toggleDarkMode(){
   document.documentElement.setAttribute('data-theme', newTheme);
   _applyDarkUI(newTheme==='dark');
   try{ localStorage.setItem('samsun_theme', newTheme); }catch(e){}
+  // Tüm aktif Chart.js instance'larını yeniden çiz (grid renkleri için)
+  if(typeof Chart !== 'undefined'){
+    Object.values(Chart.instances || {}).forEach(function(chart){
+      try{ chart.update(); }catch(e){}
+    });
+  }
 }
 
 // Sayfa yüklenince kaydedilmiş temayı uygula
