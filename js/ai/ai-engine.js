@@ -136,25 +136,24 @@ function _runEngineCore() {
   const imsRows = (IMS||[]).filter(r=>r.ttt===ttt);
 
   // ── KPI hesapla ─────────────────────────────────────────
-  // FIX-KPI-01: kalan_tl in CSV (column R) may be 0 when the sheet was exported
-  // after period close or with the column cleared. hedef_tl and satis_tl (columns P, Q)
-  // are reliable. Recompute kalan when CSV value is zero but real gap clearly exists.
-  const _kalanFromCSV   = gt ? gt.kalan_tl : 0;
-  const _kalanRecomputed = gt ? (gt.hedef_tl || 0) - (gt.satis_tl || 0) : 0;
-  const kalanTL   = gt ? Math.max(0, _kalanFromCSV !== 0 ? _kalanFromCSV : _kalanRecomputed) : 0;
+  const kalanTL   = gt ? Math.max(0, gt.kalan_tl)  : 0;
   const totalReal = gt ? gt.tl_pct : 0;
   const kalanPerDay = remDays > 0 ? kalanTL / remDays : 0;
 
   // Ürün bazlı kalan & günlük hedef
   const urunKPI = urunRows.map(r => {
     const p     = IMS_TL_MAP[r.urun] || 0;
-    // FIX-KPI-02: same recompute guard per product row
-    const _rKalanCSV  = r.kalan_tl;
-    const _rKalanCalc = (r.hedef_tl || 0) - (r.satis_tl || 0);
-    const kalan = Math.max(0, _rKalanCSV !== 0 ? _rKalanCSV : _rKalanCalc);
+    // kalan_tl: CSV'den geliyorsa kullan, 0 ise hedef×(1-real%) ile türet
+    const rawKalan = r.kalan_tl;
+    const calcKalan = (r.hedef_tl > 0 && r.tl_pct > 0)
+      ? Math.max(0, r.hedef_tl * (1 - r.tl_pct / 100))
+      : 0;
+    const kalan = (rawKalan > 0) ? rawKalan : calcKalan;
     const kalanKutu = p > 0 ? Math.round(kalan / p) : 0;
-    const gunlukKutu= remDays > 0 && kalanKutu > 0 ? Math.ceil(kalanKutu / remDays) : 0;
-    return { ...r, kalan, kalanKutu, gunlukKutu, imsFiyat: p };
+    const gunlukKutu = remDays > 0 && kalanKutu > 0 ? Math.ceil(kalanKutu / remDays) : 0;
+    // tl_pct < 100 ise henüz hedefe ulaşılmamış — kalan sıfır gösterme
+    const hedeyeUlasti = r.tl_pct >= 100;
+    return { ...r, kalan, kalanKutu, gunlukKutu, imsFiyat: p, hedeyeUlasti };
   });
 
   // ── Brick analizi ───────────────────────────────────────
@@ -236,14 +235,14 @@ function _runEngineCore() {
   }
 
   // Kart 2: Bugün sat (Ürün hedefleri)
-  const urunTasks = urunKPI.filter(r=>r.kalan>0).map((r,i)=>`
+  const urunTasks = urunKPI.filter(r=>!r.hedeyeUlasti).map((r,i)=>`
     <div class="task-row">
       <div class="task-priority ${r.tl_pct<70?'tp-1':r.tl_pct<91?'tp-2':'tp-ok'}">${r.tl_pct<70?'!':r.tl_pct<91?'↑':'✓'}</div>
       <div class="task-text">
         <div class="task-main">${r.urun} <span style="font-size:10px;color:var(--dim)">%${r.tl_pct?.toFixed(0)||0}</span></div>
         <div class="task-detail">
           <span class="task-tag tt-urun">Günlük ${r.gunlukKutu} kutu</span>
-          Kalan: ${fTL(r.kalan)} · ${r.kalanKutu} kutu · ${r.imsFiyat}₺/kutu
+          ${r.kalan>0?'Kalan: '+fTL(r.kalan)+' · '+r.kalanKutu+' kutu':('%'+r.tl_pct?.toFixed(0)+' gerçekleşme — hedef yükleniyor')} · ${r.imsFiyat>0?r.imsFiyat+'₺/kutu':''}
         </div>
       </div>
     </div>`).join('') || '<div style="color:var(--dim);font-size:12px;text-align:center;padding:20px">Tüm ürünler hedefe ulaştı 🏆</div>';
@@ -337,8 +336,8 @@ function _runEngineCore() {
     ...urunKPI.filter(r=>r.tl_pct<70).map(r=>`
       <div class="risk-item ri-warn">
         <div class="risk-item-name">📉 ${r.urun}</div>
-        <div class="risk-item-detail">Gerçekleşme: %${r.tl_pct?.toFixed(1)||0} · Kalan: ${fTL(r.kalan)}<br>
-        Günlük hedef: ${r.gunlukKutu} kutu (${remDays} gün kaldı)</div>
+        <div class="risk-item-detail">Gerçekleşme: %${r.tl_pct?.toFixed(1)||0}${r.kalan>0?' · Kalan: '+fTL(r.kalan):''}<br>
+        Günlük hedef: ${r.gunlukKutu > 0 ? r.gunlukKutu + ' kutu' : (r.tl_pct < 100 ? 'Hedef TL eksik — CSV güncelle' : '✅')} (${remDays} gün kaldı)</div>
       </div>`),
     ...imsRiskBricks.slice(0,2).map(b=>`
       <div class="risk-item ri-warn">
@@ -397,10 +396,7 @@ function _runEngineCore() {
 
   // ── Prim Optimizasyon Senaryosu ─────────────────────────
   const hedefReal = 91;
-  // FIX-PRIM-01: kalanTL is now reliably computed (FIX-KPI-01 above).
-  // gerekliKalanTL = gap to reach 91% — cannot exceed kalanTL (total remaining).
-  const _gap91 = gt && gt.hedef_tl ? gt.hedef_tl * hedefReal/100 - (gt.satis_tl || 0) : 0;
-  const gerekliKalanTL = kalanTL > 0 ? Math.max(0, _gap91) : 0;
+  const gerekliKalanTL = gt && gt.hedef_tl ? gt.hedef_tl * hedefReal/100 - gt.satis_tl : 0;
   const gerekliTLStr = gerekliKalanTL > 0 ? fTL(Math.max(0,gerekliKalanTL)) + ' daha satmalı' : '✅ Hedef aşıldı';
 
   document.getElementById('enginePrimPanel').innerHTML = `

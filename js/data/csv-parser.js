@@ -51,8 +51,6 @@ function parseN(v) {
   if (!s || s === '-' || s === '--' || s === '') return 0;
   s = s.replace('%', '').trim();   // % işaretini kaldır
   if (!s || s === '-') return 0;
-  // BUG-1 FIX: Excel Accounting/Currency format: "(1.234,56)" → "-1.234,56"
-  s = s.replace(/^\((.+)\)$/, '-$1');
 
   const hasDot   = s.includes('.');
   const hasComma = s.includes(',');
@@ -292,7 +290,7 @@ function parseGenelCSV(csvText) {
       ims_tl,
       hedef_tl:       parseN(c[15]),   // P
       satis_tl:       parseN(c[16]),   // Q
-      kalan_tl:       parseN(c[17]),   // R
+      kalan_tl:       parseN(c[17]) || (parseN(c[15]) - parseN(c[16])), // R (fallback: hedef-satis)
       tl_pct,                           // S ×100
       prim_pct,                         // T ×100
       hedef_kutu:     parseN(c[24]),   // Y
