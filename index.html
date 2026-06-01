@@ -1586,12 +1586,8 @@ function toggleDarkMode(){
   document.documentElement.setAttribute('data-theme', newTheme);
   _applyDarkUI(newTheme==='dark');
   try{ localStorage.setItem('samsun_theme', newTheme); }catch(e){}
-  // Tüm aktif Chart.js instance'larını yeniden çiz (grid renkleri için)
-  if(typeof Chart !== 'undefined'){
-    Object.values(Chart.instances || {}).forEach(function(chart){
-      try{ chart.update(); }catch(e){}
-    });
-  }
+  // Tüm aktif chart renklerini temaya göre güncelle
+  if (typeof refreshChartThemes === 'function') refreshChartThemes();
 }
 
 // Sayfa yüklenince kaydedilmiş temayı uygula
