@@ -129,7 +129,21 @@ async function sendAiMsgWithText(text) {
   requestAnimationFrame(function(){ chatArea.scrollTop = chatArea.scrollHeight; });
   statusEl.textContent = '⏳ Düşünüyor...';
 
-  var context = buildTTTContext(_reqTTT);
+  // Phase 4.1 — Unified Context: buildExecutiveContext enriches the prompt
+  // Falls back to buildTTTContext if executive modules not loaded.
+  var context;
+  try {
+    if (typeof buildExecutiveContext === 'function') {
+      // buildExecutiveContext uses buildTTTContext + forecast + prim + simulator + territory
+      context = buildTTTContext(_reqTTT) +
+                buildExecutiveContext([_reqTTT]);
+    } else {
+      context = buildTTTContext(_reqTTT);
+    }
+  } catch (_ctxErr) {
+    console.warn('[ai-service] context build hata, fallback:', _ctxErr.message);
+    context = buildTTTContext(_reqTTT);
+  }
   var systemPrompt = 'Sen İLKO İlaç firmasının Samsun 2D bölgesi için çalışan uzman bir satış analisti ve stratejistsin.\n' +
     '2026 İLKO TTT prim sistemi:\n' +
     '- TL Real Primi: %91+ realizasyon, çarpan tablosu (baz: 55.000₺/dönem)\n' +

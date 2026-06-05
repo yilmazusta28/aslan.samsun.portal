@@ -38,20 +38,39 @@
       25. runrate-engine     — calculateRunRate
       26. forecast-engine    — generateForecast
       27. target-simulator   — simulateTargets, formatTargetsForAI
-      28. projection-engine  — buildProjectionReport, formatProjectionForAI,
-                               renderForecastSummary
+      28. projection-engine  — buildProjectionReport, formatProjectionForAI
       ── PHASE 3.2: Smart Target Simulator ────────────────────
       29. target-simulator-engine — simulateTarget, calculateTargetProbability
       30. prim-simulator          — simulatePrim, bestPrimScenario
-      31. scenario-builder        — buildScenario, analyzeProductImpact,
-                                    analyzeBrickImpact
-      32. action-planner          — buildActionPlan, buildFullSimulation,
-                                    formatSimulationForAI, renderTargetSimulator
+      31. scenario-builder        — buildScenario, analyzeProductImpact, analyzeBrickImpact
+      32. action-planner          — buildActionPlan, buildFullSimulation
+      ── PHASE 3.3: Territory Optimization ────────────────────
+      33. brick-analyzer    — analyzeBricks
+      34. visit-planner     — buildVisitPlan
+      35. workload-engine   — buildWorkload
+      36. territory-engine  — buildTerritoryStrategy, formatTerritoryForAI
+      ── PHASE 3.4: AI Sales Coach ────────────────────────────
+      37. performance-coach — analyzePerformance, _coachingPriorityScore
+      38. goal-coach        — generateGoalPlan
+      39. habit-engine      — generateSalesHabits
+      40. daily-plan-engine — generateDailyPlan
+      41. coach-engine      — buildSalesCoach, formatCoachForAI, renderCoachSummary
+      ── PHASE 4.0: Executive Dashboard AI ────────────────────
+      42. team-ranking-engine   — buildTeamRanking, getManagementCategories
+      43. team-risk-engine      — analyzeTeamRisk, getTeamRiskSummary
+      44. team-forecast-engine  — buildTeamForecast
+      45. executive-summary-engine — generateExecutiveSummary, generateManagementInsights
+      46. executive-engine      — buildExecutiveDashboard, buildExecutiveReport,
+                                   renderExecutiveDashboard
+      ── PHASE 4.1: Unified AI Context Engine ─────────────────
+      (ai-context.js içinde tanımlı — ayrı dosya yok)
+      buildForecastContext, buildPrimContext, buildSimulatorContext,
+      buildTerritoryContext, buildExecutiveContext
       ─────────────────────────────────────────────────────────
-      33. ai-context       — buildTTTContext (+ Phase 3.0/3.1/3.2 enrichment)
-      34. ai-service       — fetchAI, sendAiMsgWithText
-      35. ai-engine        — runEngine, renderEngine
-      36. <script>inline   — app init, DOMContentLoaded
+      47. ai-context  — buildTTTContext + tüm Phase enrichment blokları
+      48. ai-service  — fetchAI, sendAiMsgWithText (Phase 4.1 unified context)
+      49. ai-engine   — runEngine, renderEngine, engineAiAnalysis (Phase 4.1)
+      50. <script>inline — app init, DOMContentLoaded
      ═══════════════════════════════════════════════════════════════ -->
 <script src="js/core/async-guard.js"></script>
 <script src="js/core/constants.js"></script>
@@ -125,6 +144,29 @@
 <script src="js/ai/territory/workload-engine.js"></script>
 <script src="js/ai/territory/territory-engine.js"></script>
 <!-- END PHASE 3.3 Territory Optimization Engine -->
+
+<!-- PHASE 3.4: AI Sales Coach -->
+<script src="js/ai/coach/performance-coach.js"></script>
+<script src="js/ai/coach/goal-coach.js"></script>
+<script src="js/ai/coach/habit-engine.js"></script>
+<script src="js/ai/coach/daily-plan-engine.js"></script>
+<script src="js/ai/coach/coach-engine.js"></script>
+<!-- END PHASE 3.4 AI Sales Coach -->
+
+<!-- PHASE 4.0: Executive Dashboard AI
+     Yükleme sırası: ranking → risk → forecast → summary → executive
+     Rollback: bu 5 satırı sil. -->
+<script src="js/ai/executive/team-ranking-engine.js"></script>
+<script src="js/ai/executive/team-risk-engine.js"></script>
+<script src="js/ai/executive/team-forecast-engine.js"></script>
+<script src="js/ai/executive/executive-summary-engine.js"></script>
+<script src="js/ai/executive/executive-engine.js"></script>
+<!-- END PHASE 4.0 Executive Dashboard AI -->
+
+<!-- PHASE 4.1: Unified AI Context Engine
+     buildForecastContext, buildPrimContext, buildSimulatorContext,
+     buildTerritoryContext, buildExecutiveContext
+     — hepsi ai-context.js içinde tanımlandı, ayrı dosya yok -->
 
 <script src="js/ai/ai-context.js"></script>
 <script src="js/ai/ai-service.js"></script>
@@ -1586,8 +1628,12 @@ function toggleDarkMode(){
   document.documentElement.setAttribute('data-theme', newTheme);
   _applyDarkUI(newTheme==='dark');
   try{ localStorage.setItem('samsun_theme', newTheme); }catch(e){}
-  // Tüm aktif chart renklerini temaya göre güncelle
-  if (typeof refreshChartThemes === 'function') refreshChartThemes();
+  // Tüm aktif Chart.js instance'larını yeniden çiz (grid renkleri için)
+  if(typeof Chart !== 'undefined'){
+    Object.values(Chart.instances || {}).forEach(function(chart){
+      try{ chart.update(); }catch(e){}
+    });
+  }
 }
 
 // Sayfa yüklenince kaydedilmiş temayı uygula

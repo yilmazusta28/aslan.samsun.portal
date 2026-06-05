@@ -502,7 +502,19 @@ async function engineAiAnalysis(type) {
   </div>`;
   aiArea.scrollTop = aiArea.scrollHeight;
 
-  const ctx = buildTTTContext(engineSelTTT);
+  // Phase 4.1 — Unified Context: tüm motorların çıktısını birleştir
+  let ctx;
+  try {
+    ctx = buildTTTContext(engineSelTTT);
+    if (typeof buildForecastContext  === 'function') ctx += buildForecastContext(engineSelTTT);
+    if (typeof buildPrimContext      === 'function') ctx += buildPrimContext(engineSelTTT);
+    if (typeof buildSimulatorContext === 'function') ctx += buildSimulatorContext(engineSelTTT);
+    if (typeof buildTerritoryContext === 'function') ctx += buildTerritoryContext(engineSelTTT);
+    if (typeof buildExecutiveContext === 'function') ctx += buildExecutiveContext([engineSelTTT]);
+  } catch (_ctxErr) {
+    console.warn('[ai-engine] engineAiAnalysis context hata, fallback:', _ctxErr.message);
+    ctx = buildTTTContext(engineSelTTT);
+  }
   const today = new Date();
   const cur = PERIODS.find(p=>{const t=today.toISOString().slice(0,10);return t>=p.start&&t<=p.end;});
   const remDays = cur ? workDays(today.toISOString().slice(0,10), cur.end) : 0;

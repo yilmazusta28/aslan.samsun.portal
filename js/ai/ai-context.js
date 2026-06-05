@@ -264,6 +264,13 @@ Fırsat Brick (İlk333 + MI≥110 + GI≥100): ${migiRows.filter(r=>r.sira<=333&
     console.warn('[ai-context] Coach enrichment hata (sessiz):', _e.message);
   }
 
+  // Phase 4.1 — Unified Context enrichment blocks
+  // Her blok bağımsız try/catch içinde — birinin hata vermesi diğerlerini etkilemez.
+  ctx += buildForecastContext(ttt);
+  ctx += buildPrimContext(ttt);
+  ctx += buildSimulatorContext(ttt);
+  ctx += buildTerritoryContext(ttt);
+
   return ctx;
 }
 
@@ -316,12 +323,252 @@ function buildEczaneContext(ttt) {
 }
 
 
+// ══════════════════════════════════════════════════════════════════════
+//  PHASE 4.1 — UNIFIED AI CONTEXT ENGINE
+//  Her fonksiyon null-safe: veri yoksa "" döner, asla crash olmaz.
+// ══════════════════════════════════════════════════════════════════════
+
+// ── 1. buildForecastContext(ttt) ──────────────────────────────────────
+// Forecast Engine çıktısından AI-ready özet üretir.
+function buildForecastContext(ttt) {
+  try {
+    if (!ttt) return '';
+    var rr = (typeof calculateRunRate === 'function') ? calculateRunRate(ttt) : null;
+    var fc = (typeof generateForecast  === 'function') ? generateForecast(ttt)  : null;
+    if (!rr && !fc) return '';
+
+    var gt = (typeof GENEL !== 'undefined' ? GENEL : [])
+      .find(function (r) { return r.ttt === ttt && r.urun === 'GENEL TOPLAM'; });
+    if (!gt) return '';
+
+    var hedefTL   = gt.hedef_tl || 0;
+    var satisTL   = gt.satis_tl || 0;
+    if (hedefTL === 0 && (gt.tl_pct || 0) > 0 && satisTL > 0) {
+      hedefTL = Math.round(satisTL / ((gt.tl_pct || 1) / 100));
+    }
+
+    var projReal      = fc ? (fc.projectedReal || 0)      : (rr ? (rr.projectedRealization || 0) : 0);
+    var projTL        = fc ? (fc.projectedTL   || 0)      : (rr ? (rr.projectedMonthEnd    || 0) : 0);
+    var gap91         = Math.max(0, hedefTL * 0.91 - satisTL);
+    var remaining     = rr ? (rr.remainingDays  || 0) : 0;
+    var dailyReq      = remaining > 0 ? Math.round(gap91 / remaining) : 0;
+    var weeklyReq     = dailyReq * 5;
+    var methodology   = fc ? (fc.methodology || '—') : 'Run rate';
+    var confidence    = rr ? (rr.confidence  || 0)   : 0;
+    var riskLevel     = projReal >= 100 ? 'DÜŞÜK' : projReal >= 91 ? 'ORTA' : 'YÜKSEK';
+
+    var fmt = function (v) { return '₺' + Math.round(v).toLocaleString('tr-TR'); };
+
+    return [
+      '',
+      '--- FORECAST (Phase 4.1) ---',
+      'Tahmini Realizasyon : %' + projReal.toFixed(1),
+      'Tahmini TL          : ' + fmt(projTL),
+      'Gap (%91 için)      : ' + fmt(gap91),
+      'Kalan Gün           : ' + remaining,
+      'Günlük Hedef        : ' + fmt(dailyReq),
+      'Haftalık Hedef      : ' + fmt(weeklyReq),
+      'Risk Seviyesi       : ' + riskLevel,
+      'Güven               : %' + confidence,
+      'Metodoloji          : ' + methodology
+    ].join('\n');
+
+  } catch (e) {
+    console.warn('[ai-context] buildForecastContext hata (sessiz):', e.message);
+    return '';
+  }
+}
+
+// ── 2. buildPrimContext(ttt) ───────────────────────────────────────────
+// Prim durumu + %91 için gereken ek satışı özetler.
+function buildPrimContext(ttt) {
+  try {
+    if (!ttt) return '';
+    var gt = (typeof GENEL !== 'undefined' ? GENEL : [])
+      .find(function (r) { return r.ttt === ttt && r.urun === 'GENEL TOPLAM'; });
+    if (!gt) return '';
+
+    var realPct  = gt.tl_pct  || 0;
+    var hedefTL  = gt.hedef_tl || 0;
+    var satisTL  = gt.satis_tl || 0;
+    if (hedefTL === 0 && realPct > 0 && satisTL > 0) hedefTL = Math.round(satisTL / (realPct / 100));
+
+    var gap91    = Math.max(0, hedefTL * 0.91 - satisTL);
+    var primPuani = gt.prim_pct || 0;
+
+    // Prim hesabı
+    var totalPrim = 0, tlRealPrim = 0, portfoyPrim = 0, migiPrim = 0;
+    try {
+      if (typeof calcPrimForTTT === 'function') totalPrim = calcPrimForTTT(ttt);
+      if (typeof getCarpan === 'function' && realPct >= 91) {
+        var carpan = getCarpan(realPct);
+        tlRealPrim  = Math.round(carpan * 55000);
+        portfoyPrim = (primPuani >= 91) ? Math.round(0.20 * 55000 * carpan) : 0;
+      }
+      var migiRows = (typeof MIGI_TL_RAW !== 'undefined' ? MIGI_TL_RAW : []).filter(function (r) { return r.ttt === ttt; });
+      if (migiRows.length && typeof getMiGiKatsayi === 'function') {
+        var miAvg = migiRows.reduce(function (s, r) { return s + (r.mi || 100); }, 0) / migiRows.length;
+        var giAvg = migiRows.reduce(function (s, r) { return s + (r.gi || 100); }, 0) / migiRows.length;
+        migiPrim  = Math.round(getMiGiKatsayi(Math.round(miAvg), Math.round(giAvg)) * 14000);
+      }
+    } catch (pe) { /* silent */ }
+
+    var fmt = function (v) { return '₺' + Math.round(v).toLocaleString('tr-TR'); };
+
+    return [
+      '',
+      '--- PRİM (Phase 4.1) ---',
+      'TL Real             : %' + realPct.toFixed(1),
+      'Portföy Puanı       : ' + (primPuani > 0 ? ('%' + primPuani.toFixed(1)) : 'Hesaplanmadı'),
+      'TL Real Primi       : ' + fmt(tlRealPrim),
+      'Portföy Primi       : ' + fmt(portfoyPrim),
+      'MI&GI Primi         : ' + fmt(migiPrim),
+      'Toplam Tahmini Prim : ' + fmt(totalPrim),
+      '%91 İçin Kalan      : ' + fmt(gap91)
+    ].join('\n');
+
+  } catch (e) {
+    console.warn('[ai-context] buildPrimContext hata (sessiz):', e.message);
+    return '';
+  }
+}
+
+// ── 3. buildSimulatorContext(ttt, [simInputs]) ────────────────────────
+// Simülasyon sonucunu özetler.
+// simInputs = { PANOCER: 300, ACIDPASS: 200 } gibi ek kutu girişleri
+function buildSimulatorContext(ttt, simInputs) {
+  try {
+    if (!ttt) return '';
+
+    // Aktif kullanıcı simülasyonu varsa kullan, yoksa temel simülasyonu çalıştır
+    var simData = null;
+    if (typeof buildFullSimulation === 'function') {
+      try { simData = buildFullSimulation(ttt); } catch (se) { /* silent */ }
+    }
+    if (!simData) return '';
+
+    var scenarios = simData.simulations || [];
+    if (!scenarios.length) return '';
+
+    var lines = [
+      '',
+      '--- SİMÜLATÖR (Phase 4.1) ---'
+    ];
+
+    // Kullanıcı tarafından girilen simülasyon değerleri
+    if (simInputs && Object.keys(simInputs).length) {
+      lines.push('Kullanıcı Girişi:');
+      Object.keys(simInputs).forEach(function (urun) {
+        lines.push('  ' + urun + ' +' + simInputs[urun] + ' kutu');
+      });
+    }
+
+    // Senaryo sonuçları
+    scenarios.forEach(function (s) {
+      var icon = s.probability >= 80 ? '🟢' : s.probability >= 50 ? '🟡' : '🔴';
+      lines.push(icon + ' %' + s.target + ': olasılık %' + s.probability +
+        (s.requiredDailySales ? ' | günlük ₺' + s.requiredDailySales.toLocaleString('tr-TR') : ''));
+    });
+
+    // Best prim scenario
+    if (simData.bestPrim) {
+      var bp = simData.bestPrim;
+      lines.push('En Karlı Hedef: %' + bp.realization +
+        ' → ₺' + bp.prim.toLocaleString('tr-TR') + ' [' + bp.label + ']');
+    }
+
+    // Smart insights
+    if (simData.smartInsights && simData.smartInsights.length) {
+      lines.push('Simülasyon Görüşü: ' + simData.smartInsights[0]);
+    }
+
+    return lines.join('\n');
+
+  } catch (e) {
+    console.warn('[ai-context] buildSimulatorContext hata (sessiz):', e.message);
+    return '';
+  }
+}
+
+// ── 4. buildTerritoryContext(ttt) ─────────────────────────────────────
+// Bölge analizi özetini ekler.
+function buildTerritoryContext(ttt) {
+  try {
+    if (!ttt) return '';
+    if (typeof buildTerritoryStrategy !== 'function') return '';
+
+    var terr = buildTerritoryStrategy(ttt);
+    if (!terr) return '';
+
+    var lines = [
+      '',
+      '--- BÖLGE (Phase 4.1) ---'
+    ];
+
+    // Risk brickler
+    if (terr.rescueBricks && terr.rescueBricks.length) {
+      lines.push('Risk Brickler:');
+      terr.rescueBricks.slice(0, 3).forEach(function (b) {
+        lines.push('  🔴 ' + b.brick + (b.reason ? ': ' + b.reason : ''));
+      });
+    }
+
+    // Güçlü brickler
+    if (terr.topBricks && terr.topBricks.length) {
+      lines.push('Güçlü Brickler:');
+      terr.topBricks.slice(0, 3).forEach(function (b) {
+        lines.push('  🚀 ' + b.brick + (b.reason ? ': ' + b.reason : ''));
+      });
+    }
+
+    // Büyüme fırsatları
+    if (terr.opportunities && terr.opportunities.length) {
+      lines.push('Büyüme Fırsatları:');
+      terr.opportunities.slice(0, 2).forEach(function (o) {
+        lines.push('  💡 ' + o.brick + (o.reason ? ': ' + o.reason : ''));
+      });
+    }
+
+    // Stratejik öncelikler
+    if (terr.strategy && terr.strategy.length) {
+      lines.push('Öneri:');
+      terr.strategy.slice(0, 2).forEach(function (s) {
+        lines.push('  ' + s.action);
+      });
+    }
+
+    return lines.join('\n');
+
+  } catch (e) {
+    console.warn('[ai-context] buildTerritoryContext hata (sessiz):', e.message);
+    return '';
+  }
+}
+
+// ── 5. buildExecutiveContext([ttts]) ──────────────────────────────────
+// Ekip geneli yönetici context'i — birden fazla TTT veya tüm ekip.
+// Bu fonksiyon hem ŞENOL YILMAZ için hem de ekip genel analizinde kullanılır.
+function buildExecutiveContext(ttts) {
+  try {
+    var executive = (typeof buildExecutiveDashboard === 'function')
+      ? buildExecutiveDashboard(ttts) : null;
+
+    if (!executive) return '';
+
+    return (typeof buildExecutiveReport === 'function')
+      ? buildExecutiveReport(executive) : '';
+
+  } catch (e) {
+    console.warn('[ai-context] buildExecutiveContext hata (sessiz):', e.message);
+    return '';
+  }
+}
+
 // ── LOGIN ──────────────────────────────────────────────────
 
 
 // ── aiQuick — hızlı analiz tetikleyici ────────────────────────
-// Kaynak: index.html L686-710
-// sendAiMsgWithText'e hazır prompt gönderir — iş mantığı değişmez
+// Phase 4.1: artık buildExecutiveContext() ile zenginleştirilmiş context kullanır.
 function aiQuick(type) {
   if (typeof switchAiTab === 'function') switchAiTab('chat');
   var prompts = {
