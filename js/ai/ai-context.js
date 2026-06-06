@@ -289,6 +289,17 @@ Fırsat Brick (İlk333 + MI≥110 + GI≥100): ${migiRows.filter(r=>r.sira<=333&
     console.warn('[ai-context] PharmacyIntelligence enrichment hata (sessiz):', _pie.message);
   }
 
+  // Phase 4.6 — Reorder Intelligence enrichment
+  // Sipariş olasılığı + sınıflandırma + forecast + yeniden kazanım fırsatları.
+  // Rollback: bu try bloğunu sil.
+  try {
+    if (typeof buildReorderContext === 'function' && window._REORDER_INTELLIGENCE_READY) {
+      ctx += buildReorderContext(ttt);
+    }
+  } catch (_rie) {
+    console.warn('[ai-context] ReorderIntelligence enrichment hata (sessiz):', _rie.message);
+  }
+
   return ctx;
 }
 
