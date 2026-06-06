@@ -242,27 +242,13 @@ function _runEngineCore() {
   })();
   const toplamPrim = primTL + primPort + primMIGI;
 
-  // ── Günlük görev kartları oluştur ───────────────────────
-  // Kart 1: Bugün git (Brick rotası)
-  let brickTasks = '';
-  if (critBricks.length) {
-    brickTasks = critBricks.map((b,i)=>`
-      <div class="task-row">
-        <div class="task-priority tp-${i===0?'1':i===1?'2':'3'}">${i+1}</div>
-        <div class="task-text">
-          <div class="task-main">${b.brick}</div>
-          <div class="task-detail">
-            <span class="task-tag tt-brick">Sıra #${b.sira}</span>
-            MI: ${b.mi?.toFixed(0)||'—'} · GI: ${b.gi?.toFixed(0)||'—'}
-            ${b.mi<90?'<span class="task-tag tt-risk">MI Riski</span>':b.gi<90?'<span class="task-tag tt-risk">GI Riski</span>':''}
-          </div>
-        </div>
-      </div>`).join('');
-  } else {
-    brickTasks = '<div style="color:var(--dim);font-size:12px;text-align:center;padding:20px">İlk 333\'te risk brick yok 🎉</div>';
-  }
+  // ── Haftalık görev kartları oluştur ─────────────────────────────────
+  // Kart 1: Haftalık Brick Rotası (Bugün Git kaldırıldı — Phase 4.6.4)
+  // Kart 2: Bugün Sat (Ürün hedefleri — korundu)
+  // Kart 3: Bu Haftanın Top30 Eczane Planı — localStorage'da haftalık sabit
+  // Kart 4: Prim Durumu — korundu
 
-  // Kart 2: Bugün sat (Ürün hedefleri)
+  // Kart 2: Ürün hedefleri
   const urunTasks = urunKPI.filter(r=>!r.hedeyeUlasti).map((r,i)=>`
     <div class="task-row">
       <div class="task-priority ${r.tl_pct<70?'tp-1':r.tl_pct<91?'tp-2':'tp-ok'}">${r.tl_pct<70?'!':r.tl_pct<91?'↑':'✓'}</div>
@@ -275,21 +261,110 @@ function _runEngineCore() {
       </div>
     </div>`).join('') || '<div style="color:var(--dim);font-size:12px;text-align:center;padding:20px">Tüm ürünler hedefe ulaştı 🏆</div>';
 
-  // Kart 3: Eczane öncelikleri
-  const eczTasks = topEcz.slice(0,4).map((e,i)=>{
-    const urunStr = e.uruns ? [...e.uruns].slice(0,2).join('/') : (e.urun||'');
-    return `
-    <div class="task-row">
-      <div class="task-priority tp-${i<2?'2':'3'}">${i+1}</div>
-      <div class="task-text">
-        <div class="task-main">${e.ad||'Eczane'}</div>
-        <div class="task-detail">
-          <span class="task-tag tt-brick">${e.brick||'—'}</span>
-          Toplam ${fK(e.toplam||0)} kutu · ${urunStr}
-        </div>
-      </div>
-    </div>`;
-  }).join('') || `<div style="color:var(--dim);font-size:12px;text-align:center;padding:20px">${!eczaneLoaded?'⏳ Eczane verisi yükleniyor… Motoru tekrar çalıştırın.':'Eczane verisi yok'}</div>`;
+  // ── Kart 3: Bu Haftanın Top30 Eczane Planı ────────────────────────
+  // ISO hafta anahtarı — her Pazartesi otomatik yenilenir
+  const _isoWeekKey = () => {
+    const d = new Date();
+    const dow = d.getDay() || 7;
+    d.setDate(d.getDate() + 4 - dow);
+    const y = d.getFullYear();
+    const jan1 = new Date(y, 0, 1);
+    const wk = Math.ceil((((d - jan1) / 86400000) + 1) / 7);
+    return `${y}-W${String(wk).padStart(2,'0')}`;
+  };
+  const _thisWeek    = _isoWeekKey();
+  const _cacheKey    = `WPP_V2_${ttt}_${_thisWeek}`;  // Weekly Pharmacy Plan
+
+  // Önce cache'e bak
+  let _weeklyPlan = null;
+  try {
+    const _raw = localStorage.getItem(_cacheKey);
+    if (_raw) _weeklyPlan = JSON.parse(_raw);
+  } catch(_) {}
+
+  // Cache yoksa veya bu hafta için değilse: hesapla + kaydet
+  if (!_weeklyPlan || !_weeklyPlan.list || !_weeklyPlan.list.length) {
+    let _src = [];
+    try {
+      // pharmacy-intelligence.js (Phase 4.6.4) — birincil kaynak
+      if (typeof runPharmacyIntelligence === 'function' && window._PHARMACY_INTELLIGENCE_READY) {
+        runPharmacyIntelligence(ttt);
+        _src = (window.PHARMACY_INTELLIGENCE && window.PHARMACY_INTELLIGENCE.top30) || [];
+      }
+      // reorder-classifier.js (Phase 4.6.1) — fallback
+      if (!_src.length && typeof buildClassifierTop30 === 'function') {
+        _src = buildClassifierTop30(ttt) || [];
+      }
+    } catch(_e) { console.warn('[ai-engine] weekly plan oluşturma hata:', _e.message); }
+
+    if (_src.length) {
+      _weeklyPlan = {
+        weekKey:     _thisWeek,
+        ttt,
+        generatedAt: new Date().toISOString(),
+        list: _src.slice(0, 30).map((e, i) => ({
+          rank:               i + 1,
+          eczane:             e.eczane || e.ad || '—',
+          brick:              e.brick  || '—',
+          classification:     e.classification || 'OTHER',
+          reorderProbability: e.reorderProbability ?? e.score ?? 0,
+          expectedOrderBoxes: e.expectedOrderBoxes ?? e.forecastBoxes ?? 0,
+          opportunityScore:   e.opportunityScore   ?? 0,
+          visitPriorityScore: e.visitPriorityScore ?? e.score ?? 0,
+          daysToNextOrder:    e.daysToNextOrder    ?? 99,
+          expectedOrderDate:  e.expectedOrderDate  ?? '—'
+        }))
+      };
+      try { localStorage.setItem(_cacheKey, JSON.stringify(_weeklyPlan)); } catch(_) {}
+    }
+  }
+
+  // Rozet renk map
+  const _clsMap = {
+    REGULAR_BUYER:  ['#EFF6FF','#1D4ED8','✓ Düzenli'],
+    GROWING:        ['#DCFCE7','#15803D','↑ Büyüyen'],
+    AT_RISK:        ['#FEE2E2','#DC2626','⚠ Risk'],
+    REACTIVATION:   ['#F3E8FF','#7C3AED','🔄 Kazanım'],
+    CAMPAIGN_BUYER: ['#FEF3C7','#D97706','⚡ Kampanya'],
+    OTHER:          ['#F1F5F9','#64748B','· Diğer']
+  };
+  const _clsBadge = (cls) => {
+    const c = _clsMap[cls] || _clsMap['OTHER'];
+    return `<span style="font-size:9px;font-weight:700;background:${c[0]};color:${c[1]};border-radius:4px;padding:1px 5px">${c[2]}</span>`;
+  };
+
+  // Hafta etiketi için okunabilir format
+  const [_wYear, _wNum] = _thisWeek.split('-W');
+  const _weekLabel = `${_wYear} / ${_wNum}. Hafta`;
+
+  // Top30 satırları — kompakt liste (scroll'lı)
+  const _top30Count = _weeklyPlan?.list?.length || 0;
+  const eczTasks = _weeklyPlan && _top30Count > 0
+    ? _weeklyPlan.list.map(e => {
+        const pColor = e.reorderProbability >= 70 ? '#16A34A' : e.reorderProbability >= 45 ? '#D97706' : '#DC2626';
+        const orderTag = e.daysToNextOrder <= 0
+          ? `<span style="color:#DC2626;font-weight:800;font-size:9px">⚡Bugün</span>`
+          : e.daysToNextOrder <= 7
+            ? `<span style="color:#D97706;font-weight:700;font-size:9px">${e.daysToNextOrder}g</span>`
+            : `<span style="color:var(--dim);font-size:9px">${e.daysToNextOrder}g</span>`;
+        return `
+        <div class="task-row" style="padding:5px 8px;border-bottom:1px solid var(--border)">
+          <div class="task-priority tp-${e.rank<=10?'1':e.rank<=20?'2':'3'}" style="min-width:20px;width:20px;height:20px;font-size:9px;border-radius:6px">${e.rank}</div>
+          <div class="task-text" style="flex:1;min-width:0">
+            <div class="task-main" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px">${e.eczane}</div>
+            <div class="task-detail" style="display:flex;align-items:center;gap:3px;flex-wrap:wrap">
+              <span class="task-tag tt-brick" style="font-size:8px">${e.brick}</span>
+              ${_clsBadge(e.classification)}
+              <span style="font-size:9px;color:${pColor};font-weight:700">%${e.reorderProbability}</span>
+              <span style="font-size:9px;color:#0891B2;font-weight:700">${e.expectedOrderBoxes}K</span>
+              ${orderTag}
+            </div>
+          </div>
+        </div>`;
+      }).join('')
+    : `<div style="color:var(--dim);font-size:12px;text-align:center;padding:20px">
+        ${!eczaneLoaded ? '⏳ Eczane verisi yükleniyor…' : 'Motor çalıştırıldığında plan oluşturulur.'}
+       </div>`;
 
   // Kart 4: Prim durumu
   const primTasks = `
@@ -322,15 +397,8 @@ function _runEngineCore() {
       </div>
     </div>`;
 
-  // Task grid doldur
+  // Task grid doldur — 3 kart: Ürün Hedefi | Haftalık Top30 | Prim
   document.getElementById('engineTaskGrid').innerHTML = `
-    <div class="task-card">
-      <div class="task-card-header">
-        <div class="task-card-icon" style="background:linear-gradient(135deg,rgba(79,0,140,.1),rgba(79,0,140,.05))">🗺️</div>
-        <div><div class="task-card-title">Bugün Git</div><div class="task-card-sub">Öncelikli Brick Rotası</div></div>
-      </div>
-      ${brickTasks}
-    </div>
     <div class="task-card">
       <div class="task-card-header">
         <div class="task-card-icon" style="background:linear-gradient(135deg,rgba(27,206,216,.1),rgba(27,206,216,.05))">💊</div>
@@ -340,10 +408,13 @@ function _runEngineCore() {
     </div>
     <div class="task-card">
       <div class="task-card-header">
-        <div class="task-card-icon" style="background:linear-gradient(135deg,rgba(217,119,6,.1),rgba(217,119,6,.05))">🏥</div>
-        <div><div class="task-card-title">Öncelikli Eczaneler</div><div class="task-card-sub">Top ${Math.min(4,topEcz.length)} Müşteri</div></div>
+        <div class="task-card-icon" style="background:linear-gradient(135deg,rgba(79,0,140,.1),rgba(79,0,140,.05))">🏥</div>
+        <div>
+          <div class="task-card-title">Bu Haftanın Eczane Planı</div>
+          <div class="task-card-sub">${_weekLabel} · ${_top30Count} eczane · <span style="color:#0891B2;font-size:8px">Pazartesi yenilenir</span></div>
+        </div>
       </div>
-      ${eczTasks}
+      <div style="max-height:340px;overflow-y:auto;margin:0 -8px">${eczTasks}</div>
     </div>
     <div class="task-card">
       <div class="task-card-header">
@@ -353,28 +424,8 @@ function _runEngineCore() {
       ${primTasks}
     </div>`;
 
-  // ── Risk paneli ─────────────────────────────────────────
-  const riskHtml = [
-    ...riskBricks.slice(0,4).map(b=>`
-      <div class="risk-item ri-danger">
-        <div class="risk-item-name">⚠️ ${b.brick}</div>
-        <div class="risk-item-detail">Sıra #${b.sira} · MI: ${b.mi?.toFixed(0)||'—'} · GI: ${b.gi?.toFixed(0)||'—'}<br>
-        ${b.mi<90?'<b>MI indeksi kritik!</b>':''} ${b.gi<90?'<b>GI indeksi kritik!</b>':''}</div>
-      </div>`),
-    ...urunKPI.filter(r=>r.tl_pct<70).map(r=>`
-      <div class="risk-item ri-warn">
-        <div class="risk-item-name">📉 ${r.urun}</div>
-        <div class="risk-item-detail">Gerçekleşme: %${r.tl_pct?.toFixed(1)||0}${r.kalan>0?' · Kalan: '+fTL(r.kalan):''}<br>
-        Günlük hedef: ${r.gunlukKutu > 0 ? r.gunlukKutu + ' kutu' : (r.tl_pct < 100 ? 'Hedef TL eksik — CSV güncelle' : '✅')} (${remDays} gün kaldı)</div>
-      </div>`),
-    ...imsRiskBricks.slice(0,2).map(b=>`
-      <div class="risk-item ri-warn">
-        <div class="risk-item-name">📊 ${b.brick}</div>
-        <div class="risk-item-detail">IMS Pay: %${b.ppi} (eşik %15) · Pazar: ${fK(b.mkt)} kutu<br>Rakip baskısı yüksek!</div>
-      </div>`),
-  ].join('') || '<div style="color:var(--good);font-size:12px;padding:12px;text-align:center">Risk tespit edilmedi 🎉</div>';
-
-  // ── Fırsat paneli ───────────────────────────────────────
+  // Risk & Fırsat panelleri — Acil Riskler kaldırıldı (Phase 4.6.4)
+  // Büyüme Fırsatları paneli korundu
   const oppHtml = [
     ...oppBricks.slice(0,4).map(b=>`
       <div class="risk-item ri-good">
@@ -390,8 +441,7 @@ function _runEngineCore() {
       </div>`),
   ].slice(0,5).join('') || '<div style="color:var(--dim);font-size:12px;padding:12px;text-align:center">Analiz için daha fazla veri gerekli</div>';
 
-  document.getElementById('engineRisks').innerHTML = riskHtml;
-  document.getElementById('engineOpps').innerHTML  = oppHtml;
+  document.getElementById('engineOpps').innerHTML = oppHtml;
 
   // ── Haftalık Strateji Timeline ──────────────────────────
   const totalWeeks = Math.ceil(remDays / 5);

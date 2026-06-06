@@ -4633,10 +4633,10 @@ function _buildEczaneDrawerRefresh(){
       <!-- Motor çıktısı (başta gizli) -->
       <div id="engineOutput" style="display:none;padding:18px">
 
-        <!-- Günlük Görev Listesi -->
+        <!-- Bu Haftanın Görev Listesi -->
         <div class="card mb16" style="border:1.5px solid rgba(79,0,140,.15)">
           <div class="card-hd" style="background:linear-gradient(90deg,rgba(79,0,140,.04),transparent)">
-            <span class="card-title"><i class="fas fa-list-check"></i> Bugünün Görev Listesi</span>
+            <span class="card-title"><i class="fas fa-list-check"></i> Bu Haftanın Görev Listesi</span>
             <span class="card-badge" id="taskDateBadge">—</span>
           </div>
           <div class="card-body" style="padding:14px 18px">
@@ -4644,15 +4644,8 @@ function _buildEczaneDrawerRefresh(){
           </div>
         </div>
 
-        <!-- Risk & Fırsat -->
+        <!-- Büyüme Fırsatları (Acil Riskler kaldırıldı — Phase 4.6.4) -->
         <div class="risk-grid mb16">
-          <div class="risk-panel">
-            <div class="risk-panel-title" style="color:#DC2626">
-              <div style="width:32px;height:32px;border-radius:10px;background:#FEF2F2;display:flex;align-items:center;justify-content:center;font-size:15px">⚠️</div>
-              Acil Riskler
-            </div>
-            <div id="engineRisks"></div>
-          </div>
           <div class="risk-panel">
             <div class="risk-panel-title" style="color:#059669">
               <div style="width:32px;height:32px;border-radius:10px;background:#ECFDF5;display:flex;align-items:center;justify-content:center;font-size:15px">🚀</div>
