@@ -219,18 +219,27 @@ function _runEngineCore() {
   const topEcz   = [...aktifEcz].sort((a,b)=>b.toplam-a.toplam).slice(0,8);
 
   // ── Prim durumu hesapla (prim-calc.js fonksiyonları kullanılıyor) ───────────
-  const _effReal  = gt?.tl_pct || 0;
-  const _carpan   = (typeof getCarpan === 'function') ? getCarpan(_effReal) : 0;
-  const primTL    = _effReal >= 91 ? 55000 * _carpan : 0;
-  const primPuan  = gt?.prim_pct || calcPrimPuani(Object.fromEntries(urunRows.map(r=>[r.urun,r.tl_pct])), ttt);
-  const primPort  = (_effReal >= 91 && primPuan >= 91) ? (0.20 * 55000 * _carpan) : 0;
-  const primMIGI  = _effReal >= 70 ? (() => {
-    if (!migiRows.length) return 0;
-    const miAvg = migiRows.filter(r=>r.mi!=null).reduce((s,r)=>s+r.mi,0)/Math.max(1,migiRows.filter(r=>r.mi!=null).length);
-    const giAvg = migiRows.filter(r=>r.gi!=null).reduce((s,r)=>s+r.gi,0)/Math.max(1,migiRows.filter(r=>r.gi!=null).length);
-    const katsayi = (typeof getMiGiKatsayi === 'function') ? getMiGiKatsayi(Math.round(miAvg), Math.round(giAvg)) : 0;
-    return 14000 * katsayi;
-  })() : 0;
+  // ── Prim hesabı — prim-calc.js canonical fonksiyonlarıyla ───────────
+  const _effReal   = gt?.tl_pct || 0;
+  const _carpan    = (typeof getCarpan    === 'function') ? getCarpan(_effReal)    : 0;
+  const BAZ_TL     = 55000;
+  const BAZ_MIGI   = 14000;
+  const primTL     = _effReal >= 91 ? BAZ_TL * _carpan : 0;
+  const primPuan   = gt?.prim_pct || (typeof calcPrimPuani === 'function'
+    ? calcPrimPuani(Object.fromEntries(urunRows.map(r=>[r.urun,r.tl_pct])), ttt)
+    : 0);
+  const primPort   = (_effReal >= 91 && primPuan >= 91) ? (0.20 * BAZ_TL * _carpan) : 0;
+  const primMIGI   = (() => {
+    if (_effReal < 70 || !migiRows.length) return 0;
+    const miArr    = migiRows.filter(r=>r.mi!=null);
+    const giArr    = migiRows.filter(r=>r.gi!=null);
+    if (!miArr.length || !giArr.length) return 0;
+    const miAvg    = miArr.reduce((s,r)=>s+r.mi,0) / miArr.length;
+    const giAvg    = giArr.reduce((s,r)=>s+r.gi,0) / giArr.length;
+    const katsayi  = (typeof getMiGiKatsayi === 'function')
+      ? getMiGiKatsayi(Math.round(miAvg), Math.round(giAvg)) : 0;
+    return BAZ_MIGI * katsayi;
+  })();
   const toplamPrim = primTL + primPort + primMIGI;
 
   // ── Günlük görev kartları oluştur ───────────────────────
@@ -429,7 +438,10 @@ function _runEngineCore() {
   // ── Prim Optimizasyon Senaryosu ─────────────────────────
   const hedefReal = 91;
   const gerekliKalanTL = gt && gt.hedef_tl ? gt.hedef_tl * hedefReal/100 - gt.satis_tl : 0;
-  const gerekliTLStr = gerekliKalanTL > 0 ? fTL(Math.max(0,gerekliKalanTL)) + ' daha satmalı' : '✅ Hedef aşıldı';
+  // Kapalı dönem kontrolü: kalan gün 0 ise artık "daha satmalı" gösterme
+  const gerekliTLStr = remDays <= 0
+    ? (gerekliKalanTL > 0 ? '🔒 Dönem Kapandı' : '✅ Hedef Aşıldı')
+    : (gerekliKalanTL > 0 ? fTL(Math.max(0,gerekliKalanTL)) + ' daha satmalı' : '✅ Hedef aşıldı');
 
   document.getElementById('enginePrimPanel').innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:16px">

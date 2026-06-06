@@ -52,6 +52,13 @@ function parseN(v) {
   s = s.replace('%', '').trim();   // % işaretini kaldır
   if (!s || s === '-') return 0;
 
+  // Excel parantez-negatif format: (972.456) veya (1.234,56)
+  let negative = false;
+  if (s.startsWith('(') && s.endsWith(')')) {
+    negative = true;
+    s = s.slice(1, -1).trim();
+  }
+
   const hasDot   = s.includes('.');
   const hasComma = s.includes(',');
 
@@ -79,7 +86,8 @@ function parseN(v) {
   }
 
   const r = parseFloat(s);
-  return isNaN(r) ? 0 : r;
+  if (isNaN(r)) return 0;
+  return negative ? -r : r;
 }
 
 // ─── TTT NORMALIZER ─────────────────────────────────────────

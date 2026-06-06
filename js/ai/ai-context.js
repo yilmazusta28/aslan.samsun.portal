@@ -159,12 +159,17 @@ ${r.urun}: %${r.tl_pct?.toFixed(1)||0} (Hedef: ${(r.hedef_tl/1000).toFixed(0)}K,
       }
       URUN_ORDER.forEach(urun=>{
         const r = GENEL.find(g=>g.ttt===ttt&&g.urun===urun);
-        if (!r || r.kalan_tl<=0) return;
+        if (!r) return;
         const p = IMS_TL_MAP[urun]||0;
-        if (p>0) {
-          const kalanKutu = Math.round(r.kalan_tl / p);
-          ctx += `\n  ${urun}: Kalan ${fTL(r.kalan_tl)} → ${fK(kalanKutu)} kutu gerekli (${p}₺/kutu)`;
+        if (p<=0) return;
+        // kalan_tl 0 veya eksikse hedef-satis fallback kullan
+        let kalanTL = r.kalan_tl;
+        if (!(kalanTL > 0) && r.hedef_tl > 0 && r.satis_tl >= 0) {
+          kalanTL = Math.max(0, r.hedef_tl - r.satis_tl);
         }
+        if (!(kalanTL > 0)) return;
+        const kalanKutu = Math.round(kalanTL / p);
+        ctx += `\n  ${urun}: Kalan ${fTL(kalanTL)} → ${fK(kalanKutu)} kutu gerekli (${p}₺/kutu)`;
       });
     }
   }
