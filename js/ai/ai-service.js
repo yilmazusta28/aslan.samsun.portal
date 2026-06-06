@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════
-//  SAMSUN 2D PORTAL  ·  ai-service.js
+//  PHARMA VISION PORTAL  ·  ai-service.js
 //  Phase 2.0 extraction — index.html L724-976, L722, L5535
 //
 //  Sorumluluk:
@@ -144,7 +144,7 @@ async function sendAiMsgWithText(text) {
     console.warn('[ai-service] context build hata, fallback:', _ctxErr.message);
     context = buildTTTContext(_reqTTT);
   }
-  var systemPrompt = 'Sen İLKO İlaç firmasının Samsun 2D bölgesi için çalışan uzman bir satış analisti ve stratejistsin.\n' +
+  var systemPrompt = 'Sen İLKO İlaç firmasının PHARMA VISION bölgesi için çalışan uzman bir satış analisti ve stratejistsin.\n' +
     '2026 İLKO TTT prim sistemi:\n' +
     '- TL Real Primi: %91+ realizasyon, çarpan tablosu (baz: 55.000₺/dönem)\n' +
     '- Portföy Primi: %91+ TL real VE %91+ prim puanı (baz: 11.000₺)\n' +

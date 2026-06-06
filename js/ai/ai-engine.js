@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════
-//  SAMSUN 2D PORTAL  ·  ai-engine.js
+//  PHARMA VISION PORTAL  ·  ai-engine.js
 //  Phase 2.0 extraction — index.html L5122-5745
 //
 //  Sorumluluk:
@@ -216,15 +216,19 @@ function _runEngineCore() {
   const aktifEcz = Object.values(_eczMap).filter(e=>e.toplam>0);
   const topEcz   = [...aktifEcz].sort((a,b)=>b.toplam-a.toplam).slice(0,8);
 
-  // ── Prim durumu hesapla ─────────────────────────────────
-  const primTL   = gt?.tl_pct >= 91 ? 55000 * (gt.tl_pct>=130?2.5:gt.tl_pct>=120?2.0:gt.tl_pct>=110?1.6:gt.tl_pct>=105?1.3:gt.tl_pct>=100?1.1:gt.tl_pct>=95?1.0:0.9) : 0;
-  const primPuan = gt?.prim_pct || calcPrimPuani(Object.fromEntries(urunRows.map(r=>[r.urun,r.tl_pct])), ttt);
-  const primPort = (gt?.tl_pct>=91 && primPuan>=91) ? 11000 : 0;
-  const primMIGI = gt?.tl_pct>=70 ? 14000 * (migiRows.length > 0 ? (() => {
-    const miAvg = migiRows.reduce((s,r)=>s+r.mi,0)/Math.max(1,migiRows.length);
-    const giAvg = migiRows.reduce((s,r)=>s+r.gi,0)/Math.max(1,migiRows.length);
-    return Math.min((miAvg/100)*(giAvg/100),2.5).toFixed(2);
-  })() : 1) : 0;
+  // ── Prim durumu hesapla (prim-calc.js fonksiyonları kullanılıyor) ───────────
+  const _effReal  = gt?.tl_pct || 0;
+  const _carpan   = (typeof getCarpan === 'function') ? getCarpan(_effReal) : 0;
+  const primTL    = _effReal >= 91 ? 55000 * _carpan : 0;
+  const primPuan  = gt?.prim_pct || calcPrimPuani(Object.fromEntries(urunRows.map(r=>[r.urun,r.tl_pct])), ttt);
+  const primPort  = (_effReal >= 91 && primPuan >= 91) ? (0.20 * 55000 * _carpan) : 0;
+  const primMIGI  = _effReal >= 70 ? (() => {
+    if (!migiRows.length) return 0;
+    const miAvg = migiRows.filter(r=>r.mi!=null).reduce((s,r)=>s+r.mi,0)/Math.max(1,migiRows.filter(r=>r.mi!=null).length);
+    const giAvg = migiRows.filter(r=>r.gi!=null).reduce((s,r)=>s+r.gi,0)/Math.max(1,migiRows.filter(r=>r.gi!=null).length);
+    const katsayi = (typeof getMiGiKatsayi === 'function') ? getMiGiKatsayi(Math.round(miAvg), Math.round(giAvg)) : 0;
+    return 14000 * katsayi;
+  })() : 0;
   const toplamPrim = primTL + primPort + primMIGI;
 
   // ── Günlük görev kartları oluştur ───────────────────────
@@ -525,7 +529,7 @@ async function engineAiAnalysis(type) {
   const remDays = cur ? workDays(today.toISOString().slice(0,10), cur.end) : 0;
 
   const prompts = {
-    full: `Görev Motoru — Samsun 2D Kapsamlı Analiz
+    full: `Görev Motoru — PHARMA VISION Kapsamlı Analiz
 
 Temsilci: ${engineSelTTT} | Kalan: ${remDays} iş günü
 
@@ -594,7 +598,7 @@ Bu gap'i eczane bazında nasıl dağıt?
 ${ctx}`
   };
 
-  const systemPrompt = `Sen İLKO İlaç Samsun 2D bölgesi için çalışan uzman satış stratejistsin.
+  const systemPrompt = `Sen İLKO İlaç PHARMA VISION bölgesi için çalışan uzman satış stratejistsin.
 Net, somut, uygulanabilir Türkçe yanıtlar ver. Her öneri için sayısal hedef belirt.
 Brick ve eczane isimlerini mutlaka kullan.
 Format: başlıklar bold (**Başlık**), maddeler net ve kısa.

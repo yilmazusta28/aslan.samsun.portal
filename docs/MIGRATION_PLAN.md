@@ -1,4 +1,4 @@
-# Samsun 2D Portal — Modülerizasyon Göç Planı
+# PHARMA VISION Portal — Modülerizasyon Göç Planı
 **Versiyon:** Phase 1 Plan  
 **Tarih:** 2026-05-18  
 **Kapsam:** Stabilizasyon ve Modülerizasyon (Yeniden Yazım DEĞİL)

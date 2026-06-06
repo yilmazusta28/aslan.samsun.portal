@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════
-//  SAMSUN 2D PORTAL  ·  ai-context.js
+//  PHARMA VISION PORTAL  ·  ai-context.js
 //  Phase 2.0 extraction — index.html L507-685, L1468-1515
 //
 //  Sorumluluk:
@@ -61,7 +61,7 @@ function buildTTTContext(ttt) {
   const _senOrtaPct  = _hedefTL > 0 ? (_senOrta /_hedefTL*100).toFixed(1) : '—';
   const _senKotuPct  = _hedefTL > 0 ? (_senKotu /_hedefTL*100).toFixed(1) : '—';
 
-  let ctx = `=== SAMSUN 2D SATIŞ VERİLERİ ===
+  let ctx = `=== PHARMA VISION SATIŞ VERİLERİ ===
 Temsilci: ${ttt} | TR Sırası: #${trSira}
 Dönem: ${_curPeriod ? _curPeriod.label + ' (' + _curPeriod.months + ')' : '2026 Dönemi'}
 Dönem aralığı: ${_curPeriod ? _curPeriod.start + ' → ' + _curPeriod.end : '—'}
