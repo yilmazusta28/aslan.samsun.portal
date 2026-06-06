@@ -305,6 +305,17 @@ Fırsat Brick (İlk333 + MI≥110 + GI≥100): ${migiRows.filter(r=>r.sira<=333&
     console.warn('[ai-context] ReorderIntelligence enrichment hata (sessiz):', _rie.message);
   }
 
+  // Phase 4.7 — Smart Route Optimizer enrichment
+  // Rota planı + URGENT/OPPORTUNITY/RECOVERY önceliklendirmesi.
+  // Rollback: bu try bloğunu sil + route-optimizer.js yükleme satırını kaldır
+  try {
+    if (typeof buildRouteContext === 'function' && window._ROUTE_OPTIMIZER_READY) {
+      ctx += buildRouteContext(ttt);
+    }
+  } catch (_roe) {
+    console.warn('[ai-context] RouteOptimizer enrichment hata (sessiz):', _roe.message);
+  }
+
   // Phase 4.6.1 — Reorder Classification Engine enrichment
   // REGULAR_BUYER | GROWING | AT_RISK | REACTIVATION | CAMPAIGN_BUYER sınıflandırması
   // + reorderProbability + forecastBoxes + Top30 tablosu

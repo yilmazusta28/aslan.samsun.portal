@@ -645,7 +645,8 @@ ZAMAN DUYARLI DEĞERLENDİRME — MUTLAKA UYGULA:
 - Değerlendirme çerçeven: (1) Mevcut ivme ile dönem sonu projeksiyonu → (2) %91 için günlük gap → (3) Eylem planı
 - 'Hedefi tutamazsın' yerine: 'Mevcut hızla dönem sonunda %X realizasyona ulaşırsın. %91 için günlük Y₺ daha gerekiyor. Bunu Z ürünü/brick ile kapatabilirsin.' de.
 - Kalan gün > toplam günün %60'ı ise: motivasyon yüksek tut, büyüme odaklı plan ver.
-- Kalan gün < %30 ise: somut acil eylem planı, günlük kutu hedefleri ve eczane listesi ver.`;
+- Kalan gün < %30 ise: somut acil eylem planı, günlük kutu hedefleri ve eczane listesi ver.
+- ROUTE OPTIMIZER çıktısı varsa: Önce bugünün rotasını ve URGENT eczaneleri analiz et, sonra satış stratejisini oluştur.`;
 
   try {
     const AI_PROXY = window.AI_PROXY_URL || 'https://samsun.yilmazusta28.workers.dev';
