@@ -209,6 +209,12 @@ async function sendAiMsgWithText(text) {
     }
     statusEl.textContent = '✅ Hazır';
 
+    // Phase 4.2 — AI Memory Layer: her başarılı AI yanıtı sonrası snapshot + strateji kaydı
+    try {
+      if (typeof saveMemorySnapshot  === 'function') saveMemorySnapshot(_reqTTT);
+      if (typeof recordStrategyCall  === 'function') recordStrategyCall('chat', _reqTTT);
+    } catch (_memErr) { /* silent — hafıza hatası AI akışını bozmaz */ }
+
   } catch (err) {
     var errEl = document.getElementById(loadId);
     var isProxy = err.message && (

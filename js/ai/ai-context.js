@@ -271,6 +271,13 @@ Fırsat Brick (İlk333 + MI≥110 + GI≥100): ${migiRows.filter(r=>r.sira<=333&
   ctx += buildSimulatorContext(ttt);
   ctx += buildTerritoryContext(ttt);
 
+  // Phase 4.2 — AI Memory Layer enrichment
+  try {
+    if (typeof buildMemoryContext === 'function') ctx += buildMemoryContext(ttt);
+  } catch (_me) {
+    console.warn('[ai-context] Memory enrichment hata (sessiz):', _me.message);
+  }
+
   return ctx;
 }
 
@@ -548,15 +555,40 @@ function buildTerritoryContext(ttt) {
 // ── 5. buildExecutiveContext([ttts]) ──────────────────────────────────
 // Ekip geneli yönetici context'i — birden fazla TTT veya tüm ekip.
 // Bu fonksiyon hem ŞENOL YILMAZ için hem de ekip genel analizinde kullanılır.
+// Phase 4.2: memory context + behavior patterns + learning scores eklendi.
 function buildExecutiveContext(ttts) {
   try {
+    var lines = [];
+
+    // Executive dashboard raporu
     var executive = (typeof buildExecutiveDashboard === 'function')
       ? buildExecutiveDashboard(ttts) : null;
+    if (executive && typeof buildExecutiveReport === 'function') {
+      lines.push(buildExecutiveReport(executive));
+    }
 
-    if (!executive) return '';
+    // Phase 4.2: her TTT için memory + behavior özeti
+    var list = ttts || (typeof ALL_TTTS !== 'undefined' ? ALL_TTTS : []);
+    if (list.length && typeof buildMemoryContext === 'function') {
+      var memLines = [
+        '',
+        '--- EKİP AI HAFIZASI (Phase 4.2) ---'
+      ];
+      list.slice(0, 5).forEach(function (ttt) { // ilk 5 temsilci (context uzunluğu)
+        var mem = buildMemoryContext(ttt);
+        if (mem && mem.trim()) {
+          memLines.push('[ ' + ttt.split(' ')[0] + ' ]' + mem.trim());
+        }
+        // Öğrenme skoru
+        if (typeof calculateLearningScore === 'function') {
+          var ls = calculateLearningScore(ttt);
+          if (ls > 0) memLines.push('  Öğrenme skoru: ' + ls + '/100');
+        }
+      });
+      if (memLines.length > 2) lines.push(memLines.join('\n'));
+    }
 
-    return (typeof buildExecutiveReport === 'function')
-      ? buildExecutiveReport(executive) : '';
+    return lines.join('\n');
 
   } catch (e) {
     console.warn('[ai-context] buildExecutiveContext hata (sessiz):', e.message);
@@ -571,6 +603,11 @@ function buildExecutiveContext(ttts) {
 // Phase 4.1: artık buildExecutiveContext() ile zenginleştirilmiş context kullanır.
 function aiQuick(type) {
   if (typeof switchAiTab === 'function') switchAiTab('chat');
+  // Phase 4.2 — strateji tipini kaydet
+  try {
+    var _aqTTT = (typeof selAiTTT !== 'undefined' ? selAiTTT : '');
+    if (typeof recordStrategyCall === 'function') recordStrategyCall(type, _aqTTT);
+  } catch (_aqe) { /* silent */ }
   var prompts = {
     genel: 'Bu temsilcinin genel satış durumunu analiz et. Güçlü ve zayıf yönleri, kalan iş günlerine göre acil durumları belirt. Şenol Yılmaz için tüm ekibi değerlendir.',
     risk: 'Bu temsilci için prim riski analizi yap. Kalan iş günü dikkate alarak hangi ürünler %91 hedefin altında, kaç iş günü kaldığı baz alınarak haftalık gereken satışı hesapla.',

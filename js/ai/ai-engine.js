@@ -93,6 +93,11 @@ function runEngine() {
   setTimeout(() => {
     try {
       _runEngineCore();
+      // Phase 4.2 — snapshot + strateji kaydı her engine çalışmasında
+      try {
+        if (typeof saveMemorySnapshot === 'function') saveMemorySnapshot(engineSelTTT);
+        if (typeof recordStrategyCall === 'function') recordStrategyCall('engine', engineSelTTT);
+      } catch (_me) { /* silent */ }
     } catch(e) {
       console.error('Engine error:', e);
     }
