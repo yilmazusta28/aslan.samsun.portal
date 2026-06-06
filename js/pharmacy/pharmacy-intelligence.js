@@ -360,14 +360,14 @@
   // ══════════════════════════════════════════════════════════════════════
 
   function buildPharmacyProfiles(tttFilter) {
-    if (!window.ECZANE_RAW || !Array.isArray(window.ECZANE_RAW) || !window.ECZANE_RAW.length) {
+    if (!ECZANE_RAW || !Array.isArray(ECZANE_RAW) || !ECZANE_RAW.length) {
       console.warn('[PharmacyIntelligence] ECZANE_RAW yok veya boş');
       return [];
     }
 
     var source = tttFilter
-      ? window.ECZANE_RAW.filter(function (r) { return r.ttt === tttFilter; })
-      : window.ECZANE_RAW;
+      ? ECZANE_RAW.filter(function (r) { return r.ttt === tttFilter; })
+      : ECZANE_RAW;
 
     if (!source.length) return [];
 
@@ -566,7 +566,7 @@
 
   function runPharmacyIntelligence(tttFilter) {
     try {
-      if (!window.ECZANE_RAW || !window.eczaneLoaded) {
+      if (!ECZANE_RAW || !eczaneLoaded) {
         console.warn('[PharmacyIntelligence] ECZANE_RAW henüz yüklenmedi');
         return false;
       }
