@@ -640,26 +640,22 @@ function buildExecutiveContext(ttts) {
 
 // ── aiQuick — hızlı analiz tetikleyici ────────────────────────
 // Phase 4.1: artık buildExecutiveContext() ile zenginleştirilmiş context kullanır.
-// Phase 5.0: AI Sohbet kaldırıldı — Motor sekmesindeki engineAiAnalysis'e yönlendir.
 function aiQuick(type) {
-  if (typeof switchAiTab === 'function') switchAiTab('motor');
+  if (typeof switchAiTab === 'function') switchAiTab('chat');
   // Phase 4.2 — strateji tipini kaydet
   try {
     var _aqTTT = (typeof selAiTTT !== 'undefined' ? selAiTTT : '');
     if (typeof recordStrategyCall === 'function') recordStrategyCall(type, _aqTTT);
   } catch (_aqe) { /* silent */ }
-  // Tip → engineAiAnalysis eşlemesi
-  var typeMap = { genel:'full', risk:'full', prim:'prim', brick:'bricks', strateji:'full', eczane:'eczane', rakip:'full' };
-  var engineType = typeMap[type] || 'full';
-  // Motor çalışmamışsa önce motoru başlat
-  var outEl = document.getElementById('engineOutput');
-  if (outEl && outEl.style.display === 'none') {
-    if (typeof runEngine === 'function') runEngine();
-    // Kısa gecikmeyle AI analizini başlat (motor render süresini bekle)
-    setTimeout(function() {
-      if (typeof engineAiAnalysis === 'function') engineAiAnalysis(engineType);
-    }, 600);
-  } else {
-    if (typeof engineAiAnalysis === 'function') engineAiAnalysis(engineType);
-  }
+  var prompts = {
+    genel: 'Bu temsilcinin genel satış durumunu analiz et. Güçlü ve zayıf yönleri, kalan iş günlerine göre acil durumları belirt. Şenol Yılmaz için tüm ekibi değerlendir.',
+    risk: 'Bu temsilci için prim riski analizi yap. Kalan iş günü dikkate alarak hangi ürünler %91 hedefin altında, kaç iş günü kaldığı baz alınarak haftalık gereken satışı hesapla.',
+    prim: '2026 İLKO prim sistemine göre dönemlik prim beklentisini hesapla. Kalan süre ve mevcut pace dikkate alarak TL Real, Portföy ve MI&GI primlerini değerlendir.',
+    brick: 'İlk 333 brick bazında önceliklendirme yap. Kalan iş günü dikkate alarak hangi bricklere önce gitmeli, hangi eczaneler kritik? Somut adresler öner.',
+    strateji: 'Kalan iş günlerine göre uygulanabilecek haftalık satış stratejisi öner. Günlük kutu/TL hedefleri ver, brick ve ürün önceliklerini belirt.',
+    eczane: 'Bu temsilcinin eczane satış verilerini detaylı analiz et. Şu kuralları uygula:\n1) Her eczane için aylık tüketim ortalaması hesapla. Örnek: Oca=30, Mar=25 ise (Şub atlayan) ortalama=(30+25)/2=27.5 kutu/ay.\n2) Büyük tek alışları tespit et (kampanya). Bir ayda normal tüketimin 3x+ üzerinde alış varsa kampanya olarak işaretle; bir sonraki sipariş 3-6 ay veya daha uzun süre gecikebilir.\n3) Satış şartları: ACİDPASS:10+1,20+3,50+15,100+35 | PANOCER:10+3,30+12,50+25,100+60,165+135 | GRİPORT COLD:5+1,12+3,20+4,50+20,80+40 | MOKSEFEN:5+1,10+3,30+15\n4) Her aktif eczane için: tahmini aylık tüketim, kalan stok tahmini, önerilen sipariş paketi (en uygun satış şartı kombinasyonu), beklenen sipariş zamanı.\n5) Risk: Büyük alış yapıp uzun süre almayacak eczaneleri listele. Fırsat: Düzenli küçük alış yapan ve sipariş zamanı yaklaşan eczaneleri öne çıkar.\n6) PHARMACY INTELLIGENCE (Phase 4.5): Sana verilen TOP 30 eczane listesini kullanarak bu hafta öncelikli ziyaret listesini oluştur. Format:\n"Bu hafta öncelikli ziyaret:\n1. [ECZANE ADI] — Skor:[X], Tahmin:[Y] kutu, Sipariş %:[Z]\n2. ...\nToplam potansiyel: [N] kutu"\nForcast + Territory + Root Cause + Pharmacy Intelligence birlikte değerlendirerek somut öneri ver.',
+    rakip: 'IMS verilerini kullanarak rakip analizi yap:\n1) Her ilaç grubu için rakip ürünlerin brick bazında pazar paylarını karşılaştır.\n2) Rakibin en güçlü olduğu brickler (bizim payımız <%15, rakip payı >%30) ve orada ne yapılabileceğini öner.\n3) Rakibin zayıf olduğu brickler (rakip payı <%20) ve büyüme fırsatlarını listele.\n4) Son 3 hafta trendine göre rakip büyüyen bricklerde savunma, rakip gerileyen bricklerde saldırı stratejisi öner.\n5) Brick bazında en kritik 5 öncelikli hedefi somut ziyaret planıyla açıkla.'
+  };
+  var msg = prompts[type] || type;
+  sendAiMsgWithText(msg);
 }
