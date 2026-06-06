@@ -800,8 +800,11 @@ function buildEczaneFilters() {
       `<button class="tfb-sp${b===selEczaneBrick?' active':''}" onclick="selEczaneBrick='${b}';buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${b}</button>`
     ).join('');
 
-  // Ürünler
-  const uruns = [...new Set(ECZANE_RAW.map(r=>r.urun))].sort();
+  // Ürünler — URUN_ORDER sırasına göre
+  const _eczUrunOrder = (typeof URUN_ORDER !== 'undefined') ? URUN_ORDER : ['PANOCER','ACİDPASS','GRİPORT COLD','MOKSEFEN','FAMTREC'];
+  const _eczUrunSet = new Set(ECZANE_RAW.map(r=>r.urun));
+  const uruns = _eczUrunOrder.filter(u => _eczUrunSet.has(u))
+    .concat([..._eczUrunSet].filter(u => !_eczUrunOrder.includes(u)).sort());
   document.getElementById('eczaneUrunBar').innerHTML =
     ['TÜMÜ', ...uruns].map(u =>
       `<button class="tfb-sp${u===selEczaneUrun?' active':''}" onclick="selEczaneUrun='${u}';buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${u}</button>`
@@ -3946,7 +3949,10 @@ function _buildEczaneDrawerRefresh(){
   // En son veriyle drawer'ı yenile
   const allT = ALL_TTTS;
   const tttBricks = [...new Set((ECZANE_RAW||[]).filter(r=>r.ttt===selEczaneTTT).map(r=>r.brick))].sort();
-  const uruns = [...new Set((ECZANE_RAW||[]).map(r=>r.urun))].sort();
+  const _drwUrunOrder = (typeof URUN_ORDER !== 'undefined') ? URUN_ORDER : ['PANOCER','ACİDPASS','GRİPORT COLD','MOKSEFEN','FAMTREC'];
+  const _drwUrunSet = new Set((ECZANE_RAW||[]).map(r=>r.urun));
+  const uruns = _drwUrunOrder.filter(u => _drwUrunSet.has(u))
+    .concat([..._drwUrunSet].filter(u => !_drwUrunOrder.includes(u)).sort());
   const aylar = [...new Set((ECZANE_RAW||[]).map(r=>r.ay))].sort();
   const AY_LABELS = {'01/2026':'Ocak 2026','02/2026':'Şubat 2026','03/2026':'Mart 2026','04/2026':'Nisan 2026','05/2026':'Mayıs 2026','06/2026':'Haziran 2026','07/2026':'Temmuz 2026','08/2026':'Ağustos 2026','09/2026':'Eylül 2026','10/2026':'Ekim 2026','11/2026':'Kasım 2026','12/2026':'Aralık 2026'};
   _buildEczaneDrawer(allT, tttBricks, uruns, aylar, AY_LABELS);

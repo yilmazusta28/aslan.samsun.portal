@@ -118,7 +118,9 @@ function _runEngineCore() {
   const cur     = PERIODS.find(p=>todayStr>=p.start&&todayStr<=p.end);
   const remDays = cur ? workDays(todayStr, cur.end) : 0;
   const gt      = GENEL.find(r=>r.ttt===ttt&&r.urun==='GENEL TOPLAM');
-  const urunRows= GENEL.filter(r=>r.ttt===ttt&&r.urun!=='GENEL TOPLAM');
+  const _urunOrderRef = (typeof URUN_ORDER !== 'undefined') ? URUN_ORDER : ['PANOCER','ACİDPASS','GRİPORT COLD','MOKSEFEN','FAMTREC'];
+  const urunRows= GENEL.filter(r=>r.ttt===ttt&&r.urun!=='GENEL TOPLAM')
+    .sort((a,b)=>{ const oi=_urunOrderRef.indexOf(a.urun), oj=_urunOrderRef.indexOf(b.urun); return (oi<0?99:oi)-(oj<0?99:oj); });
   // MI&GI: MIGI_BRICK_TL_RAW'dan bu temsilcinin en son döneme ait brick bazlı verisi
   const _migiSrc = (MIGI_BRICK_TL_RAW||[]).filter(r=>r.person===ttt);
   // Brick başına mevcut dönemdeki ortalama mi/gi değerlerini hesapla
