@@ -169,6 +169,13 @@
 <script src="js/ai/memory/ai-memory.js"></script>
 <!-- END PHASE 4.2 AI Memory Layer -->
 
+<!-- PHASE 4.5: Pharmacy Intelligence Engine
+     buildPharmacyProfiles, buildTop30Pharmacies, buildPharmacyContext,
+     renderPharmacyIntelligenceCard, runPharmacyIntelligence
+     Rollback: bu satırı sil + eczane kartını kaldır -->
+<script src="js/pharmacy/pharmacy-intelligence.js"></script>
+<!-- END PHASE 4.5 Pharmacy Intelligence Engine -->
+
 <!-- PHASE 4.1: Unified AI Context Engine
      buildForecastContext, buildPrimContext, buildSimulatorContext,
      buildTerritoryContext, buildExecutiveContext
@@ -889,6 +896,16 @@ function renderEczaneContent() {
   _eczaneData = eczList;
   document.getElementById('eczaneTblBadge').textContent = `${eczList.length} eczane`;
   renderEczaneTable(eczList);
+
+  // PHASE 4.5: Pharmacy Intelligence Top30 Kartı
+  try {
+    if (typeof renderPharmacyIntelligenceCard === 'function') {
+      const _piTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
+      renderPharmacyIntelligenceCard('pharmacyIntelligenceCard', _piTTT);
+    }
+  } catch(_piErr) {
+    console.warn('[PharmacyIntelligence] render hata (sessiz):', _piErr.message);
+  }
 
   // Grafikler
   renderEczaneCharts(filtered, eczList);
@@ -4879,6 +4896,9 @@ function _buildEczaneDrawerRefresh(){
 
   <!-- Özet kartları -->
   <div id="eczaneSummaryCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:16px"></div>
+
+  <!-- PHASE 4.5: Pharmacy Intelligence Top30 Kartı -->
+  <div id="pharmacyIntelligenceCard" style="margin-bottom:16px"></div>
 
   <!-- Eczane tablosu -->
   <div class="card mb16">

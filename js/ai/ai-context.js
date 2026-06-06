@@ -278,6 +278,17 @@ Fırsat Brick (İlk333 + MI≥110 + GI≥100): ${migiRows.filter(r=>r.sira<=333&
     console.warn('[ai-context] Memory enrichment hata (sessiz):', _me.message);
   }
 
+  // Phase 4.5 — Pharmacy Intelligence enrichment
+  // Top30 eczane + reorder olasılığı + forecast Koçluk bağlamına eklenir.
+  // Rollback: bu try bloğunu sil.
+  try {
+    if (typeof buildPharmacyContext === 'function' && window._PHARMACY_INTELLIGENCE_READY) {
+      ctx += buildPharmacyContext(ttt);
+    }
+  } catch (_pie) {
+    console.warn('[ai-context] PharmacyIntelligence enrichment hata (sessiz):', _pie.message);
+  }
+
   return ctx;
 }
 
@@ -614,7 +625,7 @@ function aiQuick(type) {
     prim: '2026 İLKO prim sistemine göre dönemlik prim beklentisini hesapla. Kalan süre ve mevcut pace dikkate alarak TL Real, Portföy ve MI&GI primlerini değerlendir.',
     brick: 'İlk 333 brick bazında önceliklendirme yap. Kalan iş günü dikkate alarak hangi bricklere önce gitmeli, hangi eczaneler kritik? Somut adresler öner.',
     strateji: 'Kalan iş günlerine göre uygulanabilecek haftalık satış stratejisi öner. Günlük kutu/TL hedefleri ver, brick ve ürün önceliklerini belirt.',
-    eczane: 'Bu temsilcinin eczane satış verilerini detaylı analiz et. Şu kuralları uygula:\n1) Her eczane için aylık tüketim ortalaması hesapla. Örnek: Oca=30, Mar=25 ise (Şub atlayan) ortalama=(30+25)/2=27.5 kutu/ay.\n2) Büyük tek alışları tespit et (kampanya). Bir ayda normal tüketimin 3x+ üzerinde alış varsa kampanya olarak işaretle; bir sonraki sipariş 3-6 ay veya daha uzun süre gecikebilir.\n3) Satış şartları: ACİDPASS:10+1,20+3,50+15,100+35 | PANOCER:10+3,30+12,50+25,100+60,165+135 | GRİPORT COLD:5+1,12+3,20+4,50+20,80+40 | MOKSEFEN:5+1,10+3,30+15\n4) Her aktif eczane için: tahmini aylık tüketim, kalan stok tahmini, önerilen sipariş paketi (en uygun satış şartı kombinasyonu), beklenen sipariş zamanı.\n5) Risk: Büyük alış yapıp uzun süre almayacak eczaneleri listele. Fırsat: Düzenli küçük alış yapan ve sipariş zamanı yaklaşan eczaneleri öne çıkar.',
+    eczane: 'Bu temsilcinin eczane satış verilerini detaylı analiz et. Şu kuralları uygula:\n1) Her eczane için aylık tüketim ortalaması hesapla. Örnek: Oca=30, Mar=25 ise (Şub atlayan) ortalama=(30+25)/2=27.5 kutu/ay.\n2) Büyük tek alışları tespit et (kampanya). Bir ayda normal tüketimin 3x+ üzerinde alış varsa kampanya olarak işaretle; bir sonraki sipariş 3-6 ay veya daha uzun süre gecikebilir.\n3) Satış şartları: ACİDPASS:10+1,20+3,50+15,100+35 | PANOCER:10+3,30+12,50+25,100+60,165+135 | GRİPORT COLD:5+1,12+3,20+4,50+20,80+40 | MOKSEFEN:5+1,10+3,30+15\n4) Her aktif eczane için: tahmini aylık tüketim, kalan stok tahmini, önerilen sipariş paketi (en uygun satış şartı kombinasyonu), beklenen sipariş zamanı.\n5) Risk: Büyük alış yapıp uzun süre almayacak eczaneleri listele. Fırsat: Düzenli küçük alış yapan ve sipariş zamanı yaklaşan eczaneleri öne çıkar.\n6) PHARMACY INTELLIGENCE (Phase 4.5): Sana verilen TOP 30 eczane listesini kullanarak bu hafta öncelikli ziyaret listesini oluştur. Format:\n"Bu hafta öncelikli ziyaret:\n1. [ECZANE ADI] — Skor:[X], Tahmin:[Y] kutu, Sipariş %:[Z]\n2. ...\nToplam potansiyel: [N] kutu"\nForcast + Territory + Root Cause + Pharmacy Intelligence birlikte değerlendirerek somut öneri ver.',
     rakip: 'IMS verilerini kullanarak rakip analizi yap:\n1) Her ilaç grubu için rakip ürünlerin brick bazında pazar paylarını karşılaştır.\n2) Rakibin en güçlü olduğu brickler (bizim payımız <%15, rakip payı >%30) ve orada ne yapılabileceğini öner.\n3) Rakibin zayıf olduğu brickler (rakip payı <%20) ve büyüme fırsatlarını listele.\n4) Son 3 hafta trendine göre rakip büyüyen bricklerde savunma, rakip gerileyen bricklerde saldırı stratejisi öner.\n5) Brick bazında en kritik 5 öncelikli hedefi somut ziyaret planıyla açıkla.'
   };
   var msg = prompts[type] || type;
