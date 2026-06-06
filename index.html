@@ -1151,7 +1151,7 @@ function doLogin(){
 //  Format: AY[0] PERSONEL[1] BI[2] EVOL[3] MI[4] PP_YTD2[5] PP_YTD1[6]
 //          PP_BI[7] HEDEF%[8] SATIŞ%[9] REAL%[10]
 //          BI_ürün[11-15] EVOL_ürün[16-20] MI_ürün[21-25] PP_ürün[26-30]
-//          Ürün sırası: PANOCER FAMTREC MOKSEFEN ACIDPASS GRIPORT_COLD
+//          Ürün sırası: PANOCER ACIDPASS GRIPORT_COLD MOKSEFEN FAMTREC
 // ═══════════════════════════════════════════════════════════
 // PHASE21-STUB: parseMiGiToplamCSV → js/data/data-loader.js
 
@@ -1274,7 +1274,7 @@ function renderMigi1() {
   if (badge) badge.textContent = rows.length + ' kayıt';
 
   // Tablo başlığı — hangi sütunlar gösterilecek?
-  const URUNLER = ['PANOCER','FAMTREC','MOKSEFEN','ACİDPASS','GRİPORT COLD'];
+  const URUNLER = ['PANOCER','ACİDPASS','GRİPORT COLD','MOKSEFEN','FAMTREC'];
   const thead = document.getElementById('mg1_thead');
 
   if (mg1_veri === 'TUM') {
@@ -1462,7 +1462,7 @@ function renderMigi2() {
 
   if (badge) badge.textContent = rows.length + ' kayıt';
 
-  const URUNLER = ['PANOCER','FAMTREC','MOKSEFEN','ACİDPASS','GRİPORT COLD'];
+  const URUNLER = ['PANOCER','ACİDPASS','GRİPORT COLD','MOKSEFEN','FAMTREC'];
   const thead = document.getElementById('mg2_thead');
   const field = {TUM:null,BI:'bi',EVOL:'evol',MI:'mi',PP:'pp'}[mg2_veri];
 

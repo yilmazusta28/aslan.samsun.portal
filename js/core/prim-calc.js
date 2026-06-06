@@ -46,7 +46,7 @@ function getMiGiKatsayi(mi, gi) {
 // Prim puanı hesapla (ürün ağırlıkları × real)
 const URUN_AGIRLIK = {
   'PANOCER': 0.25, 'ACİDPASS': 0.25,
-  'GRİPORT COLD': 0.20, 'MOKSEFEN': 0.15, 'FAMTREC': 0.15
+  'GRİPORT COLD': 0.20, 'MOKSEFEN': 0.15, 'FAMTREC': 0.15  // sıra: PANOCER·ACİDPASS·GRİPORT·MOKSEFEN·FAMTREC
 };
 
 // ── TSB bar için: herhangi bir TTT'nin prim toplamını GENEL'den hesapla ──
