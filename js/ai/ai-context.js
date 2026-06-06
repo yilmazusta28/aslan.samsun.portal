@@ -305,6 +305,18 @@ Fırsat Brick (İlk333 + MI≥110 + GI≥100): ${migiRows.filter(r=>r.sira<=333&
     console.warn('[ai-context] ReorderIntelligence enrichment hata (sessiz):', _rie.message);
   }
 
+  // Phase 4.6.1 — Reorder Classification Engine enrichment
+  // REGULAR_BUYER | GROWING | AT_RISK | REACTIVATION | CAMPAIGN_BUYER sınıflandırması
+  // + reorderProbability + forecastBoxes + Top30 tablosu
+  // Rollback: bu try bloğunu sil + reorder-classifier.js yükleme satırını kaldır
+  try {
+    if (typeof buildReorderClassifierContext === 'function' && window._REORDER_CLASSIFIER_READY) {
+      ctx += buildReorderClassifierContext(ttt);
+    }
+  } catch (_rce) {
+    console.warn('[ai-context] ReorderClassifier enrichment hata (sessiz):', _rce.message);
+  }
+
   return ctx;
 }
 

@@ -175,6 +175,13 @@
      Rollback: bu satırı sil + eczane kartını kaldır -->
 <script src="js/pharmacy/pharmacy-intelligence.js"></script>
 <script src="js/pharmacy/reorder-engine.js"></script>
+<!-- PHASE 4.6.1: Reorder Classification Engine
+     classifyAllPharmacies, buildClassifierTop30, buildReorderClassifierContext,
+     renderClassifierTop30Card, runClassifier
+     Sınıflar: REGULAR_BUYER | GROWING | AT_RISK | REACTIVATION | CAMPAIGN_BUYER
+     Rollback: bu satırı sil + reorderClassifierCard div'ini kaldır + ai-context.js Phase 4.6.1 bloğunu sil -->
+<script src="js/pharmacy/reorder-classifier.js"></script>
+<!-- END PHASE 4.6.1 Reorder Classification Engine -->
 <!-- END PHASE 4.5 Pharmacy Intelligence Engine -->
 
 <!-- PHASE 4.1: Unified AI Context Engine
@@ -909,6 +916,17 @@ function renderEczaneContent() {
     }
   } catch(_piErr) {
     console.warn('[PharmacyIntelligence] render hata (sessiz):', _piErr.message);
+  }
+
+  // PHASE 4.6.1: Reorder Classifier Top30 Kartı
+  // Rollback: bu try bloğunu sil + reorderClassifierCard div'ini kaldır
+  try {
+    if (typeof renderClassifierTop30Card === 'function' && window._REORDER_CLASSIFIER_READY) {
+      const _rcTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
+      renderClassifierTop30Card('reorderClassifierCard', _rcTTT);
+    }
+  } catch(_rcErr) {
+    console.warn('[ReorderClassifier] render hata (sessiz):', _rcErr.message);
   }
 
   // Grafikler
@@ -4906,6 +4924,9 @@ function _buildEczaneDrawerRefresh(){
 
   <!-- PHASE 4.5: Pharmacy Intelligence Top30 Kartı -->
   <div id="pharmacyIntelligenceCard" style="margin-bottom:16px"></div>
+
+  <!-- PHASE 4.6.1: Reorder Classification Top30 Kartı -->
+  <div id="reorderClassifierCard" style="margin-bottom:16px"></div>
 
   <!-- Eczane tablosu -->
   <div class="card mb16">
