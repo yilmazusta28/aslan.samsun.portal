@@ -220,8 +220,8 @@
           eczane:      p.eczane,
           brick:       p.brick,
           description: p.classification === 'AT_RISK'
-            ? p.eczane + ' sipariş vermedi — ' + (p.daysSinceLastOrder || '?') + ' gün.'
-            : p.eczane + ' yeniden kazanım gerekli.',
+            ? 'Sipariş vermedi — ' + (p.daysSinceLastOrder || '?') + ' gün.'
+            : 'Yeniden kazanım gerekli.',
           severity:    p.classification === 'AT_RISK' ? 'YÜKSEK' : 'ORTA'
         });
       });
@@ -234,7 +234,7 @@
           type:        'KAMPANYA_BAĞIMLISI',
           eczane:      p.eczane,
           brick:       p.brick,
-          description: p.eczane + ' yalnızca kampanyada sipariş veriyor.',
+          description: 'Yalnızca kampanyada sipariş veriyor.',
           severity:    'ORTA'
         });
       });
@@ -274,7 +274,7 @@
         type:        'BÜYÜYEN_ECZANE',
         eczane:      p.eczane,
         brick:       p.brick,
-        description: p.eczane + ' büyüyor — sipariş %' + p.reorderProbability + '.',
+        description: 'Büyüyor — sipariş olasılığı %' + p.reorderProbability + '.',
         potential:   p.expectedOrderValue || 0
       });
     });
@@ -287,7 +287,7 @@
         type:        'YÜKSEK_FIRSAT',
         eczane:      p.eczane,
         brick:       p.brick,
-        description: p.eczane + ' fırsat skoru ' + p.opportunityScore + '/100.',
+        description: 'Fırsat skoru ' + p.opportunityScore + '/100.',
         potential:   p.expectedOrderValue || 0
       });
     });
@@ -747,8 +747,18 @@
 
   function _miniList(title, items, color, icon) {
     var rows = (items || []).slice(0, 3).map(function (item) {
-      return '<div style="font-size:9px;color:var(--text);padding:2px 0;border-bottom:1px solid var(--border)">' +
-        icon + ' ' + (item.eczane || item.brick || '') + ': ' + item.description.slice(0, 40) +
+      // description zaten eczane/brick adını içeriyor — sadece description göster
+      var desc = (item.description || '').trim();
+      // Eğer description eczane adıyla başlıyorsa adı çıkar, kısa tut
+      var prefix = item.eczane || item.brick || '';
+      if (prefix && desc.indexOf(prefix) === 0) {
+        desc = desc.slice(prefix.length).replace(/^[\s:\-–]+/, '');
+      }
+      // İlk harf büyük
+      desc = desc.charAt(0).toUpperCase() + desc.slice(1);
+      return '<div style="font-size:9px;color:var(--text);padding:3px 0;border-bottom:1px solid var(--border);line-height:1.4">' +
+        '<span style="font-weight:700;color:var(--text)">' + icon + ' ' + prefix + '</span>' +
+        (desc ? '<br><span style="color:var(--dim)">' + desc + '</span>' : '') +
       '</div>';
     }).join('');
     return '<div style="background:var(--surf2);border-radius:8px;padding:8px 10px">' +
