@@ -173,9 +173,7 @@
     lines.push('Tahmini kutu satış : ' + Math.round(report.monthEndBox).toLocaleString('tr-TR') + ' kutu');
     lines.push('Günlük run rate    : ' + fTL(report.runRate.dailyRunRate || 0) + ' / iş günü');
     lines.push('Risk seviyesi      : ' + report.riskLevel);
-    lines.push('Tahmin kesinliği   : ' + report.confidenceLabel + ' (%' + report.confidence + ')');
-    lines.push('NOT: Tahmin kesinliği metodolojik veri yeterliliğini gösterir,');
-    lines.push('     hedef başarı olasılığını değil. Hedef başarı için senaryo bölümüne bak.');
+    lines.push('Tahmin güveni      : ' + report.confidenceLabel + ' (%' + report.confidence + ')');
 
     // ── Metodoloji ────────────────────────────────────────
     if (report.forecast && report.forecast.methodology) {
@@ -278,8 +276,8 @@
       report.risks.length + ' risk tespit edildi'
     );
 
-    // Kart 4 — Tahmin Güveni (metodolojik kesinlik, hedef başarısı DEĞİL)
-    html += _card('Tahmin Kesinliği',
+    // Kart 4 — Tahmin Güveni
+    html += _card('Tahmin Güveni',
       '%' + report.confidence + ' — ' + report.confidenceLabel,
       confColor,
       report.forecast.methodology || ''

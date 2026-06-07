@@ -67,34 +67,24 @@
       var gt  = _genelTotal(ttt);
       if (!gt) return result;
 
-      var currentTL  = gt.satis_tl || 0;
       var hedefTL    = gt.hedef_tl || 0;
-      // FIX-SCEN-01a: back-calc hedef_tl when missing (Phase 3.0.3 pattern)
-      if (hedefTL === 0 && (gt.tl_pct || 0) > 0 && currentTL > 0) {
-        hedefTL = Math.round(currentTL / ((gt.tl_pct || 1) / 100));
-      }
+      var currentTL  = gt.satis_tl || 0;
       if (hedefTL === 0) return result;
 
       var rr         = _safeRR(ttt);
+      var fc         = _safeForecast(ttt);
       var remaining  = rr.remainingDays || 0;
       var dailyRate  = rr.dailyRunRate  || 0;
-
-      // FIX-SCEN-01b: if dailyRate is inflated (elapsedDays too small), cap it.
-      // Sanity check: dailyRate should not exceed currentTL / 5 (5 minimum elapsed days)
-      var currentReal = hedefTL > 0 ? (currentTL / hedefTL) * 100 : 0;
-      var minElapsed  = 5; // en az 5 iş günü geçmiş varsayımı
-      var maxReasonableDaily = currentTL / minElapsed;
-      if (dailyRate > maxReasonableDaily && maxReasonableDaily > 0) {
-        dailyRate = maxReasonableDaily;
-      }
 
       // Tahmini kutu: KUTU verisinden
       var currentBox = (typeof KUTU !== 'undefined' ? KUTU : [])
         .filter(function (r) { return r.ttt === ttt; })
         .reduce(function (s, r) { return s + (r.cikan_kutu || 0); }, 0);
+
+      // Haftalık ortalama kutu hızı (run rate ile orantılı)
       var tlPerBox   = currentTL > 0 && currentBox > 0 ? currentTL / currentBox : 100;
 
-      // 3 hız senaryosu (±%20 — mevcut hız üzerinden)
+      // 3 hız senaryosu
       var rates = {
         worst:    dailyRate * 0.80,
         expected: dailyRate,
@@ -103,20 +93,16 @@
 
       var keys = ['worst', 'expected', 'best'];
       keys.forEach(function (key) {
-        var rate     = rates[key];
-        // FIX-SCEN-01c: projection uses kalan (kalanTL) as the variable part
-        // projTL = currentTL (floor) + additional_sales_in_remaining_days
-        var projTL   = Math.round(currentTL + rate * remaining);
-        // FIX-SCEN-01d: cap projReal at 130% — no scenario should show >130%
-        var rawReal  = hedefTL > 0 ? (projTL / hedefTL) * 100 : 0;
-        var projReal = Math.min(130, Math.round(rawReal * 10) / 10);
-        var projBox  = Math.round(currentBox + (rate / (tlPerBox || 1)) * remaining);
+        var rate       = rates[key];
+        var projTL     = Math.round(currentTL + rate * remaining);
+        var projReal   = Math.round((projTL / hedefTL) * 1000) / 10;
+        var projBox    = Math.round(currentBox + (rate / (tlPerBox || 1)) * remaining);
 
         // Prim tahmini
         var primVal = 0;
         if (typeof getCarpan === 'function' && projReal >= 91) {
           var carpan = getCarpan(projReal);
-          primVal    = Math.round(carpan * 55000 * 1.2);
+          primVal    = Math.round(carpan * 55000 * (projReal >= 91 ? 1.2 : 1));
         }
 
         var noteMap = {
@@ -131,9 +117,8 @@
           projectedBox: Math.max(0, projBox),
           prim:         primVal,
           dailyRate:    Math.round(rate),
-          // FIX-SCEN-01e: note also shows current vs projected for clarity
-          note:         noteMap[key] + ': mevcut %' + Math.round(currentReal * 10) / 10 +
-            ' → tahmini %' + projReal + ' (₺' + projTL.toLocaleString('tr-TR') + ')'
+          note:         noteMap[key] + ': %' + projReal + ' realizasyon, ₺' +
+            projTL.toLocaleString('tr-TR') + ' TL.'
         };
       });
 
