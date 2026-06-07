@@ -305,6 +305,17 @@ Fırsat Brick (İlk333 + MI≥110 + GI≥100): ${migiRows.filter(r=>r.sira<=333&
     console.warn('[ai-context] ReorderIntelligence enrichment hata (sessiz):', _rie.message);
   }
 
+  // Phase 4.8 — AI Sales Coach V2 enrichment
+  // Tüm motorların birleşik satış koçu context'i.
+  // Rollback: bu try bloğunu sil + ai-sales-coach-v2.js yükleme satırını kaldır
+  try {
+    if (typeof buildSalesCoachContext === 'function' && window._SALES_COACH_V2_READY) {
+      ctx += buildSalesCoachContext(ttt);
+    }
+  } catch (_sce) {
+    console.warn('[ai-context] SalesCoachV2 enrichment hata (sessiz):', _sce.message);
+  }
+
   // Phase 4.7 — Smart Route Optimizer enrichment
   // Rota planı + URGENT/OPPORTUNITY/RECOVERY önceliklendirmesi.
   // Rollback: bu try bloğunu sil + route-optimizer.js yükleme satırını kaldır
@@ -665,7 +676,8 @@ function aiQuick(type) {
     brick: 'İlk 333 brick bazında önceliklendirme yap. Kalan iş günü dikkate alarak hangi bricklere önce gitmeli, hangi eczaneler kritik? Somut adresler öner.',
     strateji: 'Kalan iş günlerine göre uygulanabilecek haftalık satış stratejisi öner. Günlük kutu/TL hedefleri ver, brick ve ürün önceliklerini belirt.',
     eczane: 'Bu temsilcinin eczane satış verilerini detaylı analiz et. Şu kuralları uygula:\n1) Her eczane için aylık tüketim ortalaması hesapla. Örnek: Oca=30, Mar=25 ise (Şub atlayan) ortalama=(30+25)/2=27.5 kutu/ay.\n2) Büyük tek alışları tespit et (kampanya). Bir ayda normal tüketimin 3x+ üzerinde alış varsa kampanya olarak işaretle; bir sonraki sipariş 3-6 ay veya daha uzun süre gecikebilir.\n3) Satış şartları: ACİDPASS:10+1,20+3,50+15,100+35 | PANOCER:10+3,30+12,50+25,100+60,165+135 | GRİPORT COLD:5+1,12+3,20+4,50+20,80+40 | MOKSEFEN:5+1,10+3,30+15\n4) Her aktif eczane için: tahmini aylık tüketim, kalan stok tahmini, önerilen sipariş paketi (en uygun satış şartı kombinasyonu), beklenen sipariş zamanı.\n5) Risk: Büyük alış yapıp uzun süre almayacak eczaneleri listele. Fırsat: Düzenli küçük alış yapan ve sipariş zamanı yaklaşan eczaneleri öne çıkar.\n6) PHARMACY INTELLIGENCE (Phase 4.5): Sana verilen TOP 30 eczane listesini kullanarak bu hafta öncelikli ziyaret listesini oluştur. Format:\n"Bu hafta öncelikli ziyaret:\n1. [ECZANE ADI] — Skor:[X], Tahmin:[Y] kutu, Sipariş %:[Z]\n2. ...\nToplam potansiyel: [N] kutu"\nForcast + Territory + Root Cause + Pharmacy Intelligence birlikte değerlendirerek somut öneri ver.',
-    rakip: 'IMS verilerini kullanarak rakip analizi yap:\n1) Her ilaç grubu için rakip ürünlerin brick bazında pazar paylarını karşılaştır.\n2) Rakibin en güçlü olduğu brickler (bizim payımız <%15, rakip payı >%30) ve orada ne yapılabileceğini öner.\n3) Rakibin zayıf olduğu brickler (rakip payı <%20) ve büyüme fırsatlarını listele.\n4) Son 3 hafta trendine göre rakip büyüyen bricklerde savunma, rakip gerileyen bricklerde saldırı stratejisi öner.\n5) Brick bazında en kritik 5 öncelikli hedefi somut ziyaret planıyla açıkla.'
+    rakip: 'IMS verilerini kullanarak rakip analizi yap:\n1) Her ilaç grubu için rakip ürünlerin brick bazında pazar paylarını karşılaştır.\n2) Rakibin en güçlü olduğu brickler (bizim payımız <%15, rakip payı >%30) ve orada ne yapılabileceğini öner.\n3) Rakibin zayıf olduğu brickler (rakip payı <%20) ve büyüme fırsatlarını listele.\n4) Son 3 hafta trendine göre rakip büyüyen bricklerde savunma, rakip gerileyen bricklerde saldırı stratejisi öner.\n5) Brick bazında en kritik 5 öncelikli hedefi somut ziyaret planıyla açıkla.',
+    coach: 'AI SATIŞ KOÇU V2 raporu oluştur. Aşağıdaki 8 bölümü sırayla yaz:\n\n1. EXECUTIVE SUMMARY: Dönem durumu (Durum / Beklenen dönem sonu / Hedef / Gap / Risk / Başarı ihtimali) kısa net özet.\n\n2. TODAY ACTION PLAN — BUGÜN YAP: Route Optimizer çıktısından bugünün URGENT ve OPPORTUNITY eczanelerini listele. Format: "1. [ECZANE] | Beklenen: [X]₺ | Ürün: [Y] | Sebep: [Z]"\n\n3. TOP 10 PHARMACY TARGETS: visitPriorityScore ile sıralanmış en kritik 10 eczane. Sıra / Eczane / Skor / Reorder% / Sınıf.\n\n4. BIGGEST RISKS: AT_RISK, REACTIVATION, CAMPAIGN_BUYER eczaneler + brick düşüşleri + dönem riski. Her risk için severity belirt.\n\n5. BIGGEST OPPORTUNITIES: GROWING eczaneler + yüksek opportunityScore + yüksek reorder% + URGENT ziyaretler. Her fırsat için potansiyel TL göster.\n\n6. PRIM OPTIMIZATION: %91, %100, %105 senaryoları için gereken ek TL ve prim farkını hesapla. Format: "%91 için: +[X]₺ → prim farkı +[Y]₺"\n\n7. WEEKLY ROUTE PLAN: Pazartesi-Cuma için Route Optimizer çıktısına dayalı günlük ziyaret planı. Her gün: Brick / Eczane sayısı / Beklenen TL.\n\n8. END OF PERIOD SCENARIO: Kötü / Normal / Agresif olmak üzere 3 senaryo ve kalan gün tahmini. Hangi senaryoda prim alınabilir?\n\nSONUÇ: NE YAPMALIYIM? sorusuna 3 maddede somut cevap ver.'
   };
   var msg = prompts[type] || type;
   sendAiMsgWithText(msg);

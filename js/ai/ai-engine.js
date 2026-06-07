@@ -646,7 +646,8 @@ ZAMAN DUYARLI DEĞERLENDİRME — MUTLAKA UYGULA:
 - 'Hedefi tutamazsın' yerine: 'Mevcut hızla dönem sonunda %X realizasyona ulaşırsın. %91 için günlük Y₺ daha gerekiyor. Bunu Z ürünü/brick ile kapatabilirsin.' de.
 - Kalan gün > toplam günün %60'ı ise: motivasyon yüksek tut, büyüme odaklı plan ver.
 - Kalan gün < %30 ise: somut acil eylem planı, günlük kutu hedefleri ve eczane listesi ver.
-- ROUTE OPTIMIZER çıktısı varsa: Önce bugünün rotasını ve URGENT eczaneleri analiz et, sonra satış stratejisini oluştur.`;
+- ROUTE OPTIMIZER çıktısı varsa: Önce bugünün rotasını ve URGENT eczaneleri analiz et, sonra satış stratejisini oluştur.
+- AI SATIŞ KOÇU V2 çıktısı varsa: Forecast Engine, Target Simulator, Territory Optimizer, Pharmacy Intelligence, Route Optimizer, Executive Dashboard ve Prim Engine çıktılarını birlikte oku. Sadece sayı raporlama — mutlaka NE YAPMALIYIM? sorusuna cevap ver.`;
 
   try {
     const AI_PROXY = window.AI_PROXY_URL || 'https://samsun.yilmazusta28.workers.dev';

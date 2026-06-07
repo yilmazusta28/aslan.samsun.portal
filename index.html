@@ -182,6 +182,7 @@
      Rollback: bu satırı sil + reorderClassifierCard div'ini kaldır + ai-context.js Phase 4.6.1 bloğunu sil -->
 <script src="js/pharmacy/reorder-classifier.js"></script>
 <script src="js/route/route-optimizer.js"></script>
+<script src="js/ai/ai-sales-coach-v2.js"></script>
 <!-- END PHASE 4.6.1 Reorder Classification Engine -->
 <!-- END PHASE 4.5 Pharmacy Intelligence Engine -->
 
@@ -940,6 +941,18 @@ function renderEczaneContent() {
     }
   } catch(_roErr) {
     console.warn('[RouteOptimizer] render hata (sessiz):', _roErr.message);
+  }
+
+  // PHASE 4.8: AI Sales Coach V2 — Koç + Senaryo kartları
+  // Rollback: bu try bloğunu sil + salesCoachSummaryCard + salesCoachScenarioCard div'lerini kaldır
+  try {
+    if (typeof renderCoachSummaryCard === 'function' && window._SALES_COACH_V2_READY) {
+      const _scTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
+      renderCoachSummaryCard('salesCoachSummaryCard', _scTTT);
+      renderScenarioCard('salesCoachScenarioCard', _scTTT);
+    }
+  } catch(_scErr) {
+    console.warn('[SalesCoachV2] render hata (sessiz):', _scErr.message);
   }
 
   // Grafikler
@@ -4720,6 +4733,12 @@ function _buildEczaneDrawerRefresh(){
 
       </div><!-- /engineOutput -->
 
+      <!-- PHASE 4.8: AI Satış Koçu Kartı -->
+      <div id="salesCoachSummaryCard" style="margin:0 0 16px"></div>
+
+      <!-- PHASE 4.8: Dönem Sonu Senaryoları Kartı -->
+      <div id="salesCoachScenarioCard" style="margin:0 0 16px"></div>
+
       <!-- Motor başlangıç boş durumu -->
       <div id="engineEmpty" style="text-align:center;padding:48px 20px">
         <div style="font-size:44px;margin-bottom:14px">🧠</div>
@@ -4851,6 +4870,9 @@ function _buildEczaneDrawerRefresh(){
         </button>
         <button class="btn-calc" onclick="aiQuick('rakip');switchAiTab('chat')" style="font-size:11px;padding:10px 14px;border-radius:11px;justify-content:flex-start;text-align:left;background:linear-gradient(135deg,rgba(239,68,68,.08),rgba(239,68,68,.04));color:#B91C1C;border:1px solid rgba(239,68,68,.15);box-shadow:none">
           <i class="fas fa-sword" style="margin-right:7px;width:14px"></i>Rakip Analiz
+        </button>
+        <button class="btn-calc" onclick="aiQuick('coach');switchAiTab('chat')" style="font-size:11px;padding:10px 14px;border-radius:11px;justify-content:flex-start;text-align:left;background:linear-gradient(135deg,rgba(79,0,140,.12),rgba(27,206,216,.08));color:var(--c1);border:1px solid rgba(79,0,140,.3);box-shadow:none">
+          <i class="fas fa-robot" style="margin-right:7px;width:14px"></i>AI Satış Koçu
         </button>
         <button class="btn-calc" onclick="showZamHesapQuick()" style="font-size:11px;padding:10px 14px;border-radius:11px;justify-content:flex-start;text-align:left;background:linear-gradient(135deg,rgba(124,58,237,.08),rgba(124,58,237,.04));color:#7C3AED;border:1px solid rgba(124,58,237,.2);box-shadow:none">
           <i class="fas fa-percent" style="margin-right:7px;width:14px"></i>Zam Simülasyonu
