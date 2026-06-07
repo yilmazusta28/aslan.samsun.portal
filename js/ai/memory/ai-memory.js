@@ -147,49 +147,20 @@
           brickCoverage[b] = (brickCoverage[b] || 0) + (r.toplam || r.own_kutu || 0);
         });
 
-      // ── HAFTALIK TL DELTA (Phase 5.1) ─────────────────────
-      // GENEL CSV'deki h1..h9 sütunlarını ürün bazında topla
-      var weeklyTL = { h1:0, h2:0, h3:0, h4:0, h5:0, h6:0, h7:0, h8:0, h9:0 };
-      var weeklyUrunTL = {};
-      var _genelRows = (typeof GENEL !== 'undefined' ? GENEL : [])
-        .filter(function (r) { return r.ttt === ttt && r.urun !== 'GENEL TOPLAM'; });
-      _genelRows.forEach(function (r) {
-        var uKey = r.urun;
-        if (!weeklyUrunTL[uKey]) weeklyUrunTL[uKey] = { h1:0,h2:0,h3:0,h4:0,h5:0,h6:0,h7:0,h8:0,h9:0 };
-        for (var _hi = 1; _hi <= 9; _hi++) {
-          var _hf = 'h' + _hi;
-          var _hv = r[_hf] || 0;
-          weeklyTL[_hf]           += _hv;
-          weeklyUrunTL[uKey][_hf] += _hv;
-        }
-      });
-      // En yüksek değer hangi haftada? → aktif (son) hafta
-      var activeWeek = 0;
-      for (var _hi = 9; _hi >= 1; _hi--) {
-        if (weeklyTL['h' + _hi] > 0) { activeWeek = _hi; break; }
-      }
-      // Dolu haftaların kümülatif toplamı
-      var weeklyTLSum = 0;
-      for (var _hi = 1; _hi <= activeWeek; _hi++) weeklyTLSum += weeklyTL['h' + _hi];
-
       var snapshot = {
-        date:          today,
-        ttt:           ttt,
-        tlReal:        Math.round(tlReal   * 10) / 10,
-        primPuani:     Math.round(primPuani * 10) / 10,
-        mi:            mi,
-        gi:            gi,
-        prim:          Math.round(prim),
-        hedefTL:       Math.round(hedefTL),
-        satisTL:       Math.round(satisTL),
-        forecastReal:  Math.round(forecastReal * 10) / 10,
-        urunReals:     urunReals,
+        date:         today,
+        ttt:          ttt,
+        tlReal:       Math.round(tlReal   * 10) / 10,
+        primPuani:    Math.round(primPuani * 10) / 10,
+        mi:           mi,
+        gi:           gi,
+        prim:         Math.round(prim),
+        hedefTL:      Math.round(hedefTL),
+        satisTL:      Math.round(satisTL),
+        forecastReal: Math.round(forecastReal * 10) / 10,
+        urunReals:    urunReals,
         brickCoverage: brickCoverage,
-        weeklyTL:      weeklyTL,                    // Phase 5.1
-        weeklyUrunTL:  weeklyUrunTL,                // Phase 5.1
-        activeWeek:    activeWeek,                  // Phase 5.1
-        weeklyTLSum:   Math.round(weeklyTLSum),     // Phase 5.1
-        ts:            Date.now()
+        ts:           Date.now()
       };
 
       // LRU: maksimum 200 snapshot
@@ -219,15 +190,6 @@
     try {
       if (!ttt) return '';
 
-      // ── Yerel yardımcı: TL formatla ──────────────────────
-      function _fTL(v) {
-        if (!v && v !== 0) return '—';
-        var abs = Math.abs(Math.round(v));
-        if (abs >= 1000000) return (v < 0 ? '-' : '') + (abs / 1000000).toFixed(1) + 'M₺';
-        if (abs >= 1000)    return (v < 0 ? '-' : '') + (abs / 1000).toFixed(0) + 'K₺';
-        return Math.round(v).toLocaleString('tr-TR') + '₺';
-      }
-
       var sessions = window.AI_MEMORY.sessions
         .filter(function (s) { return s.ttt === ttt; })
         .sort(function (a, b) { return b.ts - a.ts }); // yeniden eskiye
@@ -256,52 +218,6 @@
         var realSign = realDiff >= 0 ? '+' : '';
         lines.push('TL Real trendi   : %' + realOld + ' → %' + realNew +
           ' (' + realSign + realDiff + ')');
-      }
-
-      // ── HAFTALIK TL DELTA (Phase 5.1) ────────────────────────
-      var _lastSnp = last7[0];
-      if (_lastSnp && _lastSnp.weeklyTL && _lastSnp.activeWeek >= 2) {
-        var _awk    = _lastSnp.activeWeek;
-        var _curWk  = _lastSnp.weeklyTL['h' + _awk]       || 0;
-        var _prevWk = _lastSnp.weeklyTL['h' + (_awk - 1)] || 0;
-        if (_prevWk > 0) {
-          var _wkD    = Math.round(_curWk - _prevWk);
-          var _wkDpct = Math.round((_curWk - _prevWk) / _prevWk * 100);
-          var _wkSign = _wkD >= 0 ? '+' : '';
-          lines.push(
-            'Haftalık TL Delta: Hafta-' + (_awk - 1) + '→Hafta-' + _awk +
-            ' (' + _wkSign + _fTL(_wkD) + ' / ' + _wkSign + _wkDpct + '%)'
-          );
-          lines.push(
-            '  Geçen hafta: ' + _fTL(_prevWk) + '  Bu hafta: ' + _fTL(_curWk)
-          );
-        }
-        // Ürün bazlı haftalık delta
-        if (_lastSnp.weeklyUrunTL) {
-          var _uDeltaLines = [];
-          Object.keys(_lastSnp.weeklyUrunTL).forEach(function (urun) {
-            var _uS  = _lastSnp.weeklyUrunTL[urun];
-            var _uC  = _uS['h' + _awk]       || 0;
-            var _uP  = _uS['h' + (_awk - 1)] || 0;
-            if (_uP > 0) {
-              var _ud = Math.round(_uC - _uP);
-              _uDeltaLines.push(urun + ': ' + (_ud >= 0 ? '+' : '') + _fTL(_ud));
-            }
-          });
-          if (_uDeltaLines.length) lines.push('  Ürün bazlı: ' + _uDeltaLines.join(' | '));
-        }
-        // Son 3-4 hafta serisi
-        if (_awk >= 3) {
-          var _wkSeries = [];
-          for (var _wi = Math.max(1, _awk - 3); _wi <= _awk; _wi++) {
-            var _wv = _lastSnp.weeklyTL['h' + _wi] || 0;
-            if (_wv > 0) _wkSeries.push('H' + _wi + ':' + _fTL(_wv));
-          }
-          if (_wkSeries.length >= 2) lines.push('  Son hafta serisi: ' + _wkSeries.join(' → '));
-        }
-      } else if (_lastSnp && _lastSnp.activeWeek === 1) {
-        var _h1v = (_lastSnp.weeklyTL && _lastSnp.weeklyTL.h1) || 0;
-        if (_h1v > 0) lines.push('Haftalık TL: Dönemin ilk haftası — ' + _fTL(_h1v) + ' (henüz karşılaştırma yok)');
       }
 
       // Ürün trendleri (son vs en eski snapshot)
@@ -340,20 +256,9 @@
       // Son 7 snapshot özet tablosu
       lines.push('Son 7 kayıt (yeniden eskiye):');
       last7.forEach(function (s) {
-        var _wkInfo = '';
-        if (s.activeWeek && s.weeklyTL) {
-          var _aw  = s.activeWeek;
-          var _cwv = s.weeklyTL['h' + _aw] || 0;
-          var _pwv = _aw >= 2 ? (s.weeklyTL['h' + (_aw - 1)] || 0) : 0;
-          if (_cwv > 0) {
-            var _wd = _pwv > 0 ? ' (Δ' + (_cwv >= _pwv ? '+' : '') + _fTL(_cwv - _pwv) + ')' : '';
-            _wkInfo = ' H' + _aw + ':' + _fTL(_cwv) + _wd;
-          }
-        }
         lines.push('  ' + s.date + ' → Real:%' + s.tlReal +
           ' Forecast:%' + s.forecastReal +
           ' MI:' + s.mi + ' GI:' + s.gi +
-          _wkInfo +
           (s.prim > 0 ? ' Prim:₺' + s.prim.toLocaleString('tr-TR') : ''));
       });
 
@@ -636,31 +541,6 @@
         trendCol,
         lastSnap ? lastSnap.date + ' tarihli' : 'Kayıt yok'
       );
-
-      // ── HAFTALIK Δ TL KARTI (Phase 5.1) ──────────────────
-      (function () {
-        var _wVal = '—', _wSub = 'Henüz veri yok', _wCol = '#6B7280';
-        function _fTLC(v) {
-          var abs = Math.abs(Math.round(v));
-          return (v < 0 ? '-' : '') + (abs >= 1000 ? (abs / 1000).toFixed(0) + 'K₺' : abs + '₺');
-        }
-        if (lastSnap && lastSnap.weeklyTL && lastSnap.activeWeek >= 2) {
-          var _aw  = lastSnap.activeWeek;
-          var _cur = lastSnap.weeklyTL['h' + _aw]       || 0;
-          var _prv = lastSnap.weeklyTL['h' + (_aw - 1)] || 0;
-          if (_prv > 0) {
-            var _d    = _cur - _prv;
-            var _dpct = Math.round(_d / _prv * 100);
-            _wVal = (_d >= 0 ? '+' : '') + _dpct + '%';
-            _wSub = 'H' + (_aw - 1) + ':' + _fTLC(_prv) + ' → H' + _aw + ':' + _fTLC(_cur);
-            _wCol = _d >= 0 ? '#16A34A' : '#DC2626';
-          }
-        } else if (lastSnap && lastSnap.activeWeek === 1) {
-          _wVal = 'İlk Hafta';
-          _wSub = 'Dönem H1 — karşılaştırma yok';
-        }
-        html += _card('Haftalık Δ TL', _wVal, _wCol, _wSub);
-      }());
 
       html += _card('En Güçlü Ürün',
         behavior.topProducts && behavior.topProducts[0]

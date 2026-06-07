@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════
-//  PHARMA VISION PORTAL  ·  ai-context.js
+//  SAMSUN 2D PORTAL  ·  ai-context.js
 //  Phase 2.0 extraction — index.html L507-685, L1468-1515
 //
 //  Sorumluluk:
@@ -61,7 +61,7 @@ function buildTTTContext(ttt) {
   const _senOrtaPct  = _hedefTL > 0 ? (_senOrta /_hedefTL*100).toFixed(1) : '—';
   const _senKotuPct  = _hedefTL > 0 ? (_senKotu /_hedefTL*100).toFixed(1) : '—';
 
-  let ctx = `=== PHARMA VISION SATIŞ VERİLERİ ===
+  let ctx = `=== SAMSUN 2D SATIŞ VERİLERİ ===
 Temsilci: ${ttt} | TR Sırası: #${trSira}
 Dönem: ${_curPeriod ? _curPeriod.label + ' (' + _curPeriod.months + ')' : '2026 Dönemi'}
 Dönem aralığı: ${_curPeriod ? _curPeriod.start + ' → ' + _curPeriod.end : '—'}
@@ -159,17 +159,12 @@ ${r.urun}: %${r.tl_pct?.toFixed(1)||0} (Hedef: ${(r.hedef_tl/1000).toFixed(0)}K,
       }
       URUN_ORDER.forEach(urun=>{
         const r = GENEL.find(g=>g.ttt===ttt&&g.urun===urun);
-        if (!r) return;
+        if (!r || r.kalan_tl<=0) return;
         const p = IMS_TL_MAP[urun]||0;
-        if (p<=0) return;
-        // kalan_tl 0 veya eksikse hedef-satis fallback kullan
-        let kalanTL = r.kalan_tl;
-        if (!(kalanTL > 0) && r.hedef_tl > 0 && r.satis_tl >= 0) {
-          kalanTL = Math.max(0, r.hedef_tl - r.satis_tl);
+        if (p>0) {
+          const kalanKutu = Math.round(r.kalan_tl / p);
+          ctx += `\n  ${urun}: Kalan ${fTL(r.kalan_tl)} → ${fK(kalanKutu)} kutu gerekli (${p}₺/kutu)`;
         }
-        if (!(kalanTL > 0)) return;
-        const kalanKutu = Math.round(kalanTL / p);
-        ctx += `\n  ${urun}: Kalan ${fTL(kalanTL)} → ${fK(kalanKutu)} kutu gerekli (${p}₺/kutu)`;
       });
     }
   }
@@ -283,40 +278,6 @@ Fırsat Brick (İlk333 + MI≥110 + GI≥100): ${migiRows.filter(r=>r.sira<=333&
     console.warn('[ai-context] Memory enrichment hata (sessiz):', _me.message);
   }
 
-  // Phase 4.5 — Pharmacy Intelligence enrichment
-  // Top30 eczane + reorder olasılığı + forecast Koçluk bağlamına eklenir.
-  // Rollback: bu try bloğunu sil.
-  try {
-    if (typeof buildPharmacyContext === 'function' && window._PHARMACY_INTELLIGENCE_READY) {
-      ctx += buildPharmacyContext(ttt);
-    }
-  } catch (_pie) {
-    console.warn('[ai-context] PharmacyIntelligence enrichment hata (sessiz):', _pie.message);
-  }
-
-  // Phase 4.6 — Reorder Intelligence enrichment
-  // Sipariş olasılığı + sınıflandırma + forecast + yeniden kazanım fırsatları.
-  // Rollback: bu try bloğunu sil.
-  try {
-    if (typeof buildReorderContext === 'function' && window._REORDER_INTELLIGENCE_READY) {
-      ctx += buildReorderContext(ttt);
-    }
-  } catch (_rie) {
-    console.warn('[ai-context] ReorderIntelligence enrichment hata (sessiz):', _rie.message);
-  }
-
-  // Phase 4.6.1 — Reorder Classification Engine enrichment
-  // REGULAR_BUYER | GROWING | AT_RISK | REACTIVATION | CAMPAIGN_BUYER sınıflandırması
-  // + reorderProbability + forecastBoxes + Top30 tablosu
-  // Rollback: bu try bloğunu sil + reorder-classifier.js yükleme satırını kaldır
-  try {
-    if (typeof buildReorderClassifierContext === 'function' && window._REORDER_CLASSIFIER_READY) {
-      ctx += buildReorderClassifierContext(ttt);
-    }
-  } catch (_rce) {
-    console.warn('[ai-context] ReorderClassifier enrichment hata (sessiz):', _rce.message);
-  }
-
   return ctx;
 }
 
@@ -405,17 +366,28 @@ function buildForecastContext(ttt) {
 
     var fmt = function (v) { return '₺' + Math.round(v).toLocaleString('tr-TR'); };
 
+    // FIX-CTX-02 (Problem A-01): explicate the gap between current and projected realization.
+    // Prevents AI from treating projection as "already achieved" when real < projection.
+    var currentReal = hedefTL > 0 ? Math.round((satisTL / hedefTL) * 1000) / 10 : 0;
+    var projGap     = Math.round((projReal - currentReal) * 10) / 10;
+    var projGapNote = projReal > currentReal
+      ? '(tahmini +' + projGap + '% artış bekleniyor — henüz gerçekleşmedi)'
+      : projReal < currentReal
+        ? '(uyarı: forecast mevcut realizasyonun altında — ivme kaybı var)'
+        : '(forecast mevcut realizasyonla aynı)';
+
     return [
       '',
       '--- FORECAST (Phase 4.1) ---',
-      'Tahmini Realizasyon : %' + projReal.toFixed(1),
+      'Mevcut Realizasyon  : %' + currentReal + '  ← şu anki gerçek durum',
+      'Tahmini Realizasyon : %' + projReal.toFixed(1) + '  ' + projGapNote,
       'Tahmini TL          : ' + fmt(projTL),
       'Gap (%91 için)      : ' + fmt(gap91),
       'Kalan Gün           : ' + remaining,
       'Günlük Hedef        : ' + fmt(dailyReq),
       'Haftalık Hedef      : ' + fmt(weeklyReq),
       'Risk Seviyesi       : ' + riskLevel,
-      'Güven               : %' + confidence,
+      'Tahmin Kesinliği    : %' + confidence + ' (metodolojik — hedef başarısı değil)',
       'Metodoloji          : ' + methodology
     ].join('\n');
 
@@ -640,26 +612,22 @@ function buildExecutiveContext(ttts) {
 
 // ── aiQuick — hızlı analiz tetikleyici ────────────────────────
 // Phase 4.1: artık buildExecutiveContext() ile zenginleştirilmiş context kullanır.
-// Phase 5.0: AI Sohbet kaldırıldı — Motor sekmesindeki engineAiAnalysis'e yönlendir.
 function aiQuick(type) {
-  if (typeof switchAiTab === 'function') switchAiTab('motor');
+  if (typeof switchAiTab === 'function') switchAiTab('chat');
   // Phase 4.2 — strateji tipini kaydet
   try {
     var _aqTTT = (typeof selAiTTT !== 'undefined' ? selAiTTT : '');
     if (typeof recordStrategyCall === 'function') recordStrategyCall(type, _aqTTT);
   } catch (_aqe) { /* silent */ }
-  // Tip → engineAiAnalysis eşlemesi
-  var typeMap = { genel:'full', risk:'full', prim:'prim', brick:'bricks', strateji:'full', eczane:'eczane', rakip:'full' };
-  var engineType = typeMap[type] || 'full';
-  // Motor çalışmamışsa önce motoru başlat
-  var outEl = document.getElementById('engineOutput');
-  if (outEl && outEl.style.display === 'none') {
-    if (typeof runEngine === 'function') runEngine();
-    // Kısa gecikmeyle AI analizini başlat (motor render süresini bekle)
-    setTimeout(function() {
-      if (typeof engineAiAnalysis === 'function') engineAiAnalysis(engineType);
-    }, 600);
-  } else {
-    if (typeof engineAiAnalysis === 'function') engineAiAnalysis(engineType);
-  }
+  var prompts = {
+    genel: 'Bu temsilcinin genel satış durumunu analiz et. Güçlü ve zayıf yönleri, kalan iş günlerine göre acil durumları belirt. Şenol Yılmaz için tüm ekibi değerlendir.',
+    risk: 'Bu temsilci için prim riski analizi yap. Kalan iş günü dikkate alarak hangi ürünler %91 hedefin altında, kaç iş günü kaldığı baz alınarak haftalık gereken satışı hesapla.',
+    prim: '2026 İLKO prim sistemine göre dönemlik prim beklentisini hesapla. Kalan süre ve mevcut pace dikkate alarak TL Real, Portföy ve MI&GI primlerini değerlendir.',
+    brick: 'İlk 333 brick bazında önceliklendirme yap. Kalan iş günü dikkate alarak hangi bricklere önce gitmeli, hangi eczaneler kritik? Somut adresler öner.',
+    strateji: 'Kalan iş günlerine göre uygulanabilecek haftalık satış stratejisi öner. Günlük kutu/TL hedefleri ver, brick ve ürün önceliklerini belirt.',
+    eczane: 'Bu temsilcinin eczane satış verilerini detaylı analiz et. Şu kuralları uygula:\n1) Her eczane için aylık tüketim ortalaması hesapla. Örnek: Oca=30, Mar=25 ise (Şub atlayan) ortalama=(30+25)/2=27.5 kutu/ay.\n2) Büyük tek alışları tespit et (kampanya). Bir ayda normal tüketimin 3x+ üzerinde alış varsa kampanya olarak işaretle; bir sonraki sipariş 3-6 ay veya daha uzun süre gecikebilir.\n3) Satış şartları: ACİDPASS:10+1,20+3,50+15,100+35 | PANOCER:10+3,30+12,50+25,100+60,165+135 | GRİPORT COLD:5+1,12+3,20+4,50+20,80+40 | MOKSEFEN:5+1,10+3,30+15\n4) Her aktif eczane için: tahmini aylık tüketim, kalan stok tahmini, önerilen sipariş paketi (en uygun satış şartı kombinasyonu), beklenen sipariş zamanı.\n5) Risk: Büyük alış yapıp uzun süre almayacak eczaneleri listele. Fırsat: Düzenli küçük alış yapan ve sipariş zamanı yaklaşan eczaneleri öne çıkar.',
+    rakip: 'IMS verilerini kullanarak rakip analizi yap:\n1) Her ilaç grubu için rakip ürünlerin brick bazında pazar paylarını karşılaştır.\n2) Rakibin en güçlü olduğu brickler (bizim payımız <%15, rakip payı >%30) ve orada ne yapılabileceğini öner.\n3) Rakibin zayıf olduğu brickler (rakip payı <%20) ve büyüme fırsatlarını listele.\n4) Son 3 hafta trendine göre rakip büyüyen bricklerde savunma, rakip gerileyen bricklerde saldırı stratejisi öner.\n5) Brick bazında en kritik 5 öncelikli hedefi somut ziyaret planıyla açıkla.'
+  };
+  var msg = prompts[type] || type;
+  sendAiMsgWithText(msg);
 }

@@ -508,24 +508,6 @@ function _runEngineCore() {
   document.getElementById('engineOutput').style.display = 'block';
   document.getElementById('engineEmpty').style.display  = 'none';
 
-  // ── ECZANE TOP30 KARTLARI — Pharmacy Intelligence & Reorder ──────────────
-  // İlk 30 Ziyaret Önceliği
-  try {
-    if (typeof renderPharmacyIntelligenceCard === 'function') {
-      renderPharmacyIntelligenceCard('enginePharmacyTop30', ttt !== 'TÜMÜ' ? ttt : null);
-    }
-  } catch(_piErr) {
-    console.warn('[Engine] PharmacyTop30 render hata:', _piErr.message);
-  }
-  // Bu Hafta Siparişe En Yakın 30 Eczane
-  try {
-    if (typeof renderClassifierTop30Card === 'function' && window._REORDER_CLASSIFIER_READY) {
-      renderClassifierTop30Card('engineReorderTop30', ttt !== 'TÜMÜ' ? ttt : null);
-    }
-  } catch(_rcErr) {
-    console.warn('[Engine] ReorderTop30 render hata:', _rcErr.message);
-  }
-
   // AI çıktı alanını sıfırla
   document.getElementById('engineAiOutput').style.display = 'none';
   document.getElementById('engineAiChatArea').innerHTML = '';
@@ -663,7 +645,9 @@ ZAMAN DUYARLI DEĞERLENDİRME — MUTLAKA UYGULA:
 - Değerlendirme çerçeven: (1) Mevcut ivme ile dönem sonu projeksiyonu → (2) %91 için günlük gap → (3) Eylem planı
 - 'Hedefi tutamazsın' yerine: 'Mevcut hızla dönem sonunda %X realizasyona ulaşırsın. %91 için günlük Y₺ daha gerekiyor. Bunu Z ürünü/brick ile kapatabilirsin.' de.
 - Kalan gün > toplam günün %60'ı ise: motivasyon yüksek tut, büyüme odaklı plan ver.
-- Kalan gün < %30 ise: somut acil eylem planı, günlük kutu hedefleri ve eczane listesi ver.`;
+- Kalan gün < %30 ise: somut acil eylem planı, günlük kutu hedefleri ve eczane listesi ver.
+- ROUTE OPTIMIZER çıktısı varsa: Önce bugünün rotasını ve URGENT eczaneleri analiz et, sonra satış stratejisini oluştur.
+- AI SATIŞ KOÇU V2 çıktısı varsa: Forecast Engine, Target Simulator, Territory Optimizer, Pharmacy Intelligence, Route Optimizer, Executive Dashboard ve Prim Engine çıktılarını birlikte oku. Sadece sayı raporlama — mutlaka NE YAPMALIYIM? sorusuna cevap ver.`;
 
   try {
     const AI_PROXY = window.AI_PROXY_URL || 'https://samsun.yilmazusta28.workers.dev';
@@ -712,7 +696,7 @@ ZAMAN DUYARLI DEĞERLENDİRME — MUTLAKA UYGULA:
 function switchAiTab(tab) {
   SoundFX.click();
   // Tüm sekme içeriklerini gizle
-  ['motor','quick'].forEach(t => {
+  ['motor','chat','quick'].forEach(t => {
     const el = document.getElementById('aiTab_' + t);
     const btn = document.getElementById('tab_' + t);
     if (el) el.style.display = 'none';
@@ -723,8 +707,6 @@ function switchAiTab(tab) {
       btn.style.fontWeight = '600';
     }
   });
-  // chat sekmesi artık yok — motor'a yönlendir
-  if (tab === 'chat') tab = 'motor';
   // Seçili sekmeyi göster
   const active = document.getElementById('aiTab_' + tab);
   const activeBtn = document.getElementById('tab_' + tab);

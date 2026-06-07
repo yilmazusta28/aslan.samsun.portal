@@ -51,18 +51,37 @@
   }
 
   // ── _confidence ───────────────────────────────────────────
-  // Geçen süre + veri yeterliliğine göre güven skoru (0-100).
-  function _confidence(elapsedDays, totalDays, hasWeeklyData) {
+  // Güven skoru: TAHMİN KESİNLİĞİ (ne kadar veri toplanmış)
+  // ≠ hedef başarı olasılığı (o ayrı hesaplanır).
+  // Dönem ilerlemesi + haftalık veri varlığına göre 0-85 arası döner.
+  // MAX 85: "Kesin tahmin yapılamaz" mesajını önlemek için tavan düşük tutuldu.
+  // FIX-CONF-01: artık realizasyon durumunu da faktör olarak alıyor.
+  function _confidence(elapsedDays, totalDays, hasWeeklyData, projReal, hedefReal) {
     if (totalDays === 0) return 0;
     var progress = elapsedDays / totalDays;
-    var base = 0;
-    if      (progress >= 0.75) base = 88;
-    else if (progress >= 0.50) base = 75;
-    else if (progress >= 0.25) base = 58;
-    else if (progress >= 0.10) base = 40;
-    else                        base = 20;
-    if (!hasWeeklyData) base = Math.round(base * 0.7);
-    return Math.min(95, Math.max(10, base));
+
+    // Zaman bazlı baz skor (metodolojik kesinlik)
+    var base;
+    if      (progress >= 0.75) base = 75;
+    else if (progress >= 0.50) base = 60;
+    else if (progress >= 0.25) base = 45;
+    else if (progress >= 0.10) base = 30;
+    else                        base = 15;
+
+    // Haftalık IMS verisi yoksa kesinlik düşer
+    if (!hasWeeklyData) base = Math.round(base * 0.65);
+
+    // Projeksiyon ve gerçekleşme arasındaki uçurum büyükse kesinlik düşer
+    // (gerçekleşme %37 iken projeksiyon %123 gösteriyorsa güven OLAMAZ yüksek)
+    if (typeof projReal === 'number' && typeof hedefReal === 'number') {
+      var gap = Math.abs(projReal - hedefReal);
+      if (gap > 50) base = Math.round(base * 0.5);
+      else if (gap > 30) base = Math.round(base * 0.7);
+      else if (gap > 15) base = Math.round(base * 0.85);
+    }
+
+    // Tavan 82: hiçbir zaman "neredeyse kesin" görünmesin
+    return Math.min(82, Math.max(5, base));
   }
 
   // ── calculateRunRate ──────────────────────────────────────
@@ -119,7 +138,11 @@
         .find(function (r) { return r.ttt === ttt && r.urun === 'GENEL TOPLAM'; });
 
       var currentTL = genelTotal ? (genelTotal.satis_tl || 0) : 0;
-      var hedefTL   = genelTotal ? (genelTotal.hedef_tl  || 0) : 0;
+      var _hedefRaw = genelTotal ? (genelTotal.hedef_tl || 0) : 0;
+      // FIX-RR-01: hedef_tl=0 ama tl_pct>0 ise geri hesapla (Phase 3.0.3 fix)
+      var hedefTL = (_hedefRaw === 0 && (genelTotal ? (genelTotal.tl_pct || 0) : 0) > 0 && currentTL > 0)
+        ? Math.round(currentTL / ((genelTotal.tl_pct || 1) / 100))
+        : _hedefRaw;
 
       // ── Haftalık IMS verisi var mı? ───────────────────────
       var imsRows = (typeof IMS !== 'undefined' ? IMS : [])
@@ -133,12 +156,14 @@
       var projected = currentTL + (dailyRate * remainingDays);
 
       // ── Realizasyon tahmini ──────────────────────────────
-      var projReal = hedefTL > 0 ? (projected / hedefTL) * 100 : 0;
+      var projReal    = hedefTL > 0 ? (projected / hedefTL) * 100 : 0;
+      var currentReal = hedefTL > 0 ? (currentTL / hedefTL) * 100 : 0;
 
       result.dailyRunRate          = Math.round(dailyRate);
       result.projectedMonthEnd     = Math.round(projected);
       result.projectedRealization  = Math.round(projReal * 10) / 10;
-      result.confidence            = _confidence(elapsedDays, totalDays, hasWeeklyData);
+      // FIX-CONF-01: pass projReal and currentReal so confidence reflects the gap
+      result.confidence            = _confidence(elapsedDays, totalDays, hasWeeklyData, projReal, currentReal);
 
       result.note = 'Günlük run rate: ₺' + Math.round(dailyRate).toLocaleString('tr-TR') +
         ' | ' + elapsedDays + '/' + totalDays + ' iş günü geçti.';

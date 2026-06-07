@@ -181,6 +181,8 @@
      Sınıflar: REGULAR_BUYER | GROWING | AT_RISK | REACTIVATION | CAMPAIGN_BUYER
      Rollback: bu satırı sil + reorderClassifierCard div'ini kaldır + ai-context.js Phase 4.6.1 bloğunu sil -->
 <script src="js/pharmacy/reorder-classifier.js"></script>
+<script src="js/route/route-optimizer.js"></script>
+<script src="js/ai/ai-sales-coach-v2.js"></script>
 <!-- END PHASE 4.6.1 Reorder Classification Engine -->
 <!-- END PHASE 4.5 Pharmacy Intelligence Engine -->
 
@@ -634,22 +636,11 @@ function calcZam() {
     </span>
   </div>`;
   html += '</div>';
-  document.getElementById('zamResultQ').innerHTML = html;
+  document.getElementById('zamResult').innerHTML = html;
   
-  // AI analizi — motor sekmesinde göster
-  if (typeof switchAiTab === 'function') switchAiTab('motor');
+  // AI'a gönder
   const zamSummary = `Fiyat artışı simülasyonu - Temsilci: ${ttt}\nMevcut toplam real: ${totOldReal.toFixed(1)}% → Zam sonrası: ${totNewReal.toFixed(1)}%\nDönem primi açısından değerlendir.`;
-  // engineAiAnalysis'e özel prompt olarak ilet (varsa)
-  if (typeof engineAiAnalysis === 'function') {
-    // engineOutput açık değilse motoru önce çalıştır
-    const _outEl = document.getElementById('engineOutput');
-    if (_outEl && _outEl.style.display === 'none') {
-      if (typeof runEngine === 'function') runEngine();
-      setTimeout(function(){ engineAiAnalysis('prim'); }, 600);
-    } else {
-      engineAiAnalysis('prim');
-    }
-  }
+  sendAiMsgWithText(zamSummary);
   SoundFX.success();
 }
 
@@ -924,6 +915,8 @@ function renderEczaneContent() {
     if (typeof renderPharmacyIntelligenceCard === 'function') {
       const _piTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
       renderPharmacyIntelligenceCard('pharmacyIntelligenceCard', _piTTT);
+      const _piBadge = document.getElementById('acc_top30visit_badge');
+      if (_piBadge) _piBadge.textContent = '30 eczane';
     }
   } catch(_piErr) {
     console.warn('[PharmacyIntelligence] render hata (sessiz):', _piErr.message);
@@ -935,9 +928,38 @@ function renderEczaneContent() {
     if (typeof renderClassifierTop30Card === 'function' && window._REORDER_CLASSIFIER_READY) {
       const _rcTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
       renderClassifierTop30Card('reorderClassifierCard', _rcTTT);
+      const _rcBadge = document.getElementById('acc_reorder30_badge');
+      if (_rcBadge) _rcBadge.textContent = '30 eczane';
     }
   } catch(_rcErr) {
     console.warn('[ReorderClassifier] render hata (sessiz):', _rcErr.message);
+  }
+
+  // PHASE 4.7: Smart Route Optimizer — Bugünkü Akıllı Rota
+  // Rollback: bu try bloğunu sil + todayRouteCard + weeklyRouteCard div'lerini kaldır
+  try {
+    if (typeof renderTodayRouteCard === 'function' && window._ROUTE_OPTIMIZER_READY) {
+      const _roTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
+      renderTodayRouteCard('todayRouteCard', _roTTT);
+      renderWeeklyRouteCard('weeklyRouteCard', _roTTT);
+      const _roBadge = document.getElementById('acc_todayroute_badge');
+      const _dow = ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
+      if (_roBadge) _roBadge.textContent = _dow[new Date().getDay()];
+    }
+  } catch(_roErr) {
+    console.warn('[RouteOptimizer] render hata (sessiz):', _roErr.message);
+  }
+
+  // PHASE 4.8: AI Sales Coach V2 — Koç + Senaryo kartları
+  // Rollback: bu try bloğunu sil + salesCoachSummaryCard + salesCoachScenarioCard div'lerini kaldır
+  try {
+    if (typeof renderCoachSummaryCard === 'function' && window._SALES_COACH_V2_READY) {
+      const _scTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
+      renderCoachSummaryCard('salesCoachSummaryCard', _scTTT);
+      renderScenarioCard('salesCoachScenarioCard', _scTTT);
+    }
+  } catch(_scErr) {
+    console.warn('[SalesCoachV2] render hata (sessiz):', _scErr.message);
   }
 
   // Grafikler
@@ -946,6 +968,19 @@ function renderEczaneContent() {
 
 let _eczaneData = [];
 let _eczaneSearchFilter = '';
+
+// ── Eczane Sayfası Accordion Toggle ──────────────────────────
+function toggleEczaneAcc(id) {
+  const body   = document.getElementById('acc_' + id + '_body');
+  const icon   = document.getElementById('acc_' + id + '_icon');
+  const hd     = icon ? icon.closest('.eczane-acc-hd') : null;
+  if (!body) return;
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  if (icon) icon.classList.toggle('open', !isOpen);
+  if (hd)   hd.classList.toggle('open',  !isOpen);
+  if (typeof SoundFX !== 'undefined') SoundFX.click();
+}
 
 function filterEczaneTable() {
   _eczaneSearchFilter = (document.getElementById('eczaneSearch')?.value||'').toLowerCase();
@@ -4685,13 +4720,6 @@ function _buildEczaneDrawerRefresh(){
           </div>
         </div>
 
-        <!-- ═══ ECZANE AI LİSTELERİ — Motor'dan alındı ═══ -->
-        <!-- 🏆 İlk 30 Ziyaret Önceliği -->
-        <div id="enginePharmacyTop30" style="margin-bottom:16px"></div>
-
-        <!-- 📦 Bu Hafta Siparişe En Yakın 30 Eczane -->
-        <div id="engineReorderTop30" style="margin-bottom:16px"></div>
-
         <!-- AI Detaylı Strateji butonları — motorun altında -->
         <div class="card mb16" style="border:1.5px solid rgba(27,206,216,.2)">
           <div class="card-hd" style="background:linear-gradient(90deg,rgba(27,206,216,.04),transparent)">
@@ -4721,6 +4749,19 @@ function _buildEczaneDrawerRefresh(){
         </div>
 
       </div><!-- /engineOutput -->
+
+      <!-- ═══ ECZANE AI LİSTELERİ — Motor'dan alındı ═══ -->
+      <!-- 🏆 İlk 30 Ziyaret Önceliği -->
+      <div id="enginePharmacyTop30" style="margin-bottom:16px"></div>
+
+      <!-- 📦 Bu Hafta Siparişe En Yakın 30 Eczane -->
+      <div id="engineReorderTop30" style="margin-bottom:16px"></div>
+
+      <!-- PHASE 4.8: AI Satış Koçu Kartı -->
+      <div id="salesCoachSummaryCard" style="margin:0 0 16px"></div>
+
+      <!-- PHASE 4.8: Dönem Sonu Senaryoları Kartı -->
+      <div id="salesCoachScenarioCard" style="margin:0 0 16px"></div>
 
       <!-- Motor başlangıç boş durumu -->
       <div id="engineEmpty" style="text-align:center;padding:48px 20px">
@@ -4823,6 +4864,9 @@ function _buildEczaneDrawerRefresh(){
         <button class="btn-calc" onclick="aiQuick('rakip')" style="font-size:11px;padding:10px 14px;border-radius:11px;justify-content:flex-start;text-align:left;background:linear-gradient(135deg,rgba(239,68,68,.08),rgba(239,68,68,.04));color:#B91C1C;border:1px solid rgba(239,68,68,.15);box-shadow:none">
           <i class="fas fa-sword" style="margin-right:7px;width:14px"></i>Rakip Analiz
         </button>
+        <button class="btn-calc" onclick="aiQuick('coach')" style="font-size:11px;padding:10px 14px;border-radius:11px;justify-content:flex-start;text-align:left;background:linear-gradient(135deg,rgba(79,0,140,.12),rgba(27,206,216,.08));color:var(--c1);border:1px solid rgba(79,0,140,.3);box-shadow:none">
+          <i class="fas fa-robot" style="margin-right:7px;width:14px"></i>AI Satış Koçu
+        </button>
         <button class="btn-calc" onclick="showZamHesapQuick()" style="font-size:11px;padding:10px 14px;border-radius:11px;justify-content:flex-start;text-align:left;background:linear-gradient(135deg,rgba(124,58,237,.08),rgba(124,58,237,.04));color:#7C3AED;border:1px solid rgba(124,58,237,.2);box-shadow:none">
           <i class="fas fa-percent" style="margin-right:7px;width:14px"></i>Zam Simülasyonu
         </button>
@@ -4899,9 +4943,44 @@ function _buildEczaneDrawerRefresh(){
   <!-- Özet kartları -->
   <div id="eczaneSummaryCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:16px"></div>
 
-  <!-- PHASE 4.5 & 4.6.1: Top30 kartları AI Görev Motoru sayfasına taşındı -->
-  <div id="pharmacyIntelligenceCard" style="display:none"></div>
-  <div id="reorderClassifierCard" style="display:none"></div>
+  <!-- PHASE 4.5 & 4.6.1 & 4.7: Açılır/Kapanır AI Bölümleri -->
+
+  <!-- Accordion: İlk 30 Ziyaret Önceliği -->
+  <div class="eczane-accordion mb16" id="acc_top30visit">
+    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('top30visit')">
+      <span class="eczane-acc-icon" id="acc_top30visit_icon">▶</span>
+      <span class="card-title" style="margin:0">🏆 İlk 30 Ziyaret Önceliği</span>
+      <span class="card-badge" id="acc_top30visit_badge" style="margin-left:auto">AI Analizi</span>
+    </div>
+    <div class="eczane-acc-body" id="acc_top30visit_body" style="display:none">
+      <div id="pharmacyIntelligenceCard"></div>
+    </div>
+  </div>
+
+  <!-- Accordion: Bu Hafta Siparişe En Yakın 30 -->
+  <div class="eczane-accordion mb16" id="acc_reorder30">
+    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('reorder30')">
+      <span class="eczane-acc-icon" id="acc_reorder30_icon">▶</span>
+      <span class="card-title" style="margin:0">📦 Bu Hafta Siparişe En Yakın 30 Eczane</span>
+      <span class="card-badge" id="acc_reorder30_badge" style="margin-left:auto">AI Analizi</span>
+    </div>
+    <div class="eczane-acc-body" id="acc_reorder30_body" style="display:none">
+      <div id="reorderClassifierCard"></div>
+    </div>
+  </div>
+
+  <!-- Accordion: Bugünkü Akıllı Rota -->
+  <div class="eczane-accordion mb16" id="acc_todayroute">
+    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('todayroute')">
+      <span class="eczane-acc-icon" id="acc_todayroute_icon">▶</span>
+      <span class="card-title" style="margin:0">🗺️ Bugünkü Akıllı Rota</span>
+      <span class="card-badge" id="acc_todayroute_badge" style="margin-left:auto">Rota Planı</span>
+    </div>
+    <div class="eczane-acc-body" id="acc_todayroute_body" style="display:none">
+      <div id="todayRouteCard"></div>
+      <div id="weeklyRouteCard"></div>
+    </div>
+  </div>
 
   <!-- Eczane tablosu -->
   <div class="card mb16">
