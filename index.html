@@ -186,6 +186,15 @@
 <!-- END PHASE 4.6.1 Reorder Classification Engine -->
 <!-- END PHASE 4.5 Pharmacy Intelligence Engine -->
 
+<!-- PHASE 5.2: Monthly Pharmacy Data Architecture
+     PharmacyDataManager global API
+     discoverPharmacyFiles, loadPharmacyMonth, loadPharmacyMultiMonth,
+     getActivePharmacyData, buildReorderPredictionScores,
+     buildTop30VisitPriority, buildRouteOptimizer, buildMonthlyTrendAnalysis
+     Rollback: bu satırı sil -->
+<script src="js/pharmacy/pharmacy-data-manager.js"></script>
+<!-- END PHASE 5.2 -->
+
 <!-- PHASE 4.1: Unified AI Context Engine
      buildForecastContext, buildPrimContext, buildSimulatorContext,
      buildTerritoryContext, buildExecutiveContext
@@ -749,7 +758,34 @@ function parseEczaneCSV(csvText) {
 async function renderEczane() {
   const statusEl = document.getElementById('eczaneLoadStatus');
 
-  // İlk kez yükleniyorsa CSV fetch et
+  // ── PHASE 5.2: PharmacyDataManager öncelikli yükleme ──────────────
+  if (window.PharmacyDataManager && window.pharmacyFileRegistry && window.pharmacyFileRegistry.length > 0) {
+    // Phase 5.2 aktif: lazy loading + smart cache
+    if (!eczaneLoaded || !ECZANE_RAW || !ECZANE_RAW.length) {
+      statusEl.textContent = '⏳ Aylık eczane verisi yükleniyor...';
+      try {
+        const rows = await PharmacyDataManager.getActivePharmacyData();
+        ECZANE_RAW   = rows;
+        eczaneLoaded = rows.length > 0;
+        const filter = window.pharmacyActiveFilter;
+        const ayLabel = filter.month
+          ? PharmacyDataManager.ayIsimleri[filter.month - 1] + ' ' + filter.year
+          : (filter.year ? filter.year + ' (Tümü)' : 'Yüklendi');
+        statusEl.textContent = `✅ ${rows.length.toLocaleString('tr-TR')} satış kaydı — ${ayLabel}`;
+        console.log('[ECZANE-52] PharmacyDataManager loaded:', rows.length, 'rows');
+      } catch(err) {
+        statusEl.textContent = '❌ ' + err.message;
+        console.error('[ECZANE-52]', err);
+        return;
+      }
+    }
+    buildEczaneFilters();
+    renderEczaneContent();
+    return;
+  }
+  // ── END PHASE 5.2 ─────────────────────────────────────────────────
+
+  // Fallback: eski tek-dosya yükleme (Phase 5.2 keşif tamamlanmadıysa)
   if (!eczaneLoaded) {
     statusEl.textContent = '⏳ ECZANE.csv yükleniyor...';
     try {
@@ -772,6 +808,15 @@ async function renderEczane() {
 }
 
 function buildEczaneFilters() {
+  // ── PHASE 5.2: Yıl filtresi (PharmacyDataManager hazırsa) ─────────
+  if (window.PharmacyDataManager && window.pharmacyFileRegistry && window.pharmacyFileRegistry.length > 0) {
+    const yilBarEl = document.getElementById('eczaneYilBar');
+    if (yilBarEl) PharmacyDataManager.renderPharmacyYearFilter('eczaneYilBar');
+    const ayBarEl52 = document.getElementById('eczaneAyBar52');
+    if (ayBarEl52) PharmacyDataManager.renderPharmacyMonthFilter('eczaneAyBar52');
+  }
+  // ── END PHASE 5.2 ─────────────────────────────────────────────────
+
   // Her çağrıda brickTTT'yi yeniden oluştur (IMS verisi sonradan yükleniyor olabilir)
   const brickTTT = getBrickTTTMap();
   // ECZANE_RAW'daki ttt=null satırlara brickTTTMap'ten ttt ata
@@ -4931,6 +4976,16 @@ function _buildEczaneDrawerRefresh(){
       <span id="eczaneLoadStatus" style="font-size:10px;color:var(--dim)"></span>
     </div>
     <div class="active-filters" id="eczaneChips" style="display:none"></div>
+
+    <!-- PHASE 5.2: Yıl + Ay Filtresi -->
+    <div id="eczane52Filters" style="margin-bottom:8px">
+      <div style="font-size:10px;color:var(--dim);margin-bottom:4px;font-weight:600;letter-spacing:0.5px">📅 YIL</div>
+      <div id="eczaneYilBar" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px"></div>
+      <div style="font-size:10px;color:var(--dim);margin-bottom:4px;font-weight:600;letter-spacing:0.5px">📆 AY</div>
+      <div id="eczaneAyBar52" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px"></div>
+    </div>
+    <!-- END PHASE 5.2 -->
+
     <!-- Hidden bars for backward compat -->
     <div style="display:none">
       <div id="eczaneTttBar"></div>
