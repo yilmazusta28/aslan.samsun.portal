@@ -758,11 +758,25 @@ function parseEczaneCSV(csvText) {
 async function renderEczane() {
   const statusEl = document.getElementById('eczaneLoadStatus');
 
-  // ── PHASE 5.2: PharmacyDataManager öncelikli yükleme ──────────────
-  if (window.PharmacyDataManager && window.pharmacyFileRegistry && window.pharmacyFileRegistry.length > 0) {
-    // Phase 5.2 aktif: lazy loading + smart cache
-    if (!eczaneLoaded || !ECZANE_RAW || !ECZANE_RAW.length) {
-      statusEl.textContent = '⏳ Aylık eczane verisi yükleniyor...';
+  // ── PHASE 5.2: PharmacyDataManager — discovery arka planda çalışır ──
+  if (window.PharmacyDataManager) {
+    // Discovery henüz bitmemişse arka planda başlat; filtreler hazır olunca güncellenir
+    if (!window._pdm52DiscoveryStarted) {
+      window._pdm52DiscoveryStarted = true;
+      PharmacyDataManager.discoverPharmacyFiles().then(function(found) {
+        if (found.length) {
+          PharmacyDataManager.refreshFilterUI();
+          // Aktif filtre yoksa en son aya ayarla ve renderla
+          if (!window.pharmacyActiveFilter.year) {
+            const latest = found[found.length - 1];
+            window.pharmacyActiveFilter.year  = latest.year;
+            window.pharmacyActiveFilter.month = latest.month;
+          }
+        }
+      });
+    }
+    // Registry doluysa aktif filtreye göre yükle
+    if (window.pharmacyFileRegistry.length > 0 && window.pharmacyActiveFilter.year) {
       try {
         const rows = await PharmacyDataManager.getActivePharmacyData();
         ECZANE_RAW   = rows;
@@ -770,22 +784,17 @@ async function renderEczane() {
         const filter = window.pharmacyActiveFilter;
         const ayLabel = filter.month
           ? PharmacyDataManager.ayIsimleri[filter.month - 1] + ' ' + filter.year
-          : (filter.year ? filter.year + ' (Tümü)' : 'Yüklendi');
-        statusEl.textContent = `✅ ${rows.length.toLocaleString('tr-TR')} satış kaydı — ${ayLabel}`;
-        console.log('[ECZANE-52] PharmacyDataManager loaded:', rows.length, 'rows');
+          : (filter.year ? filter.year + ' (Tümü)' : '');
+        statusEl.textContent = `✅ ${rows.length.toLocaleString('tr-TR')} satış kaydı${ayLabel ? ' — ' + ayLabel : ''}`;
+        PharmacyDataManager.refreshFilterUI();
       } catch(err) {
-        statusEl.textContent = '❌ ' + err.message;
-        console.error('[ECZANE-52]', err);
-        return;
+        console.warn('[ECZANE-52]', err.message);
       }
     }
-    buildEczaneFilters();
-    renderEczaneContent();
-    return;
   }
   // ── END PHASE 5.2 ─────────────────────────────────────────────────
 
-  // Fallback: eski tek-dosya yükleme (Phase 5.2 keşif tamamlanmadıysa)
+  // Eski tek-dosya yükleme (Phase 5.2 devreye girmediğinde veya ek olarak)
   if (!eczaneLoaded) {
     statusEl.textContent = '⏳ ECZANE.csv yükleniyor...';
     try {
@@ -808,12 +817,10 @@ async function renderEczane() {
 }
 
 function buildEczaneFilters() {
-  // ── PHASE 5.2: Yıl filtresi (PharmacyDataManager hazırsa) ─────────
-  if (window.PharmacyDataManager && window.pharmacyFileRegistry && window.pharmacyFileRegistry.length > 0) {
-    const yilBarEl = document.getElementById('eczaneYilBar');
-    if (yilBarEl) PharmacyDataManager.renderPharmacyYearFilter('eczaneYilBar');
-    const ayBarEl52 = document.getElementById('eczaneAyBar52');
-    if (ayBarEl52) PharmacyDataManager.renderPharmacyMonthFilter('eczaneAyBar52');
+  // ── PHASE 5.2: Yıl + Ay filtresi render (her çağrıda) ────────────
+  if (window.PharmacyDataManager) {
+    PharmacyDataManager.renderPharmacyYearFilter('eczaneYilBar');
+    PharmacyDataManager.renderPharmacyMonthFilter('eczaneAyBar52');
   }
   // ── END PHASE 5.2 ─────────────────────────────────────────────────
 
@@ -4979,10 +4986,18 @@ function _buildEczaneDrawerRefresh(){
 
     <!-- PHASE 5.2: Yıl + Ay Filtresi -->
     <div id="eczane52Filters" style="margin-bottom:8px">
-      <div style="font-size:10px;color:var(--dim);margin-bottom:4px;font-weight:600;letter-spacing:0.5px">📅 YIL</div>
-      <div id="eczaneYilBar" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px"></div>
-      <div style="font-size:10px;color:var(--dim);margin-bottom:4px;font-weight:600;letter-spacing:0.5px">📆 AY</div>
-      <div id="eczaneAyBar52" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px"></div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <span style="font-size:10px;color:var(--dim);font-weight:600;letter-spacing:0.5px">📅 YIL</span>
+        <div id="eczaneYilBar" style="display:flex;flex-wrap:wrap;gap:4px">
+          <span style="color:var(--dim);font-size:11px">Taranıyor…</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+        <span style="font-size:10px;color:var(--dim);font-weight:600;letter-spacing:0.5px">📆 AY</span>
+        <div id="eczaneAyBar52" style="display:flex;flex-wrap:wrap;gap:4px">
+          <span style="color:var(--dim);font-size:11px">Yıl seçin</span>
+        </div>
+      </div>
     </div>
     <!-- END PHASE 5.2 -->
 
