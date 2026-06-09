@@ -78,72 +78,94 @@
 
       var now   = new Date();
       var dates = [];
-      // Geriye 36 ay, ileriye 6 ay
-      for (var delta = -36; delta <= 6; delta++) {
+      // Geriye 24 ay, ileriye 3 ay
+      for (var delta = -24; delta <= 3; delta++) {
         var d = new Date(now.getFullYear(), now.getMonth() + delta, 1);
         dates.push({ year: d.getFullYear(), month: d.getMonth() + 1 });
       }
 
+      // Paralel HEAD kontrol — tümü aynı anda
       var found = [];
+      var checks = dates.map(function (d) {
+        var file = _fileName(d.year, d.month);
+        var url  = _fileUrl(file);
+        return fetch(url, { method: 'HEAD', cache: 'no-store' })
+          .then(function (r) { return { d: d, file: file, ok: r.status === 200 }; })
+          .catch(function ()  { return { d: d, file: file, ok: false }; });
+      });
 
-      // 8'li batch — her batch arasında 60ms bekleme
-      var BATCH = 8;
-      for (var i = 0; i < dates.length; i += BATCH) {
-        var batch  = dates.slice(i, i + BATCH);
-        var checks = batch.map(function (d) {
-          var file = _fileName(d.year, d.month);
-          var url  = _fileUrl(file);
-          var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-          var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 4000) : null;
-          var opts = ctrl ? { method: 'HEAD', cache: 'no-store', signal: ctrl.signal } : { method: 'HEAD', cache: 'no-store' };
-          return fetch(url, opts)
-            .then(function (r) {
-              if (timer) clearTimeout(timer);
-              return { d: d, file: file, ok: r.ok };
-            })
-            .catch(function () {
-              if (timer) clearTimeout(timer);
-              return { d: d, file: file, ok: false };
-            });
-        });
-
-        var results = await Promise.all(checks);
-        results.forEach(function (res) {
-          if (res.ok) {
-            var mm   = String(res.d.month).padStart(2,'0');
-            found.push({
-              year:  res.d.year,
-              month: res.d.month,
-              file:  res.file,
-              key:   res.d.year + '_' + mm
-            });
-          }
-        });
-
-        if (i + BATCH < dates.length) {
-          await new Promise(function (r) { setTimeout(r, 60); });
+      var results = await Promise.all(checks);
+      results.forEach(function (res) {
+        if (res.ok) {
+          var mm = String(res.d.month).padStart(2, '0');
+          found.push({ year: res.d.year, month: res.d.month, file: res.file,
+                       key: res.d.year + '_' + mm, legacy: false });
         }
-      }
+      });
 
-      // Kronolojik sıra
       found.sort(function (a, b) {
         return a.year !== b.year ? a.year - b.year : a.month - b.month;
       });
 
+      // ── FALLBACK: ECZANE/ klasörü henüz yok ──────────────────────────
+      // ECZANE_RAW içindeki ay bilgisinden registry üret +
+      // ay bazında cache'e böl — hiçbir şey bozulmadan filtreler çalışır.
+      if (found.length === 0) {
+        console.log('[PDM52] ECZANE/ klasörü boş — legacy ECZANE_RAW modu');
+        var raw = window.ECZANE_RAW || [];
+        var aySet = {};
+        raw.forEach(function (r) {
+          if (!r.ay) return;
+          // ay formatı beklenen: "MM/YYYY" veya "M/YYYY"
+          var p = String(r.ay).split('/');
+          if (p.length < 2) return;
+          var mo = parseInt(p[0], 10);
+          var yr = parseInt(p[1], 10);
+          if (isNaN(mo) || isNaN(yr) || mo < 1 || mo > 12) return;
+          var key = yr + '_' + String(mo).padStart(2, '0');
+          if (!aySet[key]) {
+            aySet[key] = { year: yr, month: mo, file: _fileName(yr, mo), key: key, legacy: true };
+          }
+        });
+        Object.keys(aySet).forEach(function (k) { found.push(aySet[k]); });
+        found.sort(function (a, b) {
+          return a.year !== b.year ? a.year - b.year : a.month - b.month;
+        });
+
+        // Cache: ECZANE_RAW'ı ay bazında böl
+        found.forEach(function (f) {
+          if (window.pharmacyCache[f.key]) return; // zaten var
+          var mm    = String(f.month).padStart(2, '0');
+          var ayStr = mm + '/' + f.year;
+          // Farklı format denemeleri
+          var rows  = raw.filter(function (r) {
+            if (r.ay === ayStr) return true;
+            if (r.ay === String(f.month) + '/' + f.year) return true;
+            return false;
+          });
+          window.pharmacyCache[f.key] = rows;
+          console.log('[PDM52] Legacy cache:', f.key, '→', rows.length, 'satır');
+        });
+      }
+
       window.pharmacyFileRegistry = found;
       _discoveryDone = true;
-      console.log('[PDM52] Keşif tamamlandı:', found.length, 'dosya →',
-        found.map(function (f) { return f.key; }).join(', '));
 
-      // Aktif filtre başlat — en güncel ay
       if (found.length) {
-        var latest = found[found.length - 1];
+        console.log('[PDM52] Keşif tamamlandı:', found.length, 'kayıt →',
+          found.map(function (f) { return f.key + (f.legacy ? '(L)' : ''); }).join(', '));
         if (!window.pharmacyActiveFilter.year) {
+          var latest = found[found.length - 1];
           window.pharmacyActiveFilter.year  = latest.year;
           window.pharmacyActiveFilter.month = latest.month;
         }
-        // Filtre DOM'unu güncelle (eczane sayfası açıksa)
         _refreshFilterUI();
+      } else {
+        console.warn('[PDM52] Hiç dosya/ay bulunamadı');
+        var yilEl = document.getElementById('eczaneYilBar');
+        if (yilEl) yilEl.innerHTML = '<span style="color:var(--dim);font-size:11px">Veri yok</span>';
+        var ayEl52 = document.getElementById('eczaneAyBar52');
+        if (ayEl52) ayEl52.innerHTML = '';
       }
 
       return found;
@@ -247,15 +269,21 @@
 
   async function getActivePharmacyData() {
     var f = window.pharmacyActiveFilter;
-    if (!f.year) return [];
+    if (!f.year) {
+      // Filtre seçilmemiş: mevcut ECZANE_RAW'ı aktif data olarak kullan
+      window.pharmacyActiveData = window.ECZANE_RAW || [];
+      return window.pharmacyActiveData;
+    }
     var rows = f.month
       ? await loadPharmacyMonth(f.year, f.month)
       : await loadPharmacyMultiMonth(f.year);
 
     window.pharmacyActiveData = rows;
-    // Geriye dönük uyumluluk
-    window.ECZANE_RAW   = rows;
-    window.eczaneLoaded = rows.length > 0;
+    // Geriye dönük uyumluluk — sadece rows varsa güncelle
+    if (rows.length > 0) {
+      window.ECZANE_RAW   = rows;
+      window.eczaneLoaded = true;
+    }
     return rows;
   }
 
@@ -494,13 +522,17 @@
         return;
       }
       _refreshFilterUI();
-      // Eczane sayfası açıksa: aktif veriyi güncelle
-      if (typeof curPage !== 'undefined' && curPage === 6) {
-        getActivePharmacyData().then(function(){
+      // Aktif veriyi yükle (hem filtreler hem pharmacyActiveData dolsun)
+      getActivePharmacyData().then(function(rows){
+        if (rows.length > 0) {
+          console.log('[PDM52] Aktif data hazır:', rows.length, 'satır');
+        }
+        // Eczane sayfası açıksa ekranı güncelle
+        if (typeof curPage !== 'undefined' && curPage === 6) {
           if (typeof buildEczaneFilters==='function')  buildEczaneFilters();
           if (typeof renderEczaneContent==='function') renderEczaneContent();
-        });
-      }
+        }
+      });
     });
   }
 
