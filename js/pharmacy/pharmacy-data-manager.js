@@ -33,7 +33,7 @@
     return 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/';
   })();
 
-  var ECZANE_DIR = 'ECZANE/';
+  var ECZANE_DIR = 'eczane/';
 
   var AY_ISIMLERI = [
     'Ocak','Şubat','Mart','Nisan','Mayıs','Haziran',
