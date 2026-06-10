@@ -43,7 +43,7 @@
   // ── Global State ──────────────────────────────────────────────────────
   window.pharmacyFileRegistry = [];
   window.pharmacyCache        = window.pharmacyCache || {};
-  window.pharmacyActiveFilter = window.pharmacyActiveFilter || { year: null, month: null };
+  window.pharmacyActiveFilter = window.pharmacyActiveFilter || { years: [], months: [] };
   window.pharmacyActiveData   = window.pharmacyActiveData   || [];
 
   var _discoveryDone    = false;
@@ -154,10 +154,10 @@
       if (found.length) {
         console.log('[PDM52] Keşif tamamlandı:', found.length, 'kayıt →',
           found.map(function (f) { return f.key + (f.legacy ? '(L)' : ''); }).join(', '));
-        if (!window.pharmacyActiveFilter.year) {
+        if (!window.pharmacyActiveFilter.years || !window.pharmacyActiveFilter.years.length) {
           var latest = found[found.length - 1];
-          window.pharmacyActiveFilter.year  = latest.year;
-          window.pharmacyActiveFilter.month = latest.month;
+          window.pharmacyActiveFilter.years  = [latest.year];
+          window.pharmacyActiveFilter.months = [];
         }
         _refreshFilterUI();
       } else {
@@ -269,22 +269,38 @@
 
   async function getActivePharmacyData() {
     var f = window.pharmacyActiveFilter;
-    if (!f.year) {
-      // Filtre seçilmemiş: mevcut ECZANE_RAW'ı aktif data olarak kullan
+    if (!f.years || !f.years.length) {
       window.pharmacyActiveData = window.ECZANE_RAW || [];
       return window.pharmacyActiveData;
     }
-    var rows = f.month
-      ? await loadPharmacyMonth(f.year, f.month)
-      : await loadPharmacyMultiMonth(f.year);
 
-    window.pharmacyActiveData = rows;
-    // Geriye dönük uyumluluk — sadece rows varsa güncelle
-    if (rows.length > 0) {
-      window.ECZANE_RAW   = rows;
+    // Tüm seçili yıl+ay kombinasyonlarını yükle
+    var all = [];
+    var loaded = {};
+    for (var yi = 0; yi < f.years.length; yi++) {
+      var yr = f.years[yi];
+      var ayList = (f.months && f.months.length)
+        ? f.months
+        : getAvailableMonths(yr);
+      for (var mi = 0; mi < ayList.length; mi++) {
+        var mo = ayList[mi];
+        var key = yr + '_' + mo;
+        if (loaded[key]) continue;
+        loaded[key] = true;
+        // Sadece bu yıl için geçerli aylar
+        var available = getAvailableMonths(yr);
+        if (available.indexOf(mo) === -1) continue;
+        var rows = await loadPharmacyMonth(yr, mo);
+        all = all.concat(rows);
+      }
+    }
+
+    window.pharmacyActiveData = all;
+    if (all.length > 0) {
+      window.ECZANE_RAW   = all;
       window.eczaneLoaded = true;
     }
-    return rows;
+    return all;
   }
 
   // ── 4-5. YIL / AY FİLTRE RENDER ──────────────────────────────────────
@@ -307,24 +323,38 @@
     var el = document.getElementById(elId);
     if (!el) return;
     var years  = getAvailableYears();
-    var active = window.pharmacyActiveFilter.year;
+    var active = window.pharmacyActiveFilter.years || [];
     if (!years.length) { el.innerHTML = '<span style="color:var(--dim);font-size:11px">Taranıyor…</span>'; return; }
     el.innerHTML = years.map(function (y) {
-      var cls = y === active ? 'tfb-sp active' : 'tfb-sp';
-      return '<button class="' + cls + '" onclick="PharmacyDataManager.selectYear(' + y + ')">' + y + '</button>';
+      var isActive = active.indexOf(y) !== -1;
+      var cls = isActive ? 'tfb-sp active' : 'tfb-sp';
+      return '<button class="' + cls + '" onclick="PharmacyDataManager.selectYear(' + y + ')" title="Ctrl+tık: tek seç">' + y + '</button>';
     }).join('');
   }
 
   function _renderMonthFilter(elId) {
     var el = document.getElementById(elId);
     if (!el) return;
-    var f       = window.pharmacyActiveFilter;
-    var months  = f.year ? getAvailableMonths(f.year) : [];
-    var active  = f.month;
-    if (!months.length) { el.innerHTML = '<span style="color:var(--dim);font-size:11px">Yıl seçin</span>'; return; }
-    var html = '<button class="tfb-sp' + (active === null ? ' active' : '') + '" onclick="PharmacyDataManager.selectMonth(null)">Tümü</button>';
+    var f = window.pharmacyActiveFilter;
+    if (!f.years || !f.years.length) {
+      el.innerHTML = '<span style="color:var(--dim);font-size:11px">Yıl seçin</span>';
+      return;
+    }
+    // Seçili tüm yıllardaki mevcut ayların birleşimi
+    var monthSet = {};
+    f.years.forEach(function(yr) {
+      getAvailableMonths(yr).forEach(function(m) { monthSet[m] = true; });
+    });
+    var months = Object.keys(monthSet).map(Number).sort(function(a,b){return a-b;});
+    var activeMonths = f.months || [];
+    var allSelected  = activeMonths.length === 0;
+
+    if (!months.length) { el.innerHTML = '<span style="color:var(--dim);font-size:11px">Veri yok</span>'; return; }
+
+    var html = '<button class="tfb-sp' + (allSelected ? ' active' : '') + '" onclick="PharmacyDataManager.selectMonth(null)">Tümü</button>';
     html += months.map(function (m) {
-      var cls   = m === active ? 'tfb-sp active' : 'tfb-sp';
+      var isActive = activeMonths.indexOf(m) !== -1;
+      var cls   = isActive ? 'tfb-sp active' : 'tfb-sp';
       var label = AY_ISIMLERI[m - 1];
       return '<button class="' + cls + '" onclick="PharmacyDataManager.selectMonth(' + m + ')">' + label + '</button>';
     }).join('');
@@ -336,17 +366,47 @@
 
   // ── Filtre seçim aksiyonları ──────────────────────────────────────────
   async function selectYear(year) {
-    window.pharmacyActiveFilter.year  = year;
-    // En son mevcut ayı seç
-    var months = getAvailableMonths(year);
-    window.pharmacyActiveFilter.month = months.length ? months[months.length - 1] : null;
+    var f = window.pharmacyActiveFilter;
+    var idx = f.years.indexOf(year);
+    if (idx === -1) {
+      f.years.push(year);
+      f.years.sort(function(a,b){return a-b;});
+    } else if (f.years.length > 1) {
+      f.years.splice(idx, 1);
+    }
+    // Ay seçimini sıfırla — yeni yıl seçiminde tüm aylar
+    f.months = [];
+    _refreshFilterUI();
+    await getActivePharmacyData();
+    _triggerEczaneRender();
+  }
+
+  async function selectOnlyYear(year) {
+    var f = window.pharmacyActiveFilter;
+    f.years  = [year];
+    f.months = [];
     _refreshFilterUI();
     await getActivePharmacyData();
     _triggerEczaneRender();
   }
 
   async function selectMonth(month) {
-    window.pharmacyActiveFilter.month = month;
+    var f = window.pharmacyActiveFilter;
+    if (month === null) {
+      // "Tümü" seçildi — ay filtresini temizle
+      f.months = [];
+    } else {
+      var idx = f.months.indexOf(month);
+      if (idx === -1) {
+        f.months.push(month);
+        f.months.sort(function(a,b){return a-b;});
+      } else if (f.months.length > 1) {
+        f.months.splice(idx, 1);
+      } else {
+        // Tek kalan seçim, tekrar tıklanınca tümünü seç
+        f.months = [];
+      }
+    }
     _refreshFilterUI();
     await getActivePharmacyData();
     _triggerEczaneRender();
@@ -546,6 +606,7 @@
     getAvailableYears:            getAvailableYears,
     getAvailableMonths:           getAvailableMonths,
     selectYear:                   selectYear,
+    selectOnlyYear:               selectOnlyYear,
     selectMonth:                  selectMonth,
     renderPharmacyYearFilter:     renderPharmacyYearFilter,
     renderPharmacyMonthFilter:    renderPharmacyMonthFilter,
