@@ -854,7 +854,7 @@ function buildEczaneFilters() {
 
   // Seçili TTT'ye ait brickler
   const tttBricks = [...new Set(
-    ECZANE_RAW.filter(r => r.ttt === selEczaneTTT).map(r => r.brick)
+    (window.pharmacyActiveData||ECZANE_RAW).filter(r => r.ttt === selEczaneTTT).map(r => r.brick)
   )].sort();
 
   document.getElementById('eczaneBrickBar').innerHTML =
@@ -864,7 +864,7 @@ function buildEczaneFilters() {
 
   // Ürünler — URUN_ORDER sırasına göre
   const _eczUrunOrder = (typeof URUN_ORDER !== 'undefined') ? URUN_ORDER : ['PANOCER','ACİDPASS','GRİPORT COLD','MOKSEFEN','FAMTREC'];
-  const _eczUrunSet = new Set(ECZANE_RAW.map(r=>r.urun));
+  const _eczUrunSet = new Set((window.pharmacyActiveData||ECZANE_RAW).map(r=>r.urun));
   const uruns = _eczUrunOrder.filter(u => _eczUrunSet.has(u))
     .concat([..._eczUrunSet].filter(u => !_eczUrunOrder.includes(u)).sort());
   document.getElementById('eczaneUrunBar').innerHTML =
@@ -932,19 +932,41 @@ function getFilteredEczane() {
 
 // PDM multi-select filtresi için — renderEczaneContent'in kullanabileceği yardımcı
 function getFilteredEczanePDM() {
-  const f = window.pharmacyActiveFilter || {};
-  const yrs = f.years || [];
-  const mos = f.months || [];
-  return (window.pharmacyActiveData || ECZANE_RAW || []).filter(r => {
+  const f   = window.pharmacyActiveFilter || {};
+  const yrs = f.years  || [];
+  const mos = f.months || [];   // boş = seçili yılların tamamı
+
+  // Kaynak: PDM'in birleşik verisi (multi-ay/yıl zaten yüklenmiş)
+  const base = window.pharmacyActiveData || ECZANE_RAW || [];
+
+  return base.filter(r => {
+    // TTT filtresi
     if (selEczaneTTT && r.ttt !== selEczaneTTT) return false;
+    // Brick filtresi
     if (selEczaneBrick !== 'TÜMÜ' && r.brick !== selEczaneBrick) return false;
+    // Ürün filtresi
     if (selEczaneUrun  !== 'TÜMÜ' && r.urun  !== selEczaneUrun)  return false;
+
+    // Yıl filtresi — r.ay formatı: "MM/YYYY"
+    if (yrs.length) {
+      const parts = (r.ay || '').split('/');
+      const rYil  = parts.length === 2 ? parseInt(parts[1], 10) : null;
+      if (rYil === null || yrs.indexOf(rYil) === -1) return false;
+    }
+
+    // Ay filtresi — sadece belirli aylar seçiliyse
+    if (mos.length) {
+      const parts = (r.ay || '').split('/');
+      const rAy   = parts.length === 2 ? parseInt(parts[0], 10) : null;
+      if (rAy === null || mos.indexOf(rAy) === -1) return false;
+    }
+
     return true;
   });
 }
 
 function renderEczaneContent() {
-  const filtered = getFilteredEczane();
+  const filtered = getFilteredEczanePDM();
 
   // Eczane bazında aggregate
   const eczMap = {};
@@ -983,7 +1005,7 @@ function renderEczaneContent() {
     {icon:'📦',label:'Toplam Adet',val:fK(totAdet),color:'#0891B2'},
     {icon:'💰',label:'Toplam Tutar',val:fTL(totTutar),color:'#521FD1'},
     {icon:'📈',label:'Büyüyen Eczane',val:buyuyen,color:'#D97706'},
-  ].map(c=>`<div style="background:#fff;border:1px solid var(--border);border-radius:9px;padding:10px 12px;text-align:center">
+  ].map(c=>`<div style="background:var(--surf);border:1px solid var(--border);border-radius:9px;padding:10px 12px;text-align:center">
     <div style="font-size:16px">${c.icon}</div>
     <div style="font-size:18px;font-weight:800;color:${c.color}">${c.val}</div>
     <div style="font-size:9px;color:var(--dim);font-weight:600;text-transform:uppercase;margin-top:2px">${c.label}</div>
@@ -5030,9 +5052,9 @@ function _buildEczaneDrawerRefresh(){
     <div class="active-filters" id="eczaneChips" style="display:none"></div>
 
     <!-- PHASE 5.3: Dönem Multi-Select Paneli -->
-    <div id="eczane52Filters" style="background:var(--card-bg,#1e1e2e);border:1px solid var(--border,rgba(255,255,255,.08));border-radius:12px;padding:10px 14px;margin-bottom:10px">
+    <div id="eczane52Filters" class="donem-secici-panel" style="background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:10px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <span style="font-size:11px;font-weight:700;color:var(--accent,#a78bfa);letter-spacing:0.5px">📅 DÖNEM SEÇİCİ</span>
+        <span style="font-size:11px;font-weight:700;color:var(--c2);letter-spacing:0.5px">📅 DÖNEM SEÇİCİ</span>
         <div style="display:flex;gap:6px">
           <button class="tfb-sp" style="font-size:9px;padding:3px 8px;opacity:.7" onclick="PharmacyDataManager&&PharmacyDataManager.selectMonth(null);buildEczaneFilters();renderEczaneContent()">Tüm Aylar</button>
           <button class="tfb-sp" style="font-size:9px;padding:3px 8px;opacity:.7" onclick="(function(){const f=window.pharmacyActiveFilter||{};const yrs=PharmacyDataManager.getAvailableYears();f.years=yrs.slice(-2);f.months=[];PharmacyDataManager.refreshFilterUI();PharmacyDataManager.getActivePharmacyData().then(()=>{buildEczaneFilters();renderEczaneContent();})})()">Son 2 Yıl</button>
