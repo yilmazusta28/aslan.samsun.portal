@@ -78,9 +78,10 @@
 
       var now   = new Date();
       var dates = [];
-      // Geriye 24 ay, ileriye 3 ay
-      for (var delta = -24; delta <= 3; delta++) {
-        var d = new Date(now.getFullYear(), now.getMonth() + delta, 1);
+      // 2025-01'den başla (ilk CSV o tarihe ait), bugünden 3 ay ileriye kadar tara
+      var startDate = new Date(2025, 0, 1); // Ocak 2025
+      var endDate   = new Date(now.getFullYear(), now.getMonth() + 3, 1);
+      for (var d = new Date(startDate); d <= endDate; d.setMonth(d.getMonth() + 1)) {
         dates.push({ year: d.getFullYear(), month: d.getMonth() + 1 });
       }
 
@@ -416,8 +417,10 @@
   }
 
   function _triggerEczaneRender() {
-    if (typeof buildEczaneFilters === 'function')   buildEczaneFilters();
-    if (typeof renderEczaneContent === 'function')  renderEczaneContent();
+    // DOM hazır değilse (sayfa henüz açılmamış) sadece buildEczaneFilters çağır
+    // renderEczaneContent kendi içinde DOM guard'ı var
+    if (typeof buildEczaneFilters  === 'function') buildEczaneFilters();
+    if (typeof renderEczaneContent === 'function') renderEczaneContent();
   }
 
   // ── 8. REORDER PREDICTION SCORE ──────────────────────────────────────

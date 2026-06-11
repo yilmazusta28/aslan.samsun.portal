@@ -822,6 +822,8 @@ async function renderEczane() {
 }
 
 function buildEczaneFilters() {
+  // Eczane sayfası henüz aktif değilse PDM render'ı yap ama DOM yazma
+  const _eczPageActive = !!document.getElementById('eczaneTttBar');
   // ── PHASE 5.2: Yıl + Ay filtresi render (her çağrıda) ────────────
   if (window.PharmacyDataManager) {
     PharmacyDataManager.renderPharmacyYearFilter('eczaneYilBar');
@@ -851,27 +853,32 @@ function buildEczaneFilters() {
   const _eUrunEl = document.getElementById('eczMfUrunVal');
   if(_eUrunEl) _eUrunEl.textContent = selEczaneUrun === 'TÜMÜ' ? 'Tümü' : (selEczaneUrun || 'Tümü');
 
-  // Backward compat bars (gizli, ama kod okuyabilsin)
-  document.getElementById('eczaneTttBar').innerHTML = allT.map(t =>
+  // Backward compat bars (gizli, ama kod okuyabilsin) — null guard
+  const _tttBarEl = document.getElementById('eczaneTttBar');
+  if (_tttBarEl) _tttBarEl.innerHTML = allT.map(t =>
     `<button class="tfb-sp${t===selEczaneTTT?' active':''}" onclick="selEczaneTTT='${t}';buildEczaneFilters();renderEczaneContent()">${t.split(' ')[0]}</button>`
   ).join('');
 
   // Seçili TTT'ye ait brickler
+  const _activeBase = (window.pharmacyActiveData && window.pharmacyActiveData.length)
+    ? window.pharmacyActiveData : (ECZANE_RAW || []);
   const tttBricks = [...new Set(
-    (window.pharmacyActiveData||ECZANE_RAW).filter(r => r.ttt === selEczaneTTT).map(r => r.brick)
-  )].sort();
+    _activeBase.filter(r => r.ttt === selEczaneTTT).map(r => r.brick)
+  )].filter(Boolean).sort();
 
-  document.getElementById('eczaneBrickBar').innerHTML =
+  const _brickBarEl = document.getElementById('eczaneBrickBar');
+  if (_brickBarEl) _brickBarEl.innerHTML =
     ['TÜMÜ', ...tttBricks].map(b =>
       `<button class="tfb-sp${b===selEczaneBrick?' active':''}" onclick="selEczaneBrick='${b}';buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${b}</button>`
     ).join('');
 
   // Ürünler — URUN_ORDER sırasına göre
   const _eczUrunOrder = (typeof URUN_ORDER !== 'undefined') ? URUN_ORDER : ['PANOCER','ACİDPASS','GRİPORT COLD','MOKSEFEN','FAMTREC'];
-  const _eczUrunSet = new Set((window.pharmacyActiveData||ECZANE_RAW).map(r=>r.urun));
+  const _eczUrunSet = new Set(_activeBase.map(r=>r.urun).filter(Boolean));
   const uruns = _eczUrunOrder.filter(u => _eczUrunSet.has(u))
     .concat([..._eczUrunSet].filter(u => !_eczUrunOrder.includes(u)).sort());
-  document.getElementById('eczaneUrunBar').innerHTML =
+  const _urunBarEl = document.getElementById('eczaneUrunBar');
+  if (_urunBarEl) _urunBarEl.innerHTML =
     ['TÜMÜ', ...uruns].map(u =>
       `<button class="tfb-sp${u===selEczaneUrun?' active':''}" onclick="selEczaneUrun='${u}';buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${u}</button>`
     ).join('');
@@ -880,20 +887,20 @@ function buildEczaneFilters() {
   const _f52 = window.pharmacyActiveFilter || {};
   const _yillar52 = _f52.years || [];
   const _aylar52  = _f52.months || [];
-  // Legacy AY_LABELS (tüm yıllar)
   const AY_LABELS = {};
   ['2024','2025','2026','2027'].forEach(function(yr){
     ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık']
       .forEach(function(ad,i){ AY_LABELS[String(i+1).padStart(2,'0')+'/'+yr]=ad+' '+yr; });
   });
-  const aylar = [...new Set(ECZANE_RAW.map(r=>r.ay))].sort();
-  document.getElementById('eczaneAyBar').innerHTML =
+  const aylar = [...new Set(_activeBase.map(r=>r.ay).filter(Boolean))].sort();
+  const _ayBarEl = document.getElementById('eczaneAyBar');
+  if (_ayBarEl) _ayBarEl.innerHTML =
     ['TÜMÜ', ...aylar].map(a =>
       `<button class="tfb-sp${a===selEczaneAy?' active':''}" onclick="selEczaneAy='${a}';buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${a==='TÜMÜ'?'Tümü':AY_LABELS[a]||a}</button>`
     ).join('');
   // mf-select değeri: PDM seçimini yansıt
   const _eAyEl = document.getElementById('eczMfAyVal');
-  if(_eAyEl){
+  if(_eAyEl && _eczPageActive){
     if(!_yillar52.length){ _eAyEl.textContent='Tümü'; }
     else{
       const yStr = _yillar52.join(',');
@@ -972,6 +979,8 @@ function getFilteredEczanePDM() {
 }
 
 function renderEczaneContent() {
+  // Henüz eczane sayfası açılmamışsa (DOM hazır değil) sessizce çık
+  if (!document.getElementById('eczaneTbody')) return;
   const filtered = getFilteredEczanePDM();
 
   // Eczane bazında aggregate
