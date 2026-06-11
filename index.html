@@ -780,9 +780,13 @@ async function renderEczane() {
     if (window.pharmacyFileRegistry.length > 0 && window.pharmacyActiveFilter.years && window.pharmacyActiveFilter.years.length) {
       try {
         const rows = await PharmacyDataManager.getActivePharmacyData();
-        ECZANE_RAW   = rows;
+        // pharmacyActiveData zaten PDM tarafından set edildi — ECZANE_RAW'ı sadece
+        // fallback olarak kullan, pharmacyActiveData'yı ezme
+        if (!window.pharmacyActiveData || window.pharmacyActiveData.length === 0) {
+          ECZANE_RAW = rows;
+        }
         eczaneLoaded = rows.length > 0;
-        const filter = window.pharmacyActiveFilter;
+        const filter  = window.pharmacyActiveFilter;
         const yilStr  = (filter.years||[]).join(', ');
         const ayNames = (filter.months||[]).map(m => PharmacyDataManager.ayIsimleri[m-1]);
         const ayLabel = ayNames.length ? ayNames.join(', ') : 'Tümü';
@@ -936,8 +940,10 @@ function getFilteredEczanePDM() {
   const yrs = f.years  || [];
   const mos = f.months || [];   // boş = seçili yılların tamamı
 
-  // Kaynak: PDM'in birleşik verisi (multi-ay/yıl zaten yüklenmiş)
-  const base = window.pharmacyActiveData || ECZANE_RAW || [];
+  // Kaynak: PDM aktif veri (öncelikli) — yoksa ECZANE_RAW
+  const base = (window.pharmacyActiveData && window.pharmacyActiveData.length > 0)
+    ? window.pharmacyActiveData
+    : (ECZANE_RAW || []);
 
   return base.filter(r => {
     // TTT filtresi
@@ -1121,7 +1127,12 @@ function renderEczaneTable(data) {
 
   // Aktif aylara göre thead güncelle
   const _aylar = [...new Set(data.flatMap(e=>Object.keys(e).filter(k=>k.startsWith('ay_')).map(k=>k.slice(3))))].sort();
-  const _AY_K = {'01/2026':'Oca','02/2026':'Şub','03/2026':'Mar','04/2026':'Nis','05/2026':'May','06/2026':'Haz','07/2026':'Tem','08/2026':'Ağu','09/2026':'Eyl','10/2026':'Eki','11/2026':'Kas','12/2026':'Ara'};
+  // _AY_K: tüm yıllar için dinamik ("MM/YYYY" → kısa ad)
+  const _AY_K_BASE = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+  const _AY_K = {};
+  [2024,2025,2026,2027].forEach(yr => {
+    _AY_K_BASE.forEach((ad,i) => { _AY_K[String(i+1).padStart(2,'0')+'/'+yr] = ad + (yr!==2026?"'"+(yr%100):''); });
+  });
   const theadEl = document.getElementById('eczaneThead');
   if (theadEl && _aylar.length > 0) {
     theadEl.innerHTML = `<th onclick="sortEczane('ad')" style="cursor:pointer">Eczane ▾</th>
@@ -2260,7 +2271,7 @@ function buildKutuSlicer(){
   document.getElementById('kutuUrunSlicers').innerHTML=URUN_ORDER.map(u=>{
     const clr=URUN_CLR[u]||'#8164CF';
     const on=selKutuUruns.has(u);
-    return `<button onclick="toggleKutuUrun('${u}')" style="padding:5px 14px;font-size:11px;font-weight:600;border-radius:20px;cursor:pointer;border:2px solid ${clr};font-family:'Inter',sans-serif;background:${on?clr:'#fff'};color:${on?'#fff':clr};transition:all .15s">${u}</button>`;
+    return `<button onclick="toggleKutuUrun('${u}')" style="padding:5px 14px;font-size:11px;font-weight:600;border-radius:20px;cursor:pointer;border:2px solid ${clr};font-family:'Inter',sans-serif;background:${on?clr:'var(--surf)'};color:${on?'#fff':clr};transition:all .15s">${u}</button>`;
   }).join('');
 }
 function toggleKutuUrun(u){selKutuUruns.has(u)?selKutuUruns.delete(u):selKutuUruns.add(u);buildKutuSlicer();renderKutuDetail();}
@@ -4692,7 +4703,7 @@ function _buildEczaneDrawerRefresh(){
 
           <div style="margin-top:10px">
             <button onclick="URUN_ORDER.forEach(u=>{const el=document.getElementById(getPrimRealId(u));if(el)el.value='';});calcPrim();"
-              style="padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:#fff;font-size:10px;cursor:pointer;color:var(--dim)">
+              style="padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surf);font-size:10px;cursor:pointer;color:var(--dim)">
               ↺ Manuel girişleri temizle (Hesaplayıcıya dön)
             </button>
           </div>
@@ -4777,7 +4788,7 @@ function _buildEczaneDrawerRefresh(){
   <!-- ═══ SEKMELİ GÖRÜNÜM: Motor | Sohbet ═══ -->
   <div class="card mb16" style="overflow:visible">
     <!-- Sekme başlıkları -->
-    <div style="display:flex;border-bottom:2px solid var(--border);background:#fff;border-radius:var(--card-radius) var(--card-radius) 0 0;overflow:hidden">
+    <div style="display:flex;border-bottom:2px solid var(--border);background:var(--surf);border-radius:var(--card-radius) var(--card-radius) 0 0;overflow:hidden">
       <button id="tab_motor" onclick="switchAiTab('motor')"
         style="flex:1;padding:13px 10px;background:linear-gradient(135deg,rgba(79,0,140,.06),rgba(27,206,216,.03));border:none;cursor:pointer;font-family:'Poppins',sans-serif;font-size:12px;font-weight:700;color:var(--c1);border-bottom:3px solid var(--c1);display:flex;align-items:center;justify-content:center;gap:7px;transition:all .2s">
         <i class="fas fa-bolt"></i> Görev Motoru

@@ -296,8 +296,9 @@
     }
 
     window.pharmacyActiveData = all;
+    // ECZANE_RAW'ı EZME — sadece pharmacyActiveData güncellenir
+    // renderEczane/getFilteredEczanePDM her zaman pharmacyActiveData'yı öncelikli kullanır
     if (all.length > 0) {
-      window.ECZANE_RAW   = all;
       window.eczaneLoaded = true;
     }
     return all;
@@ -374,8 +375,9 @@
     } else if (f.years.length > 1) {
       f.years.splice(idx, 1);
     }
-    // Ay seçimini sıfırla — yeni yıl seçiminde tüm aylar
+    // Ay seçimini ve aktif veriyi sıfırla
     f.months = [];
+    window.pharmacyActiveData = [];
     _refreshFilterUI();
     await getActivePharmacyData();
     _triggerEczaneRender();
@@ -392,6 +394,7 @@
 
   async function selectMonth(month) {
     var f = window.pharmacyActiveFilter;
+    window.pharmacyActiveData = []; // taze yükle
     if (month === null) {
       // "Tümü" seçildi — ay filtresini temizle
       f.months = [];
