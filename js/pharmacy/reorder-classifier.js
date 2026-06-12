@@ -209,14 +209,17 @@
   // ECZANE_RAW → her eczane için classification çıktı objesi
   function classifyAllPharmacies(tttFilter) {
     try {
-      if (!ECZANE_RAW || !Array.isArray(ECZANE_RAW) || !ECZANE_RAW.length) {
-        console.warn('[ReorderClassifier] ECZANE_RAW yok veya boş');
+      var _rcBase = (window.pharmacyActiveData && window.pharmacyActiveData.length > 0)
+        ? window.pharmacyActiveData
+        : (typeof ECZANE_RAW !== 'undefined' ? ECZANE_RAW : []);
+      if (!_rcBase || !Array.isArray(_rcBase) || !_rcBase.length) {
+        console.warn('[ReorderClassifier] veri yok');
         return [];
       }
 
       var source = tttFilter
-        ? ECZANE_RAW.filter(function (r) { return r.ttt === tttFilter; })
-        : ECZANE_RAW;
+        ? _rcBase.filter(function (r) { return r.ttt === tttFilter; })
+        : _rcBase;
 
       if (!source.length) return [];
 
@@ -317,7 +320,8 @@
   // ── 12. runClassifier(ttt) — State güncelle ──────────────────────────
   function runClassifier(tttFilter) {
     try {
-      if (!ECZANE_RAW || !eczaneLoaded) {
+      var _rcCheck = (window.pharmacyActiveData && window.pharmacyActiveData.length > 0) ? window.pharmacyActiveData : (typeof ECZANE_RAW !== 'undefined' ? ECZANE_RAW : []);
+      if (!_rcCheck || !_rcCheck.length) {
         console.warn('[ReorderClassifier] Veri henüz hazır değil');
         return false;
       }

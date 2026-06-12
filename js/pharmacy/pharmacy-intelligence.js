@@ -360,14 +360,18 @@
   // ══════════════════════════════════════════════════════════════════════
 
   function buildPharmacyProfiles(tttFilter) {
-    if (!ECZANE_RAW || !Array.isArray(ECZANE_RAW) || !ECZANE_RAW.length) {
-      console.warn('[PharmacyIntelligence] ECZANE_RAW yok veya boş');
+    // pharmacyActiveData öncelikli (PDM multi-select), yoksa ECZANE_RAW fallback
+    var _piBase = (window.pharmacyActiveData && window.pharmacyActiveData.length > 0)
+      ? window.pharmacyActiveData
+      : (typeof ECZANE_RAW !== 'undefined' ? ECZANE_RAW : []);
+    if (!_piBase || !Array.isArray(_piBase) || !_piBase.length) {
+      console.warn('[PharmacyIntelligence] veri yok (pharmacyActiveData ve ECZANE_RAW boş)');
       return [];
     }
 
     var source = tttFilter
-      ? ECZANE_RAW.filter(function (r) { return r.ttt === tttFilter; })
-      : ECZANE_RAW;
+      ? _piBase.filter(function (r) { return r.ttt === tttFilter; })
+      : _piBase;
 
     if (!source.length) return [];
 
@@ -566,8 +570,11 @@
 
   function runPharmacyIntelligence(tttFilter) {
     try {
-      if (!ECZANE_RAW || !eczaneLoaded) {
-        console.warn('[PharmacyIntelligence] ECZANE_RAW henüz yüklenmedi');
+      var _piCheck = (window.pharmacyActiveData && window.pharmacyActiveData.length > 0)
+        ? window.pharmacyActiveData
+        : (typeof ECZANE_RAW !== 'undefined' ? ECZANE_RAW : []);
+      if (!_piCheck || !_piCheck.length) {
+        console.warn('[PharmacyIntelligence] veri henüz yüklenmedi');
         return false;
       }
 

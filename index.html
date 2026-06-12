@@ -498,9 +498,12 @@ function renderAiAsistan() {
   renderEngine();
 
   const aiAll = ['ŞENOL YILMAZ', ...allTTTs];
-  document.getElementById('aiTttBar').innerHTML = aiAll.map(t =>
-    `<button class="sp-btn${t===selAiTTT?' active':''}" onclick="setAiTTT('${t}')">${t==='ŞENOL YILMAZ'?'🏢 '+t:t}</button>`
-  ).join('');
+  const _aiTttBarEl = document.getElementById('aiTttBar');
+  if (_aiTttBarEl) {
+    _aiTttBarEl.innerHTML = aiAll.map(t =>
+      `<button class="sp-btn${t===selAiTTT?' active':''}" onclick="setAiTTT('${t}')">${t==='ŞENOL YILMAZ'?'🏢 '+t:t}</button>`
+    ).join('');
+  }
 }
 
 // PHASE2-STUB: buildTTTContext → js/ai/ai-context.js
@@ -1030,6 +1033,12 @@ function renderEczaneContent() {
   _eczaneData = eczList;
   document.getElementById('eczaneTblBadge').textContent = `${eczList.length} eczane`;
   renderEczaneTable(eczList);
+
+  // pharmacyActiveData → ECZANE_RAW senkronizasyonu (legacy JS modülleri için)
+  if (window.pharmacyActiveData && window.pharmacyActiveData.length > 0) {
+    ECZANE_RAW   = window.pharmacyActiveData;
+    eczaneLoaded = true;
+  }
 
   // PHASE 4.5: Pharmacy Intelligence Top30 Kartı
   try {
@@ -1811,7 +1820,7 @@ function goPage(i){
   else if(i===2)renderTakip();
   else if(i===3){ initMigi1(); initMigi2(); }
   else if(i===4){ buildPrimInputs(); syncPrimFromCalc(); }
-  else if(i===5)renderAiAsistan();
+  else if(i===5){ /* Eczane sayfası — renderEczane() PDM ile çağrılıyor */ }
   else if(i===6)renderEczane();
 }
 
