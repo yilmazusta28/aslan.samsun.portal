@@ -266,7 +266,7 @@ function _runEngineCore() {
     return `${y}-W${String(wk).padStart(2,'0')}`;
   };
   const _thisWeek = _isoWeekKey();
-  const _cacheKey = `WPP_V2_${ttt}_${_thisWeek}`;
+  const _cacheKey = `WPP_V3_${ttt}_${_thisWeek}`; // V3: nextOrderProducts eklendi
 
   let _weeklyPlan = null;
   try { const _r = localStorage.getItem(_cacheKey); if (_r) _weeklyPlan = JSON.parse(_r); } catch(_) {}
@@ -294,7 +294,8 @@ function _runEngineCore() {
           opportunityScore:   e.opportunityScore   ?? 0,
           visitPriorityScore: e.visitPriorityScore ?? e.score ?? 0,
           daysToNextOrder:    e.daysToNextOrder    ?? 99,
-          expectedOrderDate:  e.expectedOrderDate  ?? '—'
+          expectedOrderDate:  e.expectedOrderDate  ?? '—',
+          nextOrderProducts:  e.nextOrderProducts  ?? []
         }))
       };
       try { localStorage.setItem(_cacheKey, JSON.stringify(_weeklyPlan)); } catch(_) {}
@@ -322,6 +323,14 @@ function _runEngineCore() {
           : e.daysToNextOrder<=7
             ? `<span style="color:#D97706;font-weight:700;font-size:9px">${e.daysToNextOrder}g</span>`
             : `<span style="color:var(--dim);font-size:9px">${e.daysToNextOrder}g</span>`;
+        // Ürün sipariş yakınlık badge'leri
+        const _nop = (e.nextOrderProducts || []).slice(0,3).map(p => {
+          const sn = p.urun.replace('GRİPORT COLD','GRP').replace('ACİDPASS','ACP')
+                           .replace('PANOCER','PAN').replace('MOKSEFEN','MKS').replace('FAMTREC','FAM');
+          const bg  = p.overdue ? '#FEE2E2' : p.urgent ? '#FEF3C7' : '#F1F5F9';
+          const col = p.overdue ? '#DC2626' : p.urgent ? '#92400E' : '#475569';
+          return `<span style="font-size:8px;font-weight:700;background:${bg};color:${col};border-radius:3px;padding:1px 4px">${sn} ${p.overdue?'⚡':''}${p.label}${p.kutu?' ~'+p.kutu+'K':''}</span>`;
+        }).join(' ');
         return `
         <div class="task-row" style="padding:5px 8px;border-bottom:1px solid var(--border)">
           <div class="task-priority tp-${e.rank<=10?'1':e.rank<=20?'2':'3'}" style="min-width:20px;width:20px;height:20px;font-size:9px;border-radius:6px">${e.rank}</div>
@@ -334,6 +343,7 @@ function _runEngineCore() {
               <span style="font-size:9px;color:#0891B2;font-weight:700">${e.expectedOrderBoxes}K</span>
               ${orderTag}
             </div>
+            ${_nop ? `<div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:2px">${_nop}</div>` : ''}
           </div>
         </div>`;
       }).join('')

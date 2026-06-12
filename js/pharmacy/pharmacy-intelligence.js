@@ -315,6 +315,84 @@
   // ══════════════════════════════════════════════════════════════════════
 
   // Her ürün için son aydaki aylık satış payına göre 0-100 affinity skoru
+  // ══════════════════════════════════════════════════════════════════════
+  //  PER-ÜRÜN SİPARİŞ YAKINALIK HESABI
+  //  Döndürür: [ { urun, daysLeft, label, urgent, kutu, affinityPct } ]
+  //  daysLeft=0  → bugün sipariş bekleniyor
+  //  daysLeft<0  → gecikmiş
+  // ══════════════════════════════════════════════════════════════════════
+  function _nextOrderProducts(urunAyMap, allMonths) {
+    var today  = new Date();
+    var result = [];
+
+    PRODUCTS.forEach(function (urun) {
+      var urunSales = urunAyMap[urun] || {};
+
+      // Bu üründen satış olan aylar (sıralı)
+      var activeAyKeys = allMonths.filter(function (ay) {
+        return (urunSales[ay] || 0) > 0;
+      });
+
+      if (!activeAyKeys.length) return; // hiç satış yok, atla
+
+      // Son satış ayı
+      var lastAy   = activeAyKeys[activeAyKeys.length - 1];
+      var parts    = lastAy.split('/');
+      var lastDate = new Date(parseInt(parts[1], 10), parseInt(parts[0], 10) - 1, 15);
+      var daysSince = Math.round((today - lastDate) / 86400000);
+
+      // Ortalama sipariş döngüsü (ürün bazında)
+      var cycle = 30; // default
+      if (activeAyKeys.length >= 2) {
+        var diffs = [];
+        for (var i = 1; i < activeAyKeys.length; i++) {
+          var p0 = activeAyKeys[i-1].split('/');
+          var p1 = activeAyKeys[i].split('/');
+          var d0 = new Date(parseInt(p0[1],10), parseInt(p0[0],10)-1, 15);
+          var d1 = new Date(parseInt(p1[1],10), parseInt(p1[0],10)-1, 15);
+          var diff = Math.round((d1 - d0) / 86400000);
+          if (diff > 0 && diff < 200) diffs.push(diff);
+        }
+        if (diffs.length) {
+          cycle = Math.round(diffs.reduce(function(s,v){return s+v;},0) / diffs.length);
+        }
+      }
+
+      var daysLeft = cycle - daysSince;
+
+      // Son 3 aydaki ortalama kutu (tahmin)
+      var last3 = allMonths.slice(-3);
+      var kutu  = 0;
+      last3.forEach(function(ay){ kutu += urunSales[ay] || 0; });
+      kutu = Math.round(kutu / (last3.length || 1));
+
+      // Affinity % (basit)
+      var last3Active = last3.filter(function(ay){ return (urunSales[ay]||0) > 0; }).length;
+      var affinityPct = last3.length > 0 ? Math.round((last3Active / last3.length) * 100) : 0;
+
+      // Label
+      var label;
+      if (daysLeft <= 0)  label = 'Bugün';
+      else if (daysLeft <= 7) label = daysLeft + 'g';
+      else label = daysLeft + 'g';
+
+      result.push({
+        urun:       urun,
+        daysLeft:   daysLeft,
+        label:      label,
+        urgent:     daysLeft <= 7,
+        overdue:    daysLeft < 0,
+        kutu:       kutu,
+        affinityPct:affinityPct,
+        cycle:      cycle
+      });
+    });
+
+    // Yakınlık sırasına göre sırala (en acil önce)
+    result.sort(function(a, b) { return a.daysLeft - b.daysLeft; });
+    return result;
+  }
+
   function _productAffinity(urunAyMap, allMonths) {
     var result = {};
     var last3Months = allMonths.slice(-3);
@@ -487,6 +565,7 @@
           visitPriorityScore:    0,    // normalizasyon sonrası doldurulur
           classification:        classification,
           productAffinityScore:  productAffinityScore,
+          nextOrderProducts:     _nextOrderProducts(e.urunAyMap, allMonths),
           daysSinceLastOrder:    daysSince,
           avgOrderCycle:         avgOrderCycle,
           daysToNextOrder:       daysToNextOrder,
@@ -739,7 +818,24 @@
 
     var _oppColor = function (s) { return s >= 70 ? '#521FD1' : s >= 40 ? '#0891B2' : '#64748B'; };
 
-    // Affinity badge — sadece en yüksek 2 ürün
+    // Ürün sipariş yakınlık badge'i
+    var _productOrderBadge = function (nextProds) {
+      if (!nextProds || !nextProds.length) return '';
+      // En yakın 3 ürünü göster
+      return nextProds.slice(0, 3).map(function (p) {
+        var sn = p.urun.replace('GRİPORT COLD','GRP').replace('ACİDPASS','ACP')
+                       .replace('PANOCER','PAN').replace('MOKSEFEN','MKS').replace('FAMTREC','FAM');
+        var bg, col;
+        if (p.overdue)       { bg = '#FEE2E2'; col = '#DC2626'; }
+        else if (p.urgent)   { bg = '#FEF3C7'; col = '#B45309'; }
+        else                 { bg = '#F1F5F9'; col = '#475569'; }
+        return '<span style="font-size:8px;font-weight:700;background:' + bg + ';color:' + col +
+               ';border-radius:3px;padding:1px 5px;white-space:nowrap">' +
+               sn + ' ' + (p.overdue ? '⚡' : '') + p.label + (p.kutu ? ' ~' + p.kutu + 'K' : '') +
+               '</span>';
+      }).join(' ');
+    };
+    // Affinity badge (eski — yedek)
     var _affinityBadge = function (aff) {
       if (!aff) return '';
       var sorted = PRODUCTS
@@ -763,7 +859,8 @@
 
       return '<tr>' +
         '<td style="font-weight:800;color:var(--c1);text-align:center;font-size:12px">' + e.rank + '</td>' +
-        '<td style="font-weight:600;font-size:11px">' + e.eczane + '<br>' + _affinityBadge(e.productAffinityScore) + '</td>' +
+        '<td style="font-weight:600;font-size:11px">' + e.eczane + '<br>' +
+          _productOrderBadge(e.nextOrderProducts) + '</td>' +
         '<td style="font-size:10px;color:var(--dim)">' + e.brick + '</td>' +
         '<td style="text-align:center">' + _clsBadge(e.classification) + '</td>' +
         '<td style="text-align:center">' + _probBar(e.reorderProbability) + '</td>' +

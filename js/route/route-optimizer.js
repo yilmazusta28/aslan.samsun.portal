@@ -157,6 +157,7 @@
         expectedOrderDate:  p.expectedOrderDate,
         daysToNextOrder:    p.daysToNextOrder,
         daysSinceLastOrder: p.daysSinceLastOrder,
+        nextOrderProducts:  p.nextOrderProducts || [],
         avgMonthlyBoxes:    p.avgMonthlyBoxes,
         trendSlope:         p.trendSlope,
         gapContribution:    gapContr,
@@ -619,6 +620,20 @@
       return s >= 70 ? '#521FD1' : s >= 40 ? '#0891B2' : '#64748B';
     };
 
+    // Ürün badge helper
+    var _prodBadge = function (nextProds) {
+      if (!nextProds || !nextProds.length) return '';
+      return nextProds.slice(0, 3).map(function (p) {
+        var sn = p.urun.replace('GRİPORT COLD','GRP').replace('ACİDPASS','ACP')
+                       .replace('PANOCER','PAN').replace('MOKSEFEN','MKS').replace('FAMTREC','FAM');
+        var bg  = p.overdue ? '#FEE2E2' : p.urgent ? '#FEF3C7' : '#F1F5F9';
+        var col = p.overdue ? '#DC2626' : p.urgent ? '#B45309' : '#475569';
+        return '<span style="font-size:8px;font-weight:700;background:' + bg + ';color:' + col +
+               ';border-radius:3px;padding:1px 5px">' +
+               sn + ' ' + (p.overdue?'⚡':'') + p.label + (p.kutu?' ~'+p.kutu+'K':'') + '</span>';
+      }).join(' ');
+    };
+
     var rows = t.pharmacies.map(function (p) {
       var orderIn = p.daysToNextOrder <= 0
         ? '<span style="color:#DC2626;font-weight:800;font-size:10px">⚡ Bugün!</span>'
@@ -628,7 +643,7 @@
 
       return '<tr>' +
         '<td style="font-weight:800;color:var(--c1);text-align:center;font-size:13px">' + p.rank + '</td>' +
-        '<td style="font-weight:600;font-size:11px">' + p.eczane + '</td>' +
+        '<td style="font-weight:600;font-size:11px">' + p.eczane + '<br>' + _prodBadge(p.nextOrderProducts) + '</td>' +
         '<td style="font-size:10px;color:var(--dim)">' + p.brick + '</td>' +
         '<td style="text-align:center">' + _prioBadge(p.priority) + '</td>' +
         '<td style="text-align:center">' + _clsBadge(p.classification) + '</td>' +

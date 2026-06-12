@@ -301,6 +301,13 @@
     candidates.sort(function (a, b) { return b.score - a.score; });
 
     return candidates.slice(0, 30).map(function (r, i) {
+      // pharmacy-intelligence profile'dan nextOrderProducts al
+      var _piProf = null;
+      if (window.PHARMACY_INTELLIGENCE && window.PHARMACY_INTELLIGENCE.profiles) {
+        _piProf = window.PHARMACY_INTELLIGENCE.profiles.filter(function(p){
+          return p.gln === r.gln || p.eczane === r.eczane;
+        })[0] || null;
+      }
       return {
         rank:               i + 1,
         gln:                r.gln,
@@ -312,7 +319,10 @@
         forecastBoxes:      r.forecastBoxes,
         score:              r.score,
         daysSinceLastOrder: r.daysSinceLastOrder,
-        lastPurchaseDate:   r.lastPurchaseDate
+        lastPurchaseDate:   r.lastPurchaseDate,
+        nextOrderProducts:  _piProf ? (_piProf.nextOrderProducts || []) : [],
+        daysToNextOrder:    _piProf ? (_piProf.daysToNextOrder || 99) : 99,
+        expectedOrderBoxes: _piProf ? (_piProf.expectedOrderBoxes || 0) : 0
       };
     });
   }
@@ -513,10 +523,29 @@
     };
 
     // Tablo satırları
+    // Ürün sipariş yakınlık badge
+    var _prodBadge = function (nextProds) {
+      if (!nextProds || !nextProds.length) return '';
+      return nextProds.slice(0, 3).map(function (p) {
+        var sn = p.urun.replace('GRİPORT COLD','GRP').replace('ACİDPASS','ACP')
+                       .replace('PANOCER','PAN').replace('MOKSEFEN','MKS').replace('FAMTREC','FAM');
+        var bg  = p.overdue ? '#FEE2E2' : p.urgent ? '#FEF3C7' : '#F1F5F9';
+        var col = p.overdue ? '#DC2626' : p.urgent ? '#B45309' : '#475569';
+        return '<span style="font-size:8px;font-weight:700;background:' + bg + ';color:' + col +
+               ';border-radius:3px;padding:1px 5px">' +
+               sn + ' ' + (p.overdue?'⚡':'') + p.label + (p.kutu?' ~'+p.kutu+'K':'') + '</span>';
+      }).join(' ');
+    };
+
     var rows = rc.top30.map(function (e) {
+      var orderIn = e.daysToNextOrder <= 0
+        ? '<span style="color:#DC2626;font-weight:800;font-size:10px">⚡ Bugün!</span>'
+        : e.daysToNextOrder <= 7
+          ? '<span style="color:#D97706;font-weight:700;font-size:10px">' + e.daysToNextOrder + ' gün</span>'
+          : '<span style="color:var(--dim);font-size:10px">' + e.daysToNextOrder + ' gün</span>';
       return '<tr>' +
         '<td style="font-weight:800;color:var(--c1);text-align:center;font-size:12px">' + e.rank + '</td>' +
-        '<td style="font-weight:600;font-size:11px">' + e.eczane + '</td>' +
+        '<td style="font-weight:600;font-size:11px">' + e.eczane + '<br>' + _prodBadge(e.nextOrderProducts) + '</td>' +
         '<td style="font-size:10px;color:var(--dim)">' + e.brick + '</td>' +
         '<td style="text-align:center">' + _badge(e.classification) + '</td>' +
         '<td style="text-align:center;font-weight:900;font-size:13px;color:' +
