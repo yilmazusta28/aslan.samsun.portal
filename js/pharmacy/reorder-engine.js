@@ -536,6 +536,14 @@ function buildReorderContext(tttFilter) {
       });
     }
 
+    // ── Satış Şartları & Sipariş Önerisi (Phase 4.7 entegrasyonu) ──────
+    try {
+      if (typeof buildSalesConditionsContext === 'function') {
+        lines.push('');
+        lines.push(buildSalesConditionsContext(tttFilter));
+      }
+    } catch (_scErr) { /* sales-conditions.js yüklü değilse sessiz geç */ }
+
     return lines.join('\n');
 
   } catch (err) {

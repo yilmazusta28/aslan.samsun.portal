@@ -278,6 +278,16 @@ Fırsat Brick (İlk333 + MI≥110 + GI≥100): ${migiRows.filter(r=>r.sira<=333&
     console.warn('[ai-context] Memory enrichment hata (sessiz):', _me.message);
   }
 
+  // Phase 4.7 — Satış Şartları & Haber Takibi & Sipariş Analizi
+  // Rollback: bu try bloğunu sil
+  try {
+    if (typeof buildSalesConditionsContext === 'function') {
+      ctx += buildSalesConditionsContext(ttt);
+    }
+  } catch (_scErr) {
+    console.warn('[ai-context] SalesConditions enrichment hata (sessiz):', _scErr.message);
+  }
+
   return ctx;
 }
 

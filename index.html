@@ -173,6 +173,13 @@
      buildPharmacyProfiles, buildTop30Pharmacies, buildPharmacyContext,
      renderPharmacyIntelligenceCard, runPharmacyIntelligence
      Rollback: bu satırı sil + eczane kartını kaldır -->
+<!-- PHASE 4.7: Satış Şartları & Haber Takibi
+     SatisKosullariManager, HaberTakibiManager, getSiparisOnerisi,
+     analyzeEczaneByProduct, buildSalesConditionsContext,
+     renderSatisKosullariPanel, renderHaberTakibiPanel, renderEczaneUrunAnalizKarti
+     Rollback: bu satırı sil + satisKosullariPanel/haberTakibiPanel/eczaneUrunAnalizKarti div'lerini kaldır -->
+<script src="js/pharmacy/sales-conditions.js"></script>
+<!-- END PHASE 4.7 -->
 <script src="js/pharmacy/pharmacy-intelligence.js"></script>
 <script src="js/pharmacy/reorder-engine.js"></script>
 <!-- PHASE 4.6.1: Reorder Classification Engine
@@ -1063,6 +1070,25 @@ function renderEczaneContent() {
     }
   } catch(_rcErr) {
     console.warn('[ReorderClassifier] render hata (sessiz):', _rcErr.message);
+  }
+
+  // PHASE 4.7: Satış Şartları & Sipariş Analizi — filtre değişiminde yenile
+  // Rollback: bu try bloğunu sil
+  try {
+    if (typeof renderSatisKosullariPanel === 'function' && window._pvSartlariRendered) {
+      renderSatisKosullariPanel('satisKosullariPanel');
+    }
+    if (typeof renderHaberTakibiPanel === 'function' && window._pvHaberRendered) {
+      renderHaberTakibiPanel('haberTakibiPanel');
+    }
+    if (typeof renderEczaneUrunAnalizKarti === 'function' && window._pvUrunAnalizRendered) {
+      const _saTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
+      renderEczaneUrunAnalizKarti('eczaneUrunAnalizKarti', _saTTT);
+      const _saBadge = document.getElementById('acc_ecz_urun_analiz_badge');
+      if (_saBadge) _saBadge.textContent = 'Şarta Uygun Öneri';
+    }
+  } catch(_saErr) {
+    console.warn('[SatisKosullari] render hata (sessiz):', _saErr.message);
   }
 
   // PHASE 4.7: Smart Route Optimizer — Bugünkü Akıllı Rota
@@ -5144,7 +5170,42 @@ function _buildEczaneDrawerRefresh(){
     </div>
   </div>
 
-  <!-- Accordion: Bugünkü Akıllı Rota -->
+  <!-- PHASE 4.7 Accordion: Satış Şartları Yönetimi -->
+  <div class="eczane-accordion mb16" id="acc_satis_sartlari">
+    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('satis_sartlari');if(!window._pvSartlariRendered){window._pvSartlariRendered=true;if(typeof renderSatisKosullariPanel==='function')renderSatisKosullariPanel('satisKosullariPanel');}">
+      <span class="eczane-acc-icon" id="acc_satis_sartlari_icon">▶</span>
+      <span class="card-title" style="margin:0">⚙️ Satış Şartları Yönetimi</span>
+      <span class="card-badge" id="acc_satis_sartlari_badge" style="margin-left:auto">MF & Kampanya</span>
+    </div>
+    <div class="eczane-acc-body" id="acc_satis_sartlari_body" style="display:none">
+      <div id="satisKosullariPanel"></div>
+    </div>
+  </div>
+
+  <!-- PHASE 4.7 Accordion: Piyasa Haberleri -->
+  <div class="eczane-accordion mb16" id="acc_haber_takibi">
+    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('haber_takibi');if(!window._pvHaberRendered){window._pvHaberRendered=true;if(typeof renderHaberTakibiPanel==='function')renderHaberTakibiPanel('haberTakibiPanel');}">
+      <span class="eczane-acc-icon" id="acc_haber_takibi_icon">▶</span>
+      <span class="card-title" style="margin:0">📰 Piyasa Haberleri & Özel Durumlar</span>
+      <span class="card-badge" id="acc_haber_takibi_badge" style="margin-left:auto">Fiyat / Kampanya</span>
+    </div>
+    <div class="eczane-acc-body" id="acc_haber_takibi_body" style="display:none">
+      <div id="haberTakibiPanel"></div>
+    </div>
+  </div>
+
+  <!-- PHASE 4.7 Accordion: Eczane × Ürün Sipariş Analizi -->
+  <div class="eczane-accordion mb16" id="acc_ecz_urun_analiz">
+    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('ecz_urun_analiz');if(!window._pvUrunAnalizRendered){window._pvUrunAnalizRendered=true;const _ttt=(typeof selEczaneTTT!=='undefined'&&selEczaneTTT!=='TÜMÜ')?selEczaneTTT:null;if(typeof renderEczaneUrunAnalizKarti==='function')renderEczaneUrunAnalizKarti('eczaneUrunAnalizKarti',_ttt);}">
+      <span class="eczane-acc-icon" id="acc_ecz_urun_analiz_icon">▶</span>
+      <span class="card-title" style="margin:0">📦 Eczane × Ürün Sipariş Analizi</span>
+      <span class="card-badge" id="acc_ecz_urun_analiz_badge" style="margin-left:auto">Şarta Uygun Öneri</span>
+    </div>
+    <div class="eczane-acc-body" id="acc_ecz_urun_analiz_body" style="display:none">
+      <div id="eczaneUrunAnalizKarti"></div>
+    </div>
+  </div>
+  <!-- END PHASE 4.7 -->
   <div class="eczane-accordion mb16" id="acc_todayroute">
     <div class="eczane-acc-hd" onclick="toggleEczaneAcc('todayroute')">
       <span class="eczane-acc-icon" id="acc_todayroute_icon">▶</span>
