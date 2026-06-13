@@ -290,6 +290,15 @@
       result.methodology = 'Hesaplama hatası: ' + e.message;
     }
 
+    // PHASE 5.4: Forecast tahminini kaydet
+    if (window.LearningEngine && result.projectedBox > 0) {
+      window.LearningEngine.recordPrediction({
+        type:'forecast', engine:'forecast', ttt:ttt,
+        predictedQty:result.projectedBox, predictedTL:result.projectedTL,
+        confidence:result.confidence||70,
+        meta:{ methodology:result.methodology, projectedReal:result.projectedReal }
+      });
+    }
     return result;
   }
 

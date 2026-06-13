@@ -210,6 +210,7 @@
 
 <script src="js/ai/ai-context.js"></script>
 <script src="js/ai/ai-service.js"></script>
+<script src="js/ai/learning-engine.js"></script>
 <script src="js/ai/ai-engine.js"></script>
 <script>
 // PHASE2-STUB: SoundFX + HapticFX extracted to js/utils/audio-utils.js
@@ -801,6 +802,13 @@ async function renderEczane() {
           ECZANE_RAW   = rows;
           eczaneLoaded = true;
           window.pharmacyActiveData = rows;
+          // PHASE 5.4: Tahmin gerçekleşmelerini değerlendir
+          if (window.LearningEngine) {
+            setTimeout(function() {
+              window.LearningEngine.evaluatePredictions();
+              window.LearningEngine.updateConfidenceWeights();
+            }, 2000);
+          }
         }
 
         const filter  = window.pharmacyActiveFilter;
@@ -1088,6 +1096,15 @@ function renderEczaneContent() {
     if (typeof renderHaberTakibiPanel === 'function' && window._pvHaberRendered) {
       renderHaberTakibiPanel('haberTakibiPanel');
     }
+    // PHASE 5.4: AI Perf badge + auto-render
+    const _aiPBadge = document.getElementById('acc_ai_perf_badge');
+    if (_aiPBadge && window.LearningEngine) {
+      const _aM = window.LearningEngine.getAccuracyMetrics();
+      const _aN = (_aM.overall||{}).n||0;
+      _aiPBadge.textContent = _aN ? ('🎯 %'+((_aM.overall||{}).hitRate||0)+' | '+_aN+' tahmin') : 'Bekleniyor';
+      if (window._pvAiPerfRendered) LearningEngine.renderAIPerformanceDashboard('aiPerfDashboard');
+    }
+
     if (typeof renderEczaneUrunAnalizKarti === 'function' && window._pvUrunAnalizRendered) {
       const _saTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
       renderEczaneUrunAnalizKarti('eczaneUrunAnalizKarti', _saTTT);
@@ -5198,6 +5215,18 @@ function _buildEczaneDrawerRefresh(){
     </div>
     <div class="eczane-acc-body" id="acc_haber_takibi_body" style="display:none">
       <div id="haberTakibiPanel"></div>
+    </div>
+  </div>
+
+  <!-- PHASE 5.4 Accordion: AI Tahmin Performansı -->
+  <div class="eczane-accordion mb16" id="acc_ai_perf">
+    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('ai_perf');if(!window._pvAiPerfRendered){window._pvAiPerfRendered=true;if(window.LearningEngine)LearningEngine.renderAIPerformanceDashboard('aiPerfDashboard');}">
+      <span class="eczane-acc-icon" id="acc_ai_perf_icon">▶</span>
+      <span>🧠 AI Tahmin Performansı</span>
+      <span id="acc_ai_perf_badge" class="card-badge" style="margin-left:auto;background:#F3E8FF;color:#7C3AED;font-size:9px">Bekleniyor</span>
+    </div>
+    <div id="acc_ai_perf_body" class="eczane-acc-body" style="display:none">
+      <div id="aiPerfDashboard"></div>
     </div>
   </div>
 

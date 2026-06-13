@@ -360,6 +360,19 @@
         tttFilter:   tttFilter || 'TÜMÜ'
       };
 
+      // PHASE 5.4: Reorder tahminlerini LearningEngine'e kaydet
+      if (window.LearningEngine && top30 && top30.length) {
+        top30.forEach(function(e) {
+          window.LearningEngine.recordPrediction({
+            type:'reorder', engine:'reorder',
+            pharmacy:e.eczane, brick:e.brick, ttt:e.ttt,
+            predictedQty:e.forecastBoxes||0,
+            confidence:e.reorderProbability||70,
+            meta:{ classification:e.classification, score:e.score }
+          });
+        });
+      }
+
       console.log(
         '[ReorderClassifier] ✅ Phase 4.6.1 tamamlandı:',
         all.length, 'eczane |',
