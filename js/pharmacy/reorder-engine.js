@@ -271,13 +271,37 @@ function _buildReason(classification, momentum, consistency, monthlySales) {
 // ── 12. analyzePharmacyHistory() ─────────────────────────────────────
 // ECZANE_RAW → her eczane için tam analiz objesi
 function analyzePharmacyHistory(tttFilter) {
-  if (!ECZANE_RAW || !Array.isArray(ECZANE_RAW) || !ECZANE_RAW.length) {
+  // PHASE 5.2: pharmacyStore.normalized öncelikli, yoksa pharmacyActiveData, son çare ECZANE_RAW
+  var _storeNorm = (window.pharmacyStore && window.pharmacyStore.normalized && window.pharmacyStore.normalized.length)
+    ? window.pharmacyStore.normalized
+    : null;
+  var _base = _storeNorm
+    || (window.pharmacyActiveData && window.pharmacyActiveData.length ? window.pharmacyActiveData : null)
+    || (typeof ECZANE_RAW !== 'undefined' ? ECZANE_RAW : []);
+
+  if (!_base || !Array.isArray(_base) || !_base.length) {
+    console.warn('[ReorderEngine] Veri yok (pharmacyStore, pharmacyActiveData, ECZANE_RAW hepsi boş)');
     return [];
   }
 
+  // normalize edilmiş kayıtları ECZANE_RAW formatına çevir (geriye uyumluluk)
+  var _toRaw = function(n) {
+    return {
+      gln:   n.gln   || '',
+      ad:    n.eczane || n.ad || '',
+      brick: n.brick  || '',
+      ttt:   n.temsilci || n.ttt || '',
+      urun:  n.urun   || '',
+      adet:  n.adet   || 0,
+      tutar: n.tutar  || 0,
+      ay:    n.ay     || (String(n.month).padStart(2,'0') + '/' + n.year)
+    };
+  };
+  var rawBase = _storeNorm ? _base.map(_toRaw) : _base;
+
   var source = tttFilter
-    ? ECZANE_RAW.filter(function(r) { return r.ttt === tttFilter; })
-    : ECZANE_RAW;
+    ? rawBase.filter(function(r) { return (r.ttt||r.temsilci) === tttFilter; })
+    : rawBase;
 
   if (!source.length) return [];
 
@@ -290,7 +314,7 @@ function analyzePharmacyHistory(tttFilter) {
 
     if (!eczMap[key]) {
       eczMap[key] = {
-        eczane: r.ad   || '',
+        eczane: r.ad || r.eczane || '',
         brick:  r.brick || '',
         ttt:    r.ttt  || '',
         gln:    r.gln  || '',
@@ -433,8 +457,12 @@ function buildTop30Reorder(tttFilter) {
 // Tüm hesapları çalıştırır, REORDER_INTELLIGENCE'ı günceller
 function runReorderIntelligence(tttFilter) {
   try {
-    if (!ECZANE_RAW || !eczaneLoaded) {
-      console.warn('[ReorderEngine] ECZANE_RAW henüz yüklenmedi');
+    // PHASE 5.2: pharmacyStore veya pharmacyActiveData kontrolü
+    var _hasData = (window.pharmacyStore && window.pharmacyStore.normalized && window.pharmacyStore.normalized.length > 0)
+      || (window.pharmacyActiveData && window.pharmacyActiveData.length > 0)
+      || (typeof ECZANE_RAW !== 'undefined' && Array.isArray(ECZANE_RAW) && ECZANE_RAW.length > 0 && (typeof eczaneLoaded !== 'undefined' && eczaneLoaded));
+    if (!_hasData) {
+      console.warn('[ReorderEngine] Veri henüz yüklenmedi');
       return false;
     }
 

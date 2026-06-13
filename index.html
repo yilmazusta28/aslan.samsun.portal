@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PHARMA VISION Satış Portalı</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- ═══════════════════════════════════════════════════════════════
      MODÜL YÜKLEMESİ — PHARMA VISION Satış Portalı
      Yükleme sırası (bağımlılık sırasına göre):
@@ -181,6 +182,7 @@
 <script src="js/pharmacy/sales-conditions.js"></script>
 <!-- END PHASE 4.7 -->
 <script src="js/pharmacy/pharmacy-intelligence.js"></script>
+<script src="js/pharmacy/pharmacy-data-manager.js"></script>
 <script src="js/pharmacy/reorder-engine.js"></script>
 <!-- PHASE 4.6.1: Reorder Classification Engine
      classifyAllPharmacies, buildClassifierTop30, buildReorderClassifierContext,
@@ -199,7 +201,6 @@
      getActivePharmacyData, buildReorderPredictionScores,
      buildTop30VisitPriority, buildRouteOptimizer, buildMonthlyTrendAnalysis
      Rollback: bu satırı sil -->
-<script src="js/pharmacy/pharmacy-data-manager.js"></script>
 <!-- END PHASE 5.2 -->
 
 <!-- PHASE 4.1: Unified AI Context Engine
@@ -1081,16 +1082,11 @@ function renderEczaneContent() {
     if (typeof renderHaberTakibiPanel === 'function' && window._pvHaberRendered) {
       renderHaberTakibiPanel('haberTakibiPanel');
     }
-    if (typeof renderEczaneUrunAnalizKarti === 'function') {
-      const _saBody = document.getElementById('acc_ecz_urun_analiz_body');
-      // Sadece accordion açıksa veya daha önce açılmışsa yenile
-      if (window._pvUrunAnalizRendered || (_saBody && _saBody.style.display !== 'none')) {
-        window._pvUrunAnalizRendered = true;
-        const _saTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
-        renderEczaneUrunAnalizKarti('eczaneUrunAnalizKarti', _saTTT);
-        const _saBadge = document.getElementById('acc_ecz_urun_analiz_badge');
-        if (_saBadge) _saBadge.textContent = 'Şarta Uygun Öneri';
-      }
+    if (typeof renderEczaneUrunAnalizKarti === 'function' && window._pvUrunAnalizRendered) {
+      const _saTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
+      renderEczaneUrunAnalizKarti('eczaneUrunAnalizKarti', _saTTT);
+      const _saBadge = document.getElementById('acc_ecz_urun_analiz_badge');
+      if (_saBadge) _saBadge.textContent = 'Şarta Uygun Öneri';
     }
   } catch(_saErr) {
     console.warn('[SatisKosullari] render hata (sessiz):', _saErr.message);
@@ -5201,7 +5197,7 @@ function _buildEczaneDrawerRefresh(){
 
   <!-- PHASE 4.7 Accordion: Eczane × Ürün Sipariş Analizi -->
   <div class="eczane-accordion mb16" id="acc_ecz_urun_analiz">
-    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('ecz_urun_analiz');if(!window._pvUrunAnalizRendered){window._pvUrunAnalizRendered=true;}if(document.getElementById('acc_ecz_urun_analiz_body').style.display!=='none'){if(window.pharmacyActiveData&&window.pharmacyActiveData.length>0){window.ECZANE_RAW=window.pharmacyActiveData;}const _ttt=(typeof selEczaneTTT!=='undefined'&&selEczaneTTT!=='TÜMÜ')?selEczaneTTT:null;if(typeof renderEczaneUrunAnalizKarti==='function')renderEczaneUrunAnalizKarti('eczaneUrunAnalizKarti',_ttt);}">
+    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('ecz_urun_analiz');if(!window._pvUrunAnalizRendered){window._pvUrunAnalizRendered=true;const _ttt=(typeof selEczaneTTT!=='undefined'&&selEczaneTTT!=='TÜMÜ')?selEczaneTTT:null;if(typeof renderEczaneUrunAnalizKarti==='function')renderEczaneUrunAnalizKarti('eczaneUrunAnalizKarti',_ttt);}">
       <span class="eczane-acc-icon" id="acc_ecz_urun_analiz_icon">▶</span>
       <span class="card-title" style="margin:0">📦 Eczane × Ürün Sipariş Analizi</span>
       <span class="card-badge" id="acc_ecz_urun_analiz_badge" style="margin-left:auto">Şarta Uygun Öneri</span>
