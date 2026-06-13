@@ -80,53 +80,21 @@
       var dates = [];
       // 2025-01'den başla (ilk CSV o tarihe ait), bugünden 3 ay ileriye kadar tara
       var startDate = new Date(2025, 0, 1); // Ocak 2025
-      var endDate   = new Date(now.getFullYear(), now.getMonth() + 1, 1); // maks: bir sonraki ay
+      var endDate   = new Date(now.getFullYear(), now.getMonth() + 3, 1);
       for (var d = new Date(startDate); d <= endDate; d.setMonth(d.getMonth() + 1)) {
         dates.push({ year: d.getFullYear(), month: d.getMonth() + 1 });
       }
 
-      // Paralel GET probe — HEAD GitHub raw'da güvenilmez (CORS)
-      // AbortController ile ilk byte alır almaz kesilir: varlık teyidi + minimum trafik
+      // Paralel HEAD kontrol — tümü aynı anda
       var found = [];
       var checks = dates.map(function (d) {
         var file = _fileName(d.year, d.month);
         var url  = _fileUrl(file);
-        var ctrl = new AbortController();
-        var timer = setTimeout(function () { ctrl.abort(); }, 8000);
-        return fetch(url, { cache: 'no-store', signal: ctrl.signal })
-          .then(async function (r) {
-            clearTimeout(timer);
-            if (!r.ok || r.status !== 200) return { d: d, file: file, ok: false };
-            // İçeriği oku + hemen cache'e al (loadPharmacyMonth tekrar fetch yapmaz)
-            try {
-              var csvText = await r.text();
-              if (csvText && !csvText.trim().startsWith('<') && csvText.length > 50) {
-                var parsed = _parseCsvWithPapaParse(csvText);
-                // TTT ataması
-                if (typeof getBrickTTTMap === 'function') {
-                  var bm = getBrickTTTMap();
-                  parsed.forEach(function(row) {
-                    if (!row.ttt && row.brick) row.ttt = bm[row.brick.toUpperCase()] || null;
-                  });
-                }
-                var mm  = String(d.month).padStart(2,'0');
-                var key = d.year + '_' + mm;
-                window.pharmacyCache[key] = parsed;
-                _updatePharmacyStore(d.year, d.month, parsed);
-                return { d: d, file: file, ok: true };
-              }
-              return { d: d, file: file, ok: false };
-            } catch(parseErr) {
-              return { d: d, file: file, ok: false };
-            }
-          })
-          .catch(function () {
-            clearTimeout(timer);
-            return { d: d, file: file, ok: false };
-          });
+        return fetch(url, { method: 'HEAD', cache: 'no-store' })
+          .then(function (r) { return { d: d, file: file, ok: r.status === 200 }; })
+          .catch(function ()  { return { d: d, file: file, ok: false }; });
       });
 
-      // Paralel çalıştır — tamamını bekle
       var results = await Promise.all(checks);
       results.forEach(function (res) {
         if (res.ok) {
@@ -253,13 +221,8 @@
       }
 
       var rows = [];
-      try {
-        rows = _parseCsvWithPapaParse(csv);
-      } catch(e) {
-        console.error('[PDM52] parse hata:', e);
-        if (typeof parseEczaneCSV === 'function') {
-          try { rows = parseEczaneCSV(csv); } catch(e2) { /* silent */ }
-        }
+      if (typeof parseEczaneCSV === 'function') {
+        try { rows = parseEczaneCSV(csv); } catch(e) { console.error('[PDM52] parseEczaneCSV:', e); }
       }
 
       // TTT ataması
@@ -271,8 +234,6 @@
       }
 
       window.pharmacyCache[key] = rows;
-      // pharmacyStore güncelle (normalize + index)
-      _updatePharmacyStore(year, month, rows);
       console.log('[PDM52]', key, '→', rows.length, 'satır');
 
       // Bu ay registry'de yoksa ekle
@@ -641,201 +602,6 @@
     });
   }
 
-// ═══════════════════════════════════════════════════════════════════════
-// PHASE 5.2 TAMAMLAMA BLOĞU — pharmacy-data-manager.js'e eklenir
-// Bu blok mevcut IIFE'nin içine, Public API bölümünden ÖNCE yerleşir
-// ═══════════════════════════════════════════════════════════════════════
-
-// ── PHASE 5.2: pharmacyStore Global Yapısı ────────────────────────────
-// Spec: window.pharmacyStore = { registry, cache, normalized, byPharmacy, byBrick, byProduct, metadata }
-// Mevcut window.pharmacyFileRegistry ve window.pharmacyCache ile SENKRONIZE çalışır.
-// Eski kodlar bozulmadan yeni motorlar pharmacyStore üzerinden çalışır.
-
-window.pharmacyStore = window.pharmacyStore || {
-  registry:   {},           // key:"2026_04" → {year,month,file,key,loaded}
-  cache:      {},           // key:"2026_04" → raw rows (== window.pharmacyCache)
-  normalized: [],           // tüm normalize edilmiş kayıtlar
-  byPharmacy: {},           // gln/ad → [{...}]
-  byBrick:    {},           // brick → [{...}]
-  byProduct:  {},           // urun → [{...}]
-  metadata:   { years: [], months: {} }
-};
-
-// ── Normalize Fonksiyonu ──────────────────────────────────────────────
-// Spec: {year, month, temsilci, brick, eczane, urun, adet, tutar, aktif:true}
-function _normalizeRow(r, year, month) {
-  return {
-    year:      year,
-    month:     month,
-    temsilci:  r.ttt   || r.temsilci || '',
-    brick:     r.brick || '',
-    eczane:    r.ad    || r.eczane   || '',
-    gln:       r.gln   || '',
-    urun:      r.urun  || '',
-    adet:      parseInt(r.adet, 10)   || 0,
-    tutar:     parseFloat(r.tutar)    || 0,
-    ay:        r.ay    || (String(month).padStart(2,'0') + '/' + year),
-    aktif:     true
-  };
-}
-
-// ── pharmacyStore'u güncelle (loadPharmacyMonth sonrası çağrılır) ─────
-function _updatePharmacyStore(year, month, rows) {
-  var key = year + '_' + String(month).padStart(2,'0');
-
-  // registry güncelle
-  window.pharmacyStore.registry[key] = {
-    year: year, month: month,
-    file: year + '_' + String(month).padStart(2,'0') + '_Eczane.csv',
-    key:  key, loaded: true,
-    rowCount: rows.length
-  };
-
-  // cache senkronize
-  window.pharmacyStore.cache[key] = rows;
-
-  // normalize & index
-  var normed = rows.map(function(r) { return _normalizeRow(r, year, month); });
-
-  // Mevcut normalize'dan bu ayı çıkar (yenile)
-  window.pharmacyStore.normalized = window.pharmacyStore.normalized.filter(function(n) {
-    return !(n.year === year && n.month === month);
-  });
-  window.pharmacyStore.normalized = window.pharmacyStore.normalized.concat(normed);
-
-  // byPharmacy index
-  normed.forEach(function(n) {
-    var id = n.gln || n.eczane;
-    if (!id) return;
-    if (!window.pharmacyStore.byPharmacy[id]) window.pharmacyStore.byPharmacy[id] = [];
-    window.pharmacyStore.byPharmacy[id].push(n);
-  });
-
-  // byBrick index
-  normed.forEach(function(n) {
-    if (!n.brick) return;
-    if (!window.pharmacyStore.byBrick[n.brick]) window.pharmacyStore.byBrick[n.brick] = [];
-    window.pharmacyStore.byBrick[n.brick].push(n);
-  });
-
-  // byProduct index
-  normed.forEach(function(n) {
-    if (!n.urun) return;
-    if (!window.pharmacyStore.byProduct[n.urun]) window.pharmacyStore.byProduct[n.urun] = [];
-    window.pharmacyStore.byProduct[n.urun].push(n);
-  });
-
-  // metadata
-  if (window.pharmacyStore.metadata.years.indexOf(year) === -1) {
-    window.pharmacyStore.metadata.years.push(year);
-    window.pharmacyStore.metadata.years.sort(function(a,b){return a-b;});
-  }
-  if (!window.pharmacyStore.metadata.months[year]) {
-    window.pharmacyStore.metadata.months[year] = [];
-  }
-  if (window.pharmacyStore.metadata.months[year].indexOf(month) === -1) {
-    window.pharmacyStore.metadata.months[year].push(month);
-    window.pharmacyStore.metadata.months[year].sort(function(a,b){return a-b;});
-  }
-
-  console.log('[PDM52] pharmacyStore güncellendi:', key, normed.length, 'normalize kayıt');
-}
-
-// ── PapaParse ile CSV Parse ───────────────────────────────────────────
-// PapaParse yüklüyse kullan, yoksa mevcut parseEczaneCSV fallback
-function _parseCsvWithPapaParse(csvText) {
-  if (typeof Papa === 'undefined') {
-    // Fallback
-    if (typeof parseEczaneCSV === 'function') return parseEczaneCSV(csvText);
-    return [];
-  }
-  var result = Papa.parse(csvText, {
-    header:         true,
-    dynamicTyping:  false,   // string kalsın, parse kendi yapıyor
-    skipEmptyLines: true,
-    transformHeader: function(h) { return h.trim().toLowerCase(); }
-  });
-
-  if (result.errors && result.errors.length) {
-    console.warn('[PDM52] PapaParse uyarılar:', result.errors.slice(0,3));
-  }
-
-  // Sütun adlarını normalize et (parseEczaneCSV ile uyumlu)
-  return (result.data || []).map(function(row) {
-    return {
-      gln:   (row.gln   || row['gln kod'] || row['gln kodu'] || '').toString().trim(),
-      ad:    (row.ad    || row['eczane'] || row['eczane adı'] || '').toString().trim(),
-      brick: (row.brick || row['bölge']  || row['brick']     || '').toString().trim().toUpperCase(),
-      ttt:   (row.ttt   || row['temsilci'] || row['tıbbi tanıtım temsilcisi'] || '').toString().trim().toUpperCase(),
-      urun:  (row.urun  || row['ürün']  || row['urun']       || '').toString().trim().toUpperCase(),
-      adet:  (row.adet  || row['adet']  || '0').toString().trim(),
-      tutar: (row.tutar || row['tutar'] || '0').toString().trim(),
-      ay:    (row.ay    || '').toString().trim()
-    };
-  }).filter(function(r) { return r.ad || r.gln; });
-}
-
-// ── loadAll() — tüm registry'deki ayları yükle ───────────────────────
-async function loadAll() {
-  var files = window.pharmacyFileRegistry;
-  if (!files || !files.length) {
-    await discoverPharmacyFiles();
-    files = window.pharmacyFileRegistry;
-  }
-  var all = [];
-  for (var i = 0; i < files.length; i++) {
-    var rows = await loadPharmacyMonth(files[i].year, files[i].month);
-    all = all.concat(rows);
-  }
-  console.log('[PDM52] loadAll() tamamlandı:', all.length, 'satır,', files.length, 'ay');
-  return all;
-}
-
-// ── clearCache() ─────────────────────────────────────────────────────
-function clearCache() {
-  window.pharmacyCache        = {};
-  window.pharmacyStore.cache  = {};
-  window.pharmacyStore.normalized  = [];
-  window.pharmacyStore.byPharmacy  = {};
-  window.pharmacyStore.byBrick     = {};
-  window.pharmacyStore.byProduct   = {};
-  window.pharmacyActiveData        = [];
-  _discoveryDone    = false;
-  _discoveryPromise = null;
-  console.log('[PDM52] Cache temizlendi');
-}
-
-// ── getPharmacyStore() ───────────────────────────────────────────────
-function getPharmacyStore() {
-  return window.pharmacyStore;
-}
-
-// ── getFilteredData(filters) ─────────────────────────────────────────
-// filters: { years:[], months:[], ttt:string, brick:string, urun:string }
-function getFilteredData(filters) {
-  filters = filters || {};
-  var base = window.pharmacyStore.normalized;
-  if (!base || !base.length) {
-    // Fallback: pharmacyActiveData normalize et
-    base = (window.pharmacyActiveData || []).map(function(r) {
-      var p = (r.ay||'').split('/');
-      var mo = parseInt(p[0],10)||0;
-      var yr = parseInt(p[1],10)||0;
-      return _normalizeRow(r, yr, mo);
-    });
-  }
-
-  return base.filter(function(n) {
-    if (filters.years && filters.years.length && filters.years.indexOf(n.year) === -1)   return false;
-    if (filters.months && filters.months.length && filters.months.indexOf(n.month) === -1) return false;
-    if (filters.ttt   && filters.ttt !== 'TÜMÜ' && n.temsilci !== filters.ttt)           return false;
-    if (filters.brick && filters.brick !== 'TÜMÜ' && n.brick !== filters.brick)           return false;
-    if (filters.urun  && filters.urun !== 'TÜMÜ' && n.urun !== filters.urun)             return false;
-    return true;
-  });
-}
-
-
   // ── Public API ────────────────────────────────────────────────────────
   window.PharmacyDataManager = {
     discoverPharmacyFiles:        discoverPharmacyFiles,
@@ -859,13 +625,6 @@ function getFilteredData(filters) {
     patternLabel:                 _patternLabel,
     refreshFilterUI:              _refreshFilterUI,
     ayIsimleri:                   AY_ISIMLERI,
-    // PHASE 5.2: pharmacyStore API
-    loadAll:                      loadAll,
-    clearCache:                   clearCache,
-    getPharmacyStore:             getPharmacyStore,
-    getFilteredData:              getFilteredData,
-    updatePharmacyStore:          _updatePharmacyStore,
-    normalizeRow:                 _normalizeRow,
   };
 
   // Sayfa yüklenince arka planda başlat
@@ -877,6 +636,6 @@ function getFilteredData(filters) {
     });
   }
 
-  console.log('[PDM52] pharmacy-data-manager.js v3 (Phase 5.2 complete) yüklendi ✅');
+  console.log('[PDM52] pharmacy-data-manager.js v2 yüklendi ✅');
 
 })();
