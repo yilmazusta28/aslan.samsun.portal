@@ -85,16 +85,48 @@
         dates.push({ year: d.getFullYear(), month: d.getMonth() + 1 });
       }
 
-      // Paralel HEAD kontrol — tümü aynı anda
+      // Paralel GET probe — HEAD GitHub raw'da güvenilmez (CORS)
+      // AbortController ile ilk byte alır almaz kesilir: varlık teyidi + minimum trafik
       var found = [];
       var checks = dates.map(function (d) {
         var file = _fileName(d.year, d.month);
         var url  = _fileUrl(file);
-        return fetch(url, { method: 'HEAD', cache: 'no-store' })
-          .then(function (r) { return { d: d, file: file, ok: r.status === 200 }; })
-          .catch(function ()  { return { d: d, file: file, ok: false }; });
+        var ctrl = new AbortController();
+        var timer = setTimeout(function () { ctrl.abort(); }, 8000);
+        return fetch(url, { cache: 'no-store', signal: ctrl.signal })
+          .then(async function (r) {
+            clearTimeout(timer);
+            if (!r.ok || r.status !== 200) return { d: d, file: file, ok: false };
+            // İçeriği oku + hemen cache'e al (loadPharmacyMonth tekrar fetch yapmaz)
+            try {
+              var csvText = await r.text();
+              if (csvText && !csvText.trim().startsWith('<') && csvText.length > 50) {
+                var parsed = _parseCsvWithPapaParse(csvText);
+                // TTT ataması
+                if (typeof getBrickTTTMap === 'function') {
+                  var bm = getBrickTTTMap();
+                  parsed.forEach(function(row) {
+                    if (!row.ttt && row.brick) row.ttt = bm[row.brick.toUpperCase()] || null;
+                  });
+                }
+                var mm  = String(d.month).padStart(2,'0');
+                var key = d.year + '_' + mm;
+                window.pharmacyCache[key] = parsed;
+                _updatePharmacyStore(d.year, d.month, parsed);
+                return { d: d, file: file, ok: true };
+              }
+              return { d: d, file: file, ok: false };
+            } catch(parseErr) {
+              return { d: d, file: file, ok: false };
+            }
+          })
+          .catch(function () {
+            clearTimeout(timer);
+            return { d: d, file: file, ok: false };
+          });
       });
 
+      // Paralel çalıştır — tamamını bekle
       var results = await Promise.all(checks);
       results.forEach(function (res) {
         if (res.ok) {

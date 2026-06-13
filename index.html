@@ -770,42 +770,48 @@ function parseEczaneCSV(csvText) {
 async function renderEczane() {
   const statusEl = document.getElementById('eczaneLoadStatus');
 
-  // ── PHASE 5.2: PharmacyDataManager — discovery arka planda çalışır ──
+  // ── PHASE 5.2: PharmacyDataManager — discovery + lazy load ──────────
   if (window.PharmacyDataManager) {
-    // Discovery henüz bitmemişse arka planda başlat; filtreler hazır olunca güncellenir
-    if (!window._pdm52DiscoveryStarted) {
-      window._pdm52DiscoveryStarted = true;
-      PharmacyDataManager.discoverPharmacyFiles().then(function(found) {
-        if (found.length) {
-          PharmacyDataManager.refreshFilterUI();
-          // Aktif filtre yoksa en son aya ayarla ve renderla
-          if (!window.pharmacyActiveFilter.years || !window.pharmacyActiveFilter.years.length) {
-            const latest = found[found.length - 1];
-            window.pharmacyActiveFilter.years  = [latest.year];
-            window.pharmacyActiveFilter.months = [];
-          }
+    try {
+      // 1. Discovery — her zaman await et (zaten yapıldıysa anında döner)
+      statusEl.textContent = '🔍 Eczane dosyaları taranıyor…';
+      const found = await PharmacyDataManager.discoverPharmacyFiles();
+
+      if (!found || !found.length) {
+        console.warn('[ECZANE-52] Discovery: hiç dosya bulunamadı');
+        // Legacy fallback aşağıda devam eder
+      } else {
+        // 2. Filtre seçili değilse en son yılı default yap
+        const _paf = window.pharmacyActiveFilter;
+        if (!_paf.years || !_paf.years.length) {
+          const _latest = found[found.length - 1];
+          _paf.years  = [_latest.year];
+          _paf.months = [];
         }
-      });
-    }
-    // Registry doluysa aktif filtreye göre yükle
-    if (window.pharmacyFileRegistry.length > 0 && window.pharmacyActiveFilter.years && window.pharmacyActiveFilter.years.length) {
-      try {
+
+        // 3. Filtre UI'ı güncelle
+        PharmacyDataManager.refreshFilterUI();
+
+        // 4. Seçili filtre için veriyi yükle
+        statusEl.textContent = '⏳ Veriler yükleniyor…';
         const rows = await PharmacyDataManager.getActivePharmacyData();
-        // pharmacyActiveData zaten PDM tarafından set edildi — ECZANE_RAW'ı sadece
-        // fallback olarak kullan, pharmacyActiveData'yı ezme
-        if (!window.pharmacyActiveData || window.pharmacyActiveData.length === 0) {
-          ECZANE_RAW = rows;
+
+        // 5. ECZANE_RAW senkronize et (legacy modüller için)
+        if (rows && rows.length > 0) {
+          ECZANE_RAW   = rows;
+          eczaneLoaded = true;
+          window.pharmacyActiveData = rows;
         }
-        eczaneLoaded = rows.length > 0;
+
         const filter  = window.pharmacyActiveFilter;
         const yilStr  = (filter.years||[]).join(', ');
         const ayNames = (filter.months||[]).map(m => PharmacyDataManager.ayIsimleri[m-1]);
         const ayLabel = ayNames.length ? ayNames.join(', ') : 'Tümü';
-        statusEl.textContent = `✅ ${rows.length.toLocaleString('tr-TR')} kayıt — ${yilStr} / ${ayLabel}`;
+        statusEl.textContent = `✅ ${(rows||[]).length.toLocaleString('tr-TR')} kayıt — ${yilStr} / ${ayLabel}`;
         PharmacyDataManager.refreshFilterUI();
-      } catch(err) {
-        console.warn('[ECZANE-52]', err.message);
       }
+    } catch(err) {
+      console.warn('[ECZANE-52]', err.message);
     }
   }
   // ── END PHASE 5.2 ─────────────────────────────────────────────────
