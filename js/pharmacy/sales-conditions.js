@@ -373,13 +373,19 @@
    *   { toplam, aylıkOrtalama, sonSipariş, öngörülenSipariş, siparisOnerisi }
    */
   function analyzeEczaneByProduct(tttFilter) {
-    if (!window.ECZANE_RAW || !Array.isArray(window.ECZANE_RAW) || !window.ECZANE_RAW.length) {
+    // pharmacyActiveData öncelikli (PDM multi-select filtrelenmiş), yoksa ECZANE_RAW
+    var _base = (window.pharmacyActiveData && window.pharmacyActiveData.length > 0)
+      ? window.pharmacyActiveData
+      : (window.ECZANE_RAW || []);
+
+    if (!_base || !Array.isArray(_base) || !_base.length) {
+      console.warn('[SatisKosullari] analyzeEczaneByProduct: veri yok');
       return [];
     }
 
     var source = tttFilter
-      ? window.ECZANE_RAW.filter(function (r) { return r.ttt === tttFilter; })
-      : window.ECZANE_RAW;
+      ? _base.filter(function (r) { return r.ttt === tttFilter; })
+      : _base;
 
     if (!source.length) return [];
 

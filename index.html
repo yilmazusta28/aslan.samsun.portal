@@ -1081,11 +1081,16 @@ function renderEczaneContent() {
     if (typeof renderHaberTakibiPanel === 'function' && window._pvHaberRendered) {
       renderHaberTakibiPanel('haberTakibiPanel');
     }
-    if (typeof renderEczaneUrunAnalizKarti === 'function' && window._pvUrunAnalizRendered) {
-      const _saTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
-      renderEczaneUrunAnalizKarti('eczaneUrunAnalizKarti', _saTTT);
-      const _saBadge = document.getElementById('acc_ecz_urun_analiz_badge');
-      if (_saBadge) _saBadge.textContent = 'Şarta Uygun Öneri';
+    if (typeof renderEczaneUrunAnalizKarti === 'function') {
+      const _saBody = document.getElementById('acc_ecz_urun_analiz_body');
+      // Sadece accordion açıksa veya daha önce açılmışsa yenile
+      if (window._pvUrunAnalizRendered || (_saBody && _saBody.style.display !== 'none')) {
+        window._pvUrunAnalizRendered = true;
+        const _saTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
+        renderEczaneUrunAnalizKarti('eczaneUrunAnalizKarti', _saTTT);
+        const _saBadge = document.getElementById('acc_ecz_urun_analiz_badge');
+        if (_saBadge) _saBadge.textContent = 'Şarta Uygun Öneri';
+      }
     }
   } catch(_saErr) {
     console.warn('[SatisKosullari] render hata (sessiz):', _saErr.message);
@@ -5196,7 +5201,7 @@ function _buildEczaneDrawerRefresh(){
 
   <!-- PHASE 4.7 Accordion: Eczane × Ürün Sipariş Analizi -->
   <div class="eczane-accordion mb16" id="acc_ecz_urun_analiz">
-    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('ecz_urun_analiz');if(!window._pvUrunAnalizRendered){window._pvUrunAnalizRendered=true;const _ttt=(typeof selEczaneTTT!=='undefined'&&selEczaneTTT!=='TÜMÜ')?selEczaneTTT:null;if(typeof renderEczaneUrunAnalizKarti==='function')renderEczaneUrunAnalizKarti('eczaneUrunAnalizKarti',_ttt);}">
+    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('ecz_urun_analiz');if(!window._pvUrunAnalizRendered){window._pvUrunAnalizRendered=true;}if(document.getElementById('acc_ecz_urun_analiz_body').style.display!=='none'){if(window.pharmacyActiveData&&window.pharmacyActiveData.length>0){window.ECZANE_RAW=window.pharmacyActiveData;}const _ttt=(typeof selEczaneTTT!=='undefined'&&selEczaneTTT!=='TÜMÜ')?selEczaneTTT:null;if(typeof renderEczaneUrunAnalizKarti==='function')renderEczaneUrunAnalizKarti('eczaneUrunAnalizKarti',_ttt);}">
       <span class="eczane-acc-icon" id="acc_ecz_urun_analiz_icon">▶</span>
       <span class="card-title" style="margin:0">📦 Eczane × Ürün Sipariş Analizi</span>
       <span class="card-badge" id="acc_ecz_urun_analiz_badge" style="margin-left:auto">Şarta Uygun Öneri</span>
