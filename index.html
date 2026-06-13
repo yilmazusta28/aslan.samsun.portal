@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PHARMA VISION Satış Portalı</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <!-- ═══════════════════════════════════════════════════════════════
      MODÜL YÜKLEMESİ — PHARMA VISION Satış Portalı
      Yükleme sırası (bağımlılık sırasına göre):
@@ -181,6 +182,7 @@
 <script src="js/pharmacy/sales-conditions.js"></script>
 <!-- END PHASE 4.7 -->
 <script src="js/pharmacy/pharmacy-intelligence.js"></script>
+<script src="js/pharmacy/pharmacy-data-manager.js"></script>
 <script src="js/pharmacy/reorder-engine.js"></script>
 <!-- PHASE 4.6.1: Reorder Classification Engine
      classifyAllPharmacies, buildClassifierTop30, buildReorderClassifierContext,
@@ -199,7 +201,6 @@
      getActivePharmacyData, buildReorderPredictionScores,
      buildTop30VisitPriority, buildRouteOptimizer, buildMonthlyTrendAnalysis
      Rollback: bu satırı sil -->
-<script src="js/pharmacy/pharmacy-data-manager.js"></script>
 <!-- END PHASE 5.2 -->
 
 <!-- PHASE 4.1: Unified AI Context Engine
@@ -749,7 +750,7 @@ function parseEczaneCSV(csvText) {
     if (!gln || !ad || !brick || !urun) continue;
 
     const tarih = (c[0]||'').trim();
-    const adet  = parseInt(c[8]||0) || 0;
+    const adet  = parseInt(c[10]||c[8]||0) || 0;  // c[10]=Toplam Satış (MF dahil), c[8] fallback
     const tutar = parseN(c[11]||0);
     const iade  = parseInt(c[12]||0) || 0;
 
@@ -769,42 +770,48 @@ function parseEczaneCSV(csvText) {
 async function renderEczane() {
   const statusEl = document.getElementById('eczaneLoadStatus');
 
-  // ── PHASE 5.2: PharmacyDataManager — discovery arka planda çalışır ──
+  // ── PHASE 5.2: PharmacyDataManager — discovery + lazy load ──────────
   if (window.PharmacyDataManager) {
-    // Discovery henüz bitmemişse arka planda başlat; filtreler hazır olunca güncellenir
-    if (!window._pdm52DiscoveryStarted) {
-      window._pdm52DiscoveryStarted = true;
-      PharmacyDataManager.discoverPharmacyFiles().then(function(found) {
-        if (found.length) {
-          PharmacyDataManager.refreshFilterUI();
-          // Aktif filtre yoksa en son aya ayarla ve renderla
-          if (!window.pharmacyActiveFilter.years || !window.pharmacyActiveFilter.years.length) {
-            const latest = found[found.length - 1];
-            window.pharmacyActiveFilter.years  = [latest.year];
-            window.pharmacyActiveFilter.months = [];
-          }
+    try {
+      // 1. Discovery — her zaman await et (zaten yapıldıysa anında döner)
+      statusEl.textContent = '🔍 Eczane dosyaları taranıyor…';
+      const found = await PharmacyDataManager.discoverPharmacyFiles();
+
+      if (!found || !found.length) {
+        console.warn('[ECZANE-52] Discovery: hiç dosya bulunamadı');
+        // Legacy fallback aşağıda devam eder
+      } else {
+        // 2. Filtre seçili değilse en son yılı default yap
+        const _paf = window.pharmacyActiveFilter;
+        if (!_paf.years || !_paf.years.length) {
+          const _latest = found[found.length - 1];
+          _paf.years  = [_latest.year];
+          _paf.months = [];
         }
-      });
-    }
-    // Registry doluysa aktif filtreye göre yükle
-    if (window.pharmacyFileRegistry.length > 0 && window.pharmacyActiveFilter.years && window.pharmacyActiveFilter.years.length) {
-      try {
+
+        // 3. Filtre UI'ı güncelle
+        PharmacyDataManager.refreshFilterUI();
+
+        // 4. Seçili filtre için veriyi yükle
+        statusEl.textContent = '⏳ Veriler yükleniyor…';
         const rows = await PharmacyDataManager.getActivePharmacyData();
-        // pharmacyActiveData zaten PDM tarafından set edildi — ECZANE_RAW'ı sadece
-        // fallback olarak kullan, pharmacyActiveData'yı ezme
-        if (!window.pharmacyActiveData || window.pharmacyActiveData.length === 0) {
-          ECZANE_RAW = rows;
+
+        // 5. ECZANE_RAW senkronize et (legacy modüller için)
+        if (rows && rows.length > 0) {
+          ECZANE_RAW   = rows;
+          eczaneLoaded = true;
+          window.pharmacyActiveData = rows;
         }
-        eczaneLoaded = rows.length > 0;
+
         const filter  = window.pharmacyActiveFilter;
         const yilStr  = (filter.years||[]).join(', ');
         const ayNames = (filter.months||[]).map(m => PharmacyDataManager.ayIsimleri[m-1]);
         const ayLabel = ayNames.length ? ayNames.join(', ') : 'Tümü';
-        statusEl.textContent = `✅ ${rows.length.toLocaleString('tr-TR')} kayıt — ${yilStr} / ${ayLabel}`;
+        statusEl.textContent = `✅ ${(rows||[]).length.toLocaleString('tr-TR')} kayıt — ${yilStr} / ${ayLabel}`;
         PharmacyDataManager.refreshFilterUI();
-      } catch(err) {
-        console.warn('[ECZANE-52]', err.message);
       }
+    } catch(err) {
+      console.warn('[ECZANE-52]', err.message);
     }
   }
   // ── END PHASE 5.2 ─────────────────────────────────────────────────
@@ -1081,16 +1088,11 @@ function renderEczaneContent() {
     if (typeof renderHaberTakibiPanel === 'function' && window._pvHaberRendered) {
       renderHaberTakibiPanel('haberTakibiPanel');
     }
-    if (typeof renderEczaneUrunAnalizKarti === 'function') {
-      const _saBody = document.getElementById('acc_ecz_urun_analiz_body');
-      // Sadece accordion açıksa veya daha önce açılmışsa yenile
-      if (window._pvUrunAnalizRendered || (_saBody && _saBody.style.display !== 'none')) {
-        window._pvUrunAnalizRendered = true;
-        const _saTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
-        renderEczaneUrunAnalizKarti('eczaneUrunAnalizKarti', _saTTT);
-        const _saBadge = document.getElementById('acc_ecz_urun_analiz_badge');
-        if (_saBadge) _saBadge.textContent = 'Şarta Uygun Öneri';
-      }
+    if (typeof renderEczaneUrunAnalizKarti === 'function' && window._pvUrunAnalizRendered) {
+      const _saTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
+      renderEczaneUrunAnalizKarti('eczaneUrunAnalizKarti', _saTTT);
+      const _saBadge = document.getElementById('acc_ecz_urun_analiz_badge');
+      if (_saBadge) _saBadge.textContent = 'Şarta Uygun Öneri';
     }
   } catch(_saErr) {
     console.warn('[SatisKosullari] render hata (sessiz):', _saErr.message);
@@ -5201,7 +5203,7 @@ function _buildEczaneDrawerRefresh(){
 
   <!-- PHASE 4.7 Accordion: Eczane × Ürün Sipariş Analizi -->
   <div class="eczane-accordion mb16" id="acc_ecz_urun_analiz">
-    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('ecz_urun_analiz');if(!window._pvUrunAnalizRendered){window._pvUrunAnalizRendered=true;}if(document.getElementById('acc_ecz_urun_analiz_body').style.display!=='none'){if(window.pharmacyActiveData&&window.pharmacyActiveData.length>0){window.ECZANE_RAW=window.pharmacyActiveData;}const _ttt=(typeof selEczaneTTT!=='undefined'&&selEczaneTTT!=='TÜMÜ')?selEczaneTTT:null;if(typeof renderEczaneUrunAnalizKarti==='function')renderEczaneUrunAnalizKarti('eczaneUrunAnalizKarti',_ttt);}">
+    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('ecz_urun_analiz');if(!window._pvUrunAnalizRendered){window._pvUrunAnalizRendered=true;const _ttt=(typeof selEczaneTTT!=='undefined'&&selEczaneTTT!=='TÜMÜ')?selEczaneTTT:null;if(typeof renderEczaneUrunAnalizKarti==='function')renderEczaneUrunAnalizKarti('eczaneUrunAnalizKarti',_ttt);}">
       <span class="eczane-acc-icon" id="acc_ecz_urun_analiz_icon">▶</span>
       <span class="card-title" style="margin:0">📦 Eczane × Ürün Sipariş Analizi</span>
       <span class="card-badge" id="acc_ecz_urun_analiz_badge" style="margin-left:auto">Şarta Uygun Öneri</span>
