@@ -363,9 +363,11 @@
       // PHASE 5.4: Reorder tahminlerini LearningEngine'e kaydet
       if (window.LearningEngine && top30 && top30.length) {
         top30.forEach(function(e) {
+          var _topProd = (e.nextOrderProducts && e.nextOrderProducts.length)
+            ? e.nextOrderProducts[0].urun : null;
           window.LearningEngine.recordPrediction({
             type:'reorder', engine:'reorder',
-            pharmacy:e.eczane, brick:e.brick, ttt:e.ttt,
+            pharmacy:e.eczane, product:_topProd, brick:e.brick, ttt:e.ttt,
             predictedQty:e.forecastBoxes||0,
             confidence:e.reorderProbability||70,
             meta:{ classification:e.classification, score:e.score }

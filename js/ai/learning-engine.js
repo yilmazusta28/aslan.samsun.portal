@@ -73,6 +73,27 @@
   // pred: { type, pharmacy, product, predictedQty, confidence, engine, reasons, meta }
   function recordPrediction(pred) {
     if (!pred || !pred.type) return null;
+
+    // ── Dedupe: aynı gün + tip + eczane + ürün + ttt için tekrar kayıt açma ──
+    // (Render her tetiklendiğinde aynı tahmin tekrar oluşmasın)
+    var bucket0 = _bucket(pred.type);
+    var today0  = _today();
+    var _dupeMatches = (window.predictionStore[bucket0] || []).filter(function(p) {
+      return p.createdAt === today0
+        && p.type === pred.type
+        && p.pharmacy === (pred.pharmacy || null)
+        && p.product  === (pred.product  || null)
+        && p.ttt      === (pred.ttt      || null);
+    });
+    var dupe = _dupeMatches.length ? _dupeMatches[0] : null;
+    if (dupe) {
+      // Mevcut kaydı güncelle (en güncel tahmin değeriyle)
+      dupe.predictedQty = pred.predictedQty != null ? pred.predictedQty : dupe.predictedQty;
+      dupe.confidence    = pred.confidence   != null ? pred.confidence   : dupe.confidence;
+      dupe.meta          = pred.meta || dupe.meta;
+      return dupe.id;
+    }
+
     var record = {
       id:           _uid(),
       type:         pred.type,
@@ -123,10 +144,44 @@
       actuals[key].tl  += parseFloat(r.tutar || 0);
     });
 
+    // TTT bazlı toplam (forecast tipi için — eczane/ürün ayrımı yok)
+    var tttTotals = {};
+    base.forEach(function(r) {
+      var ttt = r.ttt || 'BILINMEYEN';
+      var ay  = r.ay || '';
+      var tk  = ttt + '::' + ay;
+      if (!tttTotals[tk]) tttTotals[tk] = { qty: 0, tl: 0 };
+      tttTotals[tk].qty += parseFloat(r.adet  || 0);
+      tttTotals[tk].tl  += parseFloat(r.tutar || 0);
+    });
+
     var updated = 0;
     ['forecasts','reorderPredictions','visitPredictions','routePredictions'].forEach(function(bucket) {
       (window.predictionStore[bucket] || []).forEach(function(p) {
         if (p.evaluatedAt) return; // zaten değerlendirildi
+
+        // ── Forecast tipi: ttt + ay bazlı toplam kutu/TL ──────────────
+        if (p.type === 'forecast') {
+          if (!p.ttt) return;
+          var tKeys = Object.keys(tttTotals).filter(function(k){ return k.indexOf(p.ttt + '::') === 0; });
+          if (!tKeys.length) return;
+          // En güncel ayı al
+          var tAct = tttTotals[tKeys[tKeys.length-1]];
+          if (tAct && tAct.qty > 0) {
+            var fErr = tAct.qty - (p.predictedQty || 0);
+            var fApe = Math.abs(fErr) / tAct.qty * 100;
+            p.actualQty   = tAct.qty;
+            p.actualTL    = tAct.tl;
+            p.evaluatedAt = _today();
+            p.error       = Math.round(fErr * 10) / 10;
+            p.ape         = Math.round(fApe * 10) / 10;
+            p.hit         = fApe <= 20;
+            updated++;
+          }
+          return;
+        }
+
+        // ── Diğer tipler: eczane + ürün bazlı ─────────────────────────
         if (!p.pharmacy || !p.product) return;
 
         // Tahmin ayına denk gelen gerçekleşmeyi bul
@@ -141,6 +196,15 @@
           if (keys.length) actual = actuals[keys[0]];
         }
 
+        // Tahmin ayı bilinmiyorsa son veriden al
+        if (!actual) {
+          var allKeys2 = Object.keys(actuals);
+          if (allKeys2.length && p.pharmacy) {
+            var pfx2 = p.pharmacy + '::' + (p.product||'');
+            var matched2 = allKeys2.filter(function(k){ return k.indexOf(pfx2)===0; });
+            if (matched2.length) actual = actuals[matched2[matched2.length-1]];
+          }
+        }
         if (actual && actual.qty > 0) {
           var err    = actual.qty - (p.predictedQty || 0);
           var ape    = Math.abs(err) / actual.qty * 100;
@@ -325,63 +389,114 @@
   function renderAIPerformanceDashboard(containerId) {
     var el = document.getElementById(containerId);
     if (!el) return;
+
     var m   = getAccuracyMetrics();
     var ov  = m.overall;
     var eng = m.byEngine;
-    var _em = ENGINES.map(function(e) { return eng[e.id]; }).filter(Boolean);
+
+    // Tüm tahminleri say (evaluate edilmemiş dahil)
+    var store = window.predictionStore;
+    var totalPending  = 0;
+    var totalRecorded = 0;
+    var byEngineCount = {};
+    ['forecasts','reorderPredictions','visitPredictions','routePredictions'].forEach(function(b) {
+      (store[b]||[]).forEach(function(p) {
+        totalRecorded++;
+        if (!p.evaluatedAt) totalPending++;
+        var eid = p.engine || p.type || 'other';
+        byEngineCount[eid] = (byEngineCount[eid]||0) + 1;
+      });
+    });
 
     var html = '<div style="padding:12px">';
 
     // Özet kartlar
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:14px">';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:14px">';
     var cards = [
-      { label:'Tahmin Sayısı', val: ov.n || 0, unit:'', color:'var(--c2)', icon:'🧠' },
-      { label:'Hit Rate',      val: ov.hitRate || 0, unit:'%', color:'#16A34A', icon:'🎯' },
-      { label:'MAPE',          val: ov.mape || 0, unit:'%', color: (ov.mape||0)>15?'#DC2626':'#D97706', icon:'📉' },
-      { label:'MAE',           val: ov.mae  || 0, unit:' kutu', color:'var(--dim)', icon:'📊' },
-      { label:'RMSE',          val: ov.rmse || 0, unit:'', color:'var(--dim)', icon:'📐' },
+      { label:'Toplam Kayıt',     val:totalRecorded,    unit:'',      color:'var(--c2)',    icon:'🧠' },
+      { label:'Değerlendirilen',  val:ov.n||0,          unit:'',      color:'#0891B2',      icon:'✅' },
+      { label:'Bekleyen',         val:totalPending,     unit:'',      color:'#D97706',      icon:'⏳' },
+      { label:'Hit Rate',         val:ov.hitRate||'—',  unit: ov.n?'%':'', color:'#16A34A', icon:'🎯' },
+      { label:'MAPE',             val:ov.mape||'—',     unit: ov.n?'%':'', color:(ov.mape||0)>15?'#DC2626':'#D97706', icon:'📉' },
     ];
     cards.forEach(function(c) {
       html += '<div style="background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center">'
-            + '<div style="font-size:18px;margin-bottom:4px">' + c.icon + '</div>'
-            + '<div style="font-size:16px;font-weight:800;color:' + c.color + '">' + c.val + c.unit + '</div>'
+            + '<div style="font-size:16px;margin-bottom:4px">' + c.icon + '</div>'
+            + '<div style="font-size:15px;font-weight:800;color:' + c.color + '">' + c.val + c.unit + '</div>'
             + '<div style="font-size:9px;color:var(--dim);margin-top:2px">' + c.label + '</div>'
             + '</div>';
     });
     html += '</div>';
 
-    // Motor bazlı performans
-    if (_em.length) {
-      html += '<div style="font-size:11px;font-weight:700;color:var(--dim);margin-bottom:8px;letter-spacing:.5px">MOTOR PERFORMANSI</div>';
-      html += '<div style="display:flex;flex-direction:column;gap:6px">';
-      _em.forEach(function(e) {
-        var acc = e.accuracy || 0;
-        var barColor = acc>=85?'#16A34A':acc>=70?'#D97706':'#DC2626';
-        var wt  = getEngineWeight(e.id || '');
-        html += '<div style="background:var(--surf);border:1px solid var(--border);border-radius:8px;padding:8px 12px">'
-              + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
-              + '<span style="font-size:11px;font-weight:600">' + e.label + '</span>'
-              + '<span style="font-size:10px;color:var(--dim)">n=' + e.n + ' | ağırlık:' + (wt||1).toFixed(1) + '</span>'
-              + '</div>'
-              + '<div style="display:flex;align-items:center;gap:8px">'
-              + '<div style="flex:1;height:6px;background:var(--border);border-radius:3px">'
-              + '<div style="width:' + Math.min(acc,100) + '%;height:100%;background:' + barColor + ';border-radius:3px"></div>'
-              + '</div>'
-              + '<span style="font-size:12px;font-weight:800;color:' + barColor + ';min-width:35px;text-align:right">%' + acc + '</span>'
-              + '</div>'
-              + '<div style="display:flex;gap:12px;margin-top:4px">'
-              + '<span style="font-size:9px;color:var(--dim)">MAPE: ' + e.mape + '%</span>'
-              + '<span style="font-size:9px;color:var(--dim)">Hit: %' + e.hitRate + '</span>'
-              + '</div>'
-              + '</div>';
-      });
-      html += '</div>';
-    } else {
-      html += '<div style="text-align:center;padding:24px;color:var(--dim);font-size:11px">'
-            + '🧠 Henüz değerlendirilmiş tahmin yok.<br>'
-            + '<span style="font-size:10px">AI tahminler üretirken otomatik kayıt başlar.</span>'
+    // Motor bazlı — evaluate edilmiş varsa accuracy, yoksa kayıt sayısı
+    html += '<div style="font-size:10px;font-weight:700;color:var(--dim);margin-bottom:6px;letter-spacing:.5px;text-transform:uppercase">Motor Durumu</div>';
+    html += '<div style="display:flex;flex-direction:column;gap:5px">';
+
+    ENGINES.forEach(function(eng_def) {
+      var em  = eng[eng_def.id];
+      var cnt = byEngineCount[eng_def.id] || 0;
+      var wt  = eng_def.weight;
+
+      var acc = em ? em.accuracy : null;
+      var barColor = acc!=null ? (acc>=85?'#16A34A':acc>=70?'#D97706':'#DC2626') : '#94A3B8';
+      var barW     = acc!=null ? acc : 0;
+
+      html += '<div style="background:var(--surf);border:1px solid var(--border);border-radius:8px;padding:7px 11px">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">'
+            + '<span style="font-size:10px;font-weight:600">' + eng_def.label + '</span>'
+            + '<span style="font-size:9px;color:var(--dim)">'
+            + cnt + ' kayıt'
+            + (em ? ' | n=' + em.n : '')
+            + ' | ağırlık:' + wt.toFixed(1)
+            + '</span>'
             + '</div>';
-    }
+
+      if (acc != null) {
+        html += '<div style="display:flex;align-items:center;gap:8px">'
+              + '<div style="flex:1;height:5px;background:var(--border);border-radius:3px">'
+              + '<div style="width:' + barW + '%;height:100%;background:' + barColor + ';border-radius:3px;transition:width .4s"></div>'
+              + '</div>'
+              + '<span style="font-size:11px;font-weight:800;color:' + barColor + ';min-width:36px;text-align:right">%' + acc + '</span>'
+              + '</div>'
+              + '<div style="display:flex;gap:10px;margin-top:3px">'
+              + '<span style="font-size:9px;color:var(--dim)">MAPE: ' + (em.mape||'?') + '%</span>'
+              + '<span style="font-size:9px;color:var(--dim)">Hit: %' + (em.hitRate||0) + '</span>'
+              + '</div>';
+      } else if (cnt > 0) {
+        html += '<div style="font-size:9px;color:#D97706;margin-top:2px">'
+              + '⏳ ' + cnt + ' tahmin gerçekleşme bekleniyor (sonraki ay verisi gelince hesaplanır)'
+              + '</div>';
+      } else {
+        html += '<div style="font-size:9px;color:var(--dim);margin-top:2px">─ Henüz tahmin üretilmedi</div>';
+      }
+
+      html += '</div>';
+    });
+
+    html += '</div>';
+
+    // Bilgi notu
+    html += '<div style="margin-top:12px;padding:8px 12px;background:var(--surf);border:1px solid var(--border);'
+          + 'border-radius:8px;font-size:9px;color:var(--dim);line-height:1.5">'
+          + '💡 <b>Nasıl çalışır?</b> AI motorları tahmin ürettikçe otomatik kaydedilir. '
+          + 'Sonraki ay eczane verisi yüklendiğinde gerçekleşmeler eşleştirilir ve doğruluk hesaplanır. '
+          + 'Motor ağırlıkları başarı oranına göre dinamik güncellenir.'
+          + '</div>';
+
+    // Eylem butonları
+    html += '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">'
+          + '<button class="tfb-sp" style="font-size:9px;padding:4px 10px" '
+          + 'onclick="if(window.LearningEngine){LearningEngine.evaluatePredictions();LearningEngine.renderAIPerformanceDashboard('' + containerId + '')}">'
+          + '🔄 Şimdi Değerlendir</button>'
+          + '<button class="tfb-sp" style="font-size:9px;padding:4px 10px" '
+          + 'onclick="if(window.LearningEngine){LearningEngine.updateConfidenceWeights();LearningEngine.renderAIPerformanceDashboard('' + containerId + '')}">'
+          + '⚖️ Ağırlıkları Güncelle</button>'
+          + '<button class="tfb-sp" style="font-size:9px;padding:4px 10px;color:#DC2626" '
+          + 'onclick="if(confirm('Tüm tahmin geçmişi silinecek. Emin misiniz?')&&window.LearningEngine){'
+          + 'localStorage.removeItem('AI_PREDICTIONS_V1');'
+          + 'window.predictionStore={forecasts:[],reorderPredictions:[],visitPredictions:[],routePredictions:[],metrics:{}};'
+          + 'LearningEngine.renderAIPerformanceDashboard('' + containerId + '')}">🗑️ Sıfırla</button>'
+          + '</div>';
 
     html += '</div>';
     el.innerHTML = html;

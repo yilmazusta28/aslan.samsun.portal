@@ -664,9 +664,11 @@
       if (window.LearningEngine && top30 && top30.length) {
         var _ayK = (function(){ var d=new Date(); return String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear(); })();
         top30.forEach(function(e) {
+          var _topProd = (e.nextOrderProducts && e.nextOrderProducts.length)
+            ? e.nextOrderProducts[0].urun : null;
           window.LearningEngine.recordPrediction({
             type:'visit', engine:'visit',
-            pharmacy:e.eczane, brick:e.brick, ttt:e.ttt,
+            pharmacy:e.eczane, product:_topProd, brick:e.brick, ttt:e.ttt,
             predictedQty:e.forecastBoxes||0,
             confidence:e.reorderProbability||75,
             meta:{ targetMonth:_ayK, rank:e.rank }
