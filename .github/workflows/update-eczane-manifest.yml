@@ -1,0 +1,74 @@
+name: Update Eczane Manifest
+
+on:
+  push:
+    paths:
+      - 'eczane/*.csv'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate manifest.json from eczane/*.csv
+        run: |
+          node -e "
+            const fs = require('fs');
+            const path = require('path');
+
+            const dir = 'eczane';
+            const files = fs.readdirSync(dir).filter(f => /^\d{4}_\d{2}_Eczane\.csv$/.test(f));
+
+            const entries = files.map(f => {
+              const m = f.match(/^(\d{4})_(\d{2})_Eczane\.csv$/);
+              const year  = parseInt(m[1], 10);
+              const month = parseInt(m[2], 10);
+              const stat  = fs.statSync(path.join(dir, f));
+              return {
+                year, month,
+                key:  m[1] + '_' + m[2],
+                file: f,
+                path: dir + '/' + f,
+                size: stat.size,
+                modified: stat.mtime.toISOString()
+              };
+            }).sort((a,b) => (a.year - b.year) || (a.month - b.month));
+
+            const years  = [...new Set(entries.map(e => e.year))].sort((a,b)=>a-b);
+            const months = {};
+            years.forEach(y => {
+              months[y] = entries.filter(e => e.year === y).map(e => e.month).sort((a,b)=>a-b);
+            });
+
+            const manifest = {
+              generatedAt: new Date().toISOString(),
+              version: 1,
+              dir: dir,
+              files: entries,
+              years: years,
+              months: months,
+              latest: entries.length ? entries[entries.length-1].key : null
+            };
+
+            fs.mkdirSync(dir, { recursive: true });
+            fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+            console.log('✅ manifest.json oluşturuldu:', entries.length, 'dosya');
+            console.log('Yıllar:', years.join(', '));
+          "
+
+      - name: Commit manifest.json if changed
+        run: |
+          if git diff --quiet -- eczane/manifest.json; then
+            echo "ℹ️ manifest.json değişmedi."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add eczane/manifest.json
+            git commit -m "chore: eczane/manifest.json otomatik güncellendi"
+            git push
+          fi
