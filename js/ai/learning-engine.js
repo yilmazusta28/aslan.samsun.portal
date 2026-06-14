@@ -483,19 +483,17 @@
           + 'Motor ağırlıkları başarı oranına göre dinamik güncellenir.'
           + '</div>';
 
-    // Eylem butonları
+    // Eylem butonları — data-* attribute ile, onclick global helper'a delege
     html += '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">'
           + '<button class="tfb-sp" style="font-size:9px;padding:4px 10px" '
-          + 'onclick="if(window.LearningEngine){LearningEngine.evaluatePredictions();LearningEngine.renderAIPerformanceDashboard('' + containerId + '')}">'
-          + '🔄 Şimdi Değerlendir</button>'
+          + 'data-le-action="evaluate" data-le-target="' + containerId + '" '
+          + 'onclick="window.LearningEngine._btn(this)">🔄 Şimdi Değerlendir</button>'
           + '<button class="tfb-sp" style="font-size:9px;padding:4px 10px" '
-          + 'onclick="if(window.LearningEngine){LearningEngine.updateConfidenceWeights();LearningEngine.renderAIPerformanceDashboard('' + containerId + '')}">'
-          + '⚖️ Ağırlıkları Güncelle</button>'
+          + 'data-le-action="weights" data-le-target="' + containerId + '" '
+          + 'onclick="window.LearningEngine._btn(this)">⚖️ Ağırlıkları Güncelle</button>'
           + '<button class="tfb-sp" style="font-size:9px;padding:4px 10px;color:#DC2626" '
-          + 'onclick="if(confirm('Tüm tahmin geçmişi silinecek. Emin misiniz?')&&window.LearningEngine){'
-          + 'localStorage.removeItem('AI_PREDICTIONS_V1');'
-          + 'window.predictionStore={forecasts:[],reorderPredictions:[],visitPredictions:[],routePredictions:[],metrics:{}};'
-          + 'LearningEngine.renderAIPerformanceDashboard('' + containerId + '')}">🗑️ Sıfırla</button>'
+          + 'data-le-action="reset" data-le-target="' + containerId + '" '
+          + 'onclick="window.LearningEngine._btn(this)">🗑️ Sıfırla</button>'
           + '</div>';
 
     html += '</div>';
@@ -527,6 +525,25 @@
     return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
   }
 
+  // ── _btn — dashboard eylem butonları için delege handler ──────────────
+  function _btnHandler(el) {
+    var action = el.getAttribute('data-le-action');
+    var target = el.getAttribute('data-le-target');
+    if (action === 'evaluate') {
+      evaluatePredictions();
+    } else if (action === 'weights') {
+      updateConfidenceWeights();
+    } else if (action === 'reset') {
+      if (!confirm('Tüm tahmin geçmişi silinecek. Emin misiniz?')) return;
+      try { localStorage.removeItem(STORE_KEY); } catch(e) {}
+      window.predictionStore = {
+        forecasts: [], reorderPredictions: [], visitPredictions: [],
+        routePredictions: [], metrics: {}
+      };
+    }
+    if (target) renderAIPerformanceDashboard(target);
+  }
+
   // ── Başlangıç ─────────────────────────────────────────────────────────
   _load();
   archivePredictionHistory();
@@ -543,6 +560,7 @@
     getExplainability:        getExplainability,
     archivePredictionHistory: archivePredictionHistory,
     renderAIPerformanceDashboard: renderAIPerformanceDashboard,
+    _btn:                     _btnHandler,
     // Store erişimi
     getStore: function() { return window.predictionStore; },
     getEngines: function() { return ENGINES; },
