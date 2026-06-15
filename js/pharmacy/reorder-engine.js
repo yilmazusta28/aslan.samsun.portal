@@ -648,7 +648,6 @@ function renderReorderCard(containerId, tttFilter) {
   container.innerHTML =
     '<div class="card">' +
       '<div class="card-hd">' +
-        '<span class="card-title">📦 Bu Hafta Siparişe En Yakın 30 Eczane</span>' +
         '<span class="card-badge">' + ri.top30.length + ' eczane</span>' +
         '<span class="card-badge" style="margin-left:8px;background:#EFF6FF;color:#1D4ED8">' +
           'Toplam tahmin: ' + totalForecast + ' kutu</span>' +

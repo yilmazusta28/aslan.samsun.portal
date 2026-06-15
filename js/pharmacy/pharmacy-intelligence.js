@@ -890,7 +890,6 @@
     container.innerHTML =
       '<div class="card">' +
         '<div class="card-hd" style="flex-wrap:wrap;gap:6px">' +
-          '<span class="card-title">🏆 İlk 30 Ziyaret Önceliği</span>' +
           '<span class="card-badge">' + pi.top30.length + ' eczane</span>' +
           '<span class="card-badge" style="background:#EFF6FF;color:#1D4ED8">' +
             '📦 Tahmin: ' + totalForecast + ' kutu</span>' +

@@ -650,7 +650,6 @@
     container.innerHTML =
       '<div class="card">' +
         '<div class="card-hd" style="flex-wrap:wrap;gap:6px">' +
-          '<span class="card-title">🗺️ Bugünkü Akıllı Rota — ' + t.day + '</span>' +
           '<span class="card-badge">' + t.pharmacyCount + ' ziyaret</span>' +
           '<span class="card-badge" style="background:#DCFCE7;color:#15803D">' +
             '📦 ' + t.expectedBoxes + ' kutu</span>' +

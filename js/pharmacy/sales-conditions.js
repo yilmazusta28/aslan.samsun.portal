@@ -580,8 +580,6 @@
 
     var panelHtml = '<div class="card">' +
       '<div class="card-hd">' +
-        '<span class="card-title">⚙️ Satış Şartları Yönetimi</span>' +
-        '<span class="card-badge">Phase 4.7</span>' +
         '<button onclick="window._pvSartlariSifirla()" style="margin-left:auto;font-size:11px;' +
           'padding:3px 10px;border-radius:6px;border:1px solid var(--border);' +
           'background:var(--bg2);color:var(--text);cursor:pointer">↺ Varsayılana Dön</button>' +
@@ -708,7 +706,6 @@
     container.innerHTML =
       '<div class="card">' +
         '<div class="card-hd">' +
-          '<span class="card-title">📰 Piyasa Haberleri & Özel Durumlar</span>' +
           (etkiCarpani > 1.0
             ? '<span class="card-badge" style="background:#FEE2E2;color:#DC2626">⚡ Etki: ×' +
               etkiCarpani.toFixed(2) + ' aktif</span>'
@@ -795,31 +792,12 @@
 
     var etkiCarpani = HaberTakibiManager.getEtkiCarpani();
 
-    var rows = analiz.map(function (e) {
-      var urunCells = PRODUCTS.map(function (urun) {
-        var u = e.urunAnaliz[urun];
-        if (!u) {
-          return '<td style="text-align:center;color:var(--dim);font-size:10px">—</td>';
-        }
-
-        var oneriColor = u.kampanyaModu ? '#D97706' : 'var(--c1)';
-        var oneriText  = u.siparisOnerisi.sart
-          ? u.siparisOnerisi.sart
-          : u.siparisOnerisi.miktar + ' kutu';
-
-        return '<td style="text-align:center">' +
-          '<div style="font-weight:700;font-size:12px;color:' + oneriColor + '">' + oneriText + '</div>' +
-          '<div style="font-size:9px;color:var(--dim)">ort:' + u.aylikOrtalama + ' | son:' + u.sonSiparis + '</div>' +
-          '<div style="font-size:9px;color:#15803D">→ ' + u.ongorilenSiparis + '</div>' +
-        '</td>';
-      }).join('');
-
-      return '<tr>' +
-        '<td style="font-weight:600;font-size:12px">' + e.eczane + '</td>' +
-        '<td style="font-size:10px;color:var(--dim)">' + e.brick + '</td>' +
-        urunCells +
-      '</tr>';
-    }).join('');
+    // Benzersiz brick listesi
+    var brickListesi = ['TÜMÜ'].concat(
+      analiz.map(function(e){ return e.brick; })
+        .filter(function(b, i, arr){ return b && arr.indexOf(b) === i; })
+        .sort()
+    );
 
     var headerCells = PRODUCTS.map(function (urun) {
       var kampM = SatisKosullariManager.isKampanyaModu(urun);
@@ -828,27 +806,75 @@
         '</th>';
     }).join('');
 
+    var brickOptions = brickListesi.map(function(b){
+      return '<option value="' + b + '">' + b + '</option>';
+    }).join('');
+
     container.innerHTML =
       '<div class="card">' +
-        '<div class="card-hd">' +
-          '<span class="card-title">📦 Eczane × Ürün Sipariş Analizi</span>' +
+        '<div class="card-hd" style="flex-wrap:wrap;gap:6px">' +
           '<span class="card-badge">' + analiz.length + ' eczane</span>' +
           (etkiCarpani > 1.0
-            ? '<span class="card-badge" style="background:#FEF3C7;color:#D97706;margin-left:8px">' +
+            ? '<span class="card-badge" style="background:#FEF3C7;color:#D97706">' +
               '⚡ Piyasa etkisi ×' + etkiCarpani.toFixed(2) + ' aktif</span>'
             : '') +
+          '<div style="margin-left:auto;display:flex;gap:6px;align-items:center">' +
+            '<input type="text" id="urunAnalizSearch" class="inp" placeholder="🔍 Eczane ara..."' +
+              ' style="padding:5px 10px;font-size:11px;width:150px"' +
+              ' oninput="window._filterUrunAnalizTable()">' +
+            '<select id="urunAnalizBrick" class="inp"' +
+              ' style="padding:5px 8px;font-size:11px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text)"' +
+              ' onchange="window._filterUrunAnalizTable()">' +
+              brickOptions +
+            '</select>' +
+          '</div>' +
         '</div>' +
         '<div class="card-body-0 scroll-x">' +
-          '<table class="tbl" style="min-width:900px">' +
+          '<table class="tbl" id="urunAnalizTable" style="min-width:900px">' +
             '<thead><tr>' +
               '<th>Eczane</th>' +
               '<th>Brick</th>' +
               headerCells +
             '</tr></thead>' +
-            '<tbody>' + rows + '</tbody>' +
+            '<tbody id="urunAnalizTbody"></tbody>' +
           '</table>' +
         '</div>' +
       '</div>';
+
+    // Filtre + render fonksiyonu
+    window._urunAnalizData = analiz;
+    window._filterUrunAnalizTable = function() {
+      var searchVal = (document.getElementById('urunAnalizSearch')&&document.getElementById('urunAnalizSearch').value||'').toLowerCase();
+      var brickVal  = document.getElementById('urunAnalizBrick') ? document.getElementById('urunAnalizBrick').value : 'TÜMÜ';
+      var filtered = window._urunAnalizData.filter(function(e){
+        var brickOk = brickVal === 'TÜMÜ' || e.brick === brickVal;
+        var searchOk = !searchVal || e.eczane.toLowerCase().includes(searchVal) || (e.brick||'').toLowerCase().includes(searchVal);
+        return brickOk && searchOk;
+      });
+      var tbody = document.getElementById('urunAnalizTbody');
+      if (!tbody) return;
+      tbody.innerHTML = filtered.map(function(e){
+        var urunCells = PRODUCTS.map(function (urun) {
+          var u = e.urunAnaliz[urun];
+          if (!u) return '<td style="text-align:center;color:var(--dim);font-size:10px">—</td>';
+          var oneriColor = u.kampanyaModu ? '#D97706' : 'var(--c1)';
+          var oneriText  = u.siparisOnerisi.sart ? u.siparisOnerisi.sart : u.siparisOnerisi.miktar + ' kutu';
+          return '<td style="text-align:center">' +
+            '<div style="font-weight:700;font-size:12px;color:' + oneriColor + '">' + oneriText + '</div>' +
+            '<div style="font-size:9px;color:var(--dim)">ort:' + u.aylikOrtalama + ' | son:' + u.sonSiparis + '</div>' +
+            '<div style="font-size:9px;color:#15803D">→ ' + u.ongorilenSiparis + '</div>' +
+          '</td>';
+        }).join('');
+        return '<tr>' +
+          '<td style="font-weight:600;font-size:12px">' + e.eczane + '</td>' +
+          '<td style="font-size:10px;color:var(--dim)">' + e.brick + '</td>' +
+          urunCells +
+        '</tr>';
+      }).join('');
+    };
+
+    // İlk render
+    window._filterUrunAnalizTable();
   }
 
   // ══════════════════════════════════════════════════════════════════

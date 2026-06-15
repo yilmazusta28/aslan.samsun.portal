@@ -576,7 +576,6 @@
     container.innerHTML =
       '<div class="card">' +
         '<div class="card-hd" style="flex-wrap:wrap;gap:6px">' +
-          '<span class="card-title">📦 Bu Hafta Siparişe En Yakın 30 Eczane</span>' +
           '<span class="card-badge">' + rc.top30.length + ' eczane</span>' +
           '<span class="card-badge" style="background:#EFF6FF;color:#1D4ED8">' +
             '🔮 Tahmin: ' + totalForecast + ' kutu</span>' +
