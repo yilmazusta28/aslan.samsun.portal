@@ -212,6 +212,14 @@
 <script src="js/ai/ai-service.js"></script>
 <script src="js/ai/learning-engine.js"></script>
 <script src="js/ai/ai-engine.js"></script>
+<!-- PHASE 4.6.x: Recommendation Memory Layer
+     AI tarafından üretilen önerileri (next best action) localStorage'da
+     pharma_recommendation_memory_v1 altında saklar. window.RecommendationMemory
+     üzerinden classic scriptlere açılır. Görünmez hafıza katmanı — UI değişmez.
+     Rollback: bu satırı sil + autonomous-planning-engine.js içindeki
+     _persistVisitRecommendations çağrısını kaldır. -->
+<script type="module" src="js/ai/recommendation-memory.js"></script>
+<!-- END PHASE 4.6.x Recommendation Memory Layer -->
 <!-- PHASE 5.7: Autonomous Planning Engine — AI Saha Komutanı -->
 <script src="js/ai/autonomous-planning-engine.js"></script>
 <script>

@@ -385,6 +385,66 @@
   }
 
   // ══════════════════════════════════════════════════════════════════════
+  //  BÖLÜM 6.5: Recommendation Memory — Görünmez Hafıza Katmanı
+  // ══════════════════════════════════════════════════════════════════════
+  //
+  //  Her "Bugünkü Ziyaret" (visit) öğesi, kullanıcıya gösterilmeden HEMEN
+  //  ÖNCE saveRecommendation() ile pharma_recommendation_memory_v1'e
+  //  kaydedilir (window.RecommendationMemory köprüsü üzerinden).
+  //
+  //  • UI davranışı DEĞİŞMEZ — bu sadece arka planda çalışan bir kayıt katmanı.
+  //  • Duplicate kontrolü recommendation-memory.js içinde yapılır:
+  //    representative + action + brick + pharmacy + gün aynıysa
+  //    yeni kayıt oluşturulmaz.
+  //  • window.RecommendationMemory mevcut değilse (örn. modül script
+  //    yüklenmemiş/engellenmiş) sessizce atlanır — generateDailyPlan
+  //    asla bu yüzden hata vermez.
+
+  function _riskLevelFromTlPct(tlPct) {
+    if (tlPct >= 100) return 'DÜŞÜK';
+    if (tlPct >= 91)  return 'ORTA';
+    return 'YÜKSEK';
+  }
+
+  function _persistVisitRecommendations(ttt, mission, gt) {
+    try {
+      var RM = window.RecommendationMemory;
+      if (!RM || typeof RM.saveRecommendation !== 'function') return;
+      if (!mission || !mission.visits || !mission.visits.length) return;
+
+      var tlPct   = gt ? (gt.tl_pct   || 0) : 0;
+      var primPct = gt ? (gt.prim_pct || 0) : 0;
+      var period  = _getCurrentPeriod();
+      var periodKey = period ? period.key : mission.period;
+
+      mission.visits.forEach(function (v) {
+        var topProduct = (v.products && v.products[0]) ? v.products[0].urun : null;
+
+        RM.saveRecommendation({
+          representative: ttt,
+          period:         periodKey,
+          recommendation: {
+            action:           'ZİYARET',
+            product:          topProduct || null,
+            brick:            v.brick || null,
+            pharmacy:         v.eczane || null,
+            expectedImpactTL: v.expectedTL || 0,
+            confidence:       Math.round(v.score || 0) / 100
+          },
+          contextSnapshot: {
+            tlPct:         tlPct,
+            primPct:       primPct,
+            remainingDays: mission.remainingDays || 0,
+            riskLevel:     _riskLevelFromTlPct(tlPct)
+          }
+        });
+      });
+    } catch (_e) {
+      console.warn('[APE] _persistVisitRecommendations hata:', _e.message);
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
   //  BÖLÜM 7: generateDailyPlan
   // ══════════════════════════════════════════════════════════════════════
 
@@ -484,6 +544,10 @@
     };
 
     window.dailyMission = mission;
+
+    // ── Görünmez hafıza katmanı: kullanıcıya gösterilmeden hemen önce kaydet ──
+    _persistVisitRecommendations(ttt, mission, gt);
+
     _savePlan(STORE_DAILY, mission);
     return mission;
   }
