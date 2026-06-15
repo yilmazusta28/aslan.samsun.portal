@@ -57,11 +57,17 @@ function renderEngine() {
   const rem = cur ? workDays(today, cur.end) : '—';
 
   const gt = GENEL.find(r=>r.ttt===engineSelTTT&&r.urun==='GENEL TOPLAM');
+  // kalan_tl: CSV sütun R sıfırsa hedef_tl - satis_tl ile türet (renderEngine fallback)
+  const _emvKalanRaw  = gt ? gt.kalan_tl : 0;
+  const _emvKalanCalc = (gt && gt.hedef_tl > 0)
+    ? Math.max(0, gt.hedef_tl - (gt.satis_tl || 0))
+    : 0;
+  const _emvKalan = _emvKalanRaw > 0 ? _emvKalanRaw : _emvKalanCalc;
   document.getElementById('emv_ttt').textContent   = engineSelTTT.split(' ')[0];
   document.getElementById('emv_real').textContent  = gt ? fPct(gt.tl_pct) : '—';
   document.getElementById('emv_real').className    = 'engine-meta-val ' + (gt?.tl_pct>=91?'good':gt?.tl_pct>=70?'warn':'danger');
   document.getElementById('emv_gun').textContent   = rem + ' gün';
-  document.getElementById('emv_kalan').textContent = gt ? fTL(Math.max(0,gt.kalan_tl)) : '—';
+  document.getElementById('emv_kalan').textContent = gt ? fTL(_emvKalan) : '—';
   document.getElementById('emv_donem').textContent = cur ? cur.label : '—';
   document.getElementById('engineTttBadge').textContent = engineSelTTT;
 
