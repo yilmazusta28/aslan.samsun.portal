@@ -1880,7 +1880,7 @@ function goPage(i){
   else if(i===2)renderTakip();
   else if(i===3){ initMigi1(); initMigi2(); }
   else if(i===4){ buildPrimInputs(); syncPrimFromCalc(); }
-  else if(i===5){ /* Eczane sayfası — renderEczane() PDM ile çağrılıyor */ }
+  else if(i===5){ if(typeof renderAiAsistan==='function') renderAiAsistan(); }
   else if(i===6)renderEczane();
 }
 
