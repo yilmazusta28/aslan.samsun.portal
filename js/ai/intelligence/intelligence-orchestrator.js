@@ -1,39 +1,41 @@
 // ══════════════════════════════════════════════════════════════════════
 //  js/ai/intelligence/intelligence-orchestrator.js
 //  Phase 3.0 — Sales Intelligence Engine
+//  FAZ 0 GÜNCELLEMESİ — AI Consolidation: pipeline artık AI Core'a taşındı.
 //
-//  Sorumluluk: Tüm intelligence motorlarını koordine et
+//  Sorumluluk: Geriye dönük uyumlu intelligence raporu üretmek
 //    • buildSalesIntelligence(ttt) → { insights, trends, risks,
 //                                       opportunities, recommendations }
 //    • formatIntelligenceForAI(intel) → string (AI prompt eklentisi)
 //    • renderIntelligenceSummary(ttt)  → DOM (opsiyonel, basit kartlar)
 //
-//  Pipeline: insights → trends → risks → opportunities → recommendations
+//  FAZ 0 ÖNCESİ: buildSalesIntelligence() risk/trend/insight/opportunity/
+//    recommendation motorlarını BURADA sırayla çağırıyordu (pipeline kodu
+//    bu dosyadaydı).
+//  FAZ 0 SONRASI: pipeline mantığı js/ai/core/ai-orchestrator.js'e taşındı.
+//    buildSalesIntelligence() artık SADECE window.AICore.analyze(ttt)'i
+//    çağırıp sonucu bu dosyanın geriye dönük uyumlu (eski) şekline map eder.
+//    AICore yüklü değilse (örn. dosya bulunamadıysa) eski pipeline'a
+//    otomatik olarak geri döner — hiçbir tüketici (ai-context.js,
+//    formatIntelligenceForAI, renderIntelligenceSummary) bundan etkilenmez.
+//
 //  AI çağrısı: YOK (sadece output AI prompt'una eklenir)
 //  UI: Sadece renderIntelligenceSummary() — mevcut UI değiştirilmez
 //
 //  Bağımlılık (yükleme sırasına göre):
 //    insight-engine.js, trend-engine.js, risk-engine.js,
 //    opportunity-engine.js, recommendation-engine.js
+//    (opsiyonel, varsa kullanılır) js/ai/core/ai-core.js
 //  GitHub Pages compatible: classic script, no ES modules
 // ══════════════════════════════════════════════════════════════════════
 
 (function() {
   'use strict';
 
-  // ── buildSalesIntelligence ────────────────────────────────
-  // Ana pipeline fonksiyonu.
-  // @param {string} ttt
-  // @returns {{
-  //   ttt: string,
-  //   generatedAt: string,
-  //   insights: Array,
-  //   trends: Object,
-  //   risks: Array,
-  //   opportunities: Array,
-  //   recommendations: Array
-  // }}
-  function buildSalesIntelligence(ttt) {
+  // ── _buildSalesIntelligenceLegacy ─────────────────────────────────
+  // FAZ 0 öncesi pipeline — AICore bulunamazsa fallback olarak kullanılır.
+  // Davranış FAZ 0 öncesiyle birebir aynıdır (hiçbir fonksiyonellik kaybı yok).
+  function _buildSalesIntelligenceLegacy(ttt) {
     var result = {
       ttt: ttt,
       generatedAt: new Date().toISOString(),
@@ -47,49 +49,82 @@
     if (!ttt) return result;
 
     try {
-      // 1. Insights
       if (typeof generateInsights === 'function') {
         result.insights = generateInsights(ttt);
       }
-
-      // 2. Trends
       if (typeof analyzeTrends === 'function') {
         result.trends = analyzeTrends(ttt);
       }
-
-      // 3. Risks
       if (typeof detectRisks === 'function') {
         result.risks = detectRisks(ttt);
       }
-
-      // 4. Opportunities
       if (typeof findOpportunities === 'function') {
         result.opportunities = findOpportunities(ttt);
       }
-
-      // 5. Recommendations (risk + opportunity + insight aware)
       if (typeof generateRecommendations === 'function') {
         result.recommendations = generateRecommendations(
-          ttt,
-          result.risks,
-          result.opportunities,
-          result.insights
+          ttt, result.risks, result.opportunities, result.insights
         );
       }
-
-      console.debug('[intelligence-orchestrator] buildSalesIntelligence tamamlandı.',
-        'TTT:', ttt,
-        '| Insights:', result.insights.length,
-        '| Risks:', result.risks.length,
-        '| Opps:', result.opportunities.length,
-        '| Recs:', result.recommendations.length
-      );
-
     } catch (e) {
-      console.warn('[intelligence-orchestrator] buildSalesIntelligence hata:', e.message);
+      console.warn('[intelligence-orchestrator] legacy pipeline hata:', e.message);
     }
 
     return result;
+  }
+
+  // ── buildSalesIntelligence ────────────────────────────────
+  // Geriye dönük uyumlu ana fonksiyon. İçeride AICore.analyze() kullanır.
+  // @param {string} ttt
+  // @returns {{
+  //   ttt: string,
+  //   generatedAt: string,
+  //   insights: Array,
+  //   trends: Object,
+  //   risks: Array,
+  //   opportunities: Array,
+  //   recommendations: Array
+  // }}
+  function buildSalesIntelligence(ttt) {
+    if (!ttt) {
+      return {
+        ttt: ttt,
+        generatedAt: new Date().toISOString(),
+        insights: [], trends: { trend: 'FLAT', confidence: 0, summary: '' },
+        risks: [], opportunities: [], recommendations: []
+      };
+    }
+
+    try {
+      // AI Core yüklüyse merkezi pipeline'ı kullan (tek kaynak).
+      if (window.AICore && typeof window.AICore.analyze === 'function') {
+        var core = window.AICore.analyze(ttt);
+        var result = {
+          ttt:             ttt,
+          generatedAt:     (core.metadata && core.metadata.generatedAt) || new Date().toISOString(),
+          insights:        core.insights        || [],
+          trends:          core.trends           || { trend: 'FLAT', confidence: 0, summary: '' },
+          risks:           core.risks            || [],
+          opportunities:   core.opportunities    || [],
+          recommendations: core.recommendations  || []
+        };
+
+        console.debug('[intelligence-orchestrator] buildSalesIntelligence (AICore üzerinden) tamamlandı.',
+          'TTT:', ttt,
+          '| Insights:', result.insights.length,
+          '| Risks:', result.risks.length,
+          '| Opps:', result.opportunities.length,
+          '| Recs:', result.recommendations.length
+        );
+
+        return result;
+      }
+    } catch (e) {
+      console.warn('[intelligence-orchestrator] AICore çağrısı hata verdi, legacy pipeline kullanılıyor:', e.message);
+    }
+
+    // AICore yoksa veya hata verdiyse — eski davranış korunur.
+    return _buildSalesIntelligenceLegacy(ttt);
   }
 
   // ── formatIntelligenceForAI ───────────────────────────────

@@ -56,6 +56,14 @@
       39. habit-engine      — generateSalesHabits
       40. daily-plan-engine — generateDailyPlan
       41. coach-engine      — buildSalesCoach, formatCoachForAI, renderCoachSummary
+      ── FAZ 0: AI Core (AI Consolidation) ────────────────────
+      41a. ai-context-builder — AIContextBuilder.buildContext (yapısal context)
+      41b. ai-orchestrator     — AIOrchestrator.run (tek pipeline: risk→trend→
+                                  insight→opportunity→recommendation→coach)
+      41c. ai-core             — AICore.analyze (merkezi giriş noktası,
+                                  standart sonuç modeli)
+           NOT: intelligence-orchestrator.js (#24) artık AICore.analyze()'a
+           delege eder; AICore yoksa otomatik olarak eski pipeline'a döner.
       ── PHASE 4.0: Executive Dashboard AI ────────────────────
       42. team-ranking-engine   — buildTeamRanking, getManagementCategories
       43. team-risk-engine      — analyzeTeamRisk, getTeamRiskSummary
@@ -153,6 +161,21 @@
 <script src="js/ai/coach/daily-plan-engine.js"></script>
 <script src="js/ai/coach/coach-engine.js"></script>
 <!-- END PHASE 3.4 AI Sales Coach -->
+
+<!-- FAZ 0: AI Core (AI Consolidation)
+     Tüm AI karar mekanizmasını (risk/trend/insight/opportunity/
+     recommendation/coach) tek bir merkezi pipeline altında birleştirir.
+     Yükleme sırası kritik: yukarıdaki Phase 3.0 + 3.4 motorları SONRASI.
+     intelligence-orchestrator.js (Phase 3.0) bu dosyalar yüklendikten
+     SONRA çağrılır (runtime'da), bu yüzden script sırası burada da
+     güvenlidir — buildSalesIntelligence() ilk gerçek çağrıya kadar
+     hiçbir şey çalıştırmaz.
+     Rollback: bu 3 satırı sil — intelligence-orchestrator.js otomatik
+     olarak FAZ 0 öncesi (legacy) pipeline'a geri döner, hiçbir şey bozulmaz. -->
+<script src="js/ai/core/ai-context-builder.js"></script>
+<script src="js/ai/core/ai-orchestrator.js"></script>
+<script src="js/ai/core/ai-core.js"></script>
+<!-- END FAZ 0 AI Core -->
 
 <!-- PHASE 4.0: Executive Dashboard AI
      Yükleme sırası: ranking → risk → forecast → summary → executive
