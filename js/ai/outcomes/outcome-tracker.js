@@ -143,8 +143,8 @@
     });
   }
 
-  // ── saveOutcome(outcome) → Promise<outcome|null> ────────────────────
-  function saveOutcome(outcome) {
+  // ── _saveOutcomeRaw(outcome) — IndexedDB/fallback'a ham yazma ───────
+  function _saveOutcomeRaw(outcome) {
     if (!outcome || !outcome.id) return Promise.resolve(null);
 
     if (_usingFallback) {
@@ -166,6 +166,26 @@
       _usingFallback = true;
       _memoryFallback.push(outcome);
       return outcome;
+    });
+  }
+
+  // ── saveOutcome(outcome) — public API ───────────────────────────────
+  // _saveOutcomeRaw() ile kaydeder, sonra FAZ 1.4 Learning Engine'i
+  // (varsa) guarded olarak tetikler. Bu, Master Prompt'un "Yeni outcome
+  // oluştuğunda updateLearningPatterns() otomatik çalışsın" kuralının
+  // tek/merkezi tetikleme noktasıdır — evaluateOpenRecommendations()
+  // dahil TÜM saveOutcome() çağrıları bu kancayı otomatik tetikler.
+  // PatternLearningEngine yüklenmemişse hiçbir şey yapılmaz (typeof
+  // kontrolü) — outcome-tracker.js'in FAZ 1.3 davranışı değişmez.
+  function saveOutcome(outcome) {
+    return _saveOutcomeRaw(outcome).then(function (saved) {
+      if (saved && window.PatternLearningEngine &&
+          typeof window.PatternLearningEngine.updateLearningPatterns === 'function') {
+        window.PatternLearningEngine.updateLearningPatterns(saved).catch(function (e) {
+          console.warn('[outcome-tracker] PatternLearningEngine.updateLearningPatterns hata (sessiz):', e.message);
+        });
+      }
+      return saved;
     });
   }
 

@@ -134,18 +134,42 @@
     }, { recentOutcomes: [], successRate: null, lastSuccessfulActions: [], lastFailedActions: [] });
   }
 
+  // ── _resolvePatterns — FAZ 1.4 Learning Engine (Pattern Learning) ────
+  // js/ai/learning/learning-engine.js senkron bir cache sunar
+  // (window.PatternLearningEngine.getCachedSummary(product)) — aynı
+  // senkron-cache deseni FAZ 1.3'teki gibi kullanılır. NOT: bu motor
+  // window.LearningEngine (Phase 5.4, tahmin doğruluğu) İLE AYNI ŞEY
+  // DEĞİLDİR — window.PatternLearningEngine kullanılır (isim çakışması
+  // önlemi, bkz. FAZ1.4 raporu).
+  function _resolvePatterns(product) {
+    return _safe(function () {
+      if (window.PatternLearningEngine && typeof window.PatternLearningEngine.getCachedSummary === 'function') {
+        var s = window.PatternLearningEngine.getCachedSummary(product);
+        return {
+          bestPatterns:           s.bestPatterns           || [],
+          relevantPatterns:       s.relevantPatterns        || [],
+          historicalSuccessRates: s.historicalSuccessRates  || {},
+          historicalFailures:     s.historicalFailures      || [],
+          learningConfidence:     (typeof s.learningConfidence === 'number') ? s.learningConfidence : null
+        };
+      }
+      return { bestPatterns: [], relevantPatterns: [], historicalSuccessRates: {}, historicalFailures: [], learningConfidence: null };
+    }, { bestPatterns: [], relevantPatterns: [], historicalSuccessRates: {}, historicalFailures: [], learningConfidence: null });
+  }
+
   // ── buildContext — ana giriş noktası ────────────────────────────────
   // @param {Object} [overrides] — { ttt, brick, product, filters, dateRange }
   // @returns {Object} yapısal AI context'i
   function buildContext(overrides) {
     overrides = overrides || {};
 
-    var ttt = _resolveTTT(overrides);
+    var ttt     = _resolveTTT(overrides);
+    var product = overrides.product || _safe(function () { return selKutuUruns; }, null);
 
     var context = {
       ttt:     ttt,
-      brick:   overrides.brick   || _safe(function () { return selEczaneBrick; }, null),
-      product: overrides.product || _safe(function () { return selKutuUruns; }, null),
+      brick:   overrides.brick || _safe(function () { return selEczaneBrick; }, null),
+      product: product,
 
       period:    _resolvePeriod(),
       dateRange: overrides.dateRange || null,
@@ -168,6 +192,11 @@
       // Mevcut alanlara EK olarak gelir, hiçbir alanı değiştirmez/silmez.
       outcomes: _resolveOutcomes(),
 
+      // FAZ 1.4: Learning Engine (Pattern Learning) — ürüne göre ilgili
+      // pattern'lar + genel en-iyi pattern'lar. Mevcut alanlara EK olarak
+      // gelir, hiçbir alanı değiştirmez/silmez.
+      patterns: _resolvePatterns(product),
+
       generatedAt: new Date().toISOString()
     };
 
@@ -179,6 +208,6 @@
     buildContext: buildContext
   };
 
-  console.debug('[ai-context-builder] FAZ 0 + FAZ 1.3 (outcomes) yüklendi.');
+  console.debug('[ai-context-builder] FAZ 0 + FAZ 1.3 (outcomes) + FAZ 1.4 (patterns) yüklendi.');
 
 })();
