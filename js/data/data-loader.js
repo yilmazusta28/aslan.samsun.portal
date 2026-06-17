@@ -314,6 +314,16 @@ async function syncData() {
     // Dizileri güncelle
     IMS.length   = 0;  IMS.push(...newIMS);
 
+    // ── FAZ 1.3: Outcome Tracker — yeni IMS yüklendiğinde, Recommendation
+    // Memory içindeki açık (evaluated=false) önerileri otomatik değerlendir.
+    // Asenkron, fire-and-forget — syncData()'nın akışını bloklamaz/bozmaz.
+    // OutcomeTracker yüklenmemişse (dosya yoksa/eski sürüm) hiçbir şey yapmaz.
+    if (window.OutcomeTracker && typeof window.OutcomeTracker.evaluateOpenRecommendations === 'function') {
+      window.OutcomeTracker.evaluateOpenRecommendations(IMS).catch(function (e) {
+        console.warn('[data-loader] OutcomeTracker.evaluateOpenRecommendations hata (sessiz):', e.message);
+      });
+    }
+
     // ── GENEL DEDUP ──────────────────────────────────────────────────
     // CSV'de aynı ttt+urun kombinasyonu birden fazla satır olabilir.
     // İLK SATIR kazanır — kullanıcı tarafından ilk sıradaki veri doğru/güncel.

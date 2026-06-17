@@ -113,6 +113,27 @@
     }, { available: false });
   }
 
+  // ── _resolveOutcomes — FAZ 1.3 Outcome Tracker entegrasyonu ─────────
+  // outcome-tracker.js senkron bir cache sunar (window.OutcomeTracker.
+  // getCachedSummary()) — IndexedDB sorgusu ASENKRON olduğu için
+  // buildContext()'in senkron sözleşmesini bozmadan en son hesaplanmış
+  // özet burada okunur. outcome-tracker.js yüklenmemişse güvenli
+  // varsayılanlar döner (hata vermez).
+  function _resolveOutcomes() {
+    return _safe(function () {
+      if (window.OutcomeTracker && typeof window.OutcomeTracker.getCachedSummary === 'function') {
+        var s = window.OutcomeTracker.getCachedSummary();
+        return {
+          recentOutcomes:        s.recentOutcomes        || [],
+          successRate:           (typeof s.successRate === 'number') ? s.successRate : null,
+          lastSuccessfulActions: s.lastSuccessfulActions || [],
+          lastFailedActions:     s.lastFailedActions     || []
+        };
+      }
+      return { recentOutcomes: [], successRate: null, lastSuccessfulActions: [], lastFailedActions: [] };
+    }, { recentOutcomes: [], successRate: null, lastSuccessfulActions: [], lastFailedActions: [] });
+  }
+
   // ── buildContext — ana giriş noktası ────────────────────────────────
   // @param {Object} [overrides] — { ttt, brick, product, filters, dateRange }
   // @returns {Object} yapısal AI context'i
@@ -143,6 +164,10 @@
 
       learning: _resolveLearning(ttt),
 
+      // FAZ 1.3: Outcome Tracker — son 6 aylık öneri sonuç özetleri.
+      // Mevcut alanlara EK olarak gelir, hiçbir alanı değiştirmez/silmez.
+      outcomes: _resolveOutcomes(),
+
       generatedAt: new Date().toISOString()
     };
 
@@ -154,6 +179,6 @@
     buildContext: buildContext
   };
 
-  console.debug('[ai-context-builder] FAZ 0 yüklendi.');
+  console.debug('[ai-context-builder] FAZ 0 + FAZ 1.3 (outcomes) yüklendi.');
 
 })();

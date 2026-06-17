@@ -208,7 +208,16 @@ function _buildRecord(rec) {
     },
 
     outcome     : 'pending',
-    outcomeValue: null
+    outcomeValue: null,
+
+    // ── FAZ 1.3: Outcome Tracker entegrasyonu ──────────────────────
+    // Bu üç alan, js/ai/outcomes/outcome-tracker.js tarafından
+    // evaluateOpenRecommendations() çalıştığında güncellenir
+    // (bkz. markRecommendationEvaluated() altta). Mevcut "outcome" /
+    // "outcomeValue" alanlarıyla ÇAKIŞMAZ — ayrı, ek bir takip katmanıdır.
+    evaluated         : false,
+    outcomeId         : null,
+    lastEvaluationDate: null
   };
 }
 
@@ -344,6 +353,49 @@ export function updateRecommendationOutcome(id, outcome, outcomeValue) {
 }
 
 /**
+ * FAZ 1.3 — Outcome Tracker entegrasyonu.
+ * Bir öneriyi "değerlendirildi" olarak işaretler ve ilgili outcome
+ * kaydının ID'sini bağlar. js/ai/outcomes/outcome-tracker.js tarafından
+ * evaluateOpenRecommendations() içinde çağrılır.
+ *
+ * Mevcut updateRecommendationOutcome() fonksiyonundan FARKLIDIR:
+ * o fonksiyon "outcome"/"outcomeValue" (eski, manuel/serbest metin alanı)
+ * günceller; bu fonksiyon ise "evaluated"/"outcomeId"/"lastEvaluationDate"
+ * (yeni, otomatik Outcome Tracker alanı) günceller. İkisi birbirini
+ * etkilemez.
+ *
+ * @param {string} id        - Güncellenecek önerinin ID'si
+ * @param {string} outcomeId - outcome-tracker.js'in ürettiği outcome kaydının ID'si
+ * @returns {Object|null} Güncellenmiş kayıt veya null (bulunamazsa)
+ */
+export function markRecommendationEvaluated(id, outcomeId) {
+  try {
+    if (typeof id !== 'string' || !id.trim()) {
+      console.warn('[recommendation-memory] markRecommendationEvaluated: geçersiz id');
+      return null;
+    }
+
+    const records = _load();
+    const idx     = records.findIndex(function(r) { return r.id === id; });
+
+    if (idx === -1) {
+      console.warn('[recommendation-memory] markRecommendationEvaluated: kayıt bulunamadı —', id);
+      return null;
+    }
+
+    records[idx].evaluated          = true;
+    records[idx].outcomeId          = (typeof outcomeId === 'string' && outcomeId.trim()) ? outcomeId.trim() : null;
+    records[idx].lastEvaluationDate = new Date().toISOString();
+
+    _save(records);
+    return records[idx];
+  } catch (e) {
+    console.error('[recommendation-memory] markRecommendationEvaluated hatası:', e.message);
+    return null;
+  }
+}
+
+/**
  * Kayıt sayısı maxItems'ı aşıyorsa en eski kayıtları siler.
  * Fonksiyon hem dışarıdan çağrılabilir hem de saveRecommendation tarafından kullanılır.
  *
@@ -471,6 +523,7 @@ if (typeof window !== 'undefined') {
     getRecommendations,
     getRecommendationById,
     updateRecommendationOutcome,
+    markRecommendationEvaluated,
     deleteOldRecommendations,
     getRecommendationsByRepresentative,
     getRecommendationsByPeriod,

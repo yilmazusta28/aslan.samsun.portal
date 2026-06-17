@@ -80,6 +80,12 @@
       48. ai-service  — fetchAI, sendAiMsgWithText (Phase 4.1 unified context)
       49. ai-engine   — runEngine, renderEngine, engineAiAnalysis (Phase 4.1)
       50. <script>inline — app init, DOMContentLoaded
+      ── NOT: Bu liste #50'de sabitlendi. Phase 4.2+ / 4.6+ / 5.x ve sonrası
+      eklenen modüller (ai-memory, learning-engine, recommendation-memory,
+      autonomous-planning-engine, outcome-tracker vb.) burada numaralı
+      olarak GÜNCELLENMEDİ — her biri kendi <script> etiketinin ÜSTÜNDEKİ
+      yorum bloğunda belgelenmiştir. Güncel/tam liste için ilgili dosyaların
+      kendi başlıklarına ve docs/ klasöründeki FAZ raporlarına bakın.
      ═══════════════════════════════════════════════════════════════ -->
 <script src="js/core/async-guard.js"></script>
 <script src="js/core/constants.js"></script>
@@ -243,6 +249,18 @@
      _persistVisitRecommendations çağrısını kaldır. -->
 <script type="module" src="js/ai/recommendation-memory.js"></script>
 <!-- END PHASE 4.6.x Recommendation Memory Layer -->
+
+<!-- FAZ 1.3: Outcome Tracker (Öneri Sonuç Takip Motoru)
+     IMS yeniden senkronize olduğunda (js/data/data-loader.js → syncData())
+     Recommendation Memory'deki açık önerileri otomatik değerlendirir ve
+     sonuçları IndexedDB'de (recommendation_outcomes) saklar. Learning
+     Engine'in temel veri kaynağıdır. Görünmez katman — UI değişmez.
+     Rollback: bu satırı sil + data-loader.js içindeki
+     OutcomeTracker.evaluateOpenRecommendations çağrısını kaldır
+     (typeof kontrolü sayesinde dosya silinse de syncData() bozulmaz). -->
+<script src="js/ai/outcomes/outcome-tracker.js"></script>
+<!-- END FAZ 1.3 Outcome Tracker -->
+
 <!-- PHASE 5.7: Autonomous Planning Engine — AI Saha Komutanı -->
 <script src="js/ai/autonomous-planning-engine.js"></script>
 <script>
