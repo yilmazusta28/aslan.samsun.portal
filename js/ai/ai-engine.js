@@ -529,6 +529,152 @@ function _runEngineCore() {
   // ── Tarih badge ─────────────────────────────────────────
   document.getElementById('taskDateBadge').textContent = todayDisplay + ' · ' + remDays + ' iş günü';
 
+  // ── FAZ 2 — PROJEKSİYON ŞERİDİ ────────────────────────
+  // calculateRunRate() mevcut hızla dönem sonu tahminini verir
+  (function _renderProjectionBar() {
+    try {
+      var rr = (typeof calculateRunRate === 'function') ? calculateRunRate(ttt) : null;
+      var projEl  = document.getElementById('epb_proj');
+      var nowEl   = document.getElementById('epb_now');
+      var rateEl  = document.getElementById('epb_rate');
+      var msgEl   = document.getElementById('epb_msg');
+      if (!projEl) return;
+
+      if (!rr || rr.projectedRealization === 0) {
+        projEl.textContent = '— Veri yok';
+        return;
+      }
+      var proj = rr.projectedRealization;
+      var color = proj >= 100 ? '#16A34A' : proj >= 91 ? '#D97706' : proj >= 70 ? '#EA580C' : '#DC2626';
+      projEl.textContent  = '%' + proj.toFixed(1);
+      projEl.style.color  = color;
+      nowEl.textContent   = '%' + (totalReal || 0).toFixed(1);
+      rateEl.textContent  = fTL(rr.dailyRunRate) + '/gün';
+
+      // Mesaj: ne kadar fark var, ne gerekiyor
+      var gap = 91 - proj;
+      if (proj >= 100) {
+        msgEl.innerHTML = '<span style="color:#16A34A;font-weight:700">🏆 Hedef aşılıyor!</span><br>Mevcut hızla dönem sonu %' + proj.toFixed(1) + ' realizasyon.';
+      } else if (proj >= 91) {
+        msgEl.innerHTML = '<span style="color:#D97706;font-weight:700">✅ %91 hedefine ulaşıyorsunuz</span><br>Günlük hızı koruyun.';
+      } else if (remDays > 0) {
+        var extraPerDay = kalanPerDay > rr.dailyRunRate ? Math.round(kalanPerDay - rr.dailyRunRate) : 0;
+        msgEl.innerHTML = '<span style="color:#DC2626;font-weight:700">⚠ %91 için günde +' + fTL(extraPerDay) + ' daha</span><br>'
+          + 'Mevcut hızla dönem %' + proj.toFixed(1) + '\'de kapanır. ' + remDays + ' gün kaldı.';
+      } else {
+        msgEl.innerHTML = '<span style="color:var(--dim)">Dönem kapandı.</span>';
+      }
+
+      // Renk şeridi güncelle
+      var bar = document.getElementById('engineProjectionBar');
+      if (bar) {
+        bar.style.borderColor = color + '40';
+        bar.style.background  = 'linear-gradient(135deg,' + color + '0a,rgba(27,206,216,.03))';
+      }
+    } catch (e) {
+      console.warn('[ai-engine] projeksiyon şeridi hata:', e.message);
+    }
+  })();
+
+  // ── FAZ 2 — BUGÜNÜN 3 AKSİYONU ────────────────────────
+  // Temsilci sabah bunu görür: ne yapmalı, neden, sayı
+  (function _renderTodayActions() {
+    try {
+      var actions = [];
+
+      // Aksiyon 1: En kritik ürün (en düşük realizasyon, hedefe ulaşmamış)
+      var critUrun = urunKPI.filter(function(r) { return !r.hedeyeUlasti; })
+        .sort(function(a,b) { return (a.tl_pct||0) - (b.tl_pct||0); })[0];
+      if (critUrun) {
+        actions.push({
+          icon: '💊',
+          color: critUrun.tl_pct < 70 ? '#DC2626' : '#D97706',
+          bg: critUrun.tl_pct < 70 ? '#FEF2F2' : '#FFFBEB',
+          title: critUrun.urun + ' — Günde ' + critUrun.gunlukKutu + ' kutu',
+          detail: '%' + (critUrun.tl_pct||0).toFixed(0) + ' gerçekleşme · '
+            + (critUrun.kalanKutu > 0 ? critUrun.kalanKutu + ' kutu kaldı' : fTL(critUrun.kalan) + ' kalan TL')
+            + (critUrun.imsFiyat > 0 ? ' · ' + critUrun.imsFiyat + '₺/kutu' : '')
+        });
+      }
+
+      // Aksiyon 2: En kritik brick (MI/GI en düşük, top333 içinde)
+      var critBrick = riskBricks[0];
+      if (critBrick) {
+        actions.push({
+          icon: '🧱',
+          color: '#0E7490',
+          bg: '#ECFEFF',
+          title: critBrick.brick + ' brickine git',
+          detail: 'MI: ' + (critBrick.mi ? critBrick.mi.toFixed(0) : '—')
+            + ' · GI: ' + (critBrick.gi ? critBrick.gi.toFixed(0) : '—')
+            + ' · Sıra #' + critBrick.sira + ' · ' + (critBrick.mi < 90 ? 'Kritik brick — pazar payı düşüyor' : 'Takip gerektiriyor')
+        });
+      } else if (oppBricks[0]) {
+        var opp = oppBricks[0];
+        actions.push({
+          icon: '🚀',
+          color: '#059669',
+          bg: '#F0FDF4',
+          title: opp.brick + ' — Fırsat Brickı',
+          detail: 'MI: ' + (opp.mi ? opp.mi.toFixed(0) : '—')
+            + ' · GI: ' + (opp.gi ? opp.gi.toFixed(0) : '—')
+            + ' · Sıra #' + opp.sira + ' · Güçlü performans — payı artır'
+        });
+      }
+
+      // Aksiyon 3: Prim açığı veya eczane fırsatı
+      var primGap = 91 - (totalReal || 0);
+      if (primGap > 0 && primGap < 25 && remDays > 0) {
+        var gunlukEkstra = kalanPerDay > 0 ? Math.round(kalanPerDay) : 0;
+        actions.push({
+          icon: '💰',
+          color: '#7C3AED',
+          bg: '#F5F3FF',
+          title: '%91 pirim eşiğine ' + primGap.toFixed(1) + ' puan kaldı',
+          detail: 'Günde ' + fTL(gunlukEkstra) + ' satış hedefi · '
+            + 'Tahmini TL prim: ' + fTL(Math.round(primTL > 0 ? primTL : 0))
+            + (primGap < 5 ? ' · ⚡ Çok yakın!' : '')
+        });
+      } else if (_weeklyPlan && _weeklyPlan.list && _weeklyPlan.list.length > 0) {
+        var topEcz = _weeklyPlan.list[0];
+        actions.push({
+          icon: '🏥',
+          color: '#0891B2',
+          bg: '#ECFEFF',
+          title: topEcz.eczane + ' — Bu haftanın #1 eczanesi',
+          detail: topEcz.brick
+            + ' · Sipariş olasılığı %' + topEcz.reorderProbability
+            + (topEcz.daysToNextOrder <= 0 ? ' · ⚡ Bugün sipariş zamanı!' : ' · ' + topEcz.daysToNextOrder + ' gün içinde')
+            + (topEcz.expectedOrderBoxes > 0 ? ' · ~' + topEcz.expectedOrderBoxes + ' kutu' : '')
+        });
+      }
+
+      // Render
+      var el = document.getElementById('engineTodayActions');
+      if (!el) return;
+
+      if (actions.length === 0) {
+        el.innerHTML = '<div style="color:var(--dim);font-size:12px;text-align:center;padding:12px">Tüm hedefler tamamlandı 🏆</div>';
+        return;
+      }
+
+      el.innerHTML = actions.map(function(a, i) {
+        return '<div style="display:flex;align-items:flex-start;gap:10px;padding:9px 12px;background:' + a.bg + ';border-radius:10px;border-left:3px solid ' + a.color + '">'
+          + '<div style="font-size:18px;flex-shrink:0;margin-top:1px">' + a.icon + '</div>'
+          + '<div style="flex:1;min-width:0">'
+          + '<div style="font-size:12px;font-weight:700;color:' + a.color + ';margin-bottom:2px">'
+          + '<span style="font-size:10px;background:' + a.color + ';color:#fff;border-radius:4px;padding:1px 5px;margin-right:5px;font-weight:700">' + (i+1) + '</span>'
+          + a.title + '</div>'
+          + '<div style="font-size:11px;color:var(--dim);line-height:1.5">' + a.detail + '</div>'
+          + '</div></div>';
+      }).join('');
+
+      document.getElementById('todayActionBadge').textContent = actions.length + ' Öncelik';
+    } catch (e) {
+      console.warn('[ai-engine] 3 aksiyon hata:', e.message);
+    }
+  })();
+
   // Output göster, empty gizle
   document.getElementById('engineOutput').style.display = 'block';
   document.getElementById('engineEmpty').style.display  = 'none';

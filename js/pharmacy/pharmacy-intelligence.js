@@ -700,10 +700,86 @@
         all.length, 'profil |', top30.length, 'top30 |',
         risks.length, 'risk |', opportunities.length, 'fırsat'
       );
+
+      // FAZ 2 — Eczane sayfasına "Bu Haftanın 5 Öncelikli Eczanesi" kartını render et
+      _renderEczaneTop5Card(top30);
+
       return true;
     } catch (err) {
       console.error('[PharmacyIntelligence] Hata:', err);
       return false;
+    }
+  }
+
+  // ── FAZ 2: Eczane sayfası Top5 kart render ──────────────────────────
+  // Pharmacy Intelligence'ın ürettiği top30 listesinin ilk 5'ini net bir kart
+  // olarak eczane sayfasında gösterir. AI Motor sayfasına bağımlılık yok.
+  function _renderEczaneTop5Card(top30) {
+    try {
+      var card = document.getElementById('eczaneTop5Card');
+      var list = document.getElementById('eczaneTop5List');
+      var badge = document.getElementById('eczaneTop5Badge');
+      if (!card || !list) return;
+      if (!top30 || !top30.length) { card.style.display = 'none'; return; }
+
+      var top5 = top30.slice(0, 5);
+
+      var clsMap = {
+        REGULAR_BUYER:  { bg: '#EFF6FF', c: '#1D4ED8', l: '✓ Düzenli'  },
+        GROWING:        { bg: '#DCFCE7', c: '#15803D', l: '↑ Büyüyen'  },
+        AT_RISK:        { bg: '#FEE2E2', c: '#DC2626', l: '⚠ Risk'     },
+        REACTIVATION:   { bg: '#F3E8FF', c: '#7C3AED', l: '🔄 Kazanım' },
+        CAMPAIGN_BUYER: { bg: '#FEF3C7', c: '#D97706', l: '⚡ Kampanya'},
+        OTHER:          { bg: '#F1F5F9', c: '#64748B', l: 'Diğer'      }
+      };
+
+      list.innerHTML = top5.map(function (e, i) {
+        var cls   = clsMap[e.classification] || clsMap['OTHER'];
+        var prob  = e.reorderProbability || 0;
+        var pColor = prob >= 70 ? '#16A34A' : prob >= 45 ? '#D97706' : '#DC2626';
+        var orderLabel = e.daysToNextOrder <= 0
+          ? '<span style="color:#DC2626;font-weight:800;font-size:10px">⚡ Bugün sipariş!</span>'
+          : e.daysToNextOrder <= 3
+            ? '<span style="color:#D97706;font-weight:700;font-size:10px">' + e.daysToNextOrder + ' gün içinde</span>'
+            : '<span style="color:var(--dim);font-size:10px">' + e.daysToNextOrder + ' gün</span>';
+
+        // Ürün badge'leri (nextOrderProducts)
+        var prodBadges = '';
+        if (e.nextOrderProducts && e.nextOrderProducts.length) {
+          prodBadges = e.nextOrderProducts.slice(0, 3).map(function (p) {
+            var bg  = p.overdue ? '#FEE2E2' : p.urgent ? '#FEF3C7' : '#F1F5F9';
+            var col = p.overdue ? '#DC2626' : p.urgent ? '#92400E' : '#475569';
+            var sn  = (p.urun || '').replace('GRİPORT COLD','GRP').replace('ACİDPASS','ACP')
+                       .replace('PANOCER','PAN').replace('MOKSEFEN','MKS').replace('FAMTREC','FAM');
+            return '<span style="font-size:9px;font-weight:700;background:' + bg + ';color:' + col + ';border-radius:3px;padding:1px 4px">'
+              + sn + (p.overdue ? ' ⚡' : '') + (p.kutu ? ' ~' + p.kutu + 'K' : '') + '</span>';
+          }).join(' ');
+        }
+
+        return '<div style="display:flex;align-items:flex-start;gap:10px;padding:9px 12px;'
+          + 'border-radius:10px;border:1px solid var(--border);background:var(--surf2)">'
+          + '<div style="min-width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--c1),var(--c2));'
+          +   'display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0">'
+          + (i + 1) + '</div>'
+          + '<div style="flex:1;min-width:0">'
+          +   '<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:3px">'
+          +     '<span style="font-size:12px;font-weight:700;color:var(--text)">' + (e.eczane || e.ad || '—') + '</span>'
+          +     '<span style="font-size:9px;font-weight:700;background:' + cls.bg + ';color:' + cls.c + ';border-radius:4px;padding:1px 6px">' + cls.l + '</span>'
+          +   '</div>'
+          +   '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+          +     '<span style="font-size:10px;color:var(--dim)">' + (e.brick || '—') + '</span>'
+          +     '<span style="font-size:11px;font-weight:700;color:' + pColor + '">%' + prob + ' sipariş</span>'
+          +     orderLabel
+          +     (e.expectedOrderBoxes > 0 ? '<span style="font-size:10px;color:#0891B2;font-weight:700">~' + e.expectedOrderBoxes + ' kutu</span>' : '')
+          +   '</div>'
+          +   (prodBadges ? '<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">' + prodBadges + '</div>' : '')
+          + '</div></div>';
+      }).join('');
+
+      if (badge) badge.textContent = top5.length + ' Eczane · Sipariş + Trend';
+      card.style.display = 'block';
+    } catch (e) {
+      console.warn('[PharmacyIntelligence] Top5 kart hata:', e.message);
     }
   }
 
