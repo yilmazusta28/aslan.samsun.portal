@@ -278,13 +278,22 @@ function _runEngineCore() {
   try { const _r = localStorage.getItem(_cacheKey); if (_r) _weeklyPlan = JSON.parse(_r); } catch(_) {}
 
   if (!_weeklyPlan?.list?.length) {
+    // FAZ 1.45 — TEK OTORİTE İLKESİ:
+    // ai-engine artık kendi pharmacy hesabı YAPMIYOR.
+    // Pharmacy Intelligence sayfası (page6) bu hesabın tek sahibidir.
+    // Bu kart, Eczane Satış sayfasının ürettiği PHARMACY_INTELLIGENCE.top30
+    // verisini OKUR — ayrı bir hesap yaratmaz, state çelişkisi oluşmaz.
+    // Eczane sayfası açılmadan önce Motor çalıştırıldıysa cache gösterilir.
     let _src = [];
     try {
-      if (typeof runPharmacyIntelligence === 'function' && window._PHARMACY_INTELLIGENCE_READY) {
-        runPharmacyIntelligence(ttt);
-        _src = window.PHARMACY_INTELLIGENCE?.top30 || [];
+      // 1. Önce: Eczane sayfasının ürettiği hazır global (tek otorite)
+      if (window._PHARMACY_INTELLIGENCE_READY && window.PHARMACY_INTELLIGENCE?.top30?.length) {
+        _src = window.PHARMACY_INTELLIGENCE.top30;
       }
-      if (!_src.length && typeof buildClassifierTop30 === 'function') _src = buildClassifierTop30(ttt) || [];
+      // 2. Fallback: Reorder classifier (pharmacy-intelligence yoksa)
+      if (!_src.length && typeof buildClassifierTop30 === 'function') {
+        _src = buildClassifierTop30(ttt) || [];
+      }
     } catch(_e) { console.warn('[ai-engine] weekly plan hata:', _e.message); }
 
     if (_src.length) {

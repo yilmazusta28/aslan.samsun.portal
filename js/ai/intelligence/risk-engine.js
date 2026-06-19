@@ -1,25 +1,21 @@
 // ══════════════════════════════════════════════════════════════════════
 //  js/ai/intelligence/risk-engine.js
 //  Phase 3.0 — Sales Intelligence Engine
+//  Phase 1 Refactor — IMS Data Model Unification
 //
 //  Sorumluluk: Otomatik risk tespiti ve sınıflandırması
 //    • detectRisks(ttt) → risk[]
 //
-//  Risk kategorileri:
-//    - Realizasyon riski (hedeften sapma)
-//    - Pazar payı kaybı (IMS)
-//    - Negatif büyüme
-//    - Brick performansı (MI&GI)
-//    - MI&GI zayıflığı
+//  DEĞİŞİKLİK: r.hafta, r.bizim_pay, r.rakip_pay → YOK.
+//    Pazar payı IMSAdapter.getMarketShare() üzerinden hesaplanıyor.
+//    IMS global'a doğrudan erişim YOK.
 //
-//  Severity: 'LOW' | 'MEDIUM' | 'HIGH'
 //  AI çağrısı: YOK
 //  UI değişikliği: YOK
-//
-//  Bağımlılık: js/data/data-state.js, js/core/constants.js
+//  Bağımlılık: js/ai/core/ims-adapter.js, js/data/data-state.js
 //  GitHub Pages compatible: classic script, no ES modules
 // ══════════════════════════════════════════════════════════════════════
-/* global IMS, GENEL, MIGI_BRICK_TL_RAW */
+/* global IMSAdapter, GENEL, MIGI_BRICK_TL_RAW */
 
 (function() {
   'use strict';
@@ -34,8 +30,11 @@
     try {
       var genelRows  = (GENEL || []).filter(function(r){ return r.ttt === ttt && r.urun !== 'GENEL TOPLAM'; });
       var genelTotal = (GENEL || []).find(function(r){ return r.ttt === ttt && r.urun === 'GENEL TOPLAM'; });
-      var imsRows    = (IMS   || []).filter(function(r){ return r.ttt === ttt; });
       var migiRows   = (MIGI_BRICK_TL_RAW || []).filter(function(r){ return r.person === ttt; });
+
+      // ── Pazar payı: adapter'dan hesaplanmış ──────────────
+      // r.bizim_pay / r.rakip_pay IMS'de yok; getMarketShare() kullanılıyor.
+      var marketShare = IMSAdapter.getMarketShare(ttt);
 
       // ── R1: Genel TL realizasyon riski ───────────────────
       if (genelTotal) {
@@ -64,31 +63,26 @@
         }
       });
 
-      // ── R3: Pazar payı kaybı (IMS) ───────────────────────
-      if (imsRows.length) {
-        var grpMap = {};
-        imsRows.forEach(function(r) {
-          if (!grpMap[r.ilac_grubu]) grpMap[r.ilac_grubu] = [];
-          grpMap[r.ilac_grubu].push(r);
-        });
+      // ── R3: Pazar payı kaybı — adapter'dan hesaplanmış pazar payı kullanılıyor
+      // eskiden: r.bizim_pay, r.rakip_pay — IMS'te bu sütunlar YOK.
+      // Şimdi: getMarketShare() → { grp: { bizimPay, pazarToplam, bizimToplam } }
+      Object.keys(marketShare).forEach(function(grp) {
+        var ms = marketShare[grp];
+        var bizimPay = ms.bizimPay || 0;
+        // Rakip pay: pazar - bizim (yaklaşık; doğrudan sütun yok)
+        var pazarToplam = ms.pazarToplam || 0;
+        var bizimToplam = ms.bizimToplam || 0;
+        var rakipToplam = Math.max(0, pazarToplam - bizimToplam);
+        var rakipPay = pazarToplam > 0 ? (rakipToplam / pazarToplam) * 100 : 0;
 
-        Object.keys(grpMap).forEach(function(grp) {
-          var rows   = grpMap[grp];
-          var latest = rows.reduce(function(a, b){ return (b.hafta || 0) > (a.hafta || 0) ? b : a; }, rows[0]);
-          if (!latest) return;
-
-          var bizimPay  = latest.bizim_pay || 0;
-          var rakipPay  = latest.rakip_pay || 0;
-
-          if (bizimPay < 15 && rakipPay > 30) {
-            risks.push({ severity: 'HIGH', title: grp + ' Pazar Payı Kaybı',
-              detail: 'Bizim pay %' + bizimPay.toFixed(1) + ' iken rakip %' + rakipPay.toFixed(1) + ' — öncelikli saldırı hedefi.' });
-          } else if (bizimPay < 20 && rakipPay > 25) {
-            risks.push({ severity: 'MEDIUM', title: grp + ' Pazar Payı Baskısı',
-              detail: 'Bizim pay %' + bizimPay.toFixed(1) + ' — rakip baskısı mevcut.' });
-          }
-        });
-      }
+        if (bizimPay < 15 && rakipPay > 30) {
+          risks.push({ severity: 'HIGH', title: grp + ' Pazar Payı Kaybı',
+            detail: 'Bizim pay %' + bizimPay.toFixed(1) + ' iken rakip tahmini %' + rakipPay.toFixed(1) + ' — öncelikli saldırı hedefi.' });
+        } else if (bizimPay < 20 && rakipPay > 25) {
+          risks.push({ severity: 'MEDIUM', title: grp + ' Pazar Payı Baskısı',
+            detail: 'Bizim pay %' + bizimPay.toFixed(1) + ' — rakip baskısı mevcut.' });
+        }
+      });
 
       // ── R4: MI&GI brick zayıflığı ────────────────────────
       if (migiRows.length) {
@@ -105,9 +99,7 @@
         Object.keys(brickMap).forEach(function(brick) {
           var b   = brickMap[brick];
           var mi  = b.mi.length ? b.mi.reduce(function(s,v){ return s+v; }, 0) / b.mi.length : null;
-          var bi  = b.bi.length ? b.bi.reduce(function(s,v){ return s+v; }, 0) / b.bi.length : null;
           var sira = b.sira || 999;
-
           if (sira <= 333 && mi !== null && mi < 80) criticalBricks.push(brick);
           else if (sira <= 333 && mi !== null && mi < 90) warnBricks.push(brick);
         });
@@ -123,10 +115,9 @@
         }
       }
 
-      // ── R5: Portföy prim riski — TL real + prim puanı ────
+      // ── R5: Portföy prim riski ────────────────────────────
       if (genelTotal) {
         var realPct = genelTotal.tl_pct || 0;
-        // Prim puanı proxy: ürün realizasyon ortalaması
         var primPuani = genelRows.length
           ? genelRows.reduce(function(s,r){ return s + (r.tl_pct || 0); }, 0) / genelRows.length
           : 0;
@@ -138,7 +129,6 @@
         }
       }
 
-      // Sırala: HIGH önce
       risks.sort(function(a, b) {
         var order = { HIGH: 0, MEDIUM: 1, LOW: 2 };
         return (order[a.severity] || 2) - (order[b.severity] || 2);
@@ -153,6 +143,6 @@
 
   // ── EXPORT ─────────────────────────────────────────────────
   window.detectRisks = detectRisks;
-  console.debug('[risk-engine] Phase 3.0 yüklendi.');
+  console.debug('[risk-engine] Phase 3.0 + Phase 1 Refactor yüklendi.');
 
 })();

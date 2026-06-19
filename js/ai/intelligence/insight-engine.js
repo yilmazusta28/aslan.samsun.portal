@@ -1,27 +1,28 @@
 // ══════════════════════════════════════════════════════════════════════
 //  js/ai/intelligence/insight-engine.js
 //  Phase 3.0 — Sales Intelligence Engine
+//  Phase 1 Refactor — IMS Data Model Unification
 //
 //  Sorumluluk: Ham satış verisinden otomatik insight üretimi
 //    • generateInsights(ttt) → insight[]
 //
-//  Analiz edilen veriler: IMS, GENEL, KUTU, MIGI_BRICK_TL_RAW
-//  AI çağrısı: YOK — tamamen yerel hesaplama
-//  UI değişikliği: YOK
+//  DEĞİŞİKLİK: r.hafta, r.bizim_pay, r.pazar_pay → YOK.
+//    Pazar payı IMSAdapter.getMarketShare() üzerinden hesaplanıyor.
+//    IMS global'a doğrudan erişim YOK.
 //
-//  Bağımlılık: js/data/data-state.js, js/core/constants.js
-//  Yükleme sırası: data-state.js, constants.js SONRASI
+//  AI çağrısı: YOK
+//  UI değişikliği: YOK
+//  Bağımlılık: js/ai/core/ims-adapter.js, js/data/data-state.js
 //  GitHub Pages compatible: classic script, no ES modules
 // ══════════════════════════════════════════════════════════════════════
-/* global IMS, GENEL, KUTU, MIGI_BRICK_TL_RAW */
+/* global IMSAdapter, GENEL, MIGI_BRICK_TL_RAW */
 /* global OWN_IMS, URUN_ORDER */
 
 (function() {
   'use strict';
 
   // ── generateInsights ───────────────────────────────────────
-  // Temsilci verilerini analiz edip insight dizisi döndürür.
-  // @param {string} ttt — temsilci kodu
+  // @param {string} ttt
   // @returns {Array<{type, level, text}>}
   function generateInsights(ttt) {
     if (!ttt) return [];
@@ -30,14 +31,11 @@
     try {
       var genelRows  = (GENEL || []).filter(function(r){ return r.ttt === ttt && r.urun !== 'GENEL TOPLAM'; });
       var genelTotal = (GENEL || []).find(function(r){ return r.ttt === ttt && r.urun === 'GENEL TOPLAM'; });
-      var imsRows    = (IMS   || []).filter(function(r){ return r.ttt === ttt; });
       var migiRows   = (MIGI_BRICK_TL_RAW || []).filter(function(r){ return r.person === ttt; });
 
       if (!genelTotal) return insights;
 
       var totalPct = genelTotal.tl_pct || 0;
-      var totalTL  = genelTotal.satis_tl || 0;
-      var hedefTL  = genelTotal.hedef_tl || 0;
 
       // ── 1. Genel performans seviyesi ─────────────────────
       if (totalPct >= 91) {
@@ -69,35 +67,25 @@
         }
       }
 
-      // ── 4. Pazar büyüme karşılaştırması (IMS) ────────────
-      if (imsRows.length) {
-        var groups = {};
-        imsRows.forEach(function(r) {
-          if (!groups[r.ilac_grubu]) groups[r.ilac_grubu] = [];
-          groups[r.ilac_grubu].push(r);
-        });
+      // ── 4. Pazar büyüme karşılaştırması — adapter kullanılıyor
+      // eskiden: r.hafta, r.bizim_pay, r.pazar_pay — IMS'te YOK.
+      // Şimdi: IMSAdapter.getMarketShare() hesaplanmış pazar payı döner.
+      var marketShare = IMSAdapter.getMarketShare(ttt);
+      Object.keys(marketShare).forEach(function(grp) {
+        var ms = marketShare[grp];
+        var bizimPay  = ms.bizimPay || 0;
+        var pazarPct  = ms.pazarToplam > 0 ? 100 : 0; // pazar = 100%
 
-        Object.keys(groups).forEach(function(grp) {
-          var rows = groups[grp];
-          // Son haftanın bizim pay vs rakip pay trendi
-          var latest = rows.reduce(function(a, b){ return (b.hafta || 0) > (a.hafta || 0) ? b : a; }, rows[0]);
-          if (!latest) return;
-
-          var bizimPay  = latest.bizim_pay  || 0;
-          var pazarPay  = latest.pazar_pay  || 0;
-
-          if (bizimPay > 0 && pazarPay > 0) {
-            var payOrani = bizimPay / pazarPay;
-            if (payOrani > 0.5) {
-              insights.push({ type: 'growth', level: 'positive',
-                text: grp + ' pazarında güçlü konum: %' + bizimPay.toFixed(1) + ' pazar payı.' });
-            } else if (payOrani < 0.2) {
-              insights.push({ type: 'growth', level: 'negative',
-                text: grp + ' pazarında zayıf konum: %' + bizimPay.toFixed(1) + ' pazar payı. Rakip baskısı var.' });
-            }
+        if (bizimPay > 0) {
+          if (bizimPay > 50) {
+            insights.push({ type: 'growth', level: 'positive',
+              text: grp + ' pazarında güçlü konum: %' + bizimPay.toFixed(1) + ' pazar payı.' });
+          } else if (bizimPay < 20) {
+            insights.push({ type: 'growth', level: 'negative',
+              text: grp + ' pazarında zayıf konum: %' + bizimPay.toFixed(1) + ' pazar payı. Rakip baskısı var.' });
           }
-        });
-      }
+        }
+      });
 
       // ── 5. MI&GI brick anomalisi ─────────────────────────
       if (migiRows.length) {
@@ -146,6 +134,6 @@
 
   // ── EXPORT ─────────────────────────────────────────────────
   window.generateInsights = generateInsights;
-  console.debug('[insight-engine] Phase 3.0 yüklendi.');
+  console.debug('[insight-engine] Phase 3.0 + Phase 1 Refactor yüklendi.');
 
 })();
