@@ -237,6 +237,22 @@
      devam eder; adapter henüz hiçbirine bağlanmadı (bkz. FAZ 6.1). -->
 <script src="js/ai/core/pharmacy-adapter.js"></script>
 <!-- END FAZ 6.0 Pharmacy Adapter -->
+
+<!-- FAZ 6.1: Pharmacy Behavior Engine (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §16)
+     pharmacy-intelligence.js + reorder-engine.js + reorder-classifier.js'in
+     birbirinden hafif farklı eşiklerle ÜÇ KEZ hesapladığı sınıflandırma
+     (GROWING/REGULAR_BUYER/AT_RISK/REACTIVATION/CAMPAIGN_BUYER/OTHER) ve
+     skor (reorderProbability/visitPriorityScore/forecastBoxes) mantığını
+     TEK kanonik motorda birleştirir. pharmacy-adapter.js (FAZ 6.0) üzerinden
+     okur. ŞU AN üç eski dosyaya henüz BAĞLANMADI (kasıtlı — rapor §15 risk
+     azaltma: önce yeni motor üç eskiyle yan yana doğrulanır, sonra FAZ
+     6.1.5'te eskiler buna yönlendirilir). Üç eski dosyanın public API'si
+     ve davranışı bu fazda HİÇ DEĞİŞMEDİ.
+     Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — hiçbir mevcut motor
+     henüz buna bağımlı değil. -->
+<script src="js/pharmacy-behavior/pharmacy-behavior-engine.js"></script>
+<!-- END FAZ 6.1 Pharmacy Behavior Engine -->
+
 <script src="js/pharmacy/sales-conditions.js"></script>
 <!-- END PHASE 4.7 -->
 <script src="js/pharmacy/pharmacy-intelligence.js"></script>
@@ -304,6 +320,20 @@
      typeof kontrolü sayesinde dosya silinse de hiçbir şey bozulmaz). -->
 <script src="js/ai/learning/learning-engine.js"></script>
 <!-- END FAZ 1.4 Learning Engine -->
+
+<!-- FAZ 6.2: Learning Hub (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §8, §16)
+     Yukarıdaki BEŞ öğrenme/hafıza alt sistemini (PatternLearningEngine,
+     OutcomeTracker, LearningEngine/MAPE, AI_MEMORY, RecommendationMemory —
+     hepsi bu blokta veya yukarıda zaten yüklü) TEK bir senkron okuma
+     fonksiyonunda (getLearningContext) toplar. Hiçbiri DEĞİŞTİRİLMEDİ —
+     sadece zaten var olan getCachedSummary()/getAccuracyMetrics() gibi
+     senkron çıktılarını okur. ŞU AN ai-context-builder.js'e henüz
+     BAĞLANMADI (kasıtlı — önce bağımsız doğrulanabilir, FAZ 6.2.5'te
+     context.learning olarak bağlanır).
+     Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — hiçbir mevcut motor
+     henüz buna bağımlı değil. -->
+<script src="js/ai/core/learning-hub.js"></script>
+<!-- END FAZ 6.2 Learning Hub -->
 
 <!-- PHASE 5.7: Autonomous Planning Engine — AI Saha Komutanı -->
 <script src="js/ai/autonomous-planning-engine.js"></script>
