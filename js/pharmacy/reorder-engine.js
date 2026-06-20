@@ -269,8 +269,69 @@ function _buildReason(classification, momentum, consistency, monthlySales) {
 }
 
 // ── 12. analyzePharmacyHistory() ─────────────────────────────────────
-// ECZANE_RAW → her eczane için tam analiz objesi
+// FAZ 6.1.5 WRAPPER — PharmacyBehaviorEngine (FAZ 6.1) varsa ona delege
+// eder ve çıktısını bu dosyanın ORİJİNAL şemasına (monthlySales, aylar,
+// trend, avgBoxes, score alan adları) çevirir. Hesap mantığı artık TEK
+// YERDE (behavior-engine), ama bu fonksiyonun İMZASI ve DÖNÜŞ ŞEMASI
+// hiç değişmedi. PharmacyBehaviorEngine yüklü değilse (rollback / FAZ
+// 6.1 öncesi durum) ORİJİNAL Phase 4.6 hesaplama mantığına
+// (_legacyAnalyzePharmacyHistory) otomatik düşer.
+//
+// NOT: behavior-engine'in momentum/consistency/campaignFlag değerleri
+// p._signals altında saklanıyor (bkz. pharmacy-behavior-engine.js §3) —
+// bu motorun KENDİ ESKİ momentum/consistency hesabı artık sınıflandırma
+// kararı vermiyordu zaten (kanonik karar pharmacy-intelligence/classifier
+// mantığına geçti — bkz. behavior-engine §3 açıklaması); bu alanlar
+// SADECE eski şemanın `trend`/`momentum`/`consistency` sütunlarını
+// doldurmak için behavior-engine'in ürettiği değerlerle eşlenir.
+function _fromBehaviorProfileToReorder(p) {
+  var sig = p._signals || { momentum: 50, consistency: 0, campaignFlag: false };
+  return {
+    gln: p.gln, eczane: p.eczane, brick: p.brick, ttt: p.representative,
+    totalBoxes: p.totalBoxes, monthCount: p.totalMonths,
+    monthlySales: p._rawMonthlySales || [], // bkz. not altta — _buildReorderRecords doldurur
+    aylar: p._rawSortedMonths || [],
+    avgBoxes: p.avgMonthlyBoxes,
+    lastMonthBoxes: p._rawMonthlySales && p._rawMonthlySales.length
+      ? p._rawMonthlySales[p._rawMonthlySales.length - 1] : 0,
+    lastPurchaseDate: p.lastPurchaseDate,
+    daysSinceLastOrder: p.daysSinceLastOrder,
+    trend: sig.momentum >= 65 ? 'yükselen' : sig.momentum <= 35 ? 'düşüş' : 'sabit',
+    momentum: sig.momentum, consistency: sig.consistency, campaignFlag: sig.campaignFlag,
+    classification: p.classification, forecastBoxes: p.forecastBoxes,
+    reorderProbability: p.reorderProbability,
+    score: p.score, reason: p.reason
+  };
+}
+
 function analyzePharmacyHistory(tttFilter) {
+  if (window.PharmacyBehaviorEngine && window.PharmacyAdapter) {
+    try {
+      var behaviorProfiles = window.PharmacyBehaviorEngine.buildBehaviorProfiles(tttFilter);
+      // Her profile ham ay dizisini ekle (orijinal monthlySales/aylar şeması için) —
+      // adapter zaten cache'li olduğundan bu ek bir normalize maliyeti YARATMAZ.
+      var records = window.PharmacyAdapter.normalizePharmacy(tttFilter);
+      var recByKey = {};
+      records.forEach(function (r) { recByKey[r.gln || r.eczane] = r; });
+
+      return behaviorProfiles.map(function (p) {
+        var rec = recByKey[p.gln || p.eczane];
+        if (rec) {
+          p._rawSortedMonths = rec.sortedMonths;
+          p._rawMonthlySales = window.PharmacyAdapter.monthValuesArray(rec.months, rec.sortedMonths);
+        }
+        return _fromBehaviorProfileToReorder(p);
+      });
+    } catch (_delegateErr) {
+      console.warn('[ReorderEngine] PharmacyBehaviorEngine delege hata, legacy hesaba düşülüyor:', _delegateErr.message);
+      // aşağı düş — legacy hesaba devam
+    }
+  }
+  return _legacyAnalyzePharmacyHistory(tttFilter);
+}
+
+// ECZANE_RAW → her eczane için tam analiz objesi (ORİJİNAL Phase 4.6 mantığı)
+function _legacyAnalyzePharmacyHistory(tttFilter) {
   // PHASE 5.2: pharmacyStore.normalized öncelikli, yoksa pharmacyActiveData, son çare ECZANE_RAW
   var _storeNorm = (window.pharmacyStore && window.pharmacyStore.normalized && window.pharmacyStore.normalized.length)
     ? window.pharmacyStore.normalized

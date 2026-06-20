@@ -434,10 +434,56 @@
   }
 
   // ══════════════════════════════════════════════════════════════════════
-  //  ANA PROFIL OLUŞTURMA
+  //  ANA PROFIL OLUŞTURMA — FAZ 6.1.5 WRAPPER
+  //  PharmacyBehaviorEngine (FAZ 6.1) varsa ona delege eder ve çıktısını
+  //  bu dosyanın ORİJİNAL şemasına (ttt, expectedOrderBoxes/Value alan
+  //  adları) çevirir — hesap mantığı artık TEK YERDE (behavior-engine),
+  //  ama bu fonksiyonun İMZASI ve DÖNÜŞ ŞEMASI hiç değişmedi.
+  //  PharmacyBehaviorEngine yüklü değilse (rollback / FAZ 6.1 öncesi
+  //  durum), ORİJİNAL Phase 4.6.4 hesaplama mantığına (_legacyBuildPharmacyProfiles)
+  //  otomatik düşer — davranış asla bozulmaz.
   // ══════════════════════════════════════════════════════════════════════
 
+  // behavior-engine profilini bu dosyanın orijinal alan adlarına çevirir
+  function _fromBehaviorProfile(p) {
+    return {
+      gln: p.gln, eczane: p.eczane, brick: p.brick, ttt: p.representative,
+      totalBoxes: p.totalBoxes, avgMonthlyBoxes: p.avgMonthlyBoxes,
+      historicalMaxBoxes: p.historicalMaxBoxes, historicalMinBoxes: p.historicalMinBoxes,
+      activeMonths: p.activeMonths, inactiveMonths: p.inactiveMonths,
+      growthRate: p.growthRate, trendSlope: p.trendSlope,
+      consecutiveGrowthMonths: p.consecutiveGrowthMonths,
+      consecutiveDeclineMonths: p.consecutiveDeclineMonths,
+      consecutiveZeroMonths: p.consecutiveZeroMonths,
+      reorderProbability: p.reorderProbability,
+      expectedOrderBoxes: p.forecastBoxes,
+      expectedOrderValue: p.forecastValue,
+      opportunityScore: p.opportunityScore,
+      visitPriorityScore: p.visitPriorityScore,
+      classification: p.classification,
+      productAffinityScore: p.productAffinityScore,
+      nextOrderProducts: p.nextOrderProducts,
+      daysSinceLastOrder: p.daysSinceLastOrder,
+      avgOrderCycle: p.avgOrderCycle,
+      daysToNextOrder: p.daysToNextOrder,
+      expectedOrderDate: p.expectedOrderDate
+    };
+  }
+
   function buildPharmacyProfiles(tttFilter) {
+    if (window.PharmacyBehaviorEngine) {
+      try {
+        var behaviorProfiles = window.PharmacyBehaviorEngine.buildBehaviorProfiles(tttFilter);
+        return behaviorProfiles.map(_fromBehaviorProfile);
+      } catch (_delegateErr) {
+        console.warn('[PharmacyIntelligence] PharmacyBehaviorEngine delege hata, legacy hesaba düşülüyor:', _delegateErr.message);
+        // aşağı düş — legacy hesaba devam
+      }
+    }
+    return _legacyBuildPharmacyProfiles(tttFilter);
+  }
+
+  function _legacyBuildPharmacyProfiles(tttFilter) {
     // pharmacyActiveData öncelikli (PDM multi-select), yoksa ECZANE_RAW fallback
     var _piBase = (window.pharmacyActiveData && window.pharmacyActiveData.length > 0)
       ? window.pharmacyActiveData

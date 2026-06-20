@@ -207,7 +207,45 @@
 
   // ── 10. classifyAllPharmacies(ttt) ───────────────────────────────────
   // ECZANE_RAW → her eczane için classification çıktı objesi
+  // ── 10. classifyAllPharmacies(ttt) ───────────────────────────────────
+  // FAZ 6.1.5 WRAPPER — PharmacyBehaviorEngine (FAZ 6.1) varsa ona delege
+  // eder ve çıktısını bu dosyanın ORİJİNAL (daha sade) şemasına çevirir.
+  // Hesap mantığı artık TEK YERDE (behavior-engine) — bu dosyanın kendi
+  // _classify461/_calcProbability/_forecastLinear fonksiyonları zaten
+  // pharmacy-intelligence.js ile NEREDEYSE BİREBİR AYNIYDI (bkz. dosya
+  // başı analiz notu), bu yüzden delegasyon sonucu pratikte AYNI çıkar.
+  // PharmacyBehaviorEngine yüklü değilse (rollback / FAZ 6.1 öncesi durum)
+  // ORİJİNAL Phase 4.6.1 mantığına (_legacyClassifyAllPharmacies) düşer.
+  function _fromBehaviorProfileToClassifier(p, rec) {
+    var monthlySales = rec ? window.PharmacyAdapter.monthValuesArray(rec.months, rec.sortedMonths) : [];
+    return {
+      gln: p.gln, eczane: p.eczane, brick: p.brick, ttt: p.representative,
+      classification: p.classification, reorderProbability: p.reorderProbability,
+      forecastBoxes: p.forecastBoxes, score: p.score,
+      totalBoxes: p.totalBoxes, monthlySales: monthlySales,
+      lastPurchaseDate: p.lastPurchaseDate, daysSinceLastOrder: p.daysSinceLastOrder
+    };
+  }
+
   function classifyAllPharmacies(tttFilter) {
+    if (window.PharmacyBehaviorEngine && window.PharmacyAdapter) {
+      try {
+        var behaviorProfiles = window.PharmacyBehaviorEngine.buildBehaviorProfiles(tttFilter);
+        var records = window.PharmacyAdapter.normalizePharmacy(tttFilter);
+        var recByKey = {};
+        records.forEach(function (r) { recByKey[r.gln || r.eczane] = r; });
+        return behaviorProfiles.map(function (p) {
+          return _fromBehaviorProfileToClassifier(p, recByKey[p.gln || p.eczane]);
+        });
+      } catch (_delegateErr) {
+        console.warn('[ReorderClassifier] PharmacyBehaviorEngine delege hata, legacy hesaba düşülüyor:', _delegateErr.message);
+        // aşağı düş — legacy hesaba devam
+      }
+    }
+    return _legacyClassifyAllPharmacies(tttFilter);
+  }
+
+  function _legacyClassifyAllPharmacies(tttFilter) {
     try {
       var _rcBase = (window.pharmacyActiveData && window.pharmacyActiveData.length > 0)
         ? window.pharmacyActiveData
@@ -300,11 +338,29 @@
 
     candidates.sort(function (a, b) { return b.score - a.score; });
 
+    // FAZ 6.1.5: nextOrderProducts/daysToNextOrder/expectedOrderBoxes için
+    // ÖNCE PharmacyBehaviorEngine'den oku (script SIRASINA bağımlı değil,
+    // her zaman güncel) — orijinal kod bunları window.PHARMACY_INTELLIGENCE
+    // .profiles'tan ELLE okuyordu, bu da pharmacy-intelligence.js'in
+    // runPharmacyIntelligence()'ı ÖNCEDEN çalıştırmış olmasına bağımlı,
+    // dokümante edilmemiş bir kırılgan bağlantıydı (bkz. AI_MIMARI_ANALIZ_
+    // VE_YOL_HARITASI.md §3.1). PharmacyBehaviorEngine yoksa eski yola düşülür.
+    var behaviorByKey = null;
+    if (window.PharmacyBehaviorEngine) {
+      try {
+        var bp = window.PharmacyBehaviorEngine.buildBehaviorProfiles(tttFilter);
+        behaviorByKey = {};
+        bp.forEach(function (p) { behaviorByKey[p.gln || p.eczane] = p; });
+      } catch (_e) { behaviorByKey = null; }
+    }
+
     return candidates.slice(0, 30).map(function (r, i) {
-      // pharmacy-intelligence profile'dan nextOrderProducts al
-      var _piProf = null;
-      if (window.PHARMACY_INTELLIGENCE && window.PHARMACY_INTELLIGENCE.profiles) {
-        _piProf = window.PHARMACY_INTELLIGENCE.profiles.filter(function(p){
+      var extra = null;
+      if (behaviorByKey) {
+        extra = behaviorByKey[r.gln || r.eczane] || null;
+      } else if (window.PHARMACY_INTELLIGENCE && window.PHARMACY_INTELLIGENCE.profiles) {
+        // legacy fallback — orijinal davranış aynen korunuyor
+        extra = window.PHARMACY_INTELLIGENCE.profiles.filter(function(p){
           return p.gln === r.gln || p.eczane === r.eczane;
         })[0] || null;
       }
@@ -320,9 +376,9 @@
         score:              r.score,
         daysSinceLastOrder: r.daysSinceLastOrder,
         lastPurchaseDate:   r.lastPurchaseDate,
-        nextOrderProducts:  _piProf ? (_piProf.nextOrderProducts || []) : [],
-        daysToNextOrder:    _piProf ? (_piProf.daysToNextOrder || 99) : 99,
-        expectedOrderBoxes: _piProf ? (_piProf.expectedOrderBoxes || 0) : 0
+        nextOrderProducts:  extra ? (extra.nextOrderProducts || []) : [],
+        daysToNextOrder:    extra ? (extra.daysToNextOrder != null ? extra.daysToNextOrder : 99) : 99,
+        expectedOrderBoxes: extra ? (extra.expectedOrderBoxes || extra.forecastBoxes || 0) : 0
       };
     });
   }
