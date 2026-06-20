@@ -115,12 +115,19 @@
 <!-- PHASE 2.3.5: Performance Monitor + Health Check (console-only, no UI) -->
 <script src="js/core/perf-monitor.js"></script>
 <script src="js/core/health-check.js"></script>
-<!-- FAZ 1.45: IMS Adapter — intelligence motorlarından ÖNCE yüklenmeli.
-     Tüm AI motorları (trend/risk/insight/opportunity/recommendation/forecast)
-     window.IMSAdapter üzerinden normalize edilmiş IMS verisine erişir.
-     Rollback: bu satırı sil + aşağıdaki FAZ 0 bloğuna geri taşı. -->
+<!-- AI MİMARİ STABİLİZASYONU: IMS Adapter Katmanı
+     Gerçek parseIMSCSV() çıktısını (ttt, brick, ilac, is_mkt, toplam, h1..h9)
+     tüm AI motorlarının kullandığı ORTAK, NORMALİZE EDİLMİŞ bir modele
+     (IMSRecord) çevirir. trend/risk/insight/recommendation/opportunity/
+     forecast motorlarının TAMAMI artık IMS global'ine DOĞRUDAN ERİŞMEK
+     yerine bu katmanı kullanır (bkz. docs/AI_MIMARI_STABILIZASYON_RAPORU.md).
+     Yükleme sırası kritik: data-state.js (IMS) SONRASI, aşağıdaki TÜM AI
+     motorları (Phase 3.0 + Phase 3.1) ÖNCESİ olmalı.
+     Rollback: bu satırı silmek motorları KIRAR (artık ims-adapter.js'e
+     bağımlılar) — geri almak için motorların önceki sürümlerine dönülmeli. -->
 <script src="js/ai/core/ims-adapter.js"></script>
-<!-- END FAZ 1.45 IMS Adapter pre-load -->
+<!-- END AI Mimari Stabilizasyonu — IMS Adapter -->
+
 <!-- PHASE 3.0: Sales Intelligence Engine — yükleme sırası kritik -->
 <script src="js/ai/intelligence/insight-engine.js"></script>
 <script src="js/ai/intelligence/trend-engine.js"></script>
@@ -177,8 +184,11 @@
 <!-- FAZ 0: AI Core (AI Consolidation)
      Tüm AI karar mekanizmasını (risk/trend/insight/opportunity/
      recommendation/coach) tek bir merkezi pipeline altında birleştirir.
-     NOT: ims-adapter.js FAZ 1.45 ile intelligence motorlarından ÖNCE
-     (satır 118) yüklenecek şekilde taşındı — bu bloktan kaldırıldı.
+     Yükleme sırası kritik: yukarıdaki Phase 3.0 + 3.4 motorları SONRASI.
+     intelligence-orchestrator.js (Phase 3.0) bu dosyalar yüklendikten
+     SONRA çağrılır (runtime'da), bu yüzden script sırası burada da
+     güvenlidir — buildSalesIntelligence() ilk gerçek çağrıya kadar
+     hiçbir şey çalıştırmaz.
      Rollback: bu 3 satırı sil — intelligence-orchestrator.js otomatik
      olarak FAZ 0 öncesi (legacy) pipeline'a geri döner, hiçbir şey bozulmaz. -->
 <script src="js/ai/core/ai-context-builder.js"></script>
@@ -250,12 +260,8 @@
      üzerinden classic scriptlere açılır. Görünmez hafıza katmanı — UI değişmez.
      Rollback: bu satırı sil + autonomous-planning-engine.js içindeki
      _persistVisitRecommendations çağrısını kaldır. -->
-<script src="js/ai/recommendation-memory.js"></script>
-<!-- END PHASE 4.6.x Recommendation Memory Layer
-     FAZ 1.45 DEĞİŞİKLİK: type="module" → classic script (IIFE).
-     Sebep: ES module geç yükleme nedeniyle outcome-tracker.js ve
-     autonomous-planning-engine.js window.RecommendationMemory'ye
-     güvenilir şekilde erişemiyordu. IIFE ile synchronous garanti. -->
+<script type="module" src="js/ai/recommendation-memory.js"></script>
+<!-- END PHASE 4.6.x Recommendation Memory Layer -->
 
 <!-- FAZ 1.3: Outcome Tracker (Öneri Sonuç Takip Motoru)
      IMS yeniden senkronize olduğunda (js/data/data-loader.js → syncData())
@@ -4947,39 +4953,6 @@ function _buildEczaneDrawerRefresh(){
       <!-- Motor çıktısı (başta gizli) -->
       <div id="engineOutput" style="display:none;padding:18px">
 
-        <!-- ═══ PROJEKSIYON ŞERİDİ — en üstte, her zaman görünür ═══ -->
-        <!-- FAZ 2 — Aşama 2: "Dönem sonunda neredesin?" tek bakışta -->
-        <div id="engineProjectionBar" style="border-radius:14px;padding:14px 18px;margin-bottom:14px;background:linear-gradient(135deg,rgba(79,0,140,.07),rgba(27,206,216,.04));border:1px solid rgba(79,0,140,.12);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-            <div>
-              <div style="font-size:9px;font-weight:700;color:var(--c1);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Dönem Sonu Tahmini</div>
-              <div id="epb_proj" style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:800;color:var(--c2)">—</div>
-            </div>
-            <div style="width:1px;height:36px;background:rgba(79,0,140,.12)"></div>
-            <div>
-              <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Şu an</div>
-              <div id="epb_now" style="font-size:14px;font-weight:700;color:var(--text)">—</div>
-            </div>
-            <div>
-              <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Günlük hız</div>
-              <div id="epb_rate" style="font-size:14px;font-weight:700;color:var(--text)">—</div>
-            </div>
-          </div>
-          <div id="epb_msg" style="font-size:11px;color:var(--dim);max-width:260px;line-height:1.5;text-align:right"></div>
-        </div>
-
-        <!-- ═══ BUGÜNÜN 3 AKSİYONU ═══ -->
-        <!-- FAZ 2 — Aşama 2: Temsilci sabah bunu okur, ne yapacağını bilir -->
-        <div class="card mb16" style="border:1.5px solid rgba(27,206,216,.2)">
-          <div class="card-hd" style="background:linear-gradient(90deg,rgba(27,206,216,.04),transparent)">
-            <span class="card-title">⚡ Bugünün 3 Aksiyonu</span>
-            <span class="card-badge" id="todayActionBadge" style="background:linear-gradient(135deg,#059669,#10B981);color:#fff">Öncelik Sırası</span>
-          </div>
-          <div class="card-body" style="padding:10px 14px">
-            <div id="engineTodayActions" style="display:flex;flex-direction:column;gap:6px"></div>
-          </div>
-        </div>
-
         <!-- Bu Haftanın Görev Listesi -->
         <div class="card mb16" style="border:1.5px solid rgba(79,0,140,.15)">
           <div class="card-hd" style="background:linear-gradient(90deg,rgba(79,0,140,.04),transparent)">
@@ -5273,26 +5246,6 @@ function _buildEczaneDrawerRefresh(){
 
   <!-- Özet kartları -->
   <div id="eczaneSummaryCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:16px"></div>
-
-  <!-- ═══ BU HAFTANIN 5 ÖNCELİKLİ ECZANESİ ═══ -->
-  <!-- FAZ 2 — Aşama 2: Eczane sayfasının en net cevabı: "Hangi 5 eczane bu hafta kritik?" -->
-  <!-- Pharmacy Intelligence top30'dan alır, kendi hesabı yapmaz -->
-  <div class="card mb16" id="eczaneTop5Card" style="border:1.5px solid rgba(27,206,216,.2);display:none">
-    <div class="card-hd" style="background:linear-gradient(90deg,rgba(27,206,216,.04),transparent)">
-      <span class="card-title">🎯 Bu Haftanın 5 Öncelikli Eczanesi</span>
-      <span class="card-badge" id="eczaneTop5Badge" style="background:linear-gradient(135deg,#0E7490,#1BCED8);color:#fff">Sipariş + Trend</span>
-      <span style="font-size:10px;color:var(--dim);margin-left:auto" id="eczaneTop5Sub">Pharmacy Intelligence kaynaklı · Pazartesi yenilenir</span>
-    </div>
-    <div class="card-body" style="padding:10px 14px">
-      <div id="eczaneTop5List" style="display:flex;flex-direction:column;gap:8px"></div>
-      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
-        <button class="btn-calc" onclick="toggleEczaneAcc('top30visit');document.getElementById('acc_top30visit').scrollIntoView({behavior:'smooth'})" style="font-size:11px;background:linear-gradient(135deg,rgba(79,0,140,.08),rgba(79,0,140,.04));color:var(--c1);border:1px solid rgba(79,0,140,.15);box-shadow:none;border-radius:9px;padding:7px 14px">
-          <i class="fas fa-list" style="margin-right:5px"></i>Tüm Top30 Listesini Gör
-        </button>
-      </div>
-    </div>
-  </div>
-  <!-- END Bu Haftanın 5 Öncelikli Eczanesi -->
 
   <!-- PHASE 4.5 & 4.6.1 & 4.7: Açılır/Kapanır AI Bölümleri -->
 

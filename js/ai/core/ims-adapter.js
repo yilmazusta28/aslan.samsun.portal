@@ -1,348 +1,318 @@
 // ══════════════════════════════════════════════════════════════════════
 //  js/ai/core/ims-adapter.js
-//  Phase 1 — IMS Data Model Unification (Refactor/Stabilization)
+//  AI MİMARİSİ STABİLİZASYONU — IMS Adapter Katmanı
 //
-//  Sorumluluk: Tüm AI engine'leri için TEK ORTAK IMS normalize katmanı.
+//  Sorumluluk:
+//    Gerçek parseIMSCSV() çıktısını AI motorlarının kullanacağı ORTAK,
+//    STANDART bir veri modeline (IMSRecord) çevirmek. Parser DEĞİŞMEDİ —
+//    sadece bu adapter, parser'ın çıktısını okuyup normalize ediyor.
 //
-//    • normalizeIMS(rawRows)  → IMSRecord[]
-//    • getIMSCache()          → IMSRecord[] (singleton; parser → bir kez)
-//    • invalidateIMSCache()   → void (yeni CSV yüklendiğinde çağrılır)
+//  ⚠️ NEDEN BU DOSYA VAR (bkz. AI_MIMARI_STABILIZASYON_RAPORU.md):
+//    FAZ 1.3 raporunda tespit edildiği üzere trend-engine.js, risk-engine.js,
+//    insight-engine.js ve forecast-engine.js gerçek parseIMSCSV() çıktısında
+//    OLMAYAN alan adları kullanıyordu (own_tl, own_kutu, hafta). Bu adapter,
+//    TEK GERÇEK KAYNAK olarak parseIMSCSV()'in ürettiği alanları
+//    (ttt, brick, ilac_grubu, ilac, is_mkt, toplam, toplam_ppi, h1..h9)
+//    esas alır ve tüm motorların bundan SONRA SADECE bu adapter üzerinden
+//    veri okumasını sağlar.
 //
-//  IMSRecord yapısı:
+//  GERÇEK IMS MODELİ (parseIMSCSV çıktısı — js/data/csv-parser.js):
+//    { ttt, brick, ilac_grubu, ilac, is_mkt, toplam, toplam_ppi,
+//      h1, h2, h3, h4, h5, h6, h7, h8, h9 }
+//
+//  STANDART IMSRecord MODELİ (bu adapter'ın ÜRETTİĞİ model):
 //    {
-//      ttt, brick, product, ilac_grubu, ilac, isOwn, isMkt,
-//      total,
-//      weeks: { w1..w9 },
+//      representative,      // ttt
+//      brick,
+//      product,              // ilac (sadece kendi ürün satırı — is_mkt:false)
+//      total,                // toplam
+//      weeks: { w1..w9 },    // h1..h9'dan 1:1 eşlenir
 //      calculated: { growth, average, trend, volatility }
 //    }
 //
-//  Kural: Hiçbir AI engine IMS global'ını veya parser çıktısını DOĞRUDAN
-//  okumaz. Yalnızca bu adaptörden geçer.
+//  Public API:
+//    normalizeIMS(ttt)              → IMSRecord[] (cache'li, is_mkt:false satırlar)
+//    buildWeeks(row)                 → { w1..w9 } (parser satırından)
+//    calculateGrowth(weekVals)       → number (% — erken/geç yarı karşılaştırması)
+//    calculateAverage(weekVals)      → number (haftalık ortalama hacim)
+//    calculateTrend(weekVals)        → 'up'|'down'|'stable'
+//    calculateVolatility(weekVals)   → number (CV%, değişim katsayısı)
+//    aggregateRecords(records)       → tek birleşik IMSRecord (brick/product=null)
+//    groupRecordsBy(records, key)    → { [key]: IMSRecord[] }
+//    weekValuesArray(weeksObj)       → [w1..w9] sıralı dizi
+//    activeWeekCount(weekVals)       → sıfırdan farklı hafta sayısı
+//    clearCache()                    → cache temizle (manuel, normalde otomatik)
 //
-//  Geriye dönük uyumluluk:
-//    window.IMSAdapter.normalizeIMS()
-//    window.IMSAdapter.getIMSCache()
-//    window.IMSAdapter.invalidateIMSCache()
-//    window.IMSAdapter.buildWeeks()
-//    window.IMSAdapter.calculateGrowth()
-//    window.IMSAdapter.calculateAverage()
-//    window.IMSAdapter.calculateTrend()
-//    window.IMSAdapter.calculateVolatility()
-//    window.IMSAdapter.getOwnRecords()
-//    window.IMSAdapter.getMktRecords()
-//    window.IMSAdapter.getMarketShare()
-//    window.IMSAdapter.getWeeklySeries()
-//    window.IMSAdapter.getOwnWeeklySeries()
-//    window.IMSAdapter.linearSlope()         ← ortak yardımcı
-//    window.IMSAdapter.trendConfidence()     ← ortak yardımcı
+//  CACHE: ttt başına, içerik-imzası ile otomatik geçersizleşir (FAZ 0'daki
+//  ai-orchestrator.js'in aynı deseni — veri değişmeden tekrar normalize
+//  ETMEZ, IMS değişince otomatik yeniden hesaplar). Manuel temizleme
+//  GEREKMEZ ama clearCache() yine de dışa açıldı.
 //
-//  Bağımlılık (opsiyonel — typeof ile kontrol):
-//    window.IMS          — ham parser çıktısı
-//    window.OWN_IMS      — ilac_grubu → own ilac adı haritası
-//    window.IMS_TL_MAP   — ürün → birim TL fiyatı
+//  Kurallar:
+//    • Parser (csv-parser.js) DEĞİŞTİRİLMEDİ.
+//    • DOM erişimi YOK.
+//    • "Magic number" yok — eşik değerleri İSİMLİ SABİTLER olarak
+//      tanımlanır ve RELATİF (ortalamaya göre %) hesaplanır, ölçek
+//      bağımsızdır (bkz. TREND_STABLE_THRESHOLD_PCT açıklaması).
+//
+//  Bağımlılık: js/data/data-state.js (IMS global'i — typeof ile kontrol edilir)
+//  Yükleme sırası: data-state.js SONRASI, trend/risk/insight/recommendation/
+//                  forecast motorları ÖNCESİ
 //  GitHub Pages compatible: classic script, no ES modules
 // ══════════════════════════════════════════════════════════════════════
 
 (function () {
   'use strict';
 
-  if (window.IMSAdapter) {
-    console.warn('[ims-adapter] Zaten yüklü — atlandı.');
+  if (window._IMS_ADAPTER_LOADED) {
+    console.warn('[ims-adapter] Zaten yüklü — atlandı');
     return;
   }
+  window._IMS_ADAPTER_LOADED = true;
 
-  // ── Sabitler ────────────────────────────────────────────────────────
-  var WEEK_KEYS   = ['h1','h2','h3','h4','h5','h6','h7','h8','h9'];
-  var WEEK_COUNT  = WEEK_KEYS.length;
+  var ADAPTER_VERSION = '1.0';
+  var WEEK_KEYS = ['w1', 'w2', 'w3', 'w4', 'w5', 'w6', 'w7', 'w8', 'w9'];
+  var RAW_WEEK_FIELDS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'h7', 'h8', 'h9'];
 
-  // ── Singleton cache ──────────────────────────────────────────────────
-  var _cache = null;   // IMSRecord[] | null
-  var _rawSignature = null;  // son normalize edilen raw array referansı
+  // Trend yönü kararı için RELATİF (haftalık ortalamaya göre %) eşik.
+  // NEDEN RELATİF: eski kod mutlak bir TL eşiği (500) kullanıyordu — küçük
+  // bir bölgede asla aşılmayan, büyük bir bölgede her zaman aşılan, ölçeğe
+  // bağımlı/anlamsız bir eşikti. %5'lik bant, temsilci/brick büyüklüğünden
+  // bağımsız, tutarlı bir "belirgin değişim" tanımı sağlar.
+  var TREND_STABLE_THRESHOLD_PCT = 5;
 
-  // ── _safe: global okuma hatası yutan yardımcı ────────────────────────
   function _safe(fn, fallback) {
-    try {
-      var v = fn();
-      return (v === undefined || v === null) ? fallback : v;
-    } catch (_) {
-      return fallback;
-    }
+    try { var v = fn(); return (v === undefined || v === null) ? fallback : v; }
+    catch (e) { return fallback; }
   }
 
-  // ── _isOwnIlac: IMS satırının kendi ürünümüz olup olmadığını belirler ─
-  // OWN_IMS haritası: ilac_grubu → kendi ilac adı
-  function _isOwnIlac(row) {
-    var ownMap = _safe(function () { return OWN_IMS; }, null);
-    if (!ownMap) return false;
-    var expectedIlac = ownMap[row.ilac_grubu];
-    if (!expectedIlac) return false;
-    return row.ilac.trim().toUpperCase() === expectedIlac.trim().toUpperCase();
+  // ──────────────────────────────────────────────────────────────────
+  //  1) ORTAK MATEMATİK YARDIMCILARI (tekrar edilen hesapları kaldırır)
+  // ──────────────────────────────────────────────────────────────────
+
+  function _mean(arr) {
+    if (!arr || !arr.length) return 0;
+    return arr.reduce(function (s, v) { return s + v; }, 0) / arr.length;
   }
 
-  // ── buildWeeks: h1..h9 → { w1..w9 } dönüşümü ───────────────────────
-  function buildWeeks(row) {
-    var weeks = {};
-    for (var i = 0; i < WEEK_COUNT; i++) {
-      weeks['w' + (i + 1)] = row[WEEK_KEYS[i]] || 0;
-    }
-    return weeks;
-  }
-
-  // ── calculateAverage: haftalık ortalama ─────────────────────────────
-  function calculateAverage(weeks) {
-    var vals = _weekValues(weeks);
-    if (!vals.length) return 0;
-    var sum = 0;
-    for (var i = 0; i < vals.length; i++) sum += vals[i];
-    return sum / vals.length;
-  }
-
-  // ── linearSlope: doğrusal eğim (trend-engine ve forecast-engine paylaşır)
-  function linearSlope(values) {
+  // Basit doğrusal regresyon eğimi (en küçük kareler). trend-engine.js ve
+  // forecast-engine.js'te AYNI FORMÜL üç kez tekrarlanıyordu — artık tek yer.
+  function _linearSlope(values) {
     var n = values.length;
     if (n < 2) return 0;
     var sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
     for (var i = 0; i < n; i++) {
-      sumX  += i;
-      sumY  += values[i];
-      sumXY += i * values[i];
-      sumX2 += i * i;
+      sumX += i; sumY += values[i];
+      sumXY += i * values[i]; sumX2 += i * i;
     }
-    var denom = n * sumX2 - sumX * sumX;
+    var denom = (n * sumX2 - sumX * sumX);
     return denom !== 0 ? (n * sumXY - sumX * sumY) / denom : 0;
   }
 
-  // ── trendConfidence: eğim yönüyle tutarlı hafta sayısı (0-100) ──────
-  function trendConfidence(values, slope) {
-    if (values.length < 2) return 50;
-    var match = 0;
-    for (var i = 1; i < values.length; i++) {
-      var delta = values[i] - values[i - 1];
-      if ((slope >= 0 && delta >= 0) || (slope < 0 && delta < 0)) match++;
-    }
-    return Math.round((match / (values.length - 1)) * 100);
+  // ──────────────────────────────────────────────────────────────────
+  //  2) calculateGrowth / calculateAverage / calculateTrend / calculateVolatility
+  // ──────────────────────────────────────────────────────────────────
+
+  // ── calculateAverage(weekVals) — haftalık ortalama hacim ────────────
+  function calculateAverage(weekVals) {
+    return Math.round(_mean(weekVals || []) * 100) / 100;
   }
 
-  // ── calculateGrowth: son hafta / ilk hafta büyümesi ─────────────────
-  function calculateGrowth(weeks) {
-    var vals = _weekValues(weeks);
-    if (vals.length < 2) return 0;
-    var first = vals[0], last = vals[vals.length - 1];
-    return first > 0 ? ((last - first) / first) * 100 : 0;
+  // ── calculateGrowth(weekVals) — erken yarı vs geç yarı % değişim ────
+  // 9 haftalık seriyi ikiye böler (ilk ~4-5 hafta vs son ~4-5 hafta) ve
+  // aradaki yüzde değişimi döner. Veri yoksa/yetersizse 0.
+  function calculateGrowth(weekVals) {
+    var v = weekVals || [];
+    if (v.length < 2) return 0;
+    var mid = Math.floor(v.length / 2);
+    var earlyAvg = _mean(v.slice(0, mid));
+    var lateAvg  = _mean(v.slice(mid));
+    if (earlyAvg === 0) return lateAvg > 0 ? 100 : 0;
+    return Math.round(((lateAvg - earlyAvg) / earlyAvg) * 1000) / 10;
   }
 
-  // ── calculateTrend: lineer eğim skoru (normalize edilmiş) ───────────
-  function calculateTrend(weeks) {
-    var vals = _weekValues(weeks);
-    return +linearSlope(vals).toFixed(2);
+  // ── calculateTrend(weekVals) — 'up'|'down'|'stable' ─────────────────
+  // Doğrusal eğimi haftalık ORTALAMAYA göre normalize ederek (relatif %)
+  // değerlendirir — bkz. TREND_STABLE_THRESHOLD_PCT açıklaması.
+  function calculateTrend(weekVals) {
+    var v = weekVals || [];
+    var avg   = _mean(v);
+    var slope = _linearSlope(v);
+    if (avg === 0) return slope > 0 ? 'up' : slope < 0 ? 'down' : 'stable';
+    var relSlopePct = (slope / avg) * 100;
+    if (relSlopePct > TREND_STABLE_THRESHOLD_PCT)  return 'up';
+    if (relSlopePct < -TREND_STABLE_THRESHOLD_PCT) return 'down';
+    return 'stable';
   }
 
-  // ── calculateVolatility: standart sapma / ortalama (CV%) ────────────
-  function calculateVolatility(weeks) {
-    var vals = _weekValues(weeks);
-    if (vals.length < 2) return 0;
-    var avg = 0;
-    for (var i = 0; i < vals.length; i++) avg += vals[i];
-    avg = avg / vals.length;
+  // ── calculateVolatility(weekVals) — değişim katsayısı (CV%) ─────────
+  // Standart sapma / ortalama × 100. Haftalar arası tutarsızlığı ölçer
+  // (yüksek CV% = düzensiz/dalgalı satış, düşük CV% = istikrarlı satış).
+  function calculateVolatility(weekVals) {
+    var v = weekVals || [];
+    var avg = _mean(v);
     if (avg === 0) return 0;
-    var variance = 0;
-    for (var j = 0; j < vals.length; j++) {
-      variance += Math.pow(vals[j] - avg, 2);
+    var variance = _mean(v.map(function (x) { return (x - avg) * (x - avg); }));
+    var stdDev = Math.sqrt(variance);
+    return Math.round((stdDev / avg) * 1000) / 10;
+  }
+
+  // ──────────────────────────────────────────────────────────────────
+  //  3) buildWeeks / weekValuesArray / activeWeekCount
+  // ──────────────────────────────────────────────────────────────────
+
+  // ── buildWeeks(row) — gerçek h1..h9 alanlarından {w1..w9} üretir ───
+  function buildWeeks(row) {
+    var weeks = {};
+    for (var i = 0; i < RAW_WEEK_FIELDS.length; i++) {
+      weeks[WEEK_KEYS[i]] = (row && typeof row[RAW_WEEK_FIELDS[i]] === 'number') ? row[RAW_WEEK_FIELDS[i]] : 0;
     }
-    return Math.round((Math.sqrt(variance / vals.length) / avg) * 100);
+    return weeks;
   }
 
-  // ── _weekValues: weeks nesnesinden değer dizisi ──────────────────────
-  function _weekValues(weeks) {
-    var out = [];
-    for (var i = 1; i <= WEEK_COUNT; i++) {
-      var v = weeks['w' + i];
-      if (v !== undefined && v !== null) out.push(v);
+  // ── weekValuesArray(weeksObj) — {w1..w9} → sıralı [v1..v9] dizisi ───
+  function weekValuesArray(weeksObj) {
+    if (!weeksObj) return [];
+    return WEEK_KEYS.map(function (k) { return weeksObj[k] || 0; });
+  }
+
+  // ── activeWeekCount(weekVals) — sıfırdan farklı hafta sayısı ────────
+  // forecast-engine.js'te "kaç hafta gerçekten veri içeriyor" (elapsed
+  // weeks) sorusuna doğru cevap vermek için gerekli — weekValuesArray()
+  // HER ZAMAN 9 eleman döner (w1..w9 slotları sabit), bu nedenle dizi
+  // UZUNLUĞU "geçen hafta sayısı" anlamına GELMEZ; sıfırdan farklı hafta
+  // SAYISI gelir.
+  function activeWeekCount(weekVals) {
+    return (weekVals || []).filter(function (v) { return v > 0; }).length;
+  }
+
+  // ──────────────────────────────────────────────────────────────────
+  //  4) normalizeIMS — ANA FONKSİYON (cache'li)
+  // ──────────────────────────────────────────────────────────────────
+
+  var _cache = {}; // ttt → { records, signature }
+
+  function _dataSignature(ttt) {
+    var rows = _safe(function () {
+      return (IMS || []).filter(function (r) { return r.ttt === ttt && r.is_mkt === false; });
+    }, []);
+    // İçerik-tabanlı ucuz imza: satır sayısı + toplam hacim toplamı.
+    // IMS senkronize olduğunda bu değer değişir → cache otomatik geçersizleşir.
+    var totalSum = rows.reduce(function (s, r) { return s + (r.toplam || 0); }, 0);
+    return rows.length + ':' + totalSum;
+  }
+
+  function _buildRecord(row) {
+    var weeks    = buildWeeks(row);
+    var weekVals = weekValuesArray(weeks);
+    return {
+      representative: row.ttt,
+      brick:           row.brick,
+      product:         row.ilac,
+      total:           row.toplam || 0,
+      weeks:           weeks,
+      calculated: {
+        growth:     calculateGrowth(weekVals),
+        average:    calculateAverage(weekVals),
+        trend:      calculateTrend(weekVals),
+        volatility: calculateVolatility(weekVals)
+      }
+    };
+  }
+
+  // ── normalizeIMS(ttt) — gerçek parser çıktısını IMSRecord[]'e çevirir
+  // Sadece KENDİ ÜRÜN satırları (is_mkt:false) — pazar toplamı satırları
+  // hariç tutulur (own_tl/own_kutu'nun ORİJİNAL niyeti de buydu).
+  // @param {string} ttt
+  // @returns {Array<IMSRecord>}
+  function normalizeIMS(ttt) {
+    if (!ttt) return [];
+
+    var sig    = _dataSignature(ttt);
+    var cached = _cache[ttt];
+    if (cached && cached.signature === sig) {
+      return cached.records;
     }
-    return out;
+
+    var rows = _safe(function () {
+      return (IMS || []).filter(function (r) { return r.ttt === ttt && r.is_mkt === false; });
+    }, []);
+
+    var records = rows.map(_buildRecord);
+    _cache[ttt] = { records: records, signature: sig };
+    return records;
   }
 
-  // ── normalizeIMS: ham parser çıktısı → IMSRecord[] ──────────────────
-  // Parser'ı DEĞİŞTİRMEZ. CSV'yi DEĞİŞTİRMEZ.
-  // Bu dönüşüm yalnızca AI katmanı içinde yaşar.
-  function normalizeIMS(rawRows) {
-    if (!Array.isArray(rawRows) || !rawRows.length) return [];
-
-    return rawRows.map(function (row) {
-      var isOwn = _isOwnIlac(row);
-      var weeks = buildWeeks(row);
-
-      return {
-        // ─ Kimlik ─
-        representative: row.ttt      || '',
-        brick:          row.brick    || '',
-        product:        row.ilac     || '',
-        ilac_grubu:     row.ilac_grubu || '',
-        ilac:           row.ilac     || '',
-
-        // ─ Sınıflandırma ─
-        isOwn: isOwn,
-        isMkt: row.is_mkt || false,
-
-        // ─ Toplam kutu ─
-        total: row.toplam || 0,
-
-        // ─ Haftalık kutu ─
-        weeks: weeks,
-
-        // ─ Hesaplanan metrikler (adapter içinde, engine tekrarı yok) ─
-        calculated: {
-          growth:     calculateGrowth(weeks),
-          average:    calculateAverage(weeks),
-          trend:      calculateTrend(weeks),
-          volatility: calculateVolatility(weeks)
-        }
-      };
-    });
+  function clearCache() {
+    _cache = {};
   }
 
-  // ── getIMSCache: singleton IMSRecord[] ──────────────────────────────
-  // Birinci çağrıda normalize eder, sonraki çağrılarda cache'i döner.
-  function getIMSCache() {
-    var raw = _safe(function () { return IMS; }, []);
-    // Aynı array referansıysa cache geçerlidir
-    if (_cache && _rawSignature === raw) return _cache;
-    _cache = normalizeIMS(raw);
-    _rawSignature = raw;
-    return _cache;
-  }
+  // ──────────────────────────────────────────────────────────────────
+  //  5) aggregateRecords / groupRecordsBy — ORTAK gruplama/birleştirme
+  //     (trend-engine'in weekMap'i, risk/insight-engine'in grpMap'i,
+  //     opportunity-engine'in brickPayMap'i — hepsi AYNI deseni
+  //     tekrarlıyordu; artık tek yerden)
+  // ──────────────────────────────────────────────────────────────────
 
-  // ── invalidateIMSCache: yeni CSV yüklendiğinde cache'i sıfırlar ─────
-  // data-loader.js içinde IMS.length = 0; IMS.push(...) yapıldıktan
-  // SONRA bu fonksiyon çağrılır (ileride entegre edilebilir).
-  function invalidateIMSCache() {
-    _cache = null;
-    _rawSignature = null;
-  }
+  // ── aggregateRecords(records) — birden çok IMSRecord'u TEK kayda
+  //    birleştirir (haftalık hacimleri toplar, calculated'ı yeniden
+  //    hesaplar). brick/product null olur (birden çok değer birleşti).
+  function aggregateRecords(records) {
+    if (!records || !records.length) return null;
 
-  // ── getOwnRecords: bir TTT için kendi ürün kayıtları ────────────────
-  function getOwnRecords(ttt) {
-    return getIMSCache().filter(function (r) {
-      return r.representative === ttt && r.isOwn;
-    });
-  }
-
-  // ── getMktRecords: bir TTT için pazar TOPLAM kayıtları ───────────────
-  function getMktRecords(ttt) {
-    return getIMSCache().filter(function (r) {
-      return r.representative === ttt && r.isMkt;
-    });
-  }
-
-  // ── getWeeklySeries: bir TTT için tüm kayıtların toplam haftalık dizisi
-  // Döner: number[] (w1..w9 toplamı, non-own dahil)
-  function getWeeklySeries(ttt) {
-    var records = getIMSCache().filter(function (r) {
-      return r.representative === ttt;
-    });
-    return _aggregateWeeks(records);
-  }
-
-  // ── getOwnWeeklySeries: bir TTT'nin kendi ürünleri haftalık toplamı ──
-  // own_tl hesabı: own_kutu × IMS_TL_MAP → hafta başına TL
-  function getOwnWeeklySeries(ttt, asTL) {
-    var records = getOwnRecords(ttt);
-    var tlMap = _safe(function () { return IMS_TL_MAP; }, {});
-
-    var sums = {};
-    for (var i = 1; i <= WEEK_COUNT; i++) sums['w' + i] = 0;
+    var sumWeeks = {};
+    WEEK_KEYS.forEach(function (k) { sumWeeks[k] = 0; });
+    var total = 0;
 
     records.forEach(function (r) {
-      for (var i = 1; i <= WEEK_COUNT; i++) {
-        var key = 'w' + i;
-        var kutu = r.weeks[key] || 0;
-        if (asTL) {
-          var birimFiyat = tlMap[r.product] || tlMap[r.ilac] || 0;
-          sums[key] += kutu * birimFiyat;
-        } else {
-          sums[key] += kutu;
-        }
-      }
+      total += r.total || 0;
+      WEEK_KEYS.forEach(function (k) { sumWeeks[k] += (r.weeks && r.weeks[k]) || 0; });
     });
 
-    var out = [];
-    for (var j = 1; j <= WEEK_COUNT; j++) out.push(sums['w' + j]);
-    return out;
+    var weekVals = weekValuesArray(sumWeeks);
+
+    return {
+      representative: records[0].representative,
+      brick:   records.length === 1 ? records[0].brick   : null,
+      product: records.length === 1 ? records[0].product : null,
+      total:   total,
+      weeks:   sumWeeks,
+      calculated: {
+        growth:     calculateGrowth(weekVals),
+        average:    calculateAverage(weekVals),
+        trend:      calculateTrend(weekVals),
+        volatility: calculateVolatility(weekVals)
+      }
+    };
   }
 
-  // ── getMarketShare: bir TTT × ilac_grubu için pazar payı bilgisi ─────
-  // Gerçek IMS şemasında bizim_pay/rakip_pay sütunları YOK.
-  // Kendi ürünümüz: is_mkt=false + isOwn=true
-  // Pazar TOPLAM: is_mkt=true
-  // Pay = kendi toplam / pazar toplam × 100
-  function getMarketShare(ttt) {
-    var cache = getIMSCache();
-    var result = {}; // { ilac_grubu: { bizimPay, pazarToplam, bizimToplam } }
-
-    // Pazar toplam satırları (is_mkt = true, ttt bazında)
-    cache.filter(function (r) {
-      return r.representative === ttt && r.isMkt;
-    }).forEach(function (r) {
-      if (!result[r.ilac_grubu]) {
-        result[r.ilac_grubu] = { bizimToplam: 0, pazarToplam: 0, bizimPay: 0 };
-      }
-      result[r.ilac_grubu].pazarToplam += r.total;
+  // ── groupRecordsBy(records, key) — basit groupBy yardımcısı ─────────
+  function groupRecordsBy(records, key) {
+    var map = {};
+    (records || []).forEach(function (r) {
+      var k = r[key];
+      if (!map[k]) map[k] = [];
+      map[k].push(r);
     });
-
-    // Kendi ürünlerimiz (is_mkt = false + isOwn = true)
-    cache.filter(function (r) {
-      return r.representative === ttt && r.isOwn;
-    }).forEach(function (r) {
-      if (!result[r.ilac_grubu]) {
-        result[r.ilac_grubu] = { bizimToplam: 0, pazarToplam: 0, bizimPay: 0 };
-      }
-      result[r.ilac_grubu].bizimToplam += r.total;
-    });
-
-    // Pay hesabı
-    Object.keys(result).forEach(function (grp) {
-      var s = result[grp];
-      s.bizimPay = s.pazarToplam > 0
-        ? Math.round((s.bizimToplam / s.pazarToplam) * 1000) / 10
-        : 0;
-    });
-
-    return result;
+    return map;
   }
 
-  // ── _aggregateWeeks: kayıtlar listesinden haftalık toplam dizisi ─────
-  function _aggregateWeeks(records) {
-    var sums = {};
-    for (var i = 1; i <= WEEK_COUNT; i++) sums['w' + i] = 0;
-    records.forEach(function (r) {
-      for (var i = 1; i <= WEEK_COUNT; i++) {
-        sums['w' + i] += r.weeks['w' + i] || 0;
-      }
-    });
-    var out = [];
-    for (var j = 1; j <= WEEK_COUNT; j++) out.push(sums['w' + j]);
-    return out;
-  }
-
-  // ── EXPORT ──────────────────────────────────────────────────────────
+  // ── EXPORTS ──────────────────────────────────────────────────────
   window.IMSAdapter = {
-    normalizeIMS:         normalizeIMS,
-    getIMSCache:          getIMSCache,
-    invalidateIMSCache:   invalidateIMSCache,
+    normalizeIMS:        normalizeIMS,
     buildWeeks:           buildWeeks,
-    calculateGrowth:      calculateGrowth,
-    calculateAverage:     calculateAverage,
-    calculateTrend:       calculateTrend,
-    calculateVolatility:  calculateVolatility,
-    linearSlope:          linearSlope,
-    trendConfidence:      trendConfidence,
-    getOwnRecords:        getOwnRecords,
-    getMktRecords:        getMktRecords,
-    getWeeklySeries:      getWeeklySeries,
-    getOwnWeeklySeries:   getOwnWeeklySeries,
-    getMarketShare:       getMarketShare
+    calculateGrowth:       calculateGrowth,
+    calculateAverage:       calculateAverage,
+    calculateTrend:          calculateTrend,
+    calculateVolatility:      calculateVolatility,
+    aggregateRecords:          aggregateRecords,
+    groupRecordsBy:              groupRecordsBy,
+    weekValuesArray:               weekValuesArray,
+    activeWeekCount:                 activeWeekCount,
+    clearCache:                       clearCache,
+    version: ADAPTER_VERSION
   };
 
-  console.debug('[ims-adapter] Phase 1 — IMS Unification yüklendi.');
+  console.debug('[ims-adapter] yüklendi. Versiyon:', ADAPTER_VERSION);
 
 })();

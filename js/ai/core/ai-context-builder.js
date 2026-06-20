@@ -8,7 +8,9 @@
 //    • buildContext(overrides) → {
 //        ttt, brick, product, period, dateRange,
 //        filters, userPrefs, data: { ims, genel, migi, eczane },
-//        learning, generatedAt
+//        learning, outcomes, patterns,
+//        normalizedIMS, imsMetadata, growthSummary, trendSummary,
+//        generatedAt
 //      }
 //
 //  ÖNEMLİ — bu dosya buildTTTContext()'in (ai-context.js) YERİNİ ALMAZ.
@@ -17,14 +19,22 @@
 //  ise yapısal (object) context üretir — ai-orchestrator.js ve gelecekteki
 //  tüketiciler için.
 //
+//  AI MİMARİ STABİLİZASYONU (bkz. docs/AI_MIMARI_STABILIZASYON_RAPORU.md):
+//    normalizedIMS/imsMetadata/growthSummary/trendSummary alanları
+//    js/ai/core/ims-adapter.js üzerinden gelir — GERÇEK parseIMSCSV()
+//    çıktısından normalize edilmiş veri. data.ims (HAM global dizi)
+//    geriye dönük uyumluluk için OLDUĞU GİBİ KORUNDU; yeni alanlar EK
+//    gelir, onun yerini almaz.
+//
 //  Kurallar:
 //    • Eksik veri / global değişken durumunda HATA VERMEZ.
 //    • Her alan için güvenli varsayılan değer kullanılır.
 //    • DOM erişimi YOK.
 //
-//  Bağımlılık: js/data/data-state.js, js/core/date-utils.js,
-//              js/core/constants.js (hepsi opsiyonel — typeof ile kontrol edilir)
-//  Yükleme sırası: data-state.js, date-utils.js SONRASI
+//  Bağımlılık: js/ai/core/ims-adapter.js, js/data/data-state.js,
+//              js/core/date-utils.js, js/core/constants.js
+//              (hepsi opsiyonel — typeof ile kontrol edilir)
+//  Yükleme sırası: ims-adapter.js, data-state.js, date-utils.js SONRASI
 //                  ai-orchestrator.js, ai-core.js ÖNCESİ
 //  GitHub Pages compatible: classic script, no ES modules
 // ══════════════════════════════════════════════════════════════════════
@@ -157,6 +167,70 @@
     }, { bestPatterns: [], relevantPatterns: [], historicalSuccessRates: {}, historicalFailures: [], learningConfidence: null });
   }
 
+  // ── _resolveNormalizedIMS — AI MİMARİ STABİLİZASYONU ─────────────────
+  // ims-adapter.js üzerinden NORMALİZE EDİLMİŞ IMSRecord dizisini
+  // döndürür. ims-adapter.js'in kendi içsel cache'i sayesinde (ttt +
+  // içerik imzası bazlı) bu çağrı, trend/risk/insight/recommendation/
+  // opportunity/forecast motorlarının ZATEN hesapladığı SONUCU yeniden
+  // kullanır — parser/normalize işlemi gerçekte BİR KEZ çalışır (Master
+  // Prompt'un "Tüm motorlar aynı nesneyi kullanmalı" performans kuralı).
+  function _resolveNormalizedIMS(ttt) {
+    return _safe(function () {
+      if (window.IMSAdapter && typeof window.IMSAdapter.normalizeIMS === 'function') {
+        return window.IMSAdapter.normalizeIMS(ttt) || [];
+      }
+      return [];
+    }, []);
+  }
+
+  // ── _resolveImsMetadata — normalize edilmiş veri setinin özeti ──────
+  function _resolveImsMetadata(records) {
+    return _safe(function () {
+      var products = records.map(function (r) { return r.product; })
+        .filter(function (v, i, a) { return a.indexOf(v) === i; });
+      var bricks = records.map(function (r) { return r.brick; })
+        .filter(function (v, i, a) { return a.indexOf(v) === i; });
+      var totalVolume = records.reduce(function (s, r) { return s + (r.total || 0); }, 0);
+      return {
+        recordCount:    records.length,
+        productCount:   products.length,
+        brickCount:     bricks.length,
+        totalVolume:    totalVolume,
+        adapterVersion: (window.IMSAdapter && window.IMSAdapter.version) || null
+      };
+    }, { recordCount: 0, productCount: 0, brickCount: 0, totalVolume: 0, adapterVersion: null });
+  }
+
+  // ── _resolveGrowthSummary — temsilcinin GENEL büyüme görünümü ───────
+  // (tüm ürünlerin birleşik haftalık hacminden tek bir growth/trend)
+  function _resolveGrowthSummary(records) {
+    return _safe(function () {
+      if (!records.length || !window.IMSAdapter || typeof window.IMSAdapter.aggregateRecords !== 'function') {
+        return { overallGrowth: 0, overallTrend: 'stable', risingProducts: [], decliningProducts: [] };
+      }
+      var agg = window.IMSAdapter.aggregateRecords(records);
+      var rising     = records.filter(function (r) { return r.calculated.trend === 'up';   }).map(function (r) { return r.product; });
+      var declining  = records.filter(function (r) { return r.calculated.trend === 'down'; }).map(function (r) { return r.product; });
+      return {
+        overallGrowth:    agg ? agg.calculated.growth : 0,
+        overallTrend:     agg ? agg.calculated.trend  : 'stable',
+        risingProducts:    rising,
+        decliningProducts: declining
+      };
+    }, { overallGrowth: 0, overallTrend: 'stable', risingProducts: [], decliningProducts: [] });
+  }
+
+  // ── _resolveTrendSummary — ürün bazlı trend dağılımı ─────────────────
+  function _resolveTrendSummary(records) {
+    return _safe(function () {
+      return {
+        up:     records.filter(function (r) { return r.calculated.trend === 'up';     }).map(function (r) { return r.product; }),
+        down:   records.filter(function (r) { return r.calculated.trend === 'down';   }).map(function (r) { return r.product; }),
+        stable: records.filter(function (r) { return r.calculated.trend === 'stable'; }).map(function (r) { return r.product; })
+      };
+    }, { up: [], down: [], stable: [] });
+  }
+
   // ── buildContext — ana giriş noktası ────────────────────────────────
   // @param {Object} [overrides] — { ttt, brick, product, filters, dateRange }
   // @returns {Object} yapısal AI context'i
@@ -165,6 +239,12 @@
 
     var ttt     = _resolveTTT(overrides);
     var product = overrides.product || _safe(function () { return selKutuUruns; }, null);
+
+    // AI MİMARİ STABİLİZASYONU: normalize edilmiş IMS BİR KEZ hesaplanır
+    // (ims-adapter.js'in kendi cache'i sayesinde), growthSummary/
+    // trendSummary/imsMetadata bu TEK sonuçtan türetilir — tekrar parser
+    // çağrısı veya tekrar normalize işlemi YOK.
+    var normalizedIMS = _resolveNormalizedIMS(ttt);
 
     var context = {
       ttt:     ttt,
@@ -197,6 +277,15 @@
       // gelir, hiçbir alanı değiştirmez/silmez.
       patterns: _resolvePatterns(product),
 
+      // AI MİMARİ STABİLİZASYONU: ims-adapter.js üzerinden normalize
+      // edilmiş IMS + türetilmiş özetler. data.ims (yukarıda, HAM/ham
+      // global dizi) GERİYE DÖNÜK UYUMLULUK için OLDUĞU GİBİ KORUNDU —
+      // bu yeni alanlar EK gelir, data.ims'in yerini almaz.
+      normalizedIMS:  normalizedIMS,
+      imsMetadata:    _resolveImsMetadata(normalizedIMS),
+      growthSummary:  _resolveGrowthSummary(normalizedIMS),
+      trendSummary:   _resolveTrendSummary(normalizedIMS),
+
       generatedAt: new Date().toISOString()
     };
 
@@ -208,6 +297,6 @@
     buildContext: buildContext
   };
 
-  console.debug('[ai-context-builder] FAZ 0 + FAZ 1.3 (outcomes) + FAZ 1.4 (patterns) yüklendi.');
+  console.debug('[ai-context-builder] FAZ 0 + FAZ 1.3 (outcomes) + FAZ 1.4 (patterns) + AI Mimari Stabilizasyonu (normalizedIMS) yüklendi.');
 
 })();

@@ -314,12 +314,6 @@ async function syncData() {
     // Dizileri güncelle
     IMS.length   = 0;  IMS.push(...newIMS);
 
-    // Phase 1 Refactor: IMS normalize cache'ini sıfırla
-    // IMSAdapter bir sonraki erişimde yeni veriyi normalize eder (lazy).
-    if (window.IMSAdapter && typeof window.IMSAdapter.invalidateIMSCache === 'function') {
-      window.IMSAdapter.invalidateIMSCache();
-    }
-
     // ── FAZ 1.3: Outcome Tracker — yeni IMS yüklendiğinde, Recommendation
     // Memory içindeki açık (evaluated=false) önerileri otomatik değerlendir.
     // Asenkron, fire-and-forget — syncData()'nın akışını bloklamaz/bozmaz.

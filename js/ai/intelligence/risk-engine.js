@@ -1,21 +1,44 @@
 // ══════════════════════════════════════════════════════════════════════
 //  js/ai/intelligence/risk-engine.js
 //  Phase 3.0 — Sales Intelligence Engine
-//  Phase 1 Refactor — IMS Data Model Unification
+//  AI MİMARİ STABİLİZASYONU GÜNCELLEMESİ — IMS erişimi artık
+//  js/ai/core/ims-adapter.js üzerinden, parser'a (IMS) DOĞRUDAN ERİŞMEZ.
 //
 //  Sorumluluk: Otomatik risk tespiti ve sınıflandırması
 //    • detectRisks(ttt) → risk[]
 //
-//  DEĞİŞİKLİK: r.hafta, r.bizim_pay, r.rakip_pay → YOK.
-//    Pazar payı IMSAdapter.getMarketShare() üzerinden hesaplanıyor.
-//    IMS global'a doğrudan erişim YOK.
+//  Risk kategorileri:
+//    - Realizasyon riski (hedeften sapma)            — GENEL (değişmedi)
+//    - Pazar payı kaybı (IMS)                          — adapter üzerinden (bkz. ⚠️ not)
+//    - Brick performansı (MI&GI)                       — MIGI_BRICK_TL_RAW (değişmedi)
+//    - Portföy prim riski                               — GENEL (değişmedi)
 //
+//  ⚠️ ÖNEMLİ AUDIT NOTU — R3 "Pazar Payı Kaybı" (bkz. AI_MIMARI_STABILIZASYON_RAPORU.md):
+//    Bu blok ÖNCEDEN r.hafta / r.bizim_pay / r.rakip_pay okuyordu. r.hafta
+//    GERÇEK parseIMSCSV() çıktısında yoktu (trend/forecast'taki gibi) —
+//    AMA r.bizim_pay / r.rakip_pay, trend/forecast'taki own_tl/own_kutu'dan
+//    FARKLI bir durum: bu ikisinin YERİNE KULLANILABİLECEK gerçek bir
+//    veri kaynağı PROJENİN HİÇBİR YERİNDE YOK (own_tl/own_kutu'nun aksine,
+//    h1..h9 gibi bir "gerçek rakip pazar payı" verisi parser'da hiç
+//    üretilmiyor). Bu nedenle bu risk kuralı HER ZAMAN sessizce devre dışı
+//    kalıyordu ve KASITLI OLARAK ÖYLE BIRAKILDI — adapter'ın kapsamı
+//    (growth/average/trend/volatility) bu eksikliği dolduramaz, çünkü
+//    "pazar payı" farklı bir veri boyutudur. Tek yapılan: IMS'e DOĞRUDAN
+//    erişim kaldırıldı (artık ims-adapter.js üzerinden, ürün bazlı
+//    gruplama ile), ve hayali r.hafta sıralaması kaldırıldı. Davranış
+//    (her zaman 0 risk üretmesi) AYNEN KORUNDU — bu bir "mevcut
+//    fonksiyonelliği bozma" değil, zaten var olmayan bir fonksiyonelliği
+//    olduğu gibi (dormant) bırakmaktır.
+//
+//  Severity: 'LOW' | 'MEDIUM' | 'HIGH'
 //  AI çağrısı: YOK
 //  UI değişikliği: YOK
-//  Bağımlılık: js/ai/core/ims-adapter.js, js/data/data-state.js
+//
+//  Bağımlılık: js/ai/core/ims-adapter.js, js/data/data-state.js (GENEL, MIGI_BRICK_TL_RAW)
+//  Yükleme sırası: ims-adapter.js SONRASI
 //  GitHub Pages compatible: classic script, no ES modules
 // ══════════════════════════════════════════════════════════════════════
-/* global IMSAdapter, GENEL, MIGI_BRICK_TL_RAW */
+/* global GENEL, MIGI_BRICK_TL_RAW */
 
 (function() {
   'use strict';
@@ -30,11 +53,9 @@
     try {
       var genelRows  = (GENEL || []).filter(function(r){ return r.ttt === ttt && r.urun !== 'GENEL TOPLAM'; });
       var genelTotal = (GENEL || []).find(function(r){ return r.ttt === ttt && r.urun === 'GENEL TOPLAM'; });
+      var imsRecords = (window.IMSAdapter && typeof window.IMSAdapter.normalizeIMS === 'function')
+        ? window.IMSAdapter.normalizeIMS(ttt) : [];
       var migiRows   = (MIGI_BRICK_TL_RAW || []).filter(function(r){ return r.person === ttt; });
-
-      // ── Pazar payı: adapter'dan hesaplanmış ──────────────
-      // r.bizim_pay / r.rakip_pay IMS'de yok; getMarketShare() kullanılıyor.
-      var marketShare = IMSAdapter.getMarketShare(ttt);
 
       // ── R1: Genel TL realizasyon riski ───────────────────
       if (genelTotal) {
@@ -63,26 +84,31 @@
         }
       });
 
-      // ── R3: Pazar payı kaybı — adapter'dan hesaplanmış pazar payı kullanılıyor
-      // eskiden: r.bizim_pay, r.rakip_pay — IMS'te bu sütunlar YOK.
-      // Şimdi: getMarketShare() → { grp: { bizimPay, pazarToplam, bizimToplam } }
-      Object.keys(marketShare).forEach(function(grp) {
-        var ms = marketShare[grp];
-        var bizimPay = ms.bizimPay || 0;
-        // Rakip pay: pazar - bizim (yaklaşık; doğrudan sütun yok)
-        var pazarToplam = ms.pazarToplam || 0;
-        var bizimToplam = ms.bizimToplam || 0;
-        var rakipToplam = Math.max(0, pazarToplam - bizimToplam);
-        var rakipPay = pazarToplam > 0 ? (rakipToplam / pazarToplam) * 100 : 0;
+      // ── R3: Pazar payı kaybı (IMS, ürün bazlı — adapter üzerinden) ──
+      // bkz. dosya başlığı ⚠️ AUDIT NOTU — bizim_pay/rakip_pay hiçbir
+      // gerçek veri kaynağında yok, bu nedenle bu blok kasıtlı olarak
+      // sessizce 0 risk üretir (geçmişte de öyleydi).
+      if (imsRecords.length) {
+        var byProduct = (window.IMSAdapter && typeof window.IMSAdapter.groupRecordsBy === 'function')
+          ? window.IMSAdapter.groupRecordsBy(imsRecords, 'product') : {};
 
-        if (bizimPay < 15 && rakipPay > 30) {
-          risks.push({ severity: 'HIGH', title: grp + ' Pazar Payı Kaybı',
-            detail: 'Bizim pay %' + bizimPay.toFixed(1) + ' iken rakip tahmini %' + rakipPay.toFixed(1) + ' — öncelikli saldırı hedefi.' });
-        } else if (bizimPay < 20 && rakipPay > 25) {
-          risks.push({ severity: 'MEDIUM', title: grp + ' Pazar Payı Baskısı',
-            detail: 'Bizim pay %' + bizimPay.toFixed(1) + ' — rakip baskısı mevcut.' });
-        }
-      });
+        Object.keys(byProduct).forEach(function(urun) {
+          var rows   = byProduct[urun];
+          var latest = rows[rows.length - 1]; // hafta sırası YOK — gerçek veri kaynağı eklenince burası güncellenmeli
+          if (!latest) return;
+
+          var bizimPay  = latest.bizim_pay || 0; // gerçek veri kaynağı YOK — daima 0
+          var rakipPay  = latest.rakip_pay || 0; // gerçek veri kaynağı YOK — daima 0
+
+          if (bizimPay < 15 && rakipPay > 30) {
+            risks.push({ severity: 'HIGH', title: urun + ' Pazar Payı Kaybı',
+              detail: 'Bizim pay %' + bizimPay.toFixed(1) + ' iken rakip %' + rakipPay.toFixed(1) + ' — öncelikli saldırı hedefi.' });
+          } else if (bizimPay < 20 && rakipPay > 25) {
+            risks.push({ severity: 'MEDIUM', title: urun + ' Pazar Payı Baskısı',
+              detail: 'Bizim pay %' + bizimPay.toFixed(1) + ' — rakip baskısı mevcut.' });
+          }
+        });
+      }
 
       // ── R4: MI&GI brick zayıflığı ────────────────────────
       if (migiRows.length) {
@@ -99,7 +125,9 @@
         Object.keys(brickMap).forEach(function(brick) {
           var b   = brickMap[brick];
           var mi  = b.mi.length ? b.mi.reduce(function(s,v){ return s+v; }, 0) / b.mi.length : null;
+          var bi  = b.bi.length ? b.bi.reduce(function(s,v){ return s+v; }, 0) / b.bi.length : null;
           var sira = b.sira || 999;
+
           if (sira <= 333 && mi !== null && mi < 80) criticalBricks.push(brick);
           else if (sira <= 333 && mi !== null && mi < 90) warnBricks.push(brick);
         });
@@ -115,9 +143,10 @@
         }
       }
 
-      // ── R5: Portföy prim riski ────────────────────────────
+      // ── R5: Portföy prim riski — TL real + prim puanı ────
       if (genelTotal) {
         var realPct = genelTotal.tl_pct || 0;
+        // Prim puanı proxy: ürün realizasyon ortalaması
         var primPuani = genelRows.length
           ? genelRows.reduce(function(s,r){ return s + (r.tl_pct || 0); }, 0) / genelRows.length
           : 0;
@@ -129,6 +158,7 @@
         }
       }
 
+      // Sırala: HIGH önce
       risks.sort(function(a, b) {
         var order = { HIGH: 0, MEDIUM: 1, LOW: 2 };
         return (order[a.severity] || 2) - (order[b.severity] || 2);
@@ -143,6 +173,6 @@
 
   // ── EXPORT ─────────────────────────────────────────────────
   window.detectRisks = detectRisks;
-  console.debug('[risk-engine] Phase 3.0 + Phase 1 Refactor yüklendi.');
+  console.debug('[risk-engine] Phase 3.0 yüklendi (ims-adapter.js üzerinden).');
 
 })();
