@@ -221,6 +221,22 @@
      analyzeEczaneByProduct, buildSalesConditionsContext,
      renderSatisKosullariPanel, renderHaberTakibiPanel, renderEczaneUrunAnalizKarti
      Rollback: bu satırı sil + satisKosullariPanel/haberTakibiPanel/eczaneUrunAnalizKarti div'lerini kaldır -->
+<!-- FAZ 6.0: Pharmacy Adapter Katmanı (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §16)
+     Üç farklı eczane ham veri kaynağını (ECZANE_RAW, pharmacyActiveData,
+     pharmacyStore.normalized) tek bir PharmacyRecord modeline çevirir.
+     ims-adapter.js ile AYNI desen — parser'lar değişmedi, sadece adapter eklendi.
+     Çağrı-zamanlı (call-time) okuma yaptığı için pharmacy-data-manager.js'in
+     DOSYA sırasından önce tanımlanması yeterli — runtime'da window.pharmacyStore
+     o an ne durumdaysa onu okur. Bu yüzden script SIRASI kasıtlı olarak
+     DEĞİŞTİRİLMEDİ (mevcut pharmacy-intelligence.js → pharmacy-data-manager.js
+     sırası bozulmadan korundu).
+     Yükleme sırası kritik: data-state.js SONRASI, aşağıdaki üç eczane motoru
+     (pharmacy-intelligence/reorder-engine/reorder-classifier) ÖNCESİ.
+     Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — üç motor da kendi eski
+     bağımsız okuma zincirlerini (pharmacyActiveData → ECZANE_RAW) korumaya
+     devam eder; adapter henüz hiçbirine bağlanmadı (bkz. FAZ 6.1). -->
+<script src="js/ai/core/pharmacy-adapter.js"></script>
+<!-- END FAZ 6.0 Pharmacy Adapter -->
 <script src="js/pharmacy/sales-conditions.js"></script>
 <!-- END PHASE 4.7 -->
 <script src="js/pharmacy/pharmacy-intelligence.js"></script>
