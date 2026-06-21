@@ -323,3 +323,82 @@ function parseGenelCSV(csvText) {
 }
 
 // ─── KENDİ ÜRÜN HARİTASI ────────────────────────────────────
+
+// ══════════════════════════════════════════════════════════════
+//  FAZ 6.4 — RAKIP_AKSİYON.csv PARSER (KATMAN 0 — sadece okur, yorumlamaz)
+//  bkz. AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §5, §16 FAZ 6.4
+//
+//  GERÇEK DOSYA YAPISI (GitHub'daki gerçek dosyayla doğrulandı):
+//    Satır 0: boş/ayraç satırı
+//    Satır 1: yıl (2026) + ay adları (OCAK/ŞUBAT/.../HAZİRAN) — her ay
+//             başlangıç sütununda, 3 sütun kaplıyor
+//    Satır 2: sütun tipi başlıkları — her ay için 3 sütun:
+//             ANAMAL+MF | AKSİYON [gün aralığı] | CEP MF
+//    Satır 3+: veri — [FİRMA, ÜRÜN, (ANAMAL+MF, AKSİYON, CEP MF) × 6 ay]
+//             = 2 kimlik sütunu + 18 veri sütunu = 20 sütun
+//
+//  Bu parser YORUMLAMAZ: şart string'lerini ("50+25/100+60") OLDUĞU GİBİ
+//  saklar, tier'lara ayırmaz, hangi satırın İLKO/rakip olduğuna karar
+//  vermez, hangi pazara ait olduğuna karar vermez — bunların hepsi
+//  competitive-adapter.js'in (KATMAN 1) işidir (mevcut parseIMSCSV/
+//  parseEczaneCSV ile AYNI sorumluluk ayrımı).
+//
+//  AY SIRASI SABİT (dosyada hep bu sırada, başlıktan değil pozisyondan
+//  okunur — GENEL_TABLO/IMS_TABLO parser'larındaki "sabit kolon haritası"
+//  deseniyle AYNI yaklaşım):
+const RAKIP_AY_SIRASI = ['OCAK','ŞUBAT','MART','NİSAN','MAYIS','HAZİRAN'];
+
+// @param {string} csvText
+// @returns {Array<{
+//   firma: string, urun: string, ay: string, ayIndex: number,
+//   anamalMf: string,       // ANAMAL+MF sütunu (ham string, "-" veya "" olabilir)
+//   aksiyonBaslik: string,  // o ayki AKSİYON sütun başlığı (örn. "AKSİYON 14-16 OCAK", ya da " - " pazar geneli kampanya yoksa)
+//   aksiyonMf: string,      // AKSİYON sütunu (ham string)
+//   cepMf: string           // CEP MF sütunu (ham string)
+// }>}
+function parseRakipAksiyonCSV(csvText) {
+  if (csvText.trim().startsWith('<')) {
+    throw new Error('RAKIP_AKSIYON.csv yerine HTML döndü. Birkaç saniye bekleyip tekrar deneyin.');
+  }
+
+  const rows = parseCSVRows(csvText);
+  if (rows.length < 4) throw new Error('RAKIP_AKSIYON.csv boş veya beklenenden kısa (en az 4 satır gerekli)');
+
+  // Satır 2 (index 2): sütun tipi başlıkları — AKSİYON sütununun gerçek
+  // başlığını (tarih aralığını) buradan okuyoruz, ay bazında SABİT pozisyonda.
+  const headerRow = rows[2] || [];
+
+  const result = [];
+
+  for (let i = 3; i < rows.length; i++) {
+    const c = rows[i];
+    if (!c || c.length < 2) continue;
+
+    const firma = (c[0] || '').trim();
+    const urun  = (c[1] || '').trim();
+    if (!firma && !urun) continue; // tamamen boş satır (FAMTREC gibi — §3 veri kalitesi notu)
+
+    for (let m = 0; m < RAKIP_AY_SIRASI.length; m++) {
+      // Her ay 3 sütun kaplar, ilk veri sütunu index 2'den başlar:
+      // ay 0 → sütun 2,3,4 | ay 1 → sütun 5,6,7 | ... | ay 5 → sütun 17,18,19
+      const colStart = 2 + m * 3;
+
+      result.push({
+        firma:          firma,
+        urun:           urun,
+        ay:             RAKIP_AY_SIRASI[m],
+        ayIndex:        m,
+        anamalMf:       (c[colStart]     || '').trim(),
+        aksiyonBaslik:  (headerRow[colStart + 1] || '').trim(),
+        aksiyonMf:      (c[colStart + 1] || '').trim(),
+        cepMf:          (c[colStart + 2] || '').trim()
+      });
+    }
+  }
+
+  if (result.length === 0) throw new Error('RAKIP_AKSIYON.csv: geçerli satır bulunamadı');
+  console.log('[parseRakipAksiyonCSV] Parsed', result.length, 'satır (firma×ürün×ay).',
+    'Benzersiz firma×ürün:', new Set(result.map(r => r.firma + '|' + r.urun)).size);
+
+  return result;
+}

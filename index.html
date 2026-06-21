@@ -128,6 +128,19 @@
 <script src="js/ai/core/ims-adapter.js"></script>
 <!-- END AI Mimari Stabilizasyonu — IMS Adapter -->
 
+<!-- FAZ 6.4: Competitive Adapter Katmanı (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §5, §9, §16)
+     RAKIP_AKSİYON.csv'nin ham parser çıktısını (window.RAKIP_AKSIYON_RAW —
+     js/data/data-loader.js::syncData() içinde doldurulur) CompetitiveRecord[]
+     modeline çevirir. ims-adapter.js DESENİYLE AYNI — parser değişmedi,
+     sadece adapter eklendi. Henüz hiçbir karar motoruna (risk/insight/
+     recommendation/opportunity) BAĞLANMADI — competitive-impact-engine.js
+     (FAZ 6.6) bu adapter'ın çıktısını tüketecek.
+     Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — henüz hiçbir motor
+     buna bağımlı değil (data-loader.js'teki import bloğu da kendi içinde
+     try/catch ve typeof kontrolüyle korunaklı). -->
+<script src="js/ai/core/competitive-adapter.js"></script>
+<!-- END FAZ 6.4 Competitive Adapter -->
+
 <!-- PHASE 3.0: Sales Intelligence Engine — yükleme sırası kritik -->
 <script src="js/ai/intelligence/insight-engine.js"></script>
 <script src="js/ai/intelligence/trend-engine.js"></script>
@@ -168,6 +181,21 @@
 -->
 <script src="js/ai/territory/brick-ranking-engine.js"></script>
 <script src="js/ai/territory/coverage-engine.js"></script>
+
+<!-- FAZ 6.3.5: Market Share Engine (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §2, §16)
+     IMS'in is_mkt:true ("PAZARI TOPLAM") satırlarından bizimPay/pazar
+     toplamını hesaplar — index.html'in Pazar (P1) sekmesindeki
+     renderPazarCharts() ile AYNI, kanıtlanmış formülü (ppi=totOwn/totMkt*100)
+     AI motorlarının erişebileceği yapısal bir API'ye taşır.
+     renderPazarCharts() DEĞİŞTİRİLMEDİ. Bağımsız motor — territory-engine.js'e
+     bağımlı DEĞİL, sadece ims-adapter.js + constants.js (OWN_IMS) kullanır.
+     ŞU AN hiçbir motora (risk/insight/recommendation/opportunity) henüz
+     BAĞLANMADI (kasıtlı — §2'nin işaret ettiği bağlama, sonraki bir adım).
+     Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — henüz hiçbir motor
+     buna bağımlı değil. -->
+<script src="js/ai/territory/market-share-engine.js"></script>
+<!-- END FAZ 6.3.5 Market Share Engine -->
+
 <script src="js/ai/territory/visit-planner.js"></script>
 <script src="js/ai/territory/workload-engine.js"></script>
 <script src="js/ai/territory/territory-engine.js"></script>
@@ -254,6 +282,18 @@
 <!-- END FAZ 6.1 Pharmacy Behavior Engine -->
 
 <script src="js/pharmacy/sales-conditions.js"></script>
+
+<!-- FAZ 6.4: Rakip Satış Şartları Yöneticisi (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §9.1, §16)
+     sales-conditions.js'in (yukarıda, Phase 4.7) {min,bonus} şemasını
+     RAKİP firmalar için uygular — SatisKosullariManager'ın DOĞRUDAN
+     KARDEŞİ. sales-conditions.js DEĞİŞTİRİLMEDİ. İLKO'nun kendi şartlarına
+     (isOwn:true) DOKUNMAZ, otomatik/sessiz üzerine yazma YAPMAZ (§9.2).
+     Veri kaynağı: js/data/data-loader.js::syncData() içinde
+     CompetitiveAdapter.normalizeCompetitive() çıktısı buraya aktarılır.
+     Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — henüz hiçbir motor
+     buna bağımlı değil. -->
+<script src="js/pharmacy/competitor-conditions.js"></script>
+<!-- END FAZ 6.4 Rakip Satış Şartları Yöneticisi -->
 <!-- END PHASE 4.7 -->
 <script src="js/pharmacy/pharmacy-intelligence.js"></script>
 <script src="js/pharmacy/pharmacy-data-manager.js"></script>

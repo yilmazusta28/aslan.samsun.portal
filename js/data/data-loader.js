@@ -288,13 +288,14 @@ async function syncData() {
     if (!respIMS.ok)   throw new Error('IMS_TABLO.csv yüklenemedi (HTTP ' + respIMS.status + ')');
     if (!respGenel.ok) throw new Error('GENEL_TABLO.csv yüklenemedi (HTTP ' + respGenel.status + ')');
 
-    const [csvIMS, csvGenel, csvMiGiTL, csvMiGiKutu, csvMiGiBTL, csvMiGiBKutu] = await Promise.all([
+    const [csvIMS, csvGenel, csvMiGiTL, csvMiGiKutu, csvMiGiBTL, csvMiGiBKutu, csvRakip] = await Promise.all([
       respIMS.text(),
       respGenel.text(),
       safeGet('https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI_TL_TOPLAM.csv'),
       safeGet('https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI_KUTU_TOPLAM.csv'),
       safeGet('https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI-TL.csv'),
       safeGet('https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI-KUTU.csv'),
+      safeGet(GS_RAKIP_URL),
     ]);
 
     console.log('[CSV] TOPLAM-TL:', csvMiGiTL.length, 'TOPLAM-KUTU:', csvMiGiKutu.length,
@@ -310,6 +311,27 @@ async function syncData() {
     // BRICK dosyaları
     if(csvMiGiBTL)  { try{ const p=parseMiGiBrickCSV(csvMiGiBTL);   MIGI_BRICK_TL_RAW.length=0;   MIGI_BRICK_TL_RAW.push(...p);   console.log('[BRICK-TL]',p.length); }catch(e){console.warn(e);} }
     if(csvMiGiBKutu){ try{ const p=parseMiGiBrickCSV(csvMiGiBKutu); MIGI_BRICK_KUTU_RAW.length=0; MIGI_BRICK_KUTU_RAW.push(...p); console.log('[BRICK-KUTU]',p.length); }catch(e){console.warn(e);} }
+
+    // ── FAZ 6.4: RAKIP_AKSİYON.csv — kritik DEĞİL, MI/GI dosyalarıyla AYNI
+    // tolerans deseni (safeGet zaten yukarıda hata-toleranslı çekti).
+    // window.RAKIP_AKSIYON_RAW → competitive-adapter.js'in beklediği ham
+    // parser çıktısı (bkz. competitive-adapter.js dosya başı yorumu).
+    // CompetitiveAdapter / RakipSartlariManager bu FAZ'da henüz hiçbir karar
+    // motoruna bağlı değil — burada sadece veri TAZE TUTULUYOR, render
+    // tetiklenmiyor (rollback güvenli: bu blok atılırsa hiçbir mevcut motor
+    // etkilenmez).
+    if (csvRakip) {
+      try {
+        const parsedRakip = parseRakipAksiyonCSV(csvRakip);
+        window.RAKIP_AKSIYON_RAW = parsedRakip;
+        console.log('[RAKIP_AKSIYON]', parsedRakip.length, 'satır');
+
+        if (window.CompetitiveAdapter && window.RakipSartlariManager) {
+          const competitive = window.CompetitiveAdapter.normalizeCompetitive();
+          window.RakipSartlariManager.importFromAdapter(competitive.competitorActions);
+        }
+      } catch (e) { console.warn('[RAKIP_AKSIYON] parse/import hata (sessiz):', e.message); }
+    }
 
     // Dizileri güncelle
     IMS.length   = 0;  IMS.push(...newIMS);

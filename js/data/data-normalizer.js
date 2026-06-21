@@ -43,6 +43,9 @@ function normUrun(raw) {
   if (!raw) return null;
   const u = raw.trim().toUpperCase();
   if (u === 'FAMTREK') return 'FAMTREC'; // eski isim uyumu
+  // FAZ 6.4 (§9.2): RAKIP_AKSİYON.csv'de GRİPORT COLD'un ikinci İLKO satırı
+  // farklı bir ad varyantıyla geçiyor — aynı ürün, alias.
+  if (u === 'GRIPORT FİLMTAB 20' || u === 'GRIPORT FILMTAB 20') return 'GRİPORT COLD';
   return u;
 }
 

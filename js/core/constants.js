@@ -17,6 +17,9 @@ const GS_MIGI_BRICK_TL_URL  = "https://raw.githubusercontent.com/yilmazusta28/as
 const GS_MIGI_BRICK_KUTU_URL= "https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI-KUTU.csv";
 const GS_ECZANE_URL = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/eczane/ECZANE.csv';
 
+// ── FAZ 6.4: Rakip Satış Şartları Takvimi (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §7) ──
+const GS_RAKIP_URL = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/RAKIP_AKSIYON.csv';
+
 // ── PHASE 5.2: Aylık Eczane Dosya Dizini ─────────────────────────
 // Yeni format: data/ECZANE/YYYY_MM_Eczane.csv
 // Eski ECZANE.csv → geriye dönük uyumluluk için korundu
