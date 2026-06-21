@@ -1,6 +1,7 @@
 // ══════════════════════════════════════════════════════════════════════
 //  js/ai/core/ai-context-builder.js
 //  FAZ 0 — AI Consolidation · AI Core Mimarisi
+//  FAZ 6.3 — AIContextBuilder v2 (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §11)
 //
 //  Sorumluluk: Tüm AI Core modüllerinin (orchestrator, coach, intelligence)
 //    kullandığı TEK ORTAK context nesnesini üretmek.
@@ -10,6 +11,8 @@
 //        filters, userPrefs, data: { ims, genel, migi, eczane },
 //        learning, outcomes, patterns,
 //        normalizedIMS, imsMetadata, growthSummary, trendSummary,
+//        coverage, planning, forecast, recommendationHistory,        ← FAZ 6.3 YENİ
+//        competitiveCampaigns, decision, rca, opportunity,            ← FAZ 6.3 placeholder (sonraki fazlar doldurur)
 //        generatedAt
 //      }
 //
@@ -18,6 +21,37 @@
 //  üretir ve değiştirilmedi (geriye dönük uyumluluk). ai-context-builder.js
 //  ise yapısal (object) context üretir — ai-orchestrator.js ve gelecekteki
 //  tüketiciler için.
+//
+//  FAZ 6.3 GENİŞLETMESİ — NE EKLENDİ, NE DEĞİŞMEDİ:
+//    EKLENDİ (§11 şeması): coverage, planning, forecast,
+//    recommendationHistory — dördü de MEVCUT motorları (coverage-engine,
+//    territory-engine, forecast-engine, runrate-engine, recommendation-
+//    memory) OLDUKLARI GİBİ çağırır, hiçbiri değiştirilmedi.
+//
+//    learning ALANI DEĞİŞTİ (önceki stub {available:bool} yerine artık
+//    GERÇEK veri): FAZ 6.2'de eklenen learning-hub.js mevcutsa
+//    LearningHub.getLearningContext(ttt) okunur — bu, outcomes/patterns
+//    alanlarının okuduğu AYNI alt sistemleri (OutcomeTracker,
+//    PatternLearningEngine) + EK olarak predictionAccuracy/behaviorSignals/
+//    teamBestPractices/recommendationStats'ı tek nesnede toplar.
+//    outcomes/patterns alanları KASTEN DOKUNULMADI (geriye dönük
+//    uyumluluk — mevcut tüketiciler varsa kırılmasın); evet artık
+//    learning.recentOutcomes ile outcomes.recentOutcomes içerik olarak
+//    örtüşüyor, bu KASITLI bir geçiş dönemi fazlalığı, veri kaybı değil.
+//
+//    competitiveCampaigns/decision/rca/opportunity ŞİMDİLİK null/boş
+//    PLACEHOLDER — bunlar sırasıyla FAZ 6.4 (competitive-adapter.js),
+//    FAZ 6.7 (Decision Engine), FAZ 6.6 (RCA Engine), FAZ 6.5 (8-bileşenli
+//    Opportunity Score) tarafından doldurulacak. Şemada YER AYRILDI ki
+//    o fazlar geldiğinde context tüketicileri (ai-orchestrator.js vb.)
+//    ŞİMDİDEN bu alanların VARLIĞINA güvenebilsin (undefined değil, null).
+//
+//    PERFORMANS (§12 kuralı): coverage VE planning AYRI AYRI
+//    hesaplanmıyor — territory-engine.js'in buildTerritoryStrategy(ttt)
+//    zaten coverage'ı kendi pipeline'ında (rankBricks → analyzeCoverage →
+//    buildVisitPlan → analyzeWorkload) üretiyor; result.coverage TEK
+//    çağrıdan ikisine de dağıtılır, analyzeCoverage() İKİNCİ KEZ
+//    ÇAĞRILMAZ.
 //
 //  AI MİMARİ STABİLİZASYONU (bkz. docs/AI_MIMARI_STABILIZASYON_RAPORU.md):
 //    normalizedIMS/imsMetadata/growthSummary/trendSummary alanları
@@ -109,18 +143,75 @@
     }, {});
   }
 
-  // ── _resolveLearning — Phase 4.2 AI Memory / öğrenme katmanı ────────
-  // Gelecekte eklenecek learning bilgileri buraya bağlanır. Şu an için
-  // mevcut ai-memory.js varsa snapshot alınır, yoksa boş obje döner.
+  // ── _resolveLearning — FAZ 6.2 Learning Hub entegrasyonu ─────────────
+  // ÖNCEKİ HALİ: sadece { available: bool } stub'ı döndürüyordu.
+  // FAZ 6.3: learning-hub.js (FAZ 6.2) mevcutsa GERÇEK birleşik öğrenme
+  // context'i okunur (bestPatterns, successRate, predictionAccuracy,
+  // recentOutcomes, behaviorSignals, teamBestPractices,
+  // recommendationStats — bkz. learning-hub.js dosya başı şema).
+  // LearningHub yüklü değilse (rollback / FAZ 6.2 öncesi durum) eski
+  // stub davranışına düşülür — hata vermez.
   function _resolveLearning(ttt) {
     return _safe(function () {
-      if (typeof buildMemoryContext === 'function' && ttt) {
-        // buildMemoryContext metin döndürür (AI prompt'u için) — burada
-        // yapısal context'e dahil etmiyoruz, sadece varlığını işaretliyoruz.
-        return { available: true };
+      if (window.LearningHub && typeof window.LearningHub.getLearningContext === 'function') {
+        var ctx = window.LearningHub.getLearningContext(ttt);
+        ctx.available = true; // eski stub'ın {available} alanı geriye dönük korunur
+        return ctx;
       }
       return { available: false };
     }, { available: false });
+  }
+
+  // ── _resolveTerritory — FAZ 6.3: coverage + planning TEK ÇAĞRIDAN ───
+  // territory-engine.js'in buildTerritoryStrategy(ttt) fonksiyonu zaten
+  // coverage-engine.js'i kendi pipeline'ında çağırıyor (§12 performans
+  // kuralı: analyzeCoverage() İKİNCİ KEZ ÇAĞRILMAZ — sadece
+  // buildTerritoryStrategy() bir kez çağrılır, sonucu hem coverage hem
+  // planning alanlarına dağıtılır).
+  // @returns {{ coverage: Array, planning: Object }}
+  function _resolveTerritory(ttt) {
+    return _safe(function () {
+      if (!ttt || typeof window.buildTerritoryStrategy !== 'function') {
+        return { coverage: [], planning: {} };
+      }
+      var strategy = window.buildTerritoryStrategy(ttt);
+      return {
+        coverage: strategy.coverage || [],
+        planning: strategy // tüm strateji nesnesi (topBricks/weakBricks/visitPlan/workload/strategy dahil)
+      };
+    }, { coverage: [], planning: {} });
+  }
+
+  // ── _resolveForecast — FAZ 6.3: forecast-engine + runrate-engine ────
+  // İki motor da ayrı, bağımsız hesap yapıyor (biri ürün bazlı projeksiyon,
+  // diğeri günlük run-rate) — roadmap §11 şeması ikisini "forecast" altında
+  // birleştirmeyi istiyor, bu yüzden TEK nesneye toplanır. Hiçbir motor
+  // değiştirilmedi.
+  function _resolveForecast(ttt) {
+    return _safe(function () {
+      var forecast = (ttt && typeof window.generateForecast === 'function')
+        ? window.generateForecast(ttt) : null;
+      var runRate = (ttt && typeof window.calculateRunRate === 'function')
+        ? window.calculateRunRate(ttt) : null;
+      return { forecast: forecast, runRate: runRate };
+    }, { forecast: null, runRate: null });
+  }
+
+  // ── _resolveRecommendationHistory — FAZ 6.3: recommendation-memory.js ─
+  // recommendation-memory.js type="module" olarak yüklenir (deferred) —
+  // window.RecommendationMemory bridge'i ÇAĞRI ZAMANINDA kontrol edilir,
+  // dosya henüz yüklenmemişse güvenli boş dizi döner.
+  function _resolveRecommendationHistory(ttt) {
+    return _safe(function () {
+      if (!window.RecommendationMemory) return [];
+      if (ttt && typeof window.RecommendationMemory.getRecommendationsByRepresentative === 'function') {
+        return window.RecommendationMemory.getRecommendationsByRepresentative(ttt) || [];
+      }
+      if (typeof window.RecommendationMemory.getRecommendations === 'function') {
+        return window.RecommendationMemory.getRecommendations() || [];
+      }
+      return [];
+    }, []);
   }
 
   // ── _resolveOutcomes — FAZ 1.3 Outcome Tracker entegrasyonu ─────────
@@ -246,6 +337,11 @@
     // çağrısı veya tekrar normalize işlemi YOK.
     var normalizedIMS = _resolveNormalizedIMS(ttt);
 
+    // FAZ 6.3: territory-engine tek seferde çağrılır (coverage + planning
+    // ikisi de buradan dağıtılır — bkz. _resolveTerritory yorum notu)
+    var territory = _resolveTerritory(ttt);
+
+
     var context = {
       ttt:     ttt,
       brick:   overrides.brick || _safe(function () { return selEczaneBrick; }, null),
@@ -286,6 +382,29 @@
       growthSummary:  _resolveGrowthSummary(normalizedIMS),
       trendSummary:   _resolveTrendSummary(normalizedIMS),
 
+      // FAZ 6.3 (§11 şeması) — coverage + planning TEK territory
+      // çağrısından (bkz. _resolveTerritory yorum notu, performans §12)
+      coverage: territory.coverage,
+      planning: territory.planning,
+
+      // FAZ 6.3 — forecast-engine + runrate-engine birleşik
+      forecast: _resolveForecast(ttt),
+
+      // FAZ 6.3 — recommendation-memory.js geçmişi (ttt bazlı, varsa)
+      recommendationHistory: _resolveRecommendationHistory(ttt),
+
+      // FAZ 6.3 — PLACEHOLDER alanlar (§11 şeması, sonraki fazlar doldurur):
+      //   competitiveCampaigns ← FAZ 6.4 (competitive-adapter.js)
+      //   decision             ← FAZ 6.7 (Decision Engine)
+      //   rca                  ← FAZ 6.6 (RCA Engine)
+      //   opportunity          ← FAZ 6.5 (8-bileşenli Opportunity Score)
+      // null/boş olarak baştan tanımlanır ki context tüketicileri bu
+      // alanların VARLIĞINA (undefined değil) şimdiden güvenebilsin.
+      competitiveCampaigns: null,
+      decision: null,
+      rca: null,
+      opportunity: null,
+
       generatedAt: new Date().toISOString()
     };
 
@@ -297,6 +416,6 @@
     buildContext: buildContext
   };
 
-  console.debug('[ai-context-builder] FAZ 0 + FAZ 1.3 (outcomes) + FAZ 1.4 (patterns) + AI Mimari Stabilizasyonu (normalizedIMS) yüklendi.');
+  console.debug('[ai-context-builder] FAZ 0 + FAZ 1.3 (outcomes) + FAZ 1.4 (patterns) + AI Mimari Stabilizasyonu (normalizedIMS) + FAZ 6.3 v2 (learning/coverage/planning/forecast/recommendationHistory) yüklendi.');
 
 })();
