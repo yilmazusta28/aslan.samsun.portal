@@ -307,7 +307,15 @@
           var cep = _parseTiers(r.cepMf);
 
           var kampanyaTarih = _parseAksiyonTarih(r.aksiyonBaslik, r.ay);
-          var kampanya = (aksiyon.tiers.length || kampanyaTarih)
+          // DÜZELTME (FAZ 6.6 sırasında bulundu): kampanyaTarih, AKSİYON
+          // sütun BAŞLIĞINDAN gelir — bu başlık o ay TÜM satırlarda AYNI
+          // (pazar geneli aksiyon penceresinin varlığını gösterir, bir
+          // firmanın O PENCEREYE GERÇEKTEN KATILIP KATILMADIĞINI değil).
+          // "Bu firma bu ay kampanya yürüttü" sonucu SADECE o firmanın
+          // KENDİ aksiyonMf hücresi doluysa (aksiyon.tiers.length>0)
+          // çıkarılabilir — yoksa "pencere vardı ama bu firma katılmadı"
+          // durumu yanlışlıkla "kampanya yürüttü" gibi görünür.
+          var kampanya = aksiyon.tiers.length
             ? { baslangic: kampanyaTarih ? kampanyaTarih.baslangic : null,
                 bitis:     kampanyaTarih ? kampanyaTarih.bitis     : null,
                 tiers:     aksiyon.tiers }

@@ -128,6 +128,21 @@
 <script src="js/ai/core/ims-adapter.js"></script>
 <!-- END AI Mimari Stabilizasyonu — IMS Adapter -->
 
+<!-- İŞ KURALI — IMS Dönemsel Zaman Modeli (Temporal Intelligence)
+     Kullanıcı tarafından tanımlanan temel iş kuralı: h1..h9 alanları
+     "yılın ilk N haftası" DEĞİL, "içinde bulunulan 2 aylık hedef
+     döneminin (cycle) haftaları"dır. Bu motor TemporalContext üretir:
+     { currentCycle, cycleWeek, imsDataWeek, imsDataWeekRange, weekDateRanges,
+       dataLagWeeks, nextExpectedIMSUpdate, ... }
+     Doğrulanmış referans noktası: Mayıs-Haziran cycle'ı, h6=8-14 Haziran,
+     h1=4-10 Mayıs, bugün=ISO 25, imsDataWeek=ISO 24, dataLagWeeks=1.
+     Bağımlılık: date-utils.js (PERIODS), IMS global (çağrı zamanında).
+     Henüz hiçbir motora bağlanmadı — §6 kuralının "tüm AI motorları bu
+     Temporal Context'i kullanmalıdır" bağlaması ayrı bir adım.
+     Rollback: bu satırı silmek hiçbir şeyi KIRMAZ. -->
+<script src="js/ai/core/temporal-context-engine.js"></script>
+<!-- END Temporal Context Engine -->
+
 <!-- FAZ 6.4: Competitive Adapter Katmanı (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §5, §9, §16)
      RAKIP_AKSİYON.csv'nin ham parser çıktısını (window.RAKIP_AKSIYON_RAW —
      js/data/data-loader.js::syncData() içinde doldurulur) CompetitiveRecord[]
@@ -195,6 +210,22 @@
      buna bağımlı değil. -->
 <script src="js/ai/territory/market-share-engine.js"></script>
 <!-- END FAZ 6.3.5 Market Share Engine -->
+
+<!-- FAZ 6.6: Competitive Impact Engine (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §6, §16)
+     "Rakip kampanyası gerçekten etkili oldu mu, hangi brick etkilendi?"
+     sorusuna OLASILIKSAL (kesin değil) bir cevap üretir — RCA motoruna
+     (henüz YAZILMAMIŞ, js/ai/decision/rca-engine.js, ayrı bir FAZ) kanıt
+     besler. KRİTİK NOT: roadmap'in ilk tasarımı "h1..h9 haftalık bucket'a
+     haritalar" diyordu, ama kod incelemesinde sistemde h1..h9'u takvim
+     tarihine bağlayan HİÇBİR mekanizma bulunamadı — bu yüzden motor AY
+     BAZLI eşleme yapar (haftalık değil) ve güven skoru tavanı %65'tir
+     (asla daha kesin bir izlenim vermez). market-share-engine.js +
+     competitive-adapter.js'in çıktısını okur, DEĞİŞTİRMEZ. Henüz hiçbir
+     karar motoruna veya RCA'ya BAĞLANMADI.
+     Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — henüz hiçbir motor
+     buna bağımlı değil. -->
+<script src="js/ai/decision/competitive-impact-engine.js"></script>
+<!-- END FAZ 6.6 Competitive Impact Engine -->
 
 <script src="js/ai/territory/visit-planner.js"></script>
 <script src="js/ai/territory/workload-engine.js"></script>
@@ -294,6 +325,19 @@
      buna bağımlı değil. -->
 <script src="js/pharmacy/competitor-conditions.js"></script>
 <!-- END FAZ 6.4 Rakip Satış Şartları Yöneticisi -->
+
+<!-- FAZ 6.4.5: Lansman Hazırlık Modülü (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §9.3, §16)
+     FAMTREC gibi own-IMS-satışı-olmayan ("lansman öncesi") pazarlar için,
+     RakipSartlariManager (yukarıda) + market-share-engine.js (varsa) zaten
+     ürettiği veriyi "rakiplerin güncel şartı ne, biz hangi şartla
+     rekabetçi oluruz?" sorusuna cevap verecek şekilde özetler. Yeni bir
+     hesap motoru DEĞİL — mevcut verinin farklı bir soru için yeniden
+     sunumu (§9.3: "çok düşük efor, yüksek görünürlük"). Henüz hiçbir
+     karar motoruna veya AI Asistan'a (ai-context.js) BAĞLANMADI.
+     Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — henüz hiçbir motor
+     buna bağımlı değil. -->
+<script src="js/ai/territory/launch-readiness-engine.js"></script>
+<!-- END FAZ 6.4.5 Lansman Hazırlık Modülü -->
 <!-- END PHASE 4.7 -->
 <script src="js/pharmacy/pharmacy-intelligence.js"></script>
 <script src="js/pharmacy/pharmacy-data-manager.js"></script>
