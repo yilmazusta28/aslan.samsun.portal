@@ -227,6 +227,19 @@
 <script src="js/ai/decision/competitive-impact-engine.js"></script>
 <!-- END FAZ 6.6 Competitive Impact Engine -->
 
+<!-- FAZ 6.5: 8-Bileşenli Opportunity Score Engine (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §7, §16)
+     brick-ranking-engine.js'in 5-bileşenli skorunu 3 yeni bileşenle
+     (Learning %12 + Outcome %8 + Sipariş Döngüsü %5) genişletir.
+     brick-ranking-engine.js DEĞİŞTİRİLMEDİ — çıktısını bir üst katmanda
+     genişletir. AIContextBuilder.context.opportunity alanını doldurur
+     (önceden null placeholder'dı, artık gerçek veri). Bağımlılıklar:
+     rankBricks() (zorunlu), PatternLearningEngine/OutcomeTracker/
+     PharmacyBehaviorEngine (opsiyonel — yoksa nötr 50 puan kullanır).
+     Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — AIContextBuilder
+     eksik durumda null'a güvenli düşer. -->
+<script src="js/ai/decision/opportunity-score-engine.js"></script>
+<!-- END FAZ 6.5 Opportunity Score Engine -->
+
 <script src="js/ai/territory/visit-planner.js"></script>
 <script src="js/ai/territory/workload-engine.js"></script>
 <script src="js/ai/territory/territory-engine.js"></script>

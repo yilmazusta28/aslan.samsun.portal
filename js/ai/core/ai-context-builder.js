@@ -397,13 +397,16 @@
       //   competitiveCampaigns ← FAZ 6.4 (competitive-adapter.js)
       //   decision             ← FAZ 6.7 (Decision Engine)
       //   rca                  ← FAZ 6.6 (RCA Engine)
-      //   opportunity          ← FAZ 6.5 (8-bileşenli Opportunity Score)
-      // null/boş olarak baştan tanımlanır ki context tüketicileri bu
-      // alanların VARLIĞINA (undefined değil) şimdiden güvenebilsin.
       competitiveCampaigns: null,
       decision: null,
       rca: null,
-      opportunity: null,
+
+      // FAZ 6.5 — 8-bileşenli Opportunity Score (OpportunityScoreEngine).
+      // OpportunityScoreEngine yüklü değilse null → geriye dönük uyumlu.
+      opportunity: _safe(function () {
+        if (!window.OpportunityScoreEngine) return null;
+        return window.OpportunityScoreEngine.getOpportunityContext(ttt);
+      }, null),
 
       generatedAt: new Date().toISOString()
     };
@@ -416,6 +419,6 @@
     buildContext: buildContext
   };
 
-  console.debug('[ai-context-builder] FAZ 0 + FAZ 1.3 (outcomes) + FAZ 1.4 (patterns) + AI Mimari Stabilizasyonu (normalizedIMS) + FAZ 6.3 v2 (learning/coverage/planning/forecast/recommendationHistory) yüklendi.');
+  console.debug('[ai-context-builder] FAZ 0 + FAZ 1.3 (outcomes) + FAZ 1.4 (patterns) + AI Mimari Stabilizasyonu (normalizedIMS) + FAZ 6.3 v2 (learning/coverage/planning/forecast/recommendationHistory) + FAZ 6.5 (opportunity/8-bileşen) yüklendi.');
 
 })();
