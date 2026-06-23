@@ -48,12 +48,12 @@ function tabActivatePages(idx) {
 }
 
 /* ── Core: activate sidebar nav items ───────────────────────
- *  snav0…snav6 ids.
+ *  snav0…snav7 ids (FAZ 6.9: Yönetici tab eklendi, 7→8).
  * @param {number} idx
- * @param {number} [count=7]
+ * @param {number} [count=8]
  */
 function tabActivateSideNav(idx, count) {
-  const n = (count !== undefined ? count : 7);
+  const n = (count !== undefined ? count : 8);
   for (let k = 0; k < n; k++) {
     const el = uiById('snav' + k);
     if (el) el.classList.toggle('active', k === idx);
@@ -61,12 +61,12 @@ function tabActivateSideNav(idx, count) {
 }
 
 /* ── Mobile tab bar ─────────────────────────────────────────
- *  mtb0…mtb6 buttons + mtbIndicator strip.
+ *  mtb0…mtb7 buttons + mtbIndicator strip (FAZ 6.9: 7→8).
  * @param {number} idx
- * @param {number} [count=7]
+ * @param {number} [count=8]
  */
 function tabActivateMobileTabs(idx, count) {
-  const n = (count !== undefined ? count : 7);
+  const n = (count !== undefined ? count : 8);
   for (let k = 0; k < n; k++) {
     const btn = uiById('mtb' + k);
     if (btn) btn.classList.toggle('active', k === idx);
@@ -82,7 +82,7 @@ function tabActivateMobileTabs(idx, count) {
  *
  * @param {number} idx   page / tab index
  * @param {object} [opts]
- * @param {number}  [opts.tabCount=7]    total tab count
+ * @param {number}  [opts.tabCount=8]    total tab count (FAZ 6.9: 7→8)
  * @param {boolean} [opts.skipPages]     skip .page activation
  * @param {boolean} [opts.skipNavTabs]   skip desktop .nav-tab
  * @param {boolean} [opts.skipSideNav]   skip snav* items

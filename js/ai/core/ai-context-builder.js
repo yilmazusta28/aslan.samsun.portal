@@ -398,7 +398,13 @@
       //   decision             ← FAZ 6.7 (Decision Engine)
       //   rca                  ← FAZ 6.6 (RCA Engine)
       competitiveCampaigns: null,
-      decision: null,
+
+      // FAZ 6.7 — Decision Engine bağlantısı.
+      // DecisionEngine yoksa null'a güvenli düşer — geriye dönük uyumlu.
+      decision: _safe(function () {
+        if (!window.DecisionEngine) return null;
+        return window.DecisionEngine.getDecisionContext({ ttt: ttt });
+      }, null),
       rca: null,
 
       // FAZ 6.5 — 8-bileşenli Opportunity Score (OpportunityScoreEngine).
@@ -419,6 +425,6 @@
     buildContext: buildContext
   };
 
-  console.debug('[ai-context-builder] FAZ 0 + FAZ 1.3 (outcomes) + FAZ 1.4 (patterns) + AI Mimari Stabilizasyonu (normalizedIMS) + FAZ 6.3 v2 (learning/coverage/planning/forecast/recommendationHistory) + FAZ 6.5 (opportunity/8-bileşen) yüklendi.');
+  console.debug('[ai-context-builder] FAZ 0 + FAZ 1.3 (outcomes) + FAZ 1.4 (patterns) + AI Mimari Stabilizasyonu (normalizedIMS) + FAZ 6.3 v2 (learning/coverage/planning/forecast/recommendationHistory) + FAZ 6.5 (opportunity/8-bileşen) + FAZ 6.7 (decision) yüklendi.');
 
 })();
