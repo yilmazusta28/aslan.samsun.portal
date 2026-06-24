@@ -240,31 +240,6 @@
 <script src="js/ai/decision/opportunity-score-engine.js"></script>
 <!-- END FAZ 6.5 Opportunity Score Engine -->
 
-<!-- FAZ 6.7: Decision Engine (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §9, §16)
-     Sistem artık sadece ANALİZ değil, KARAR üretir. Alternatif aksiyon
-     seçenekleri oluşturur; başarı olasılığı / risk / TL etkisi üzerinden
-     puanlar; en uygun alternatifi seçer.
-     Problem tipleri: BRICK_PRIORITY, PRODUCT_FOCUS, DEFENSE, RECOVERY, GROWTH.
-     Bağımlılıklar: opportunity-score-engine.js + competitive-impact-engine.js
-     (opsiyonel — yoksa sessizce devreye girmez); risk-engine, forecast-engine,
-     scenario-builder, learning-hub (hepsi opsiyonel).
-     AIContextBuilder.context.decision alanını doldurur (önceden null'dı).
-     Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — AIContextBuilder
-     eksik durumda null'a güvenli düşer. -->
-<script src="js/ai/decision/decision-engine.js"></script>
-<!-- END FAZ 6.7 Decision Engine -->
-
-<!-- FAZ 6.8: Team Learning (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §8, §16)
-     En başarılı temsilci davranışını öğrenir ve yöneticiye + diğer
-     temsilcilere "ne işe yarıyor?" bilgisini sunar.
-     LearningHub.getTeamBestPractices() (FAZ 6.2) × team-ranking-engine'i
-     bağlar; her ikisini de DEĞİŞTİRMEZ.
-     executive-engine.js'in buildExecutiveDashboard() çıktısına
-     enrichExecutiveDashboard() ile teamLearning alanı ekler.
-     Rollback: bu satırı silmek hiçbir şeyi KIRMAZ. -->
-<script src="js/ai/decision/team-learning.js"></script>
-<!-- END FAZ 6.8 Team Learning -->
-
 <script src="js/ai/territory/visit-planner.js"></script>
 <script src="js/ai/territory/workload-engine.js"></script>
 <script src="js/ai/territory/territory-engine.js"></script>
@@ -2119,8 +2094,27 @@ function goPage(i){
   else if(i===4){ buildPrimInputs(); syncPrimFromCalc(); }
   else if(i===5){ if(typeof renderAiAsistan==='function') renderAiAsistan(); }
   else if(i===6)renderEczane();
-  else if(i===7){ if(typeof renderYonetici==='function') renderYonetici(); }
+  else if(i===7)renderYoneticiPanel();
 }
+
+function renderYoneticiPanel() {
+  // TTT seçimi AI & Motor sayfasından alınır
+  var ttt = (typeof window.curTTT !== 'undefined' && window.curTTT) || '';
+  
+  // Executive Dashboard
+  if (typeof window.renderExecutiveDashboard === 'function') {
+    window.renderExecutiveDashboard('executiveDashboardContainer');
+  }
+  // Territory Summary
+  if (typeof window.renderTerritorySummary === 'function') {
+    window.renderTerritorySummary(ttt, 'territorySummaryContainer');
+  }
+  // Autonomous Dashboard
+  if (typeof window.renderAutonomousDashboard === 'function') {
+    window.renderAutonomousDashboard('autonomousDashboardContainer', ttt);
+  }
+}
+
 
 // ── DARK MODE ────────────────────────────────────────────
 function _applyDarkUI(isDark){
@@ -2404,97 +2398,6 @@ function buildCompetitionAlerts(ttt){
     });
   });
   return alerts;
-}
-
-// ══════════════════════════════════════════════════════════════════
-// FAZ 6.9 — Yönetici Paneli (page7)
-// AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §1.3, §16: Executive/Territory/
-// Autonomous "headless" motorları gerçek UI'a bağlama fazının ilk adımı.
-// Bağımlılıklar (hepsi opsiyonel — typeof ile kontrol edilir, eksikse
-// kart sessizce "veri yok" durumuna düşer, hata FIRLATMAZ):
-//   buildExecutiveDashboard, renderExecutiveDashboard  (executive-engine.js)
-//   buildTeamRanking                                    (team-ranking-engine.js)
-//   analyzeTeamRisk                                     (team-risk-engine.js)
-//   window.TeamLearning                                 (team-learning.js, FAZ 6.8)
-// Rollback: bu fonksiyonu silmek hiçbir şeyi KIRMAZ — goPage() çağrısı
-// typeof kontrolü ile sessizce atlar.
-// ══════════════════════════════════════════════════════════════════
-function renderYonetici(){
-  if(!GENEL.length||!IMS.length) return;
-  if(typeof buildExecutiveDashboard!=='function'){
-    document.getElementById('yonRankBody').innerHTML='<tr><td colspan="7" style="color:var(--dim);text-align:center;padding:14px">Executive Dashboard motoru yüklenemedi.</td></tr>';
-    return;
-  }
-
-  const dash=buildExecutiveDashboard();
-  const fc=dash.forecast||{}, s=dash.summary||{};
-
-  // ── Hero meta ──────────────────────────────────────────
-  document.getElementById('yon_forecast').textContent=fPct(fc.teamForecast||0);
-  const riskLevel=s.teamRiskLevel||'LOW';
-  const riskEl=document.getElementById('yon_risk');
-  riskEl.textContent=riskLevel==='HIGH'?'Yüksek':riskLevel==='MEDIUM'?'Orta':'Düşük';
-  riskEl.className='engine-meta-val '+(riskLevel==='HIGH'?'danger':riskLevel==='MEDIUM'?'warn':'good');
-  document.getElementById('yon_prim').textContent=fc.projectedPrim?fTL(fc.projectedPrim):'—';
-  document.getElementById('yon_above91').textContent=(fc.repsAbove91||0)+' / '+((fc.repsAbove91||0)+(fc.repsBelow91||0));
-  document.getElementById('yon_updated').textContent=dash.generatedAt?new Date(dash.generatedAt).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}):'—';
-
-  // ── KPI + İlk 5 + Yönetim Görüşleri (mevcut motor — değiştirilmedi) ──
-  if(typeof renderExecutiveDashboard==='function'){
-    renderExecutiveDashboard('executiveDashboardContainer');
-  }
-
-  // ── Ekip Sıralaması (tam liste) ──────────────────────────
-  const ranking=dash.ranking||[];
-  document.getElementById('yonRankBadge').textContent=ranking.length+' Temsilci';
-  const catLbl={STAR:'⭐ Star',STABLE:'✅ Stabil',WATCHLIST:'👁 İzleme',RISK:'🔴 Risk'};
-  const catColor={STAR:'#7C3AED',STABLE:'#059669',WATCHLIST:'#D97706',RISK:'#DC2626'};
-  document.getElementById('yonRankBody').innerHTML = ranking.length ? ranking.map(r=>`
-    <tr>
-      <td>#${r.rank}</td>
-      <td>${r.ttt}</td>
-      <td>${fPct(r.realization)}</td>
-      <td>${fPct(r.forecast)}</td>
-      <td>${r.score}</td>
-      <td><span style="color:${catColor[r.category]||'#64748B'};font-weight:700">${catLbl[r.category]||r.category||'—'}</span></td>
-      <td>${r.primEstimate?fTL(r.primEstimate):'—'}</td>
-    </tr>`).join('') : '<tr><td colspan="7" style="color:var(--dim);text-align:center;padding:14px">Veri yok</td></tr>';
-
-  // ── Risk Haritası (HIGH + MEDIUM, tam liste) ─────────────
-  const risks=(dash.risks||[]).filter(r=>r.risk!=='LOW');
-  document.getElementById('yonRiskBadge').textContent=(s.highRisk?s.highRisk.length:0)+' Yüksek · '+risks.filter(r=>r.risk==='MEDIUM').length+' Orta';
-  const riskColor={HIGH:'#DC2626',MEDIUM:'#D97706'};
-  const riskBg={HIGH:'#FEF2F2',MEDIUM:'#FFFBEB'};
-  document.getElementById('yonRiskGrid').innerHTML = risks.length ? risks.map(r=>`
-    <div class="risk-panel">
-      <div class="risk-panel-title" style="color:${riskColor[r.risk]}">
-        <div style="width:32px;height:32px;border-radius:10px;background:${riskBg[r.risk]};display:flex;align-items:center;justify-content:center;font-size:15px">${r.risk==='HIGH'?'🔴':'🟡'}</div>
-        ${r.ttt}
-      </div>
-      <div class="risk-item" style="border-color:${riskColor[r.risk]}44;background:${riskBg[r.risk]}">
-        <div class="risk-item-name">${r.risk==='HIGH'?'Yüksek':'Orta'} risk — Skor ${r.riskScore} · Gerçekleşme %${r.realization} · Forecast %${r.forecast}</div>
-        <div class="risk-item-detail">${(r.reasons||[]).join('<br>')||'—'}</div>
-      </div>
-    </div>`).join('') : '<div style="grid-column:1/-1;color:var(--dim);font-size:12px;padding:8px">Yüksek/orta risk tespit edilmedi — ekip sağlıklı durumda. ✅</div>';
-
-  // ── Takım Öğrenmesi (FAZ 6.8) ────────────────────────────
-  const tl=dash.teamLearning;
-  if(window.TeamLearning && tl && tl.context && tl.context.dataAvailable){
-    const c=tl.context;
-    document.getElementById('yonLearningBadge').textContent=c.totalSamples+' örnek';
-    let html=`<div style="margin-bottom:10px;font-size:12px;color:var(--dim)">Sistem geneli öneri başarı oranı: <strong>%${c.avgSuccessRate}</strong></div>`;
-    if(c.bestActionType) html+=`<div style="margin-bottom:6px">🏆 En başarılı aksiyon tipi: <strong>${c.bestActionType.name}</strong> (%${c.bestActionType.successRate})</div>`;
-    if(c.bestProduct) html+=`<div style="margin-bottom:6px">💊 En başarılı ürün: <strong>${c.bestProduct.name}</strong> (%${c.bestProduct.successRate})</div>`;
-    if(c.bestBrick) html+=`<div style="margin-bottom:10px">📍 En çok veri biriken brick: <strong>${c.bestBrick.name}</strong> (${c.bestBrick.sampleCount} örnek)</div>`;
-    if(tl.insights&&tl.insights.length){
-      html+='<div style="border-top:1px solid var(--border);padding-top:10px;margin-top:6px">'+
-        tl.insights.slice(0,5).map(i=>`<div style="margin-bottom:6px;font-size:12px">• ${i.insight}</div>`).join('')+'</div>';
-    }
-    document.getElementById('yonLearningBody').innerHTML=html;
-  } else {
-    document.getElementById('yonLearningBadge').textContent='Veri birikiyor';
-    document.getElementById('yonLearningBody').innerHTML='<div style="color:var(--dim);font-size:12px">Takım öğrenmesi için henüz yeterli öneri-sonuç verisi yok. Sistem önerileri üretip sonuçlarını (Outcome Tracker) topladıkça bu kart otomatik dolacak.</div>';
-  }
 }
 
 // PHASE23-STUB: renderGenelTablo — business render orchestrator; NOT moved.
@@ -4655,7 +4558,7 @@ function _buildEczaneDrawerRefresh(){
         <span class="tab-label">Eczane</span>
       </button>
       <button class="nav-tab" id="ntab7" onclick="goPage(7)">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2M12 12v4M10 14h4"/></svg>
         <span class="tab-label">Yönetici</span>
       </button>
     </div>
@@ -5645,99 +5548,10 @@ function _buildEczaneDrawerRefresh(){
   </div>
 </div>
 
-<!-- ══════ PAGE 7: YÖNETİCİ PANELİ (FAZ 6.9) ══════
-     AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §1.3, §16 — "headless" motorları
-     (Executive/Territory/Autonomous) gerçek UI kartlarına bağlama fazı.
-     Bu sayfa şu üç hazır-ama-bağlanmamış motoru kullanır:
-       • executive-engine.js::renderExecutiveDashboard() — ZATEN YAZILMIŞTI,
-         sadece #executiveDashboardContainer yoktu (KPI kartları + İlk 5 +
-         Yönetim Görüşleri). Hiçbir satırı değiştirilmedi.
-       • team-risk-engine.js + team-ranking-engine.js — tam ekip risk
-         haritası ve sıralama tablosu için (renderExecutiveDashboard sadece
-         "top 5" ve "en büyük tek risk" gösteriyor, burada TÜM ekip listelenir).
-       • team-learning.js (FAZ 6.8) — "Takım Öğrenmesi" kartı, az önce
-         executive-engine.js'e bağlandı (dash.teamLearning).
-     Hiçbir mevcut motor/dosya DEĞİŞTİRİLMEDİ — sadece görsel katman eklendi.
-     Rollback: bu page div'ini + nav/goPage referanslarını (ntab7, mtb7,
-     snav7, goPage'deki i===7 dalı) silmek hiçbir şeyi KIRMAZ. -->
-<div class="page" id="page7">
 
-  <!-- ═══ HERO BAŞLIK ═══ -->
-  <div class="engine-hero">
-    <div class="engine-hero-top">
-      <div>
-        <div class="engine-badge"><i class="fas fa-user-tie"></i> Executive Intelligence</div>
-        <div class="engine-title" style="margin-top:10px">🏢 Yönetici Paneli</div>
-        <div class="engine-subtitle">Ekip sıralaması · Risk haritası · Forecast &amp; Prim projeksiyonu · Takım öğrenmesi</div>
-      </div>
-    </div>
-    <div class="engine-meta" id="yonMeta">
-      <div class="engine-meta-item">
-        <div class="engine-meta-label">Ekip Forecast</div>
-        <div class="engine-meta-val" id="yon_forecast">—</div>
-      </div>
-      <div class="engine-meta-item">
-        <div class="engine-meta-label">Ekip Risk</div>
-        <div class="engine-meta-val" id="yon_risk">—</div>
-      </div>
-      <div class="engine-meta-item">
-        <div class="engine-meta-label">Tahmini Ekip Primi</div>
-        <div class="engine-meta-val" id="yon_prim">—</div>
-      </div>
-      <div class="engine-meta-item">
-        <div class="engine-meta-label">%91+ Temsilci</div>
-        <div class="engine-meta-val" id="yon_above91">—</div>
-      </div>
-      <div class="engine-meta-item">
-        <div class="engine-meta-label">Güncellendi</div>
-        <div class="engine-meta-val" id="yon_updated">—</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ KPI + İlk 5 + Yönetim Görüşleri (mevcut, hazır motor — executive-engine.js) ═══ -->
-  <div id="executiveDashboardContainer" class="mb16"></div>
-
-  <!-- ═══ Ekip Sıralaması (TAM liste) ═══ -->
-  <div class="card mb16">
-    <div class="card-hd">
-      <span class="card-title"><i class="fas fa-ranking-star"></i> Ekip Sıralaması — Tüm Temsilciler</span>
-      <span class="card-badge" id="yonRankBadge">—</span>
-    </div>
-    <div class="card-body-0 scroll-x">
-      <table class="tbl" id="yonRankTable">
-        <thead><tr><th>Sıra</th><th>Temsilci</th><th>Gerçekleşme</th><th>Forecast</th><th>Skor</th><th>Kategori</th><th>Tahmini Prim</th></tr></thead>
-        <tbody id="yonRankBody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- ═══ Risk Haritası (TAM liste — HIGH + MEDIUM) ═══ -->
-  <div class="card mb16">
-    <div class="card-hd">
-      <span class="card-title"><i class="fas fa-triangle-exclamation"></i> Risk Haritası</span>
-      <span class="card-badge" id="yonRiskBadge">—</span>
-    </div>
-    <div class="card-body" style="padding:14px 18px">
-      <div class="risk-grid" id="yonRiskGrid"></div>
-    </div>
-  </div>
-
-  <!-- ═══ Takım Öğrenmesi (FAZ 6.8 — TeamLearning) ═══ -->
-  <div class="card mb16" style="border:1.5px solid rgba(27,206,216,.2)">
-    <div class="card-hd" style="background:linear-gradient(90deg,rgba(27,206,216,.04),transparent)">
-      <span class="card-title"><i class="fas fa-graduation-cap"></i> Takım Öğrenmesi</span>
-      <span class="card-badge" id="yonLearningBadge">—</span>
-    </div>
-    <div class="card-body" style="padding:14px 18px" id="yonLearningBody">—</div>
-  </div>
-
-</div>
-<!-- END PAGE 7: YÖNETİCİ PANELİ -->
 
 </div><!-- /main -->
 </div><!-- /app -->
-
 
 
 <!-- ═══ GLOBAL FILTER DRAWERS ═══ -->
@@ -5809,6 +5623,79 @@ document.addEventListener('click', function(e) {
   SoundFX.click();
 }, true);
 </script>
+
+
+<!-- ══════ PAGE 7: YÖNETİCİ PANELİ ══════ -->
+<div class="page" id="page7">
+
+  <!-- HERO -->
+  <div class="engine-hero" style="background:linear-gradient(135deg,rgba(79,0,140,.08),rgba(27,206,216,.04))">
+    <div class="engine-hero-top">
+      <div>
+        <div class="engine-badge"><i class="fas fa-user-tie"></i> Executive Intelligence</div>
+        <div class="engine-title" style="margin-top:10px">📊 Yönetici Paneli</div>
+        <div class="engine-subtitle">Ekip forecas · Territory özeti · Otonom planlama · Temsilci sıralaması</div>
+      </div>
+      <button class="engine-run-btn" onclick="renderYoneticiPanel()" style="background:linear-gradient(135deg,#4F008C,#7C3AED)">
+        <i class="fas fa-sync-alt"></i> Yenile
+      </button>
+    </div>
+  </div>
+
+  <div style="padding:0 4px">
+
+    <!-- ── 1. EKİP EXECUTIVE DASHBOARD ── -->
+    <div class="card mb16" style="border:1.5px solid rgba(79,0,140,.15)">
+      <div class="card-hd" style="background:linear-gradient(90deg,rgba(79,0,140,.05),transparent)">
+        <span class="card-title"><i class="fas fa-chart-bar"></i> Ekip Executive Dashboard</span>
+        <span class="card-badge" style="background:linear-gradient(135deg,#4F008C,#7C3AED);color:#fff">Forecast · Risk · Prim</span>
+      </div>
+      <div class="card-body" style="padding:14px 18px">
+        <div id="executiveDashboardContainer">
+          <div style="text-align:center;padding:32px 20px;color:var(--dim)">
+            <div style="font-size:28px;margin-bottom:8px">📊</div>
+            <div style="font-size:12px">Sayfa açıldığında otomatik yüklenir…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 2. TERRITORY ÖZET ── -->
+    <div class="card mb16" style="border:1.5px solid rgba(27,206,216,.2)">
+      <div class="card-hd" style="background:linear-gradient(90deg,rgba(27,206,216,.05),transparent)">
+        <span class="card-title"><i class="fas fa-map"></i> Territory Özeti</span>
+        <span class="card-badge">Coverage · Fırsat · Workload</span>
+      </div>
+      <div class="card-body" style="padding:14px 18px">
+        <div id="territorySummaryContainer">
+          <div style="text-align:center;padding:32px 20px;color:var(--dim)">
+            <div style="font-size:28px;margin-bottom:8px">🗺️</div>
+            <div style="font-size:12px">Temsilci seçiliyse AI &amp; Motor'da motor çalıştırın, ardından bu sayfaya gelin.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 3. OTONOM PLANLAMA ── -->
+    <div class="card mb16" style="border:1.5px solid rgba(5,150,105,.2)">
+      <div class="card-hd" style="background:linear-gradient(90deg,rgba(5,150,105,.05),transparent)">
+        <span class="card-title"><i class="fas fa-robot"></i> Otonom Günlük Plan</span>
+        <span class="card-badge" style="background:linear-gradient(135deg,#059669,#10B981);color:#fff">Autonomous Planning Engine</span>
+      </div>
+      <div class="card-body" style="padding:14px 18px">
+        <div id="autonomousDashboardContainer">
+          <div style="text-align:center;padding:32px 20px;color:var(--dim)">
+            <div style="font-size:28px;margin-bottom:8px">🤖</div>
+            <div style="font-size:12px">Temsilci seçiliyse otomatik hesaplanır.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /padding wrapper -->
+
+</div><!-- /page7 -->
+
 </body>
 </html>
 
