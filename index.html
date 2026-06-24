@@ -240,6 +240,18 @@
 <script src="js/ai/decision/opportunity-score-engine.js"></script>
 <!-- END FAZ 6.5 Opportunity Score Engine -->
 
+<!-- FAZ 6.7: Decision Intelligence Engine (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §9, §16)
+     5-adımlı pipeline: alternatif üret → başarı skoru → risk skoru →
+     TL etkisi → en iyi seç. Tüm mevcut motorları (OpportunityScoreEngine,
+     LearningHub, detectRisks, CompetitiveImpactEngine, analyzeBrickImpact,
+     TemporalContextEngine, LaunchReadinessEngine) GİRDİ olarak kullanır —
+     hiçbirini değiştirmez. Çıktı: {recommendation, confidence, expectedTL,
+     risk, alternatives[]}. Güven tavanı: %80 (birden fazla motor zinciri).
+     AIContextBuilder.context.decision alanını doldurur (önceden null'dı).
+     Rollback: bu satırı silmek hiçbir şeyi KIRMAZ. -->
+<script src="js/ai/decision/decision-engine.js"></script>
+<!-- END FAZ 6.7 Decision Engine -->
+
 <script src="js/ai/territory/visit-planner.js"></script>
 <script src="js/ai/territory/workload-engine.js"></script>
 <script src="js/ai/territory/territory-engine.js"></script>
@@ -2076,9 +2088,9 @@ function goPage(i){
   // tab-system.js mirrors them for reuse elsewhere.
   document.querySelectorAll('.page').forEach((p,j)=>p.classList.toggle('active',j===i));
   document.querySelectorAll('.nav-tab').forEach((t,j)=>t.classList.toggle('active',j===i));
-  for(let k=0;k<=7;k++){const el=document.getElementById('snav'+k);if(el)el.classList.toggle('active',k===i);}
+  for(let k=0;k<=6;k++){const el=document.getElementById('snav'+k);if(el)el.classList.toggle('active',k===i);}
   // ── Mobil tab bar güncelle ──────────────────────────────
-  for(let k=0;k<=7;k++){
+  for(let k=0;k<=6;k++){
     const btn=document.getElementById('mtb'+k);
     if(btn) btn.classList.toggle('active',k===i);
   }
@@ -2094,27 +2106,7 @@ function goPage(i){
   else if(i===4){ buildPrimInputs(); syncPrimFromCalc(); }
   else if(i===5){ if(typeof renderAiAsistan==='function') renderAiAsistan(); }
   else if(i===6)renderEczane();
-  else if(i===7)renderYoneticiPanel();
 }
-
-function renderYoneticiPanel() {
-  // TTT seçimi AI & Motor sayfasından alınır
-  var ttt = (typeof window.curTTT !== 'undefined' && window.curTTT) || '';
-  
-  // Executive Dashboard
-  if (typeof window.renderExecutiveDashboard === 'function') {
-    window.renderExecutiveDashboard('executiveDashboardContainer');
-  }
-  // Territory Summary
-  if (typeof window.renderTerritorySummary === 'function') {
-    window.renderTerritorySummary(ttt, 'territorySummaryContainer');
-  }
-  // Autonomous Dashboard
-  if (typeof window.renderAutonomousDashboard === 'function') {
-    window.renderAutonomousDashboard('autonomousDashboardContainer', ttt);
-  }
-}
-
 
 // ── DARK MODE ────────────────────────────────────────────
 function _applyDarkUI(isDark){
@@ -4557,10 +4549,6 @@ function _buildEczaneDrawerRefresh(){
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 3h18v18H3z"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
         <span class="tab-label">Eczane</span>
       </button>
-      <button class="nav-tab" id="ntab7" onclick="goPage(7)">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2M12 12v4M10 14h4"/></svg>
-        <span class="tab-label">Yönetici</span>
-      </button>
     </div>
   </div>
 </div>
@@ -4595,10 +4583,6 @@ function _buildEczaneDrawerRefresh(){
   <button class="mtb-btn" id="mtb6" onclick="goPage(6)">
     <span class="mtb-icon"><i class="fas fa-clinic-medical"></i></span>
     <span class="mtb-label">Eczane</span>
-  </button>
-  <button class="mtb-btn" id="mtb7" onclick="goPage(7)">
-    <span class="mtb-icon"><i class="fas fa-user-tie"></i></span>
-    <span class="mtb-label">Yönetici</span>
   </button>
 </div>
 
@@ -4662,9 +4646,6 @@ function _buildEczaneDrawerRefresh(){
   </div>
   <div class="nav-item pg" id="snav6" onclick="goPage(6)">
     <span class="nav-icon"><i class="fas fa-clinic-medical"></i></span><span>Eczane Satış</span>
-  </div>
-  <div class="nav-item pg" id="snav7" onclick="goPage(7)">
-    <span class="nav-icon"><i class="fas fa-user-tie"></i></span><span>Yönetici Paneli</span>
   </div>
 
 
@@ -5623,79 +5604,6 @@ document.addEventListener('click', function(e) {
   SoundFX.click();
 }, true);
 </script>
-
-
-<!-- ══════ PAGE 7: YÖNETİCİ PANELİ ══════ -->
-<div class="page" id="page7">
-
-  <!-- HERO -->
-  <div class="engine-hero" style="background:linear-gradient(135deg,rgba(79,0,140,.08),rgba(27,206,216,.04))">
-    <div class="engine-hero-top">
-      <div>
-        <div class="engine-badge"><i class="fas fa-user-tie"></i> Executive Intelligence</div>
-        <div class="engine-title" style="margin-top:10px">📊 Yönetici Paneli</div>
-        <div class="engine-subtitle">Ekip forecas · Territory özeti · Otonom planlama · Temsilci sıralaması</div>
-      </div>
-      <button class="engine-run-btn" onclick="renderYoneticiPanel()" style="background:linear-gradient(135deg,#4F008C,#7C3AED)">
-        <i class="fas fa-sync-alt"></i> Yenile
-      </button>
-    </div>
-  </div>
-
-  <div style="padding:0 4px">
-
-    <!-- ── 1. EKİP EXECUTIVE DASHBOARD ── -->
-    <div class="card mb16" style="border:1.5px solid rgba(79,0,140,.15)">
-      <div class="card-hd" style="background:linear-gradient(90deg,rgba(79,0,140,.05),transparent)">
-        <span class="card-title"><i class="fas fa-chart-bar"></i> Ekip Executive Dashboard</span>
-        <span class="card-badge" style="background:linear-gradient(135deg,#4F008C,#7C3AED);color:#fff">Forecast · Risk · Prim</span>
-      </div>
-      <div class="card-body" style="padding:14px 18px">
-        <div id="executiveDashboardContainer">
-          <div style="text-align:center;padding:32px 20px;color:var(--dim)">
-            <div style="font-size:28px;margin-bottom:8px">📊</div>
-            <div style="font-size:12px">Sayfa açıldığında otomatik yüklenir…</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── 2. TERRITORY ÖZET ── -->
-    <div class="card mb16" style="border:1.5px solid rgba(27,206,216,.2)">
-      <div class="card-hd" style="background:linear-gradient(90deg,rgba(27,206,216,.05),transparent)">
-        <span class="card-title"><i class="fas fa-map"></i> Territory Özeti</span>
-        <span class="card-badge">Coverage · Fırsat · Workload</span>
-      </div>
-      <div class="card-body" style="padding:14px 18px">
-        <div id="territorySummaryContainer">
-          <div style="text-align:center;padding:32px 20px;color:var(--dim)">
-            <div style="font-size:28px;margin-bottom:8px">🗺️</div>
-            <div style="font-size:12px">Temsilci seçiliyse AI &amp; Motor'da motor çalıştırın, ardından bu sayfaya gelin.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── 3. OTONOM PLANLAMA ── -->
-    <div class="card mb16" style="border:1.5px solid rgba(5,150,105,.2)">
-      <div class="card-hd" style="background:linear-gradient(90deg,rgba(5,150,105,.05),transparent)">
-        <span class="card-title"><i class="fas fa-robot"></i> Otonom Günlük Plan</span>
-        <span class="card-badge" style="background:linear-gradient(135deg,#059669,#10B981);color:#fff">Autonomous Planning Engine</span>
-      </div>
-      <div class="card-body" style="padding:14px 18px">
-        <div id="autonomousDashboardContainer">
-          <div style="text-align:center;padding:32px 20px;color:var(--dim)">
-            <div style="font-size:28px;margin-bottom:8px">🤖</div>
-            <div style="font-size:12px">Temsilci seçiliyse otomatik hesaplanır.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-  </div><!-- /padding wrapper -->
-
-</div><!-- /page7 -->
-
 </body>
 </html>
 

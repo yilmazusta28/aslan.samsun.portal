@@ -44,12 +44,6 @@
       report.insights = typeof generateManagementInsights === 'function'
         ? generateManagementInsights(report.summary) : [];
 
-      // FAZ 6.8 — Team Learning zenginleştirmesi (TeamLearning opsiyonel)
-      if (window.TeamLearning &&
-          typeof window.TeamLearning.enrichExecutiveDashboard === 'function') {
-        window.TeamLearning.enrichExecutiveDashboard(report);
-      }
-
       console.debug('[executive-engine] buildExecutiveDashboard OK.',
         'Reps:', list.length,
         '| Team forecast: %' + (report.forecast.teamForecast || 0),
