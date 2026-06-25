@@ -2187,73 +2187,101 @@ function buildSideNav(){/* TTT picker is inside ana sayfa now */}
 // ═══════════════════════════════════════════════════════════
 function _renderYoneticiPage() {
   var emptyEl = document.getElementById('ynt_empty');
+  var execEl  = document.getElementById('ynt_execContainer');
 
-  // ── 1. Executive Dashboard ───────────────────────────────
-  var execEl = document.getElementById('ynt_execContainer');
+  // Veri yüklü mü kontrol et
+  var veriYuklu = (typeof GENEL !== 'undefined' && GENEL && GENEL.length > 0);
+
+  if (!veriYuklu) {
+    if (emptyEl) {
+      emptyEl.style.display = 'block';
+      emptyEl.innerHTML =
+        '<div style="font-size:44px;margin-bottom:14px">⏳</div>' +
+        '<div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px">Veri Bekleniyor</div>' +
+        '<div style="font-size:12px;color:var(--dim);margin-bottom:16px">Önce Ana Sayfa\'dan CSV dosyalarını yükleyin.</div>' +
+        '<button class="btn-calc" onclick="goPage(0)" style="font-size:11px;padding:8px 18px;border-radius:10px">' +
+        '<i class="fas fa-upload" style="margin-right:6px"></i>Ana Sayfaya Git</button>';
+    }
+    return;
+  }
+
+  // Yükleniyor göster
   if (execEl) {
-    if (typeof renderExecutiveDashboard === 'function') {
+    execEl.innerHTML =
+      '<div style="padding:20px;text-align:center;color:var(--dim);font-size:12px">' +
+      '<i class="fas fa-spinner fa-spin" style="margin-right:8px"></i>Ekip verileri hesaplanıyor...</div>';
+  }
+  if (emptyEl) emptyEl.style.display = 'none';
+
+  setTimeout(function() {
+
+    // ── 1. Executive Dashboard ─────────────────────────────
+    if (execEl && typeof renderExecutiveDashboard === 'function') {
       try {
         renderExecutiveDashboard('ynt_execContainer');
-        if (emptyEl) emptyEl.style.display = 'none';
       } catch(e) {
+        execEl.innerHTML =
+          '<div style="padding:12px;font-size:12px;color:#DC2626">Executive engine hatası: ' + e.message + '</div>';
         console.warn('[YNT] renderExecutiveDashboard hata:', e.message);
       }
-    } else {
-      execEl.innerHTML = '<div style="padding:12px;font-size:12px;color:var(--dim)">Executive engine yüklenmedi.</div>';
+    } else if (execEl) {
+      execEl.innerHTML =
+        '<div style="padding:12px;font-size:12px;color:var(--dim)">Executive engine yüklenmedi.</div>';
     }
-  }
 
-  // ── 2. Bölge Analizi — ilk TTT varsayılan ───────────────
-  var terrCard = document.getElementById('ynt_terrCard');
-  var terrEl   = document.getElementById('ynt_terrContainer');
-  var terrSel  = document.getElementById('ynt_terrTttSel');
-  if (terrEl && typeof renderTerritorySummary === 'function') {
-    try {
-      var _tttList = (typeof ALL_TTTS !== 'undefined' && ALL_TTTS.length) ? ALL_TTTS : [];
-      var _firstTTT = (typeof selTTT !== 'undefined' && selTTT) ? selTTT
-                    : (_tttList.length ? _tttList[0] : null);
+    // ── 2. Bölge Analizi ──────────────────────────────────
+    var terrCard = document.getElementById('ynt_terrCard');
+    var terrEl   = document.getElementById('ynt_terrContainer');
+    var terrSel  = document.getElementById('ynt_terrTttSel');
+    if (terrEl && typeof renderTerritorySummary === 'function') {
+      try {
+        var _tttList  = (typeof ALL_TTTS !== 'undefined' && ALL_TTTS.length) ? ALL_TTTS : [];
+        var _firstTTT = (typeof selTTT !== 'undefined' && selTTT) ? selTTT
+                      : (_tttList.length ? _tttList[0] : null);
 
-      // TTT seçim butonları
-      if (terrSel && _tttList.length) {
-        terrSel.innerHTML = _tttList.map(function(t) {
-          var isActive = t === _firstTTT;
-          return '<button onclick="_yntTerrSwitch(\'' + t + '\')" id="ynt_tsel_' + t.replace(/\s/g,'_') + '" ' +
-            'style="font-size:9px;padding:3px 8px;border-radius:6px;border:1px solid ' +
-            (isActive ? 'var(--c1)' : 'var(--border)') + ';background:' +
-            (isActive ? 'rgba(79,0,140,.1)' : 'transparent') + ';color:' +
-            (isActive ? 'var(--c1)' : 'var(--dim)') + ';cursor:pointer;font-weight:' +
-            (isActive ? '700' : '400') + '">' + t.split(' ')[0] + '</button>';
-        }).join('');
+        if (terrSel && _tttList.length) {
+          terrSel.innerHTML = _tttList.map(function(t) {
+            var isActive = t === _firstTTT;
+            return '<button onclick="_yntTerrSwitch(\'' + t + '\')" ' +
+              'id="ynt_tsel_' + t.replace(/\s/g,'_') + '" ' +
+              'style="font-size:9px;padding:3px 8px;border-radius:6px;border:1px solid ' +
+              (isActive ? 'var(--c1)' : 'var(--border)') + ';background:' +
+              (isActive ? 'rgba(79,0,140,.1)' : 'transparent') + ';color:' +
+              (isActive ? 'var(--c1)' : 'var(--dim)') + ';cursor:pointer;font-weight:' +
+              (isActive ? '700' : '400') + '">' + t.split(' ')[0] + '</button>';
+          }).join('');
+        }
+
+        if (_firstTTT) {
+          renderTerritorySummary(_firstTTT, 'ynt_terrContainer');
+          if (terrCard) terrCard.style.display = 'block';
+        }
+      } catch(e) {
+        console.warn('[YNT] renderTerritorySummary hata:', e.message);
       }
-
-      if (_firstTTT) {
-        renderTerritorySummary(_firstTTT, 'ynt_terrContainer');
-        if (terrCard) terrCard.style.display = 'block';
-      }
-    } catch(e) {
-      console.warn('[YNT] renderTerritorySummary hata:', e.message);
     }
-  }
 
-  // ── 3. Takım Öğrenmesi ──────────────────────────────────
-  var learnCard = document.getElementById('ynt_learnCard');
-  var learnEl   = document.getElementById('ynt_learnContainer');
-  if (learnEl && typeof getTeamBestPractices === 'function') {
-    try {
-      var bp = getTeamBestPractices();
-      if (bp && bp.length) {
-        learnEl.innerHTML = bp.slice(0, 5).map(function(p) {
-          return '<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:11px;line-height:1.5">' +
-            '<span style="font-weight:700;color:var(--c1)">' + (p.pattern || p.label || '—') + '</span>' +
-            (p.detail ? '<div style="color:var(--dim);margin-top:2px">' + p.detail + '</div>' : '') +
-            '</div>';
-        }).join('');
-        if (learnCard) learnCard.style.display = 'block';
+    // ── 3. Takım Öğrenmesi ────────────────────────────────
+    var learnCard = document.getElementById('ynt_learnCard');
+    var learnEl   = document.getElementById('ynt_learnContainer');
+    if (learnEl && typeof getTeamBestPractices === 'function') {
+      try {
+        var bp = getTeamBestPractices();
+        if (bp && bp.length) {
+          learnEl.innerHTML = bp.slice(0, 5).map(function(p) {
+            return '<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:11px;line-height:1.5">' +
+              '<span style="font-weight:700;color:var(--c1)">' + (p.pattern || p.label || '—') + '</span>' +
+              (p.detail ? '<div style="color:var(--dim);margin-top:2px">' + p.detail + '</div>' : '') +
+              '</div>';
+          }).join('');
+          if (learnCard) learnCard.style.display = 'block';
+        }
+      } catch(e) {
+        console.warn('[YNT] getTeamBestPractices hata:', e.message);
       }
-    } catch(e) {
-      console.warn('[YNT] getTeamBestPractices hata:', e.message);
     }
-  }
+
+  }, 50);
 }
 
 // Bölge analizi TTT değiştirme

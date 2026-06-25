@@ -147,6 +147,16 @@
     var fc = d.forecast || {};
     var s  = d.summary  || {};
 
+    // Veri yok kontrolü — ranking boşsa hiçbir şey yazma, hata mesajı göster
+    if (!d.ranking || d.ranking.length === 0) {
+      container.innerHTML =
+        '<div style="padding:16px;text-align:center;color:var(--dim,#6b7280);font-size:12px">' +
+        '<div style="font-size:28px;margin-bottom:8px">📊</div>' +
+        'Ekip verisi yüklenmemiş. Ana sayfadan CSV dosyalarını yükleyin.' +
+        '</div>';
+      return;
+    }
+
     function _card(label, value, color, sub) {
       return '<div style="background:var(--card,#fff);border:1px solid var(--brd,#e5e7eb);' +
         'border-radius:10px;padding:12px 14px">' +
