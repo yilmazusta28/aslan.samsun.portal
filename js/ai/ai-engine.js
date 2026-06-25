@@ -527,6 +527,45 @@ function _runEngineCore() {
   // AI çıktı alanını sıfırla
   document.getElementById('engineAiOutput').style.display = 'none';
   document.getElementById('engineAiChatArea').innerHTML = '';
+
+  // ── FAZ 6.9: Headless motorları görünür kartlara bağla ──────────────
+  // Territory: renderTerritorySummary (territory-engine.js Phase 3.3)
+  // Mevcut render fonksiyonu container yoksa sessizce çıkıyor — güvenli çağrı.
+  if (typeof renderTerritorySummary === 'function') {
+    try {
+      renderTerritorySummary(ttt, 'territorySummaryContainer');
+      var _terrCard = document.getElementById('territorySummaryCard');
+      if (_terrCard) _terrCard.style.display = 'block';
+    } catch(e) {
+      console.warn('[FAZ6.9] renderTerritorySummary hata:', e.message);
+    }
+  }
+
+  // Executive: renderExecutiveDashboard (executive-engine.js Phase 4.0)
+  // ALL_TTTS ile tüm ekip verisi — ttt bağımsız.
+  if (typeof renderExecutiveDashboard === 'function') {
+    try {
+      renderExecutiveDashboard('executiveDashboardContainer');
+      var _execCard = document.getElementById('executiveDashboardCard');
+      if (_execCard) _execCard.style.display = 'block';
+    } catch(e) {
+      console.warn('[FAZ6.9] renderExecutiveDashboard hata:', e.message);
+    }
+  }
+
+  // Autonomous Planning: renderAutonomousDashboard (autonomous-planning-engine.js Phase 5.7)
+  // setTimeout kendi içinde var, doğrudan çağrılır.
+  if (typeof renderAutonomousDashboard === 'function') {
+    try {
+      renderAutonomousDashboard('autonomousDashboardContainer', ttt);
+      var _autoCard = document.getElementById('autonomousDashboardCard');
+      if (_autoCard) _autoCard.style.display = 'block';
+    } catch(e) {
+      console.warn('[FAZ6.9] renderAutonomousDashboard hata:', e.message);
+    }
+  }
+
+  console.debug('[FAZ6.9] Headless motor render tamamlandı. TTT:', ttt);
 }
 
 // ── Engine AI Analizi ────────────────────────────────────────

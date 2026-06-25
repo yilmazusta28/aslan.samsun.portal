@@ -5206,6 +5206,46 @@ function _buildEczaneDrawerRefresh(){
       <!-- PHASE 4.8: Dönem Sonu Senaryoları Kartı -->
       <div id="salesCoachScenarioCard" style="margin:0 0 16px"></div>
 
+      <!-- ═══ FAZ 6.9: HEADLESS MOTOR KARTLARI ═══ -->
+      <!-- 🗺️ Bölge Optimizasyonu (territory-engine.js Phase 3.3) -->
+      <div id="territorySummaryCard" style="margin:0 0 16px;display:none">
+        <div class="card" style="border:1.5px solid rgba(79,0,140,.15)">
+          <div class="card-hd" style="background:linear-gradient(90deg,rgba(79,0,140,.04),transparent)">
+            <span class="card-title"><i class="fas fa-map-marked-alt"></i> Bölge Analizi</span>
+            <span class="card-badge" style="background:rgba(79,0,140,.1);color:var(--c1)">Territory Engine</span>
+          </div>
+          <div class="card-body" style="padding:10px 14px">
+            <div id="territorySummaryContainer"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 👥 Ekip Yönetici Paneli (executive-engine.js Phase 4.0) -->
+      <div id="executiveDashboardCard" style="margin:0 0 16px;display:none">
+        <div class="card" style="border:1.5px solid rgba(27,206,216,.15)">
+          <div class="card-hd" style="background:linear-gradient(90deg,rgba(27,206,216,.04),transparent)">
+            <span class="card-title"><i class="fas fa-users"></i> Ekip Yönetici Özeti</span>
+            <span class="card-badge" style="background:rgba(27,206,216,.1);color:#0E7490">Executive Engine</span>
+          </div>
+          <div class="card-body" style="padding:10px 14px">
+            <div id="executiveDashboardContainer"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 🤖 AI Otonom Saha Planı (autonomous-planning-engine.js Phase 5.7) -->
+      <div id="autonomousDashboardCard" style="margin:0 0 16px;display:none">
+        <div class="card" style="border:1.5px solid rgba(16,185,129,.15)">
+          <div class="card-hd" style="background:linear-gradient(90deg,rgba(16,185,129,.04),transparent)">
+            <span class="card-title"><i class="fas fa-robot"></i> AI Otonom Saha Planı</span>
+            <span class="card-badge" style="background:rgba(16,185,129,.1);color:#059669">Autonomous Planning · Phase 5.7</span>
+          </div>
+          <div class="card-body" style="padding:0">
+            <div id="autonomousDashboardContainer"></div>
+          </div>
+        </div>
+      </div>
+
       <!-- Motor başlangıç boş durumu -->
       <div id="engineEmpty" style="text-align:center;padding:48px 20px">
         <div style="font-size:44px;margin-bottom:14px">🧠</div>
