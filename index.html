@@ -288,6 +288,17 @@
 <script src="js/ai/executive/team-forecast-engine.js"></script>
 <script src="js/ai/executive/executive-summary-engine.js"></script>
 <script src="js/ai/executive/executive-engine.js"></script>
+
+<!-- FAZ 6.8: Team Learning Engine (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §16)
+     "En başarılı temsilci davranışını öğren → diğerlerine öner."
+     buildTeamRanking() + PharmacyBehaviorEngine + LearningHub'ı okuyarak
+     3 çıktı üretir: (1) Peer Benchmark — takım metrik karşılaştırması,
+     (2) Best Practice Paketi — lider temsilcinin brick/eczane davranışı,
+     (3) Kişiselleştirilmiş Öneri — her temsilciye "şu arkadaşından öğren".
+     Hiçbir downstream motor değiştirilmedi. Rollback: bu satırı silmek
+     hiçbir şeyi KIRMAZ. -->
+<script src="js/ai/executive/team-learning-engine.js"></script>
+<!-- END FAZ 6.8 Team Learning Engine -->
 <!-- END PHASE 4.0 Executive Dashboard AI -->
 
 <!-- PHASE 4.2: AI Memory Layer
