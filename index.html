@@ -2099,9 +2099,9 @@ function goPage(i){
   // tab-system.js mirrors them for reuse elsewhere.
   document.querySelectorAll('.page').forEach((p,j)=>p.classList.toggle('active',j===i));
   document.querySelectorAll('.nav-tab').forEach((t,j)=>t.classList.toggle('active',j===i));
-  for(let k=0;k<=6;k++){const el=document.getElementById('snav'+k);if(el)el.classList.toggle('active',k===i);}
+  for(let k=0;k<=7;k++){const el=document.getElementById('snav'+k);if(el)el.classList.toggle('active',k===i);}
   // ── Mobil tab bar güncelle ──────────────────────────────
-  for(let k=0;k<=6;k++){
+  for(let k=0;k<=7;k++){
     const btn=document.getElementById('mtb'+k);
     if(btn) btn.classList.toggle('active',k===i);
   }
@@ -2117,6 +2117,7 @@ function goPage(i){
   else if(i===4){ buildPrimInputs(); syncPrimFromCalc(); }
   else if(i===5){ if(typeof renderAiAsistan==='function') renderAiAsistan(); }
   else if(i===6)renderEczane();
+  else if(i===7)_renderYoneticiPage();
 }
 
 // ── DARK MODE ────────────────────────────────────────────
@@ -2177,6 +2178,101 @@ function selectTTT(ttt){
 //  SIDE NAV (no TTT list here - moved to Ana Sayfa)
 // ═══════════════════════════════════════════════════════════
 function buildSideNav(){/* TTT picker is inside ana sayfa now */}
+
+// ═══════════════════════════════════════════════════════════
+//  FAZ 6.9 — YÖNETİCİ PANELİ RENDER
+//  page7'ye geçildiğinde çağrılır.
+//  Mevcut motorlar: executive-engine.js, territory-engine.js,
+//  team-learning-engine.js — hiçbiri değiştirilmez.
+// ═══════════════════════════════════════════════════════════
+function _renderYoneticiPage() {
+  var emptyEl = document.getElementById('ynt_empty');
+
+  // ── 1. Executive Dashboard ───────────────────────────────
+  var execEl = document.getElementById('ynt_execContainer');
+  if (execEl) {
+    if (typeof renderExecutiveDashboard === 'function') {
+      try {
+        renderExecutiveDashboard('ynt_execContainer');
+        if (emptyEl) emptyEl.style.display = 'none';
+      } catch(e) {
+        console.warn('[YNT] renderExecutiveDashboard hata:', e.message);
+      }
+    } else {
+      execEl.innerHTML = '<div style="padding:12px;font-size:12px;color:var(--dim)">Executive engine yüklenmedi.</div>';
+    }
+  }
+
+  // ── 2. Bölge Analizi — ilk TTT varsayılan ───────────────
+  var terrCard = document.getElementById('ynt_terrCard');
+  var terrEl   = document.getElementById('ynt_terrContainer');
+  var terrSel  = document.getElementById('ynt_terrTttSel');
+  if (terrEl && typeof renderTerritorySummary === 'function') {
+    try {
+      var _tttList = (typeof ALL_TTTS !== 'undefined' && ALL_TTTS.length) ? ALL_TTTS : [];
+      var _firstTTT = (typeof selTTT !== 'undefined' && selTTT) ? selTTT
+                    : (_tttList.length ? _tttList[0] : null);
+
+      // TTT seçim butonları
+      if (terrSel && _tttList.length) {
+        terrSel.innerHTML = _tttList.map(function(t) {
+          var isActive = t === _firstTTT;
+          return '<button onclick="_yntTerrSwitch(\'' + t + '\')" id="ynt_tsel_' + t.replace(/\s/g,'_') + '" ' +
+            'style="font-size:9px;padding:3px 8px;border-radius:6px;border:1px solid ' +
+            (isActive ? 'var(--c1)' : 'var(--border)') + ';background:' +
+            (isActive ? 'rgba(79,0,140,.1)' : 'transparent') + ';color:' +
+            (isActive ? 'var(--c1)' : 'var(--dim)') + ';cursor:pointer;font-weight:' +
+            (isActive ? '700' : '400') + '">' + t.split(' ')[0] + '</button>';
+        }).join('');
+      }
+
+      if (_firstTTT) {
+        renderTerritorySummary(_firstTTT, 'ynt_terrContainer');
+        if (terrCard) terrCard.style.display = 'block';
+      }
+    } catch(e) {
+      console.warn('[YNT] renderTerritorySummary hata:', e.message);
+    }
+  }
+
+  // ── 3. Takım Öğrenmesi ──────────────────────────────────
+  var learnCard = document.getElementById('ynt_learnCard');
+  var learnEl   = document.getElementById('ynt_learnContainer');
+  if (learnEl && typeof getTeamBestPractices === 'function') {
+    try {
+      var bp = getTeamBestPractices();
+      if (bp && bp.length) {
+        learnEl.innerHTML = bp.slice(0, 5).map(function(p) {
+          return '<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:11px;line-height:1.5">' +
+            '<span style="font-weight:700;color:var(--c1)">' + (p.pattern || p.label || '—') + '</span>' +
+            (p.detail ? '<div style="color:var(--dim);margin-top:2px">' + p.detail + '</div>' : '') +
+            '</div>';
+        }).join('');
+        if (learnCard) learnCard.style.display = 'block';
+      }
+    } catch(e) {
+      console.warn('[YNT] getTeamBestPractices hata:', e.message);
+    }
+  }
+}
+
+// Bölge analizi TTT değiştirme
+function _yntTerrSwitch(ttt) {
+  if (typeof renderTerritorySummary === 'function') {
+    try { renderTerritorySummary(ttt, 'ynt_terrContainer'); } catch(e) {}
+  }
+  // Buton aktif stilini güncelle
+  var _tttList = (typeof ALL_TTTS !== 'undefined') ? ALL_TTTS : [];
+  _tttList.forEach(function(t) {
+    var btn = document.getElementById('ynt_tsel_' + t.replace(/\s/g,'_'));
+    if (!btn) return;
+    var isActive = t === ttt;
+    btn.style.borderColor  = isActive ? 'var(--c1)' : 'var(--border)';
+    btn.style.background   = isActive ? 'rgba(79,0,140,.1)' : 'transparent';
+    btn.style.color        = isActive ? 'var(--c1)' : 'var(--dim)';
+    btn.style.fontWeight   = isActive ? '700' : '400';
+  });
+}
 
 // ═══════════════════════════════════════════════════════════
 //  TTT PICKER (inside Ana Sayfa)
@@ -4560,6 +4656,10 @@ function _buildEczaneDrawerRefresh(){
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 3h18v18H3z"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
         <span class="tab-label">Eczane</span>
       </button>
+      <button class="nav-tab" id="ntab7" onclick="goPage(7)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span class="tab-label">Yönetici</span>
+      </button>
     </div>
   </div>
 </div>
@@ -4594,6 +4694,10 @@ function _buildEczaneDrawerRefresh(){
   <button class="mtb-btn" id="mtb6" onclick="goPage(6)">
     <span class="mtb-icon"><i class="fas fa-clinic-medical"></i></span>
     <span class="mtb-label">Eczane</span>
+  </button>
+  <button class="mtb-btn" id="mtb7" onclick="goPage(7)">
+    <span class="mtb-icon"><i class="fas fa-users"></i></span>
+    <span class="mtb-label">Yönetici</span>
   </button>
 </div>
 
@@ -4657,6 +4761,9 @@ function _buildEczaneDrawerRefresh(){
   </div>
   <div class="nav-item pg" id="snav6" onclick="goPage(6)">
     <span class="nav-icon"><i class="fas fa-clinic-medical"></i></span><span>Eczane Satış</span>
+  </div>
+  <div class="nav-item pg" id="snav7" onclick="goPage(7)">
+    <span class="nav-icon"><i class="fas fa-users"></i></span><span>Yönetici Paneli</span>
   </div>
 
 
@@ -5579,6 +5686,63 @@ function _buildEczaneDrawerRefresh(){
     </div>
   </div>
 </div>
+
+<!-- ══════ PAGE 7: YÖNETİCİ PANELİ ══════ -->
+<div class="page" id="page7">
+
+  <!-- TOP FILTER BAR -->
+  <div class="top-filter-bar">
+    <div class="filter-row" style="justify-content:space-between;align-items:center">
+      <div style="font-size:13px;font-weight:700;color:var(--c1);display:flex;align-items:center;gap:8px">
+        <i class="fas fa-users"></i> Yönetici Paneli
+      </div>
+      <button class="btn-calc" onclick="_renderYoneticiPage()"
+        style="font-size:11px;padding:7px 14px;border-radius:10px">
+        <i class="fas fa-sync-alt" style="margin-right:5px"></i>Yenile
+      </button>
+    </div>
+  </div>
+
+  <div style="padding:14px 16px">
+
+    <!-- Ekip Özet Kartları -->
+    <div id="ynt_execContainer" style="margin-bottom:16px"></div>
+
+    <!-- Bölge Analizi -->
+    <div id="ynt_terrCard" style="margin-bottom:16px;display:none">
+      <div class="card" style="border:1.5px solid rgba(79,0,140,.15)">
+        <div class="card-hd" style="background:linear-gradient(90deg,rgba(79,0,140,.04),transparent)">
+          <span class="card-title"><i class="fas fa-map-marked-alt"></i> Bölge Analizi</span>
+          <div id="ynt_terrTttSel" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        </div>
+        <div class="card-body" style="padding:10px 14px">
+          <div id="ynt_terrContainer"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Takım Öğrenmesi -->
+    <div id="ynt_learnCard" style="margin-bottom:16px;display:none">
+      <div class="card" style="border:1.5px solid rgba(16,185,129,.15)">
+        <div class="card-hd" style="background:linear-gradient(90deg,rgba(16,185,129,.04),transparent)">
+          <span class="card-title"><i class="fas fa-graduation-cap"></i> Takım Öğrenmesi</span>
+          <span class="card-badge" style="background:rgba(16,185,129,.1);color:#059669">FAZ 6.8</span>
+        </div>
+        <div class="card-body" style="padding:10px 14px">
+          <div id="ynt_learnContainer"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Boş durum -->
+    <div id="ynt_empty" style="text-align:center;padding:48px 20px">
+      <div style="font-size:44px;margin-bottom:14px">👥</div>
+      <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px">Yönetici Paneli</div>
+      <div style="font-size:12px;color:var(--dim);margin-bottom:20px">Ekip verisi yükleniyor...</div>
+    </div>
+
+  </div>
+</div><!-- /page7 -->
 
 
 

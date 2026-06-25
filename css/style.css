@@ -869,7 +869,7 @@ body{
   box-shadow:0 -4px 20px rgba(0,0,0,.08);
   height:62px;
   padding-bottom:env(safe-area-inset-bottom,0);
-  /* Grid: 7 eşit sütun */
+  /* Grid: 8 eşit sütun */
   flex-direction:row;
   align-items:stretch;
   justify-content:stretch;
@@ -881,7 +881,7 @@ body{
   height:3px;
   background:linear-gradient(90deg,var(--c1),var(--c3));
   border-radius:0 0 3px 3px;
-  width:calc(100% / 7);
+  width:calc(100% / 8);
   transition:transform .32s cubic-bezier(.34,1.56,.64,1);
   z-index:1;
 }
