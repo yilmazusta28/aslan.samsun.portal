@@ -333,6 +333,22 @@ async function syncData() {
       } catch (e) { console.warn('[RAKIP_AKSIYON] parse/import hata (sessiz):', e.message); }
     }
 
+    // ── FAZ 7.0: Genel SourceAdapter Senkronizasyonu (AI_MIMARI_ANALIZ_VE_
+    // YOL_HARITASI.md §13, §16) — Kayıtlı TÜM ek veri kaynağı adapter'larını
+    // (şu an: Saha Gözlemleri, Stok — ileride SharePoint/Temsilci Notları/vb.)
+    // DISCOVER+NORMALIZE eder. Bu blok GENEL'dir — yeni bir adapter
+    // eklendiğinde (kendi dosyasında kendi kendine register olur) BU
+    // SATIRLAR DEĞİŞMEZ. Asenkron, fire-and-forget (OutcomeTracker
+    // bloğuyla AYNI desen) — syncData()'nın akışını BLOKLAMAZ. Kritik
+    // DEĞİL, render TETİKLEMEZ (RAKIP_AKSİYON ile aynı tolerans deseni).
+    if (window.SourceAdapterRegistry && typeof window.SourceAdapterRegistry.discoverAndNormalizeAll === 'function') {
+      window.SourceAdapterRegistry.discoverAndNormalizeAll().then(function (summary) {
+        console.log('[SourceAdapterRegistry] senkronize edildi:', summary);
+      }).catch(function (e) {
+        console.warn('[SourceAdapterRegistry] senkronizasyon hatası (sessiz):', e.message);
+      });
+    }
+
     // Dizileri güncelle
     IMS.length   = 0;  IMS.push(...newIMS);
 

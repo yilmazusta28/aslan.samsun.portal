@@ -156,6 +156,32 @@
 <script src="js/ai/core/competitive-adapter.js"></script>
 <!-- END FAZ 6.4 Competitive Adapter -->
 
+<!-- FAZ 7.0: Genel SourceAdapter Arayüzü + 2 Pilot Kaynak (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §13, §16)
+     source-adapter.js: discover/normalize/cache/contextHook sözleşmesi +
+     kayıt defteri (registry) — ims-adapter.js/competitive-adapter.js'in
+     HER BİRİNİN kendi içinde tekrarladığı cache deseni artık GENEL/TEK
+     yerden. Mevcut 3 adapter (ims/competitive/pharmacy) BİLEREK bu
+     registry'ye taşınmadı ("ekle, kırma" prensibi) — bu FAZ sadece YENİ
+     kaynaklar için deseni kanıtlıyor.
+     field-observation-adapter.js + stock-adapter.js: registry'nin İKİ
+     BAĞIMSIZ tüketicisi (Saha Gözlemleri, Stok) — ikisi de saha-gozlem/
+     ve stok/ dizinlerinde manifest.json/CSV henüz YOKSA sessizce boş
+     context döner, hiçbir mevcut motoru etkilemez. AIContextBuilder'a
+     (context.fieldObservations, context.stockSignals) ve data-loader.js'e
+     (syncData() içindeki tek genel senkronizasyon çağrısı) bağlandı.
+     Hiçbir karar motoruna (risk/decision/rca) BAĞLANMADI — rca-engine.js
+     (henüz yazılmamış, ayrı FAZ) bu context alanlarını ileride kanıt
+     kaynağı olarak okuyabilir.
+     Yükleme sırası: source-adapter.js İLK (registry), pilot adapter'lar
+     SONRA (kendi kendine register olurlar).
+     Rollback: bu 3 satırı silmek hiçbir şeyi KIRMAZ — AIContextBuilder ve
+     data-loader.js typeof kontrolüyle korunaklı, eksik durumda context
+     ve syncData() öncekiyle AYNI davranır. -->
+<script src="js/ai/core/source-adapter.js"></script>
+<script src="js/ai/core/field-observation-adapter.js"></script>
+<script src="js/ai/core/stock-adapter.js"></script>
+<!-- END FAZ 7.0 SourceAdapter + Pilots -->
+
 <!-- PHASE 3.0: Sales Intelligence Engine — yükleme sırası kritik -->
 <script src="js/ai/intelligence/insight-engine.js"></script>
 <script src="js/ai/intelligence/trend-engine.js"></script>

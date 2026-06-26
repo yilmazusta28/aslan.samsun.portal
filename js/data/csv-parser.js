@@ -402,3 +402,104 @@ function parseRakipAksiyonCSV(csvText) {
 
   return result;
 }
+
+// ══════════════════════════════════════════════════════════════
+//  FAZ 7.0 — SourceAdapter Pilot Parser'ları (AI_MIMARI_ANALIZ_VE_
+//  YOL_HARITASI.md §13, §16)
+//
+//  RAKIP_AKSİYON.csv'nin AKSİNE, bu iki kaynak HENÜZ repo'da YOK —
+//  sahadan/Excel'den ilk geldiğinde aşağıdaki SABİT başlık adlarını
+//  (sütun SIRASI ÖNEMLİ DEĞİL, AD eşleşmesi yeterli) kullanmalı.
+//  Parser KURALI (mevcut projeyle tutarlı): sadece okur, yorumlamaz —
+//  hücre değerlerini OLDUĞU GİBİ string olarak döner; bucket/enum
+//  kararı (ONEM/DURUM geçerli mi, GOZLEM_TIPI hangi kategori) ilgili
+//  adapter'ın (field-observation-adapter.js / stock-adapter.js)
+//  normalize() katmanına aittir.
+// ══════════════════════════════════════════════════════════════
+
+// ─── Saha Gözlemleri CSV — beklenen başlıklar ──────────────────
+//   TARIH; TTT; HEDEF_TIPI; HEDEF_ADI; GOZLEM_TIPI; ACIKLAMA; ONEM
+//   (HEDEF_TIPI: 'ECZANE' veya 'BRICK' — HEDEF_ADI'nın neyi işaret ettiği)
+//
+// @param {string} csvText
+// @returns {Array<{tarih,ttt,hedefTipi,hedefAdi,gozlemTipi,aciklama,onem}>}
+function parseSahaGozlemCSV(csvText) {
+  if (!csvText || !csvText.trim()) return [];
+  if (csvText.trim().startsWith('<')) {
+    throw new Error('SAHA_GOZLEM CSV yerine HTML döndü.');
+  }
+
+  const rows = parseCSVRows(csvText);
+  if (rows.length < 2) return [];
+
+  const header = rows[0].map(h => (h || '').trim().toUpperCase());
+  const ix = name => header.indexOf(name);
+  const cTarih   = ix('TARIH');
+  const cTtt     = ix('TTT');
+  const cHTipi   = ix('HEDEF_TIPI');
+  const cHAdi    = ix('HEDEF_ADI');
+  const cGTipi   = ix('GOZLEM_TIPI');
+  const cAcik    = ix('ACIKLAMA');
+  const cOnem    = ix('ONEM');
+
+  const result = [];
+  for (let i = 1; i < rows.length; i++) {
+    const c = rows[i];
+    if (!c || !c.length || c.every(v => !v || !v.trim())) continue; // tamamen boş satır
+    result.push({
+      tarih:      cTarih  >= 0 ? (c[cTarih]  || '').trim() : '',
+      ttt:        cTtt    >= 0 ? (c[cTtt]    || '').trim() : '',
+      hedefTipi:  cHTipi  >= 0 ? (c[cHTipi]  || '').trim() : '',
+      hedefAdi:   cHAdi   >= 0 ? (c[cHAdi]   || '').trim() : '',
+      gozlemTipi: cGTipi  >= 0 ? (c[cGTipi]  || '').trim() : '',
+      aciklama:   cAcik   >= 0 ? (c[cAcik]   || '').trim() : '',
+      onem:       cOnem   >= 0 ? (c[cOnem]   || '').trim() : ''
+    });
+  }
+
+  console.log('[parseSahaGozlemCSV] Parsed', result.length, 'gözlem satırı.');
+  return result;
+}
+
+// ─── Stok CSV — beklenen başlıklar ──────────────────────────────
+//   TARIH; HEDEF_TIPI; HEDEF_ADI; URUN; DURUM; NOT
+//   (HEDEF_TIPI: 'ECZANE' veya 'BRICK'; DURUM: serbest metin, ham —
+//    bilinen/yetkili değer kümesi adapter'da normalize edilir)
+//
+// @param {string} csvText
+// @returns {Array<{tarih,hedefTipi,hedefAdi,urun,durum,not}>}
+function parseStokCSV(csvText) {
+  if (!csvText || !csvText.trim()) return [];
+  if (csvText.trim().startsWith('<')) {
+    throw new Error('STOK CSV yerine HTML döndü.');
+  }
+
+  const rows = parseCSVRows(csvText);
+  if (rows.length < 2) return [];
+
+  const header = rows[0].map(h => (h || '').trim().toUpperCase());
+  const ix = name => header.indexOf(name);
+  const cTarih = ix('TARIH');
+  const cHTipi = ix('HEDEF_TIPI');
+  const cHAdi  = ix('HEDEF_ADI');
+  const cUrun  = ix('URUN');
+  const cDurum = ix('DURUM');
+  const cNot   = ix('NOT');
+
+  const result = [];
+  for (let i = 1; i < rows.length; i++) {
+    const c = rows[i];
+    if (!c || !c.length || c.every(v => !v || !v.trim())) continue;
+    result.push({
+      tarih:     cTarih >= 0 ? (c[cTarih] || '').trim() : '',
+      hedefTipi: cHTipi >= 0 ? (c[cHTipi] || '').trim() : '',
+      hedefAdi:  cHAdi  >= 0 ? (c[cHAdi]  || '').trim() : '',
+      urun:      cUrun  >= 0 ? (c[cUrun]  || '').trim() : '',
+      durum:     cDurum >= 0 ? (c[cDurum] || '').trim() : '',
+      not:       cNot   >= 0 ? (c[cNot]   || '').trim() : ''
+    });
+  }
+
+  console.log('[parseStokCSV] Parsed', result.length, 'stok satırı.');
+  return result;
+}

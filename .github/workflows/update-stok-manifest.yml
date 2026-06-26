@@ -1,0 +1,65 @@
+name: Update Stok Manifest
+
+# FAZ 7.0 (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §13, §16) — eczane/manifest.json
+# ile AYNI keşif deseni, stok/ dizini için. stock-adapter.js bu manifest.json'u
+# SourceAdapterRegistry.fetchManifest() üzerinden okur. Dizin/dosya henüz
+# yoksa adapter sessizce boş context döner — bu workflow YOKSA hiçbir şey
+# KIRILMAZ, sadece yeni veri otomatik keşfedilmez.
+
+on:
+  push:
+    paths:
+      - 'stok/*.csv'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate manifest.json from stok/*.csv
+        run: |
+          node -e "
+            const fs = require('fs');
+            const path = require('path');
+
+            const dir = 'stok';
+            fs.mkdirSync(dir, { recursive: true });
+            const files = fs.readdirSync(dir).filter(f => f.toLowerCase().endsWith('.csv'));
+
+            const entries = files.map(f => {
+              const stat = fs.statSync(path.join(dir, f));
+              return {
+                file: f,
+                path: dir + '/' + f,
+                size: stat.size,
+                modified: stat.mtime.toISOString()
+              };
+            }).sort((a, b) => a.file.localeCompare(b.file));
+
+            const manifest = {
+              generatedAt: new Date().toISOString(),
+              version: 1,
+              dir: dir,
+              files: entries
+            };
+
+            fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+            console.log('✅ manifest.json oluşturuldu:', entries.length, 'dosya');
+          "
+
+      - name: Commit manifest.json if changed
+        run: |
+          if git diff --quiet -- stok/manifest.json; then
+            echo "ℹ️ manifest.json değişmedi."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add stok/manifest.json
+            git commit -m "chore: stok/manifest.json otomatik güncellendi"
+            git push
+          fi
