@@ -1407,6 +1407,216 @@ function toggleEczaneAcc(id) {
   if (typeof SoundFX !== 'undefined') SoundFX.click();
 }
 
+// ══════════════════════════════════════════════════════════
+//  FAZ 6.9 — Headless motor render fonksiyonları
+//  Her biri lazy-load: accordion ilk açıldığında bir kez çalışır.
+// ══════════════════════════════════════════════════════════
+
+// FAZ 6.7 — AI Karar Önerisi Kartı
+function renderAIDecisionCard() {
+  const el = document.getElementById('aiDecisionCard');
+  if (!el) return;
+  if (!window.DecisionEngine) {
+    el.innerHTML = '<p style="color:var(--dim);font-size:12px;padding:12px">DecisionEngine yüklenmedi.</p>';
+    return;
+  }
+  const ttt = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
+  const d = window.DecisionEngine.decide(ttt);
+  if (!d || !d.recommendation) {
+    el.innerHTML = '<p style="color:var(--dim);font-size:12px;padding:12px">Yeterli veri yok.</p>';
+    return;
+  }
+  const r = d.recommendation;
+  const riskClr = d.risk.level === 'HIGH' ? '#DC2626' : d.risk.level === 'MEDIUM' ? '#D97706' : '#059669';
+  const prioClr = r.priority === 'HIGH' ? '#7C3AED' : r.priority === 'MEDIUM' ? '#2563EB' : '#6B7280';
+  const tcLine = d.decisionBasis.temporalContext
+    ? `<span style="color:var(--dim);font-size:10px">Cycle ${d.decisionBasis.temporalContext.cycleWeek}. hafta${d.decisionBasis.temporalContext.imsDataWeekRange ? ' · ' + d.decisionBasis.temporalContext.imsDataWeekRange.label : ''}</span>`
+    : '';
+  el.innerHTML = `
+    <div style="padding:14px 16px">
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">
+        <div style="background:${prioClr}22;color:${prioClr};font-size:9px;font-weight:800;padding:3px 8px;border-radius:20px;border:1px solid ${prioClr}44;white-space:nowrap;margin-top:2px">${r.priority}</div>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:3px">${r.action}</div>
+          ${tcLine}
+        </div>
+        <div style="margin-left:auto;text-align:right;flex-shrink:0">
+          <div style="font-size:18px;font-weight:800;color:#7C3AED">%${d.confidence}</div>
+          <div style="font-size:9px;color:var(--dim)">güven</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <div style="background:var(--surf2);border-radius:8px;padding:8px 12px;flex:1;min-width:100px">
+          <div style="font-size:9px;color:var(--dim);margin-bottom:2px">RİSK</div>
+          <div style="font-size:12px;font-weight:700;color:${riskClr}">${d.risk.level}</div>
+        </div>
+        ${d.expectedTL ? `<div style="background:var(--surf2);border-radius:8px;padding:8px 12px;flex:1;min-width:100px">
+          <div style="font-size:9px;color:var(--dim);margin-bottom:2px">TAHMİNİ ETKİ</div>
+          <div style="font-size:12px;font-weight:700;color:var(--c3)">${(d.expectedTL/1000).toFixed(0)}K TL</div>
+        </div>` : ''}
+        <div style="background:var(--surf2);border-radius:8px;padding:8px 12px;flex:1;min-width:100px">
+          <div style="font-size:9px;color:var(--dim);margin-bottom:2px">TİP</div>
+          <div style="font-size:12px;font-weight:700;color:var(--fg)">${r.type}</div>
+        </div>
+      </div>
+      ${d.risk.topRisks && d.risk.topRisks.length ? `<div style="font-size:10px;color:var(--dim);margin-bottom:4px;font-weight:600">⚠️ Riskler:</div>
+      ${d.risk.topRisks.map(r => `<div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)">${r.description||r.type||JSON.stringify(r)}</div>`).join('')}` : ''}
+      ${d.alternatives && d.alternatives.length > 1 ? `<div style="margin-top:10px;font-size:10px;color:var(--dim);font-weight:600">ALTERNATİFLER:</div>
+      ${d.alternatives.slice(1,4).map(a => `<div style="font-size:11px;padding:4px 0;color:var(--dim)">#${a.rank} ${a.target} — ${a.type} (skor: ${a.finalScore})</div>`).join('')}` : ''}
+    </div>`;
+  const badge = document.getElementById('acc_ai_decision_badge');
+  if (badge) { badge.textContent = `%${d.confidence} güven`; }
+}
+
+// FAZ 6.3.5 — Pazar Payı Analizi Kartı
+function renderMarketShareCard() {
+  const el = document.getElementById('marketShareCard');
+  if (!el) return;
+  if (!window.MarketShareEngine) {
+    el.innerHTML = '<p style="color:var(--dim);font-size:12px;padding:12px">MarketShareEngine yüklenmedi.</p>';
+    return;
+  }
+  const ttt = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
+  if (!ttt) {
+    el.innerHTML = '<p style="color:var(--dim);font-size:12px;padding:12px">Temsilci seçin.</p>';
+    return;
+  }
+  const summary = window.MarketShareEngine.getOverallShareSummary(ttt);
+  const records = window.MarketShareEngine.analyzeMarketShare(ttt).filter(r => r.dataQuality === 'OK');
+  if (!records.length) {
+    el.innerHTML = '<p style="color:var(--dim);font-size:12px;padding:12px">Pazar payı verisi bulunamadı (IMS\'te is_mkt:true satırları gerekli).</p>';
+    return;
+  }
+  const avgPay = summary.avgBizimPay != null ? summary.avgBizimPay.toFixed(1) + '%' : '—';
+  el.innerHTML = `
+    <div style="padding:14px 16px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+        <div style="background:var(--surf2);border-radius:8px;padding:10px 14px;flex:1;min-width:100px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:var(--c3)">${avgPay}</div>
+          <div style="font-size:9px;color:var(--dim);margin-top:2px">Ort. Pazar Payı</div>
+        </div>
+        <div style="background:var(--surf2);border-radius:8px;padding:10px 14px;flex:1;min-width:100px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:#059669">${summary.risingShareBricks.length}</div>
+          <div style="font-size:9px;color:var(--dim);margin-top:2px">Yükselen Brick</div>
+        </div>
+        <div style="background:var(--surf2);border-radius:8px;padding:10px 14px;flex:1;min-width:100px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:#DC2626">${summary.decliningShareBricks.length}</div>
+          <div style="font-size:9px;color:var(--dim);margin-top:2px">Düşen Brick</div>
+        </div>
+      </div>
+      <div style="font-size:10px;font-weight:700;color:var(--dim);margin-bottom:6px">BRICK × PAZAR PAYI</div>
+      ${records.slice(0,8).map(r => {
+        const trendIcon = r.shareTrend === 'up' ? '📈' : r.shareTrend === 'down' ? '📉' : '➡️';
+        const payClr = r.bizimPay >= 30 ? '#059669' : r.bizimPay >= 15 ? '#D97706' : '#DC2626';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:11px;font-weight:600;min-width:50px">${r.brick}</span>
+          <span style="font-size:10px;color:var(--dim);flex:1">${r.product || r.ilacGrubu}</span>
+          <span style="font-size:11px;font-weight:700;color:${payClr}">${r.bizimPay.toFixed(1)}%</span>
+          <span>${trendIcon}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  const badge = document.getElementById('acc_market_share_badge');
+  if (badge) { badge.textContent = 'Ort. ' + avgPay; }
+}
+
+// FAZ 6.4.5 — Lansman Hazırlık Kartı
+function renderLaunchReadinessCard() {
+  const el = document.getElementById('launchReadinessCard');
+  if (!el) return;
+  if (!window.LaunchReadinessEngine) {
+    el.innerHTML = '<p style="color:var(--dim);font-size:12px;padding:12px">LaunchReadinessEngine yüklenmedi.</p>';
+    return;
+  }
+  const allGroups = typeof ALL_GROUPS !== 'undefined' ? ALL_GROUPS : [];
+  const onLansman = window.LaunchReadinessEngine.listOnLansmanPazarlar();
+  if (!onLansman.length) {
+    el.innerHTML = '<div style="padding:14px 16px;color:var(--c3);font-size:12px">✅ Tüm pazarlarda aktif satış var — lansman öncesi pazar tespit edilmedi.</div>';
+    const badge = document.getElementById('acc_launch_readiness_badge');
+    if (badge) badge.textContent = 'Aktif Tüm Pazarlar';
+    return;
+  }
+  let html = '<div style="padding:14px 16px">';
+  onLansman.forEach(pazar => {
+    const s = window.LaunchReadinessEngine.getLaunchReadinessSummary(pazar);
+    if (!s) return;
+    html += `
+      <div style="background:var(--surf2);border-radius:10px;padding:12px 14px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="background:#FEF3C7;color:#92400E;font-size:9px;font-weight:800;padding:2px 7px;border-radius:12px">LANSMAN ÖNCESİ</span>
+          <span style="font-size:12px;font-weight:700;color:var(--fg)">${pazar}</span>
+        </div>
+        <div style="font-size:11px;color:var(--dim);margin-bottom:6px">${s.oneri}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <span style="font-size:10px;background:var(--surf);padding:3px 8px;border-radius:8px">${s.rakipSayisi} rakip aktif</span>
+          ${s.ortalamaIndirimPct != null ? `<span style="font-size:10px;background:var(--surf);padding:3px 8px;border-radius:8px">Ort. %${s.ortalamaIndirimPct} indirim</span>` : ''}
+        </div>
+      </div>`;
+  });
+  html += '</div>';
+  el.innerHTML = html;
+  const badge = document.getElementById('acc_launch_readiness_badge');
+  if (badge) badge.textContent = onLansman.length + ' Lansman Öncesi';
+}
+
+// FAZ 6.8 — Takım Öğrenmesi Kartı (page5 yönetici)
+function renderTeamLearningCard() {
+  const el = document.getElementById('teamLearningCard');
+  if (!el) return;
+  el.style.display = 'block';
+  if (!window.TeamLearningEngine) {
+    el.innerHTML = '<p style="color:var(--dim);font-size:12px">TeamLearningEngine yüklenmedi.</p>';
+    return;
+  }
+  const pkg = window.TeamLearningEngine.buildTeamLearningPackage();
+  if (!pkg.topPerformer) {
+    el.innerHTML = '<p style="color:var(--dim);font-size:12px">Yeterli takım verisi yok.</p>';
+    return;
+  }
+  const tp = pkg.topPerformer;
+  let html = `
+    <div style="background:var(--surf2);border-radius:10px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;gap:12px">
+      <div style="font-size:28px">🥇</div>
+      <div>
+        <div style="font-size:12px;font-weight:800;color:var(--fg)">${tp.ttt}</div>
+        <div style="font-size:10px;color:var(--dim)">Dönem lideri · ${tp.category} · Skor: ${tp.score}</div>
+      </div>
+    </div>`;
+  if (pkg.peerBenchmark.length) {
+    html += '<div style="font-size:10px;font-weight:700;color:var(--dim);margin-bottom:6px">PEER BENCHMARK</div>';
+    pkg.peerBenchmark.forEach(b => {
+      if (b.gap <= 0) return;
+      html += `<div style="padding:5px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:11px;font-weight:600">${b.metric}</span>
+          <span style="font-size:11px;color:var(--c3);font-weight:700">+${b.gap} ${b.unit} fark</span>
+        </div>
+        <div style="font-size:10px;color:var(--dim);margin-top:2px">${b.interpretation}</div>
+      </div>`;
+    });
+  }
+  if (pkg.bestPractices.length) {
+    html += '<div style="font-size:10px;font-weight:700;color:var(--dim);margin:12px 0 6px">EN İYİ UYGULAMALAR</div>';
+    pkg.bestPractices.slice(0,4).forEach(p => {
+      html += `<div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)">
+        <span style="color:var(--c3);font-weight:600">[${p.source}]</span> ${p.behavior}
+      </div>`;
+    });
+  }
+  const myTtt = typeof selTTT !== 'undefined' ? selTTT : null;
+  if (myTtt && pkg.recommendations[myTtt]) {
+    const rec = pkg.recommendations[myTtt];
+    html += `<div style="margin-top:14px;background:#EDE9FE;border-radius:10px;padding:12px 14px">
+      <div style="font-size:10px;font-weight:700;color:#6D28D9;margin-bottom:4px">SİZİN İÇİN ÖNERİ</div>
+      <div style="font-size:12px;font-weight:700;color:var(--fg);margin-bottom:3px">${rec.focus}</div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:6px">${rec.gap}</div>
+      <div style="font-size:11px;color:#6D28D9">→ ${rec.action}</div>
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+
+
 function filterEczaneTable() {
   _eczaneSearchFilter = (document.getElementById('eczaneSearch')?.value||'').toLowerCase();
   renderEczaneTable(_eczaneData);
@@ -2099,9 +2309,9 @@ function goPage(i){
   // tab-system.js mirrors them for reuse elsewhere.
   document.querySelectorAll('.page').forEach((p,j)=>p.classList.toggle('active',j===i));
   document.querySelectorAll('.nav-tab').forEach((t,j)=>t.classList.toggle('active',j===i));
-  for(let k=0;k<=7;k++){const el=document.getElementById('snav'+k);if(el)el.classList.toggle('active',k===i);}
+  for(let k=0;k<=6;k++){const el=document.getElementById('snav'+k);if(el)el.classList.toggle('active',k===i);}
   // ── Mobil tab bar güncelle ──────────────────────────────
-  for(let k=0;k<=7;k++){
+  for(let k=0;k<=6;k++){
     const btn=document.getElementById('mtb'+k);
     if(btn) btn.classList.toggle('active',k===i);
   }
@@ -2117,7 +2327,6 @@ function goPage(i){
   else if(i===4){ buildPrimInputs(); syncPrimFromCalc(); }
   else if(i===5){ if(typeof renderAiAsistan==='function') renderAiAsistan(); }
   else if(i===6)renderEczane();
-  else if(i===7)_renderYoneticiPage();
 }
 
 // ── DARK MODE ────────────────────────────────────────────
@@ -2178,129 +2387,6 @@ function selectTTT(ttt){
 //  SIDE NAV (no TTT list here - moved to Ana Sayfa)
 // ═══════════════════════════════════════════════════════════
 function buildSideNav(){/* TTT picker is inside ana sayfa now */}
-
-// ═══════════════════════════════════════════════════════════
-//  FAZ 6.9 — YÖNETİCİ PANELİ RENDER
-//  page7'ye geçildiğinde çağrılır.
-//  Mevcut motorlar: executive-engine.js, territory-engine.js,
-//  team-learning-engine.js — hiçbiri değiştirilmez.
-// ═══════════════════════════════════════════════════════════
-function _renderYoneticiPage() {
-  var emptyEl = document.getElementById('ynt_empty');
-  var execEl  = document.getElementById('ynt_execContainer');
-
-  // Veri yüklü mü kontrol et
-  var veriYuklu = (typeof GENEL !== 'undefined' && GENEL && GENEL.length > 0);
-
-  if (!veriYuklu) {
-    if (emptyEl) {
-      emptyEl.style.display = 'block';
-      emptyEl.innerHTML =
-        '<div style="font-size:44px;margin-bottom:14px">⏳</div>' +
-        '<div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px">Veri Bekleniyor</div>' +
-        '<div style="font-size:12px;color:var(--dim);margin-bottom:16px">Önce Ana Sayfa\'dan CSV dosyalarını yükleyin.</div>' +
-        '<button class="btn-calc" onclick="goPage(0)" style="font-size:11px;padding:8px 18px;border-radius:10px">' +
-        '<i class="fas fa-upload" style="margin-right:6px"></i>Ana Sayfaya Git</button>';
-    }
-    return;
-  }
-
-  // Yükleniyor göster
-  if (execEl) {
-    execEl.innerHTML =
-      '<div style="padding:20px;text-align:center;color:var(--dim);font-size:12px">' +
-      '<i class="fas fa-spinner fa-spin" style="margin-right:8px"></i>Ekip verileri hesaplanıyor...</div>';
-  }
-  if (emptyEl) emptyEl.style.display = 'none';
-
-  setTimeout(function() {
-
-    // ── 1. Executive Dashboard ─────────────────────────────
-    if (execEl && typeof renderExecutiveDashboard === 'function') {
-      try {
-        renderExecutiveDashboard('ynt_execContainer');
-      } catch(e) {
-        execEl.innerHTML =
-          '<div style="padding:12px;font-size:12px;color:#DC2626">Executive engine hatası: ' + e.message + '</div>';
-        console.warn('[YNT] renderExecutiveDashboard hata:', e.message);
-      }
-    } else if (execEl) {
-      execEl.innerHTML =
-        '<div style="padding:12px;font-size:12px;color:var(--dim)">Executive engine yüklenmedi.</div>';
-    }
-
-    // ── 2. Bölge Analizi ──────────────────────────────────
-    var terrCard = document.getElementById('ynt_terrCard');
-    var terrEl   = document.getElementById('ynt_terrContainer');
-    var terrSel  = document.getElementById('ynt_terrTttSel');
-    if (terrEl && typeof renderTerritorySummary === 'function') {
-      try {
-        var _tttList  = (typeof ALL_TTTS !== 'undefined' && ALL_TTTS.length) ? ALL_TTTS : [];
-        var _firstTTT = (typeof selTTT !== 'undefined' && selTTT) ? selTTT
-                      : (_tttList.length ? _tttList[0] : null);
-
-        if (terrSel && _tttList.length) {
-          terrSel.innerHTML = _tttList.map(function(t) {
-            var isActive = t === _firstTTT;
-            return '<button onclick="_yntTerrSwitch(\'' + t + '\')" ' +
-              'id="ynt_tsel_' + t.replace(/\s/g,'_') + '" ' +
-              'style="font-size:9px;padding:3px 8px;border-radius:6px;border:1px solid ' +
-              (isActive ? 'var(--c1)' : 'var(--border)') + ';background:' +
-              (isActive ? 'rgba(79,0,140,.1)' : 'transparent') + ';color:' +
-              (isActive ? 'var(--c1)' : 'var(--dim)') + ';cursor:pointer;font-weight:' +
-              (isActive ? '700' : '400') + '">' + t.split(' ')[0] + '</button>';
-          }).join('');
-        }
-
-        if (_firstTTT) {
-          renderTerritorySummary(_firstTTT, 'ynt_terrContainer');
-          if (terrCard) terrCard.style.display = 'block';
-        }
-      } catch(e) {
-        console.warn('[YNT] renderTerritorySummary hata:', e.message);
-      }
-    }
-
-    // ── 3. Takım Öğrenmesi ────────────────────────────────
-    var learnCard = document.getElementById('ynt_learnCard');
-    var learnEl   = document.getElementById('ynt_learnContainer');
-    if (learnEl && typeof getTeamBestPractices === 'function') {
-      try {
-        var bp = getTeamBestPractices();
-        if (bp && bp.length) {
-          learnEl.innerHTML = bp.slice(0, 5).map(function(p) {
-            return '<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:11px;line-height:1.5">' +
-              '<span style="font-weight:700;color:var(--c1)">' + (p.pattern || p.label || '—') + '</span>' +
-              (p.detail ? '<div style="color:var(--dim);margin-top:2px">' + p.detail + '</div>' : '') +
-              '</div>';
-          }).join('');
-          if (learnCard) learnCard.style.display = 'block';
-        }
-      } catch(e) {
-        console.warn('[YNT] getTeamBestPractices hata:', e.message);
-      }
-    }
-
-  }, 50);
-}
-
-// Bölge analizi TTT değiştirme
-function _yntTerrSwitch(ttt) {
-  if (typeof renderTerritorySummary === 'function') {
-    try { renderTerritorySummary(ttt, 'ynt_terrContainer'); } catch(e) {}
-  }
-  // Buton aktif stilini güncelle
-  var _tttList = (typeof ALL_TTTS !== 'undefined') ? ALL_TTTS : [];
-  _tttList.forEach(function(t) {
-    var btn = document.getElementById('ynt_tsel_' + t.replace(/\s/g,'_'));
-    if (!btn) return;
-    var isActive = t === ttt;
-    btn.style.borderColor  = isActive ? 'var(--c1)' : 'var(--border)';
-    btn.style.background   = isActive ? 'rgba(79,0,140,.1)' : 'transparent';
-    btn.style.color        = isActive ? 'var(--c1)' : 'var(--dim)';
-    btn.style.fontWeight   = isActive ? '700' : '400';
-  });
-}
 
 // ═══════════════════════════════════════════════════════════
 //  TTT PICKER (inside Ana Sayfa)
@@ -2430,6 +2516,19 @@ function renderPeriodBanner(cur,rem){
         <span style="opacity:.4">•</span>
         <span>Toplam <b>${totalWD}</b> iş günü</span>
       </div>
+      ${(function(){
+        // FAZ 6.9 — Temporal Context (TemporalContextEngine)
+        if(!window.TemporalContextEngine) return '';
+        var tc = window.TemporalContextEngine.getTemporalContext();
+        if(!tc||!tc.cycleWeek) return '';
+        var wkRange = tc.imsDataWeekRange ? tc.imsDataWeekRange.label : '—';
+        var lagTxt = tc.dataLagWeeks != null ? tc.dataLagWeeks + ' hafta gecikmeli' : '';
+        return '<div style="margin-top:7px;padding-top:6px;border-top:1px solid rgba(255,255,255,.15);font-size:10px;opacity:.8;display:flex;gap:14px;flex-wrap:wrap">'
+          + '<span>📊 IMS: Cycle <b>' + tc.cycleWeek + '.</b> hafta</span>'
+          + '<span>🗓 Son veri: <b>' + wkRange + '</b></span>'
+          + (lagTxt ? '<span>⏱ ' + lagTxt + '</span>' : '')
+          + '</div>';
+      })()}
     </div>
     <div style="text-align:center;flex-shrink:0;min-width:72px">
       <div style="font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:800;line-height:1;color:${pctClr};text-shadow:0 2px 10px rgba(0,0,0,.2)">${pct}%</div>
@@ -4684,10 +4783,6 @@ function _buildEczaneDrawerRefresh(){
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 3h18v18H3z"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
         <span class="tab-label">Eczane</span>
       </button>
-      <button class="nav-tab" id="ntab7" onclick="goPage(7)">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        <span class="tab-label">Yönetici</span>
-      </button>
     </div>
   </div>
 </div>
@@ -4722,10 +4817,6 @@ function _buildEczaneDrawerRefresh(){
   <button class="mtb-btn" id="mtb6" onclick="goPage(6)">
     <span class="mtb-icon"><i class="fas fa-clinic-medical"></i></span>
     <span class="mtb-label">Eczane</span>
-  </button>
-  <button class="mtb-btn" id="mtb7" onclick="goPage(7)">
-    <span class="mtb-icon"><i class="fas fa-users"></i></span>
-    <span class="mtb-label">Yönetici</span>
   </button>
 </div>
 
@@ -4789,9 +4880,6 @@ function _buildEczaneDrawerRefresh(){
   </div>
   <div class="nav-item pg" id="snav6" onclick="goPage(6)">
     <span class="nav-icon"><i class="fas fa-clinic-medical"></i></span><span>Eczane Satış</span>
-  </div>
-  <div class="nav-item pg" id="snav7" onclick="goPage(7)">
-    <span class="nav-icon"><i class="fas fa-users"></i></span><span>Yönetici Paneli</span>
   </div>
 
 
@@ -5341,46 +5429,6 @@ function _buildEczaneDrawerRefresh(){
       <!-- PHASE 4.8: Dönem Sonu Senaryoları Kartı -->
       <div id="salesCoachScenarioCard" style="margin:0 0 16px"></div>
 
-      <!-- ═══ FAZ 6.9: HEADLESS MOTOR KARTLARI ═══ -->
-      <!-- 🗺️ Bölge Optimizasyonu (territory-engine.js Phase 3.3) -->
-      <div id="territorySummaryCard" style="margin:0 0 16px;display:none">
-        <div class="card" style="border:1.5px solid rgba(79,0,140,.15)">
-          <div class="card-hd" style="background:linear-gradient(90deg,rgba(79,0,140,.04),transparent)">
-            <span class="card-title"><i class="fas fa-map-marked-alt"></i> Bölge Analizi</span>
-            <span class="card-badge" style="background:rgba(79,0,140,.1);color:var(--c1)">Territory Engine</span>
-          </div>
-          <div class="card-body" style="padding:10px 14px">
-            <div id="territorySummaryContainer"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 👥 Ekip Yönetici Paneli (executive-engine.js Phase 4.0) -->
-      <div id="executiveDashboardCard" style="margin:0 0 16px;display:none">
-        <div class="card" style="border:1.5px solid rgba(27,206,216,.15)">
-          <div class="card-hd" style="background:linear-gradient(90deg,rgba(27,206,216,.04),transparent)">
-            <span class="card-title"><i class="fas fa-users"></i> Ekip Yönetici Özeti</span>
-            <span class="card-badge" style="background:rgba(27,206,216,.1);color:#0E7490">Executive Engine</span>
-          </div>
-          <div class="card-body" style="padding:10px 14px">
-            <div id="executiveDashboardContainer"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 🤖 AI Otonom Saha Planı (autonomous-planning-engine.js Phase 5.7) -->
-      <div id="autonomousDashboardCard" style="margin:0 0 16px;display:none">
-        <div class="card" style="border:1.5px solid rgba(16,185,129,.15)">
-          <div class="card-hd" style="background:linear-gradient(90deg,rgba(16,185,129,.04),transparent)">
-            <span class="card-title"><i class="fas fa-robot"></i> AI Otonom Saha Planı</span>
-            <span class="card-badge" style="background:rgba(16,185,129,.1);color:#059669">Autonomous Planning · Phase 5.7</span>
-          </div>
-          <div class="card-body" style="padding:0">
-            <div id="autonomousDashboardContainer"></div>
-          </div>
-        </div>
-      </div>
-
       <!-- Motor başlangıç boş durumu -->
       <div id="engineEmpty" style="text-align:center;padding:48px 20px">
         <div style="font-size:44px;margin-bottom:14px">🧠</div>
@@ -5502,6 +5550,16 @@ function _buildEczaneDrawerRefresh(){
     </div><!-- /aiTab_quick -->
 
   </div><!-- /tab card -->
+
+  <!-- FAZ 6.9: Takım Öğrenmesi (TeamLearningEngine) — yönetici ekranı -->
+  <div class="card mb16" id="acc_team_learning_exec">
+    <div class="card-hd" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';if(!window._pvTeamLearningRendered){window._pvTeamLearningRendered=true;renderTeamLearningCard();}">
+      <span class="card-title">🏆 Takım Öğrenmesi & Peer Benchmark</span>
+      <span class="card-badge" style="margin-left:auto;background:#FEE2E2;color:#991B1B">Team Learning</span>
+    </div>
+    <div id="teamLearningCard" style="display:none;padding:12px 16px"></div>
+  </div>
+  <!-- END FAZ 6.9 Team Learning -->
 
 </div><!-- /page5 -->
 
@@ -5674,6 +5732,43 @@ function _buildEczaneDrawerRefresh(){
     </div>
   </div>
 
+  <!-- FAZ 6.9: AI Karar Önerisi (DecisionEngine) -->
+  <div class="eczane-accordion mb16" id="acc_ai_decision">
+    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('ai_decision');if(!window._pvDecisionRendered){window._pvDecisionRendered=true;renderAIDecisionCard();}">
+      <span class="eczane-acc-icon" id="acc_ai_decision_icon">▶</span>
+      <span class="card-title" style="margin:0">🎯 AI Karar Önerisi</span>
+      <span class="card-badge" id="acc_ai_decision_badge" style="margin-left:auto;background:#EDE9FE;color:#6D28D9">Decision Engine</span>
+    </div>
+    <div class="eczane-acc-body" id="acc_ai_decision_body" style="display:none">
+      <div id="aiDecisionCard"></div>
+    </div>
+  </div>
+
+  <!-- FAZ 6.9: Pazar Payı Analizi (MarketShareEngine) -->
+  <div class="eczane-accordion mb16" id="acc_market_share">
+    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('market_share');if(!window._pvMarketShareRendered){window._pvMarketShareRendered=true;renderMarketShareCard();}">
+      <span class="eczane-acc-icon" id="acc_market_share_icon">▶</span>
+      <span class="card-title" style="margin:0">📊 Pazar Payı Analizi</span>
+      <span class="card-badge" id="acc_market_share_badge" style="margin-left:auto;background:#ECFDF5;color:#065F46">Market Share</span>
+    </div>
+    <div class="eczane-acc-body" id="acc_market_share_body" style="display:none">
+      <div id="marketShareCard"></div>
+    </div>
+  </div>
+
+  <!-- FAZ 6.9: Lansman Hazırlık (LaunchReadinessEngine) -->
+  <div class="eczane-accordion mb16" id="acc_launch_readiness">
+    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('launch_readiness');if(!window._pvLaunchRendered){window._pvLaunchRendered=true;renderLaunchReadinessCard();}">
+      <span class="eczane-acc-icon" id="acc_launch_readiness_icon">▶</span>
+      <span class="card-title" style="margin:0">🚀 Lansman Hazırlık</span>
+      <span class="card-badge" id="acc_launch_readiness_badge" style="margin-left:auto;background:#FEF3C7;color:#92400E">Lansman Öncesi</span>
+    </div>
+    <div class="eczane-acc-body" id="acc_launch_readiness_body" style="display:none">
+      <div id="launchReadinessCard"></div>
+    </div>
+  </div>
+  <!-- END FAZ 6.9 Eczane AI Kartları -->
+
   <!-- Eczane tablosu -->
   <div class="card mb16">
     <div class="card-hd">
@@ -5714,63 +5809,6 @@ function _buildEczaneDrawerRefresh(){
     </div>
   </div>
 </div>
-
-<!-- ══════ PAGE 7: YÖNETİCİ PANELİ ══════ -->
-<div class="page" id="page7">
-
-  <!-- TOP FILTER BAR -->
-  <div class="top-filter-bar">
-    <div class="filter-row" style="justify-content:space-between;align-items:center">
-      <div style="font-size:13px;font-weight:700;color:var(--c1);display:flex;align-items:center;gap:8px">
-        <i class="fas fa-users"></i> Yönetici Paneli
-      </div>
-      <button class="btn-calc" onclick="_renderYoneticiPage()"
-        style="font-size:11px;padding:7px 14px;border-radius:10px">
-        <i class="fas fa-sync-alt" style="margin-right:5px"></i>Yenile
-      </button>
-    </div>
-  </div>
-
-  <div style="padding:14px 16px">
-
-    <!-- Ekip Özet Kartları -->
-    <div id="ynt_execContainer" style="margin-bottom:16px"></div>
-
-    <!-- Bölge Analizi -->
-    <div id="ynt_terrCard" style="margin-bottom:16px;display:none">
-      <div class="card" style="border:1.5px solid rgba(79,0,140,.15)">
-        <div class="card-hd" style="background:linear-gradient(90deg,rgba(79,0,140,.04),transparent)">
-          <span class="card-title"><i class="fas fa-map-marked-alt"></i> Bölge Analizi</span>
-          <div id="ynt_terrTttSel" style="display:flex;gap:6px;flex-wrap:wrap"></div>
-        </div>
-        <div class="card-body" style="padding:10px 14px">
-          <div id="ynt_terrContainer"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Takım Öğrenmesi -->
-    <div id="ynt_learnCard" style="margin-bottom:16px;display:none">
-      <div class="card" style="border:1.5px solid rgba(16,185,129,.15)">
-        <div class="card-hd" style="background:linear-gradient(90deg,rgba(16,185,129,.04),transparent)">
-          <span class="card-title"><i class="fas fa-graduation-cap"></i> Takım Öğrenmesi</span>
-          <span class="card-badge" style="background:rgba(16,185,129,.1);color:#059669">FAZ 6.8</span>
-        </div>
-        <div class="card-body" style="padding:10px 14px">
-          <div id="ynt_learnContainer"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Boş durum -->
-    <div id="ynt_empty" style="text-align:center;padding:48px 20px">
-      <div style="font-size:44px;margin-bottom:14px">👥</div>
-      <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px">Yönetici Paneli</div>
-      <div style="font-size:12px;color:var(--dim);margin-bottom:20px">Ekip verisi yükleniyor...</div>
-    </div>
-
-  </div>
-</div><!-- /page7 -->
 
 
 
