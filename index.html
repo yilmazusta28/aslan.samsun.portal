@@ -143,6 +143,15 @@
 <script src="js/ai/core/temporal-context-engine.js"></script>
 <!-- END Temporal Context Engine -->
 
+<!-- FAZ 7.0: Stok Adapter — SourceAdapter arayüzü kanıtı.
+     Eczane bazlı manuel stok girişleri (YOK/KRİTİK/NORMAL/YETERLİ) için
+     localStorage CRUD + downstream sinyal (risk/decision motorları için).
+     ims-adapter.js / pharmacy-adapter.js ile AYNI desen — yeni veri kaynağı,
+     sıfır kırılma. UI: eczane tablosundaki inline dropdown (stokGuncelle()).
+     Rollback: bu satırı sil. -->
+<script src="js/ai/core/stok-adapter.js"></script>
+<!-- END FAZ 7.0 Stok Adapter -->
+
 <!-- FAZ 6.4: Competitive Adapter Katmanı (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §5, §9, §16)
      RAKIP_AKSİYON.csv'nin ham parser çıktısını (window.RAKIP_AKSIYON_RAW —
      js/data/data-loader.js::syncData() içinde doldurulur) CompetitiveRecord[]
@@ -155,32 +164,6 @@
      try/catch ve typeof kontrolüyle korunaklı). -->
 <script src="js/ai/core/competitive-adapter.js"></script>
 <!-- END FAZ 6.4 Competitive Adapter -->
-
-<!-- FAZ 7.0: Genel SourceAdapter Arayüzü + 2 Pilot Kaynak (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §13, §16)
-     source-adapter.js: discover/normalize/cache/contextHook sözleşmesi +
-     kayıt defteri (registry) — ims-adapter.js/competitive-adapter.js'in
-     HER BİRİNİN kendi içinde tekrarladığı cache deseni artık GENEL/TEK
-     yerden. Mevcut 3 adapter (ims/competitive/pharmacy) BİLEREK bu
-     registry'ye taşınmadı ("ekle, kırma" prensibi) — bu FAZ sadece YENİ
-     kaynaklar için deseni kanıtlıyor.
-     field-observation-adapter.js + stock-adapter.js: registry'nin İKİ
-     BAĞIMSIZ tüketicisi (Saha Gözlemleri, Stok) — ikisi de saha-gozlem/
-     ve stok/ dizinlerinde manifest.json/CSV henüz YOKSA sessizce boş
-     context döner, hiçbir mevcut motoru etkilemez. AIContextBuilder'a
-     (context.fieldObservations, context.stockSignals) ve data-loader.js'e
-     (syncData() içindeki tek genel senkronizasyon çağrısı) bağlandı.
-     Hiçbir karar motoruna (risk/decision/rca) BAĞLANMADI — rca-engine.js
-     (henüz yazılmamış, ayrı FAZ) bu context alanlarını ileride kanıt
-     kaynağı olarak okuyabilir.
-     Yükleme sırası: source-adapter.js İLK (registry), pilot adapter'lar
-     SONRA (kendi kendine register olurlar).
-     Rollback: bu 3 satırı silmek hiçbir şeyi KIRMAZ — AIContextBuilder ve
-     data-loader.js typeof kontrolüyle korunaklı, eksik durumda context
-     ve syncData() öncekiyle AYNI davranır. -->
-<script src="js/ai/core/source-adapter.js"></script>
-<script src="js/ai/core/field-observation-adapter.js"></script>
-<script src="js/ai/core/stock-adapter.js"></script>
-<!-- END FAZ 7.0 SourceAdapter + Pilots -->
 
 <!-- PHASE 3.0: Sales Intelligence Engine — yükleme sırası kritik -->
 <script src="js/ai/intelligence/insight-engine.js"></script>
@@ -1327,6 +1310,12 @@ function renderEczaneContent() {
   document.getElementById('eczaneTblBadge').textContent = `${eczList.length} eczane`;
   renderEczaneTable(eczList);
 
+  // FAZ 7.0 — Stok risk banner'ını veri yüklenince güncelle
+  try {
+    const _stokTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
+    _renderStokBanner(_stokTTT);
+  } catch(e) { /* sessiz — StokAdapter henüz yüklenmemiş olabilir */ }
+
   // pharmacyActiveData → ECZANE_RAW senkronizasyonu (legacy JS modülleri için)
   if (window.pharmacyActiveData && window.pharmacyActiveData.length > 0) {
     ECZANE_RAW   = window.pharmacyActiveData;
@@ -1689,8 +1678,25 @@ function renderEczaneTable(data) {
       ${_aylar.map(a=>`<th onclick="sortEczane('ay_${a}')" style="cursor:pointer">${_AY_K[a]||a} ▾</th>`).join('')}
       <th onclick="sortEczane('toplam')" style="cursor:pointer">Toplam ▾</th>
       <th onclick="sortEczane('tutar')" style="cursor:pointer">Tutar ▾</th>
-      <th>Ürünler</th>`;
+      <th>Ürünler</th>
+      <th style="min-width:90px">📦 Stok</th>`;
   }
+
+  // FAZ 7.0 — mevcut stok kayıtlarını belleğe çek (render başında tek seferde)
+  const _stokByGln = {};
+  if (window.StokAdapter) {
+    const allStok = window.StokAdapter.normalizeStok(
+      typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ' ? selEczaneTTT : null
+    );
+    allStok.forEach(function(r) {
+      if (!_stokByGln[r.gln]) _stokByGln[r.gln] = {};
+      _stokByGln[r.gln][r.urun] = r.durum;
+    });
+  }
+
+  // Stok renk eşlemesi
+  const STOK_CLR = { 'YOK':'#DC2626', 'KRİTİK':'#D97706', 'NORMAL':'#2563EB', 'YETERLİ':'#059669' };
+  const STOK_DURUM = window.StokAdapter ? window.StokAdapter.DURUM_SIRASI : ['YOK','KRİTİK','NORMAL','YETERLİ'];
 
   document.getElementById('eczaneTbody').innerHTML = shown.map(e => {
     // Trend: son ay vs ilk ay
@@ -1706,6 +1712,26 @@ function renderEczaneTable(data) {
       const isLast=(a===sonAy);
       return `<td class="mono" style="${v>0?(isLast?'font-weight:700':''):'color:#A0AEC0'}">${v>0?fK(v):'—'}</td>`;
     }).join('');
+
+    // FAZ 7.0 — Stok hücresi: her ürün için mini dropdown
+    const stokGln = _stokByGln[e.gln] || {};
+    // Sadece bu eczanede satışı olan ürünler için stok satırı (e.uruns)
+    const urunlerForStok = (e.uruns && e.uruns.length) ? e.uruns : (typeof URUN_ORDER !== 'undefined' ? URUN_ORDER : []);
+    const stokLines = urunlerForStok.map(function(u) {
+      const mevcut = stokGln[u] || '';
+      const clr = mevcut ? (STOK_CLR[mevcut]||'#64748B') : '#94A3B8';
+      const dot = mevcut ? `<span style="width:6px;height:6px;border-radius:50%;background:${clr};display:inline-block;margin-right:4px"></span>` : '';
+      const opts = `<option value="">—</option>` +
+        STOK_DURUM.map(d => `<option value="${d}"${d===mevcut?' selected':''}>${d}</option>`).join('');
+      return `<div style="display:flex;align-items:center;gap:3px;margin-bottom:2px">
+        <span style="font-size:8px;color:${URUN_CLR[u]||'#64748B'};font-weight:700;min-width:28px">${u.substr(0,5)}</span>
+        <select onchange="stokGuncelle('${e.gln}','${e.ad.replace(/'/g,"\\'")}','${e.brick}','${u}',this.value)"
+          style="font-size:9px;padding:1px 3px;border:1px solid ${mevcut?clr:'#E2E8F0'};border-radius:4px;background:${mevcut?clr+'18':'var(--surf)'};color:${mevcut?clr:'#94A3B8'};cursor:pointer;max-width:72px">
+          ${opts}
+        </select>
+      </div>`;
+    }).join('');
+
     return `<tr>
       <td style="font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.ad}">${e.ad}</td>
       <td style="font-size:10px;color:var(--dim)">${e.brick}</td>
@@ -1713,8 +1739,71 @@ function renderEczaneTable(data) {
       <td class="mono" style="font-weight:700;color:var(--c1)">${e.toplam>0?fK(e.toplam):'—'}</td>
       <td class="mono" style="font-size:10px">${e.tutar>0?fTL(e.tutar):'—'}</td>
       <td>${urunBadges}</td>
+      <td style="min-width:90px;padding:4px 6px">${stokLines}</td>
     </tr>`;
   }).join('');
+}
+
+// FAZ 7.0 — Stok durumu güncelle (eczane tablosundaki inline dropdown onChange)
+function stokGuncelle(gln, eczane, brick, urun, durum) {
+  if (!window.StokAdapter) return;
+  const ttt = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ')
+    ? selEczaneTTT : (typeof selTTT !== 'undefined' ? selTTT : '');
+
+  if (!durum) {
+    window.StokAdapter.deleteStok(gln, urun);
+  } else {
+    window.StokAdapter.saveStok({ gln, eczane, brick, ttt, urun, durum, girenTTT: ttt });
+  }
+  _renderStokBanner(ttt);
+}
+
+// FAZ 7.0 — Stok risk banner'ını güncelle (sayfa6 üstünde, stok uyarısı)
+function _renderStokBanner(ttt) {
+  if (!window.StokAdapter) return;
+  const el = document.getElementById('stokRiskBanner');
+  if (!el) return;
+
+  const sig = window.StokAdapter.getStokSignal(
+    ttt && ttt !== 'TÜMÜ' ? ttt : null
+  );
+
+  if (!sig.kritikCount) {
+    el.style.display = 'none';
+    return;
+  }
+
+  const clr = sig.riskScore >= 70 ? '#DC2626' : '#D97706';
+  const bg  = sig.riskScore >= 70 ? '#FEF2F2' : '#FFFBEB';
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div style="background:${bg};border:1px solid ${clr}44;border-radius:10px;padding:10px 14px;
+      display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:16px">${sig.riskScore>=70?'🔴':'🟡'}</span>
+      <span style="font-size:12px;font-weight:700;color:${clr}">
+        ${sig.kritikCount} kritik stok uyarısı
+      </span>
+      <span style="font-size:11px;color:var(--dim)">
+        Ürünler: ${sig.kritikUrunler.join(', ')} · Brickler: ${sig.kritikBricks.join(', ')}
+      </span>
+      <button onclick="stokCsvIndir()" style="margin-left:auto;font-size:10px;padding:3px 10px;
+        border:1px solid ${clr};border-radius:6px;background:transparent;color:${clr};cursor:pointer">
+        ↓ CSV İndir
+      </button>
+    </div>`;
+}
+
+// FAZ 7.0 — Stok CSV indirme
+function stokCsvIndir() {
+  if (!window.StokAdapter) return;
+  const ttt = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
+  const csv = window.StokAdapter.exportCSV(ttt);
+  if (!csv) return;
+  const blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'stok_durumu_' + (ttt||'takim') + '_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
 }
 
 function renderEczaneCharts(filtered, eczList) {
@@ -5794,6 +5883,9 @@ function _buildEczaneDrawerRefresh(){
     </div>
   </div>
   <!-- END FAZ 6.9 Eczane AI Kartları -->
+
+  <!-- FAZ 7.0 — Stok Risk Banner (dolduğunda görünür) -->
+  <div id="stokRiskBanner" style="display:none;margin-bottom:10px"></div>
 
   <!-- Eczane tablosu -->
   <div class="card mb16">
