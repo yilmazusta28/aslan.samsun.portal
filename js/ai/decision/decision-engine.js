@@ -76,7 +76,7 @@
   }
   window._DECISION_ENGINE_LOADED = true;
 
-  var ENGINE_VERSION = '1.0';
+  var ENGINE_VERSION = '1.1'; // FAZ 10.1: PHARMACY_VISIT eklendi
   var CONFIDENCE_CEILING = 80; // §Kısıtlar — asla aşılmaz
 
   function _safe(fn, fallback) {
@@ -259,7 +259,59 @@
   }
 
   // ──────────────────────────────────────────────────────────────────
-  //  ANA API — decide(ttt, problemType?)
+  //  FAZ 10.1 — PHARMACY_VISIT dal: _generatePharmacyAlternatives
+  //  DigitalTwin listesinden eczane-seviyesi alternatifler üretir.
+  //  Mevcut _generateAlternatives() DOKUNULMADI — sadece PHARMACY_VISIT
+  //  decide() çağrısında bu fonksiyon kullanılır.
+  // ──────────────────────────────────────────────────────────────────
+  function _generatePharmacyAlternatives(twins) {
+    if (!twins || !twins.length) return [];
+    return twins.map(function (t, i) {
+      // Tip: stok uyarısı → sipariş yakını → bekle
+      var type;
+      if (t.lastKnownStock != null && t.lastKnownStock === 0) {
+        type = 'STOCK_ALERT';
+      } else if (t.orderDiscipline != null && t.orderDiscipline >= 0.65 &&
+                 t.estimatedOrderDate && t.estimatedOrderDate <= _dateStr30Days()) {
+        type = 'VISIT_NOW';
+      } else {
+        type = 'WAIT';
+      }
+      var score8 = t.confidenceScore || 50;
+      return {
+        type:     type,
+        target:   t.eczane || t.gln || ('Eczane-' + i),
+        score8:   score8,
+        score5:   null,
+        classification: t.behaviorType || null,
+        reason:   _pharmacyReason(t, type),
+        detail:   t.behaviorType ? ('Davranış: ' + t.behaviorType) : '',
+        scores:   null,
+        orderCycleSignal: t.estimatedOrderDate || null,
+        _rank:    i + 1,
+        _twin:    t  // referans (decisionBasis için)
+      };
+    });
+  }
+
+  function _dateStr30Days() {
+    var d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function _pharmacyReason(t, type) {
+    if (type === 'STOCK_ALERT') return 'Stok bitti — acil ziyaret';
+    if (type === 'VISIT_NOW') {
+      return 'Sipariş zamanı yaklaşıyor' +
+        (t.estimatedOrderDate ? ' (' + t.estimatedOrderDate + ')' : '');
+    }
+    return 'Bekle — sipariş döngüsüne göre erken';
+  }
+
+  // ──────────────────────────────────────────────────────────────────
+  //  ANA API — decide(ttt, problemType?, extContext?)
+  //  extContext: { twins?: DigitalTwin[] }  ← FAZ 10.1 PHARMACY_VISIT için
   // ──────────────────────────────────────────────────────────────────
   function _buildActionSentence(alt, temporalCtx) {
     var base = '';
@@ -269,11 +321,14 @@
       : '';
 
     switch (alt.type) {
-      case 'RESCUE':      base = alt.target + ' brick\'inde acil müdahale gerekiyor — ' + (alt.reason || 'yüksek risk'); break;
-      case 'BRICK_FOCUS': base = alt.target + ' brick\'ine odaklan — ' + (alt.reason || 'fırsat tespit edildi'); break;
-      case 'LAUNCH_PREP': base = alt.target + ' lansmanına hazırlık — ' + (alt.reason || 'rakip analizi yapıldı'); break;
+      case 'RESCUE':       base = alt.target + ' brick\'inde acil müdahale gerekiyor — ' + (alt.reason || 'yüksek risk'); break;
+      case 'BRICK_FOCUS':  base = alt.target + ' brick\'ine odaklan — ' + (alt.reason || 'fırsat tespit edildi'); break;
+      case 'LAUNCH_PREP':  base = alt.target + ' lansmanına hazırlık — ' + (alt.reason || 'rakip analizi yapıldı'); break;
       case 'PRODUCT_PUSH': base = alt.target + ' ürününü öne çıkar — ' + (alt.reason || 'büyüme potansiyeli yüksek'); break;
-      default:            base = (alt.reason || 'Öncelikli aksiyon');
+      case 'VISIT_NOW':    base = alt.target + ' eczanesini ziyaret et — ' + (alt.reason || 'sipariş döngüsü'); break;
+      case 'STOCK_ALERT':  base = alt.target + ' eczanesinde stok kritik — ' + (alt.reason || 'acil'); break;
+      case 'WAIT':         base = alt.target + ' eczanesi — ' + (alt.reason || 'ziyaret için bekle'); break;
+      default:             base = (alt.reason || 'Öncelikli aksiyon');
     }
     return base + cyclePart;
   }
@@ -281,7 +336,7 @@
   var _cache = {};
   var CACHE_TTL_MS = 60000;
 
-  function decide(ttt, problemType) {
+  function decide(ttt, problemType, extContext) {
     if (!ttt) return null;
 
     var cacheKey = ttt + '|' + (problemType || 'AUTO');
@@ -295,12 +350,24 @@
     }, null);
 
     // Adım 1 — alternatifler
-    var alternatives = _generateAlternatives(ttt);
+    // FAZ 10.1: PHARMACY_VISIT → eczane-seviyesi dal (mevcut 5 tip değişmedi)
+    var alternatives;
+    if (problemType === 'PHARMACY_VISIT') {
+      var twins = (extContext && extContext.twins) || _safe(function () {
+        if (!window.PharmacyRanking || !window.DigitalTwinBuilder) return [];
+        return (window.PharmacyRanking.rankPharmacies(ttt) || []).slice(0, 15).map(function (r) {
+          return window.DigitalTwinBuilder.getDigitalTwin(r.eczane || r.gln, ttt);
+        }).filter(Boolean);
+      }, []);
+      alternatives = _generatePharmacyAlternatives(twins);
+    } else {
+      alternatives = _generateAlternatives(ttt);
 
-    // problemType filtresi
-    if (problemType && problemType !== 'AUTO') {
-      var filtered = alternatives.filter(function (a) { return a.type === problemType; });
-      if (filtered.length) alternatives = filtered;
+      // problemType filtresi (mevcut 5 tip)
+      if (problemType && problemType !== 'AUTO') {
+        var filtered = alternatives.filter(function (a) { return a.type === problemType; });
+        if (filtered.length) alternatives = filtered;
+      }
     }
 
     if (!alternatives.length) {

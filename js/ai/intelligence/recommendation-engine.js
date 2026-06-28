@@ -50,6 +50,15 @@
       var curPeriod = periods.find(function(p){ return today >= p.start && today <= p.end; });
       var remDays = curPeriod && typeof workDays === 'function' ? workDays(today, curPeriod.end) : 0;
 
+      // FAZ 9.5: Temporal context enrichment — cycle'ın son 3 haftasında
+      // urgency escalation (additive: TemporalContextEngine yoksa davranış
+      // değişmez, sadece mevcut remDays mantığı çalışmaya devam eder).
+      var _tctx = null;
+      if (window.TemporalContextEngine && typeof window.TemporalContextEngine.getTemporalContext === 'function') {
+        try { _tctx = window.TemporalContextEngine.getTemporalContext(); } catch (_e) {}
+      }
+      var _lateInCycle = _tctx && _tctx.cycleWeek != null && _tctx.cycleWeek >= 7;
+
       var genelTotal = (GENEL || []).find(function(r){ return r.ttt === ttt && r.urun === 'GENEL TOPLAM'; });
       var genelRows  = (GENEL || []).filter(function(r){ return r.ttt === ttt && r.urun !== 'GENEL TOPLAM'; });
       // AI MİMARİ STABİLİZASYONU: IMS erişimi artık ims-adapter.js
@@ -135,7 +144,7 @@
         recs.push({ priority: priority++,
           action: opp.title + ' ziyareti',
           detail: opp.reason + ' ' + opp.detail + eczaneHint,
-          urgency: opp.priority <= 2 ? 'THIS_WEEK' : 'THIS_PERIOD' });
+          urgency: (opp.priority <= 2 || _lateInCycle) ? 'THIS_WEEK' : 'THIS_PERIOD' });
       });
 
       // ── R4: Güçlü ürün → koruma stratejisi ──────────────
@@ -145,7 +154,7 @@
           action: strongProds.map(function(r){ return r.urun; }).join(', ') + ' için tempo koru',
           detail: 'Bu ürünlerde %' + Math.min.apply(null, strongProds.map(function(r){ return r.tl_pct||0; })).toFixed(1) +
             ' üzeri realizasyon mevcut — portföy primini destekliyor. Düşüşe izin verme.',
-          urgency: 'THIS_PERIOD' });
+          urgency: _lateInCycle ? 'THIS_WEEK' : 'THIS_PERIOD' });
       }
 
       // ── R5: MI&GI düzeltme önerisi ───────────────────────

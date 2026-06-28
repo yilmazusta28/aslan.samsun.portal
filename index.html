@@ -110,6 +110,9 @@
 <script src="js/ui/tab-system.js"></script>
 <script src="js/ui/card-renderers.js"></script>
 <script src="js/ui/table-renderers.js"></script>
+<script src="js/ui/confidence-meter.js"></script>
+<script src="js/ui/explainable-ai.js"></script>
+<script src="js/ui/role-visibility.js"></script>
 <!-- END PHASE23 UI Layer -->
 <script src="js/core/runtime-patches.js"></script>
 <!-- PHASE 2.3.5: Performance Monitor + Health Check (console-only, no UI) -->
@@ -342,6 +345,14 @@
 <script src="js/ai/core/pharmacy-adapter.js"></script>
 <!-- END FAZ 6.0 Pharmacy Adapter -->
 
+<!-- FAZ 8.1: Tek Kanonik Sıralama — dört buildTop30* fonksiyonunun
+     hepsinin OKUYACAĞI tek sıralama motoru. pharmacy-adapter.js ve
+     pharmacy-behavior-engine.js SONRASI yüklenmeli.
+     Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — dört fonksiyon
+     legacy hesaplarına otomatik düşer. -->
+<script src="js/ai/core/pharmacy-ranking.js"></script>
+<!-- END FAZ 8.1 Tek Kanonik Sıralama -->
+
 <!-- FAZ 6.1: Pharmacy Behavior Engine (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §16)
      pharmacy-intelligence.js + reorder-engine.js + reorder-classifier.js'in
      birbirinden hafif farklı eşiklerle ÜÇ KEZ hesapladığı sınıflandırma
@@ -354,8 +365,34 @@
      ve davranışı bu fazda HİÇ DEĞİŞMEDİ.
      Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — hiçbir mevcut motor
      henüz buna bağımlı değil. -->
-<script src="js/pharmacy-behavior/pharmacy-behavior-engine.js"></script>
+<script src="js/ai/core/pharmacy-behavior-engine.js"></script>
 <!-- END FAZ 6.1 Pharmacy Behavior Engine -->
+
+<!-- FAZ 9.x: Pharmacy Intelligence Layer
+     Yükleme sırası: pharma-db → sales-memory → coverage-selection →
+     stock-entry-adapter → digital-twin-builder
+     Bağımlılıklar: pharmacy-adapter.js (FAZ 6.0) ve
+     pharmacy-behavior-engine.js (FAZ 9.0) SONRASI yüklenmeli.
+     Rollback: bu 5 satırı sil — hiçbir mevcut motor buna bağımlı
+     değil (DigitalTwinBuilder lazy, CoverageSelection IndexedDB). -->
+<script src="js/ai/core/pharma-db.js"></script>
+<script src="js/ai/core/saha-gozlem-store.js"></script>
+<script src="js/ai/core/sales-memory-engine.js"></script>
+<script src="js/ai/core/coverage-selection.js"></script>
+<script src="js/ai/core/stock-entry-adapter.js"></script>
+<script src="js/ai/core/digital-twin-builder.js"></script>
+<!-- FAZ 10.2: Haftalık Rota Planı (Manuel Giriş)
+     Temsilcinin kendi brick planını girdiği AYRI veri modeli.
+     route-optimizer.js::buildWeeklyRoutes() (AI önerisi) DEĞİŞTİRİLMEDİ.
+     Rollback: bu satırı sil — hiçbir mevcut kod buna bağımlı değil. -->
+<script src="js/ai/core/route-plan-input.js"></script>
+<!-- END FAZ 10.2 -->
+<!-- FAZ 10.4: Rakip Intelligence ↔ Outcome Köprüsü
+     competitive-adapter.js (CSV kampanya) ile outcome-tracker.js arasında
+     bağlantı kurar; learning-engine.js'e besler. Rollback: bu satırı sil. -->
+<script src="js/ai/core/competitive-outcome-linker.js"></script>
+<!-- END FAZ 10.4 -->
+<!-- END FAZ 9.x Pharmacy Intelligence Layer -->
 
 <script src="js/pharmacy/sales-conditions.js"></script>
 
@@ -1309,6 +1346,9 @@ function renderEczaneContent() {
   _eczaneData = eczList;
   document.getElementById('eczaneTblBadge').textContent = `${eczList.length} eczane`;
   renderEczaneTable(eczList);
+  // FAZ 12.1: async sidecar (coverage, son ziyaret, AI profil) — re-render sonra gelir
+  const _e121Ttt = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
+  _loadFaz121SidecarData(_e121Ttt);
 
   // FAZ 7.0 — Stok risk banner'ını veri yüklenince güncelle
   try {
@@ -1409,6 +1449,44 @@ function renderEczaneContent() {
 let _eczaneData = [];
 let _eczaneSearchFilter = '';
 
+// ── FAZ 12.1 — Eczane Yönetimi sidecar cache ─────────────────────────
+// coverage + son ziyaret verileri async yüklenir, render senkron tüketir
+const _faz121Cache = { selectedSet: new Set(), highPotentialSet: new Set(), behaviorMap: {}, stockDateMap: {} };
+
+async function _loadFaz121SidecarData(ttt) {
+  try {
+    // Coverage selections
+    if (window.CoverageSelection) {
+      const sel = await window.CoverageSelection.listSelected(ttt || null);
+      _faz121Cache.selectedSet = new Set((sel || []).map(s => s.pharmacy));
+      const hp = await window.CoverageSelection.listUnselectedHighPotential(ttt || null);
+      _faz121Cache.highPotentialSet = new Set((hp || []).map(s => s.eczane || s.pharmacy || s.gln || ''));
+    }
+    // Behavior profiles (sync, fast)
+    if (window.PharmacyBehaviorEngine && typeof window.PharmacyBehaviorEngine.buildBehaviorProfiles === 'function') {
+      const profiles = window.PharmacyBehaviorEngine.buildBehaviorProfiles(ttt);
+      _faz121Cache.behaviorMap = {};
+      (profiles || []).forEach(p => {
+        _faz121Cache.behaviorMap[p.eczane || p.gln] = { behaviorType: p.behaviorType, score: p.score };
+      });
+    }
+    // Son ziyaret tarihleri: pre-load StockEntryAdapter for each pharmacy (batch)
+    if (window.StockEntryAdapter && typeof window.StockEntryAdapter.getLatestStockEntry === 'function' && _eczaneData.length) {
+      const promises = _eczaneData.slice(0, 100).map(async (e) => {
+        try {
+          const entry = await window.StockEntryAdapter.getLatestStockEntry(e.ad);
+          if (entry && entry.date) _faz121Cache.stockDateMap[e.ad] = entry.date;
+        } catch (_) {}
+      });
+      await Promise.all(promises);
+    }
+    // Re-render table with fresh data
+    if (_eczaneData.length) renderEczaneTable(_eczaneData);
+  } catch (e) {
+    console.warn('[FAZ12.1] sidecar yüklemesi hata:', e.message);
+  }
+}
+
 // ── Eczane Sayfası Accordion Toggle ──────────────────────────
 function toggleEczaneAcc(id) {
   const body   = document.getElementById('acc_' + id + '_body');
@@ -1455,9 +1533,8 @@ function renderAIDecisionCard() {
           <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:3px">${r.action}</div>
           ${tcLine}
         </div>
-        <div style="margin-left:auto;text-align:right;flex-shrink:0">
-          <div style="font-size:18px;font-weight:800;color:#7C3AED">%${d.confidence}</div>
-          <div style="font-size:9px;color:var(--dim)">güven</div>
+        <div style="margin-left:auto;flex-shrink:0">
+          ${typeof renderConfidenceMeter === 'function' ? renderConfidenceMeter(d.confidence) : '<span style="font-size:16px;font-weight:800;color:#7C3AED">%' + d.confidence + '</span>'}
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
@@ -1478,6 +1555,10 @@ function renderAIDecisionCard() {
       ${d.risk.topRisks.map(r => `<div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)">${r.description||r.type||JSON.stringify(r)}</div>`).join('')}` : ''}
       ${d.alternatives && d.alternatives.length > 1 ? `<div style="margin-top:10px;font-size:10px;color:var(--dim);font-weight:600">ALTERNATİFLER:</div>
       ${d.alternatives.slice(1,4).map(a => `<div style="font-size:11px;padding:4px 0;color:var(--dim)">#${a.rank} ${a.target} — ${a.type} (skor: ${a.finalScore})</div>`).join('')}` : ''}
+      <div style="margin-top:10px;position:relative">
+        ${typeof renderNedenButton === 'function' ? renderNedenButton(d.decisionBasis) : ''}
+      </div>
+      ${typeof renderManualFeedbackButtons === 'function' ? renderManualFeedbackButtons({ eczane: r.target || null, brick: d.decisionBasis && d.decisionBasis.opportunityTop ? d.decisionBasis.opportunityTop.brick : null, ttt: ttt }) : ''}
     </div>`;
   const badge = document.getElementById('acc_ai_decision_badge');
   if (badge) { badge.textContent = `%${d.confidence} güven`; }
@@ -1673,13 +1754,16 @@ function renderEczaneTable(data) {
   });
   const theadEl = document.getElementById('eczaneThead');
   if (theadEl && _aylar.length > 0) {
-    theadEl.innerHTML = `<th onclick="sortEczane('ad')" style="cursor:pointer">Eczane ▾</th>
+    theadEl.innerHTML = `<th style="width:32px;text-align:center">☑</th>
+      <th onclick="sortEczane('ad')" style="cursor:pointer">Eczane ▾</th>
       <th onclick="sortEczane('brick')" style="cursor:pointer">Brick ▾</th>
       ${_aylar.map(a=>`<th onclick="sortEczane('ay_${a}')" style="cursor:pointer">${_AY_K[a]||a} ▾</th>`).join('')}
       <th onclick="sortEczane('toplam')" style="cursor:pointer">Toplam ▾</th>
       <th onclick="sortEczane('tutar')" style="cursor:pointer">Tutar ▾</th>
       <th>Ürünler</th>
-      <th style="min-width:90px">📦 Stok</th>`;
+      <th style="min-width:90px">📦 Stok</th>
+      <th style="min-width:80px">Son Ziyaret</th>
+      <th style="min-width:110px">AI Profil</th>`;
   }
 
   // FAZ 7.0 — mevcut stok kayıtlarını belleğe çek (render başında tek seferde)
@@ -1732,14 +1816,40 @@ function renderEczaneTable(data) {
       </div>`;
     }).join('');
 
-    return `<tr>
-      <td style="font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.ad}">${e.ad}</td>
+    // FAZ 12.1 — coverage checkbox
+    const _isSelected = _faz121Cache.selectedSet.has(e.ad) || _faz121Cache.selectedSet.has(e.gln);
+    const _isHighPot  = _faz121Cache.highPotentialSet.has(e.ad) || _faz121Cache.highPotentialSet.has(e.gln);
+    const _rowBg      = _isHighPot && !_isSelected ? 'background:#FEFCE8' : '';
+    const _rowTitle   = _isHighPot && !_isSelected ? 'title="Ziyaret planına eklenmesi önerilir."' : '';
+    const _checkHtml  = `<input type="checkbox"${_isSelected?' checked':''} onclick="(function(cb){
+      if(window.CoverageSelection&&typeof window.CoverageSelection.setSelection==='function'){
+        window.CoverageSelection.setSelection('${e.ad.replace(/'/g,"\\'")}',cb.checked,
+          (typeof selEczaneTTT!=='undefined'&&selEczaneTTT!=='TÜMÜ')?selEczaneTTT:null)
+          .then(function(){_faz121Cache.selectedSet[cb.checked?'add':'delete']('${e.ad.replace(/'/g,"\\'")}');});
+      }
+    })(this)" style="cursor:pointer;width:14px;height:14px">`;
+    // FAZ 12.1 — son ziyaret
+    const _visitDate  = _faz121Cache.stockDateMap[e.ad] || '—';
+    // FAZ 12.1 — AI profil (PharmacyBehaviorEngine sync cache)
+    const _beh = _faz121Cache.behaviorMap[e.ad] || _faz121Cache.behaviorMap[e.gln] || null;
+    const _behTypeMap = { REGULAR_BUYER:'Düzenli',GROWING:'Büyüyen',AT_RISK:'Risk',
+      REACTIVATION:'Kazanım',CAMPAIGN_BUYER:'Kampanya',STOCK_BUILDER:'Stok',
+      COMPETITIVE_RISK:'Rakip Riski',SEASONAL_BUYER:'Mevsimsel',NEW_ACCOUNT:'Yeni' };
+    const _behHtml = _beh
+      ? `<span style="font-size:9px;font-weight:700;background:rgba(79,0,140,.08);color:var(--c1);border-radius:4px;padding:1px 5px">${_behTypeMap[_beh.behaviorType]||_beh.behaviorType||'—'}</span>`
+      : '<span style="font-size:9px;color:var(--dim)">—</span>';
+
+    return `<tr style="${_rowBg}" ${_rowTitle}>
+      <td style="text-align:center;padding:4px 6px">${_checkHtml}</td>
+      <td style="font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.ad}">${e.ad}${_isHighPot&&!_isSelected?' <span style="font-size:8px;color:#D97706;font-weight:700">★ Öneri</span>':''}</td>
       <td style="font-size:10px;color:var(--dim)">${e.brick}</td>
       ${ayTds}
       <td class="mono" style="font-weight:700;color:var(--c1)">${e.toplam>0?fK(e.toplam):'—'}</td>
       <td class="mono" style="font-size:10px">${e.tutar>0?fTL(e.tutar):'—'}</td>
       <td>${urunBadges}</td>
       <td style="min-width:90px;padding:4px 6px">${stokLines}</td>
+      <td style="font-size:10px;color:var(--dim);white-space:nowrap">${_visitDate}</td>
+      <td style="padding:4px 6px">${_behHtml}</td>
     </tr>`;
   }).join('');
 }
@@ -1902,6 +2012,8 @@ function doLogin(){
         _sa.innerHTML=`<span>${user.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()}</span>`;
       }
     }
+    // FAZ 12.3 — rol bazlı görünürlük (LOGGED_IN_USER artık set)
+    if(typeof applyRoleVisibility === 'function') { applyRoleVisibility(); }
     // initApp Blok-2'de tanımlı — DOM tamamen yüklendiği için güvenli çağır
     if(typeof initApp === 'function') { initApp(); }
     else { window._pendingLogin = true; }
@@ -2424,9 +2536,9 @@ function goPage(i){
   // tab-system.js mirrors them for reuse elsewhere.
   document.querySelectorAll('.page').forEach((p,j)=>p.classList.toggle('active',j===i));
   document.querySelectorAll('.nav-tab').forEach((t,j)=>t.classList.toggle('active',j===i));
-  for(let k=0;k<=6;k++){const el=document.getElementById('snav'+k);if(el)el.classList.toggle('active',k===i);}
+  for(let k=0;k<=7;k++){const el=document.getElementById('snav'+k);if(el)el.classList.toggle('active',k===i);}
   // ── Mobil tab bar güncelle ──────────────────────────────
-  for(let k=0;k<=6;k++){
+  for(let k=0;k<=7;k++){
     const btn=document.getElementById('mtb'+k);
     if(btn) btn.classList.toggle('active',k===i);
   }
@@ -2442,6 +2554,8 @@ function goPage(i){
   else if(i===4){ buildPrimInputs(); syncPrimFromCalc(); }
   else if(i===5){ if(typeof renderAiAsistan==='function') renderAiAsistan(); }
   else if(i===6)renderEczane();
+  // FAZ 8.2 — Yönetici sekmesi
+  else if(i===7){ if(typeof renderExecutiveDashboard==='function') renderExecutiveDashboard('executiveDashboardContainer'); }
 }
 
 // ── DARK MODE ────────────────────────────────────────────
@@ -4898,6 +5012,11 @@ function _buildEczaneDrawerRefresh(){
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 3h18v18H3z"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
         <span class="tab-label">Eczane</span>
       </button>
+      <!-- FAZ 8.2 — Yönetici sekmesi -->
+      <button class="nav-tab" id="ntab7" onclick="goPage(7)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        <span class="tab-label">Yönetici</span>
+      </button>
     </div>
   </div>
 </div>
@@ -4995,6 +5114,10 @@ function _buildEczaneDrawerRefresh(){
   </div>
   <div class="nav-item pg" id="snav6" onclick="goPage(6)">
     <span class="nav-icon"><i class="fas fa-clinic-medical"></i></span><span>Eczane Satış</span>
+  </div>
+  <!-- FAZ 8.2 — Yönetici Sekmesi (FAZ 6.9 / executive-engine.js) -->
+  <div class="nav-item pg" id="snav7" onclick="goPage(7)">
+    <span class="nav-icon"><i class="fas fa-user-tie"></i></span><span>Yönetici</span>
   </div>
 
 
@@ -5335,7 +5458,7 @@ function _buildEczaneDrawerRefresh(){
       <span class="card-badge">2026 İLKO TTT</span>
     </div>
     <div class="card-body">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="g2 prim-inner-g2">
         <!-- Girişler -->
         <div>
           <div class="section-h">Temsilci & Dönem</div>
@@ -5350,7 +5473,7 @@ function _buildEczaneDrawerRefresh(){
             Ürün TL Realizasyonları (%)
             <span style="font-size:9px;font-weight:400;color:var(--dim);margin-left:6px">Boş bırakırsanız Hesaplayıcı/mevcut veri kullanılır</span>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="primUrunInputs"></div>
+          <div class="prim-urun-inputs" id="primUrunInputs"></div>
 
           <div style="margin-top:10px">
             <button onclick="URUN_ORDER.forEach(u=>{const el=document.getElementById(getPrimRealId(u));if(el)el.value='';});calcPrim();"
@@ -5392,7 +5515,7 @@ function _buildEczaneDrawerRefresh(){
   <div class="engine-hero">
     <div class="engine-hero-top">
       <div>
-        <div class="engine-badge"><i class="fas fa-brain"></i> Auto Strategy Engine</div>
+        <div class="engine-badge"><i class="fas fa-brain"></i> AI Analiz Merkezi</div>
         <div class="engine-title" style="margin-top:10px">🧠 AI Asistan & Görev Motoru</div>
         <div class="engine-subtitle">Günlük satış planı · Risk analizi · Prim optimizasyonu · Eczane öncelikleri</div>
       </div>
@@ -5531,12 +5654,8 @@ function _buildEczaneDrawerRefresh(){
 
       </div><!-- /engineOutput -->
 
-      <!-- ═══ ECZANE AI LİSTELERİ — Motor'dan alındı ═══ -->
-      <!-- 🏆 İlk 30 Ziyaret Önceliği -->
-      <div id="enginePharmacyTop30" style="margin-bottom:16px"></div>
-
-      <!-- 📦 Bu Hafta Siparişe En Yakın 30 Eczane -->
-      <div id="engineReorderTop30" style="margin-bottom:16px"></div>
+      <!-- ═══ GÜNÜN ÖNCELİKLİ ECZANELERİ (FAZ 12.0 / FAZ 10.3) ═══ -->
+      <div id="gunununOncelikliEczaneleriCard" style="margin-bottom:16px"></div>
 
       <!-- PHASE 4.8: AI Satış Koçu Kartı -->
       <div id="salesCoachSummaryCard" style="margin:0 0 16px"></div>
@@ -5852,7 +5971,7 @@ function _buildEczaneDrawerRefresh(){
     <div class="eczane-acc-hd" onclick="toggleEczaneAcc('ai_decision');if(!window._pvDecisionRendered){window._pvDecisionRendered=true;renderAIDecisionCard();}">
       <span class="eczane-acc-icon" id="acc_ai_decision_icon">▶</span>
       <span class="card-title" style="margin:0">🎯 AI Karar Önerisi</span>
-      <span class="card-badge" id="acc_ai_decision_badge" style="margin-left:auto;background:#EDE9FE;color:#6D28D9">Decision Engine</span>
+      <span class="card-badge" id="acc_ai_decision_badge" style="margin-left:auto;background:#EDE9FE;color:#6D28D9">AI Öneri</span>
     </div>
     <div class="eczane-acc-body" id="acc_ai_decision_body" style="display:none">
       <div id="aiDecisionCard"></div>
@@ -5928,6 +6047,67 @@ function _buildEczaneDrawerRefresh(){
   </div>
 </div>
 
+<!-- FAZ 8.2 — Yönetici Sekmesi (page 7) — executive-engine.js renderExecutiveDashboard() burayı doldurur -->
+<div class="page" id="page7">
+  <div style="padding:16px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      </div>
+      <div>
+        <div style="font-size:16px;font-weight:700;color:var(--txt,#111)">Yönetici Paneli</div>
+        <div style="font-size:11px;color:var(--dim,#6b7280)">Ekip performansı ve AI özeti</div>
+      </div>
+    </div>
+    <div id="executiveDashboardContainer">
+      <div style="padding:24px;text-align:center;color:var(--dim,#6b7280);font-size:12px">
+        <div style="font-size:28px;margin-bottom:8px">📊</div>
+        Yönetici paneli yükleniyor…
+      </div>
+    </div>
+
+    <!-- ═══ FAZ 12.2 — Saha Gözlemleri Manuel Giriş ═══ -->
+    <div style="background:var(--surf);border:1.5px solid rgba(79,0,140,.15);border-radius:14px;padding:16px;margin-top:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:12px">📋 Saha Gözlemleri</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div>
+          <label style="font-size:10px;font-weight:700;color:var(--dim);display:block;margin-bottom:3px">Kategori</label>
+          <select id="sgKategori" style="width:100%;font-size:11px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surf);color:var(--fg)">
+            <option value="RAKIP">🔴 Rakip Hareketi</option>
+            <option value="FIYAT">💰 Zam / Fiyat Bilgisi</option>
+            <option value="STOK">📦 Stok Durumu</option>
+            <option value="GERI_BILDIRIM">💬 Geri Bildirim</option>
+            <option value="DIGER">ℹ Diğer / Pazar Haberi</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:10px;font-weight:700;color:var(--dim);display:block;margin-bottom:3px">Eczane (opsiyonel)</label>
+          <input id="sgEczane" type="text" placeholder="Eczane adı…" style="width:100%;font-size:11px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surf);color:var(--fg);box-sizing:border-box">
+        </div>
+      </div>
+      <div style="margin-bottom:8px">
+        <label style="font-size:10px;font-weight:700;color:var(--dim);display:block;margin-bottom:3px">Not</label>
+        <textarea id="sgNot" rows="3" placeholder="Gözleminizi yazın…" style="width:100%;font-size:11px;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--surf);color:var(--fg);box-sizing:border-box;resize:vertical"></textarea>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <button onclick="_saveSahaGozlem()" style="font-size:11px;font-weight:700;padding:7px 16px;background:linear-gradient(135deg,var(--c1),var(--c2));color:#fff;border:none;border-radius:8px;cursor:pointer">💾 Kaydet</button>
+        <span id="sgStatus" style="font-size:10px;color:var(--dim)"></span>
+      </div>
+      <div id="sgList" style="margin-top:12px"></div>
+    </div>
+
+    <!-- ═══ FAZ 12.2 — AI Eğitim Girdileri Kısayolları ═══ -->
+    <div style="background:var(--surf);border:1px solid var(--border);border-radius:14px;padding:14px;margin-top:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--fg);margin-bottom:10px">🔗 AI Eğitim Girdileri Özeti</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="goPage(6)" style="font-size:11px;padding:6px 12px;border:1px solid rgba(79,0,140,.2);background:rgba(79,0,140,.06);color:var(--c1);border-radius:8px;cursor:pointer">☑ Ziyaret Planı (FAZ 9.2)</button>
+        <button onclick="goPage(6)" style="font-size:11px;padding:6px 12px;border:1px solid rgba(5,150,105,.2);background:rgba(5,150,105,.06);color:#059669;border-radius:8px;cursor:pointer">✓ Gün Sonu Geri Bildirimi (FAZ 11.2)</button>
+      </div>
+      <div style="font-size:10px;color:var(--dim);margin-top:8px">Eczane sayfasında her eczane satırında ☑ checkbox (ziyaret planı) ve öneri kartlarında manuel feedback butonları mevcuttur.</div>
+    </div>
+  </div>
+</div>
+
 
 
 </div><!-- /main -->
@@ -5953,6 +6133,56 @@ function _buildEczaneDrawerRefresh(){
 <div class="filter-drawer" id="eczaneDrawer"></div>
 
 <script>
+// ── FAZ 12.2 — Saha Gözlemleri UI ─────────────────────────────
+function _saveSahaGozlem() {
+  const kat  = document.getElementById('sgKategori')?.value || 'DIGER';
+  const ecz  = (document.getElementById('sgEczane')?.value || '').trim();
+  const not  = (document.getElementById('sgNot')?.value || '').trim();
+  const stat = document.getElementById('sgStatus');
+  if (!not) { if (stat) stat.textContent = '⚠ Not alanı boş olamaz.'; return; }
+  if (!window.SahaGozlemStore) { if (stat) stat.textContent = '⚠ SahaGozlemStore yüklenmedi.'; return; }
+  const ttt = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT
+            : (typeof engineSelTTT !== 'undefined' ? engineSelTTT : null);
+  window.SahaGozlemStore.saveObservation({ kategori: kat, eczane: ecz || null, ttt, not, girenTTT: ttt })
+    .then(function () {
+      if (stat) stat.textContent = '✓ Kaydedildi';
+      document.getElementById('sgNot').value   = '';
+      document.getElementById('sgEczane').value = '';
+      _renderSgList();
+      setTimeout(function () { if (stat) stat.textContent = ''; }, 3000);
+    })
+    .catch(function (e) { if (stat) stat.textContent = '❌ Hata: ' + e.message; });
+}
+
+function _renderSgList() {
+  const el = document.getElementById('sgList');
+  if (!el || !window.SahaGozlemStore) return;
+  const KAT_LABEL = { RAKIP:'🔴 Rakip', FIYAT:'💰 Zam', STOK:'📦 Stok', GERI_BILDIRIM:'💬 Geri Bildirim', DIGER:'ℹ Diğer' };
+  window.SahaGozlemStore.getAll().then(function (all) {
+    const recent = all.slice(-20).reverse();
+    if (!recent.length) { el.innerHTML = '<div style="font-size:11px;color:var(--dim)">Henüz kayıt yok.</div>'; return; }
+    el.innerHTML = '<div style="font-size:10px;font-weight:700;color:var(--dim);margin-bottom:6px;text-transform:uppercase">Son Kayıtlar</div>' +
+      recent.map(function (o) {
+        return '<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">' +
+          '<span style="font-size:9px;font-weight:700;background:rgba(79,0,140,.08);color:var(--c1);border-radius:4px;padding:1px 5px;white-space:nowrap">' + (KAT_LABEL[o.kategori] || o.kategori) + '</span>' +
+          '<div style="flex:1;min-width:0">' +
+            '<div style="font-size:11px;color:var(--fg);line-height:1.4">' + (o.not || '—') + '</div>' +
+            '<div style="font-size:9px;color:var(--dim)">' + (o.eczane ? o.eczane + ' · ' : '') + (o.tarih || '') + '</div>' +
+          '</div>' +
+          '<button onclick="window.SahaGozlemStore.deleteObservation(' + o.id + ').then(_renderSgList)" style="font-size:9px;color:#DC2626;background:none;border:none;cursor:pointer;padding:2px">✕</button>' +
+        '</div>';
+      }).join('');
+  });
+}
+
+// Sayfa 7 açıldığında listeyi yükle
+const _origGoPage = typeof goPage === 'function' ? goPage : null;
+// goPage override ile page7 açılışında _renderSgList tetiklenir (wrapper sayfa geçişinde çalışır)
+document.addEventListener('click', function (e) {
+  const nav = e.target.closest('#snav7');
+  if (nav) setTimeout(_renderSgList, 300);
+}, true);
+
 // ── SoundFX Global Delegated Click Listener ───────────────────
 //
 // Kural:

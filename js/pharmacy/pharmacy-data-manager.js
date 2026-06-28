@@ -561,7 +561,37 @@
   }
 
   // ── 10. TOP 30 VISIT PRIORITY ─────────────────────────────────────────
+  // FAZ 8.1 — PharmacyRanking kanonik sıralamaya delege eder (yüklüyse)
   function buildTop30VisitPriority(ttt, genelData) {
+    if (window.PharmacyRanking && typeof window.PharmacyRanking.rankPharmacies === 'function') {
+      try {
+        var ranked81 = window.PharmacyRanking.rankPharmacies(ttt);
+        var cands81  = ranked81.filter(function (r) { return r.classification !== 'CAMPAIGN_BUYER'; });
+        // genelData brick önceliği bileşeni: kanonik score'a ekstra brick ağırlığı
+        var gapMap = {};
+        if (genelData && genelData.length && ttt) {
+          genelData.filter(function (r) { return r.ttt === ttt; }).forEach(function (r) {
+            if (r.brick && r.hedef && r.satis) {
+              gapMap[r.brick] = Math.min(1.5, 1 + Math.max(0, (r.hedef - r.satis) / Math.max(1, r.hedef)));
+            }
+          });
+        }
+        return cands81.slice(0, 30).map(function (r) {
+          var bp  = gapMap[r.brick] || 1.0;
+          var vps = Math.round(r.canonicalScore * bp * 10) / 10;
+          return Object.assign({}, r, {
+            ttt: r.representative,
+            brickPriority:     bp,
+            growthPotential:   1.0,
+            visitPriorityScore: vps,
+            reorderScore:      r.canonicalScore,
+            trendSlope:        r.trendSlope || 0
+          });
+        });
+      } catch (_e) {
+        console.warn('[PDM] PharmacyRanking delege hata, legacy hesaba düşülüyor:', _e.message);
+      }
+    }
     var scores = buildReorderPredictionScores(ttt);
     var gapMap = {};
     if (genelData && genelData.length && ttt) {

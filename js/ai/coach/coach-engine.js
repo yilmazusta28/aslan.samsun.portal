@@ -438,9 +438,68 @@
     container.innerHTML = html;
   }
 
+  // ── FAZ 12.0: buildDailyNarrative(eczane, twin, decision) ────────────
+  // Tek paragraflık doğal Türkçe günlük özet.
+  // twin: DigitalTwinBuilder.getDigitalTwin() çıktısı (null güvenli)
+  // decision: DecisionEngine.decide() çıktısı (null güvenli)
+  // Mevcut coach mesaj fonksiyonları DEĞİŞMEDİ — bu YENİ bir ek fonksiyondur.
+  function buildDailyNarrative(eczane, twin, decision) {
+    var parts = [];
+
+    // Eczane + bölge
+    var brickStr = (twin && twin.brick) ? twin.brick + ' bölgesindeki' : '';
+    parts.push((brickStr ? brickStr + ' ' : '') + (eczane || 'eczane') + ' bugünün öncelikli eczanesidir.');
+
+    // Davranış profili
+    if (twin && twin.behaviorType) {
+      var typeMap = {
+        REGULAR_BUYER:   'düzenli alıcı',
+        GROWING:         'büyüyen eczane',
+        AT_RISK:         'risk altında',
+        REACTIVATION:    'yeniden kazanım hedefi',
+        CAMPAIGN_BUYER:  'kampanya odaklı',
+        STOCK_BUILDER:   'stok kuran',
+        COMPETITIVE_RISK:'rakip tehdidi altında',
+        SEASONAL_BUYER:  'mevsimsel alıcı',
+        NEW_ACCOUNT:     'yeni müşteri'
+      };
+      var typeLabel = typeMap[twin.behaviorType] || twin.behaviorType;
+      parts.push('Profil: ' + typeLabel + '.');
+    }
+
+    // Stok tahmini
+    if (twin && twin.estimatedRemainingStock != null && twin.estimatedRemainingStock >= 0) {
+      var stockStr = twin.estimatedRemainingStock > 0
+        ? 'Tahmini ' + twin.estimatedRemainingStock + ' kutu stok kalmış'
+        : 'Stok tükenme noktasına yakın';
+      if (twin.estimatedDepletionDate) {
+        stockStr += ' (' + twin.estimatedDepletionDate + ' dolayında sipariş bekleniyor)';
+      }
+      parts.push(stockStr + '.');
+    }
+
+    // Sipariş tahmini
+    if (twin && twin.estimatedOrderQty && twin.estimatedOrderQty > 0) {
+      parts.push('Tahmini sipariş: ' + twin.estimatedOrderQty + ' kutu.');
+    }
+
+    // Rakip kampanyası
+    if (decision && decision.decisionBasis && decision.decisionBasis.competitiveFlag) {
+      parts.push('Bu bölgede aktif rakip kampanyası var — hızlı aksiyon önerilir.');
+    }
+
+    // Başarı olasılığı
+    if (decision && decision.confidence != null) {
+      parts.push('Başarı olasılığı: %' + decision.confidence + '.');
+    }
+
+    return parts.join(' ');
+  }
+
   // ── EXPORT ────────────────────────────────────────────────
-  window.buildSalesCoach   = buildSalesCoach;
-  window.formatCoachForAI  = formatCoachForAI;
+  window.buildSalesCoach    = buildSalesCoach;
+  window.buildDailyNarrative = buildDailyNarrative;
+  window.formatCoachForAI   = formatCoachForAI;
   window.renderCoachSummary = renderCoachSummary;
 
   console.debug('[coach-engine] Phase 3.4 yüklendi.');

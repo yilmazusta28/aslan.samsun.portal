@@ -261,7 +261,15 @@
       var period = (typeof _rrCurrentPeriod === 'function') ? _rrCurrentPeriod() : null;
       var totalWeeks    = period ? Math.round(rr.totalDays    / 5) : 9;
       var elapsedWeeks  = boxVals.length || Math.round(rr.elapsedDays  / 5);
-      var remainingWeeks = Math.max(0, totalWeeks - elapsedWeeks);
+
+      // FAZ 9.5: Temporal düzeltme — IMS dataLagWeeks kadar geride olduğundan
+      // kalan hafta sayısını bu fark kadar azalt (additive correction, mevcut
+      // hesap mantığı değişmez — sadece remainingWeeks girdisi düzeltilir).
+      var _temporalLag = 0;
+      if (window.TemporalContextEngine && typeof window.TemporalContextEngine.getTemporalContext === 'function') {
+        try { _temporalLag = window.TemporalContextEngine.getTemporalContext().dataLagWeeks || 0; } catch (_e) {}
+      }
+      var remainingWeeks = Math.max(0, totalWeeks - elapsedWeeks - _temporalLag);
 
       // ── TL: 3 yöntem ─────────────────────────────────────
       var addedByLinear  = _linearProjection(tlVals, remainingWeeks);

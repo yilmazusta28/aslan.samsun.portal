@@ -345,7 +345,7 @@ function _runEngineCore() {
             <div class="task-detail" style="display:flex;align-items:center;gap:3px;flex-wrap:wrap">
               <span class="task-tag tt-brick" style="font-size:8px">${e.brick}</span>
               ${_clsBadge(e.classification)}
-              <span style="font-size:9px;color:${pColor};font-weight:700">%${e.reorderProbability}</span>
+              ${typeof window.renderConfidenceMeter === 'function' ? window.renderConfidenceMeter(e.reorderProbability) : `<span style="font-size:9px;color:${pColor};font-weight:700">%${e.reorderProbability}</span>`}
               <span style="font-size:9px;color:#0891B2;font-weight:700">${e.expectedOrderBoxes}K</span>
               ${orderTag}
             </div>
@@ -565,7 +565,76 @@ function _runEngineCore() {
     }
   }
 
+  // ── FAZ 12.0: Günün Öncelikli Eczaneleri (FAZ 10.3 / 5-kademe, max 5) ──
+  _renderGununEczaneleri('gunununOncelikliEczaneleriCard', ttt);
+
   console.debug('[FAZ6.9] Headless motor render tamamlandı. TTT:', ttt);
+}
+
+// ── FAZ 12.0 — Günün Öncelikli Eczaneleri Kartı ─────────────────────
+function _renderGununEczaneleri(containerId, tttFilter) {
+  var container = document.getElementById(containerId);
+  if (!container) return;
+
+  if (!window.ROUTE_OPTIMIZER_READY && typeof runRouteOptimizer === 'function') {
+    try { runRouteOptimizer(tttFilter); } catch (_e) {}
+  }
+
+  var ro = window.ROUTE_OPTIMIZER;
+  var pharmacies = (ro && ro.todayRoute && ro.todayRoute.pharmacies) ? ro.todayRoute.pharmacies.slice(0, 5) : [];
+
+  if (!pharmacies.length) {
+    container.innerHTML = '<div style="background:var(--surf);border-radius:14px;border:1px solid var(--border);padding:16px;margin-bottom:4px">' +
+      '<div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:8px">📍 Günün Öncelikli Eczaneleri</div>' +
+      '<p style="font-size:12px;color:var(--dim)">Rota verisi için motoru çalıştırın veya eczane sayfasında temsilci seçin.</p>' +
+    '</div>';
+    return;
+  }
+
+  var rows = pharmacies.map(function (p, i) {
+    var tierBadge = p.tier ? '<span style="font-size:9px;font-weight:700;background:#EFF6FF;color:#1D4ED8;border-radius:4px;padding:1px 5px">Kademe ' + p.tier + '</span>' : '';
+    var _twin = null;
+    if (window.DigitalTwinBuilder && typeof window.DigitalTwinBuilder.getDigitalTwin === 'function') {
+      try { _twin = window.DigitalTwinBuilder.getDigitalTwin(p.eczane, tttFilter); } catch (_e) {}
+    }
+    var _dec = null;
+    if (window.DecisionEngine && typeof window.DecisionEngine.decide === 'function') {
+      try { _dec = window.DecisionEngine.decide(tttFilter); } catch (_e) {}
+    }
+    var narrative = (typeof window.buildDailyNarrative === 'function' && p.eczane)
+      ? window.buildDailyNarrative(p.eczane, _twin, _dec)
+      : null;
+    var cmHtml = typeof window.renderConfidenceMeter === 'function' ? window.renderConfidenceMeter(p.reorderProbability) : ('%' + p.reorderProbability);
+    var nedenHtml = (typeof window.renderNedenButton === 'function' && p.neden)
+      ? window.renderNedenButton(null, p.neden) : '';
+
+    return '<div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">' +
+      '<div style="font-size:15px;font-weight:800;color:var(--c1);min-width:22px;text-align:center">' + (i+1) + '</div>' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px">' +
+          '<span style="font-size:12px;font-weight:700;color:var(--fg)">' + p.eczane + '</span>' +
+          '<span style="font-size:10px;color:var(--dim)">' + p.brick + '</span>' +
+          tierBadge +
+        '</div>' +
+        (narrative ? '<div style="font-size:11px;color:var(--dim);line-height:1.5;margin-bottom:4px">' + narrative + '</div>' : '') +
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+          cmHtml +
+          '<div style="position:relative">' + nedenHtml + '</div>' +
+          (typeof window.renderManualFeedbackButtons === 'function'
+            ? window.renderManualFeedbackButtons({ eczane: p.eczane, brick: p.brick, ttt: tttFilter }) : '') +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  container.innerHTML =
+    '<div style="background:var(--surf);border-radius:14px;border:1.5px solid rgba(79,0,140,.15);padding:16px;margin-bottom:4px">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">' +
+        '<div style="font-size:13px;font-weight:700;color:var(--fg)">📍 Günün Öncelikli Eczaneleri</div>' +
+        '<span style="font-size:10px;font-weight:700;background:rgba(79,0,140,.08);color:var(--c1);border-radius:6px;padding:3px 8px">Max 5 · 5 Kademe</span>' +
+      '</div>' +
+      rows +
+    '</div>';
 }
 
 // ── Engine AI Analizi ────────────────────────────────────────

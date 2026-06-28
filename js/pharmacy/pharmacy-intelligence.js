@@ -213,6 +213,34 @@
     return count;
   }
 
+  // ── FAZ 10.0: Stock Build (kampanya ayı) işaretleme ─────────────────
+  // Girdi: aylık satış dizisi (sıfır dahil). Çıktı: boolean flag dizisi
+  // (true = kampanya spike — stock build ayı, hesaplamadan çıkarılmalı).
+  // Eşik: nonZero ortalama × 2.5 (FAZ 9.1 SalesMemoryEngine ile tutarlı).
+  // Kural: son ay > ortalama×3 (reorder-classifier CAMPAIGN_BUYER) ÜZERİNE
+  // 2.5× eşikle genişletildi — daha erken tespite izin verir.
+  function flagStockBuildMonths(sales) {
+    var nonZero = (sales || []).filter(function (v) { return v > 0; });
+    if (nonZero.length < 2) return (sales || []).map(function () { return false; });
+    var mean = nonZero.reduce(function (s, v) { return s + v; }, 0) / nonZero.length;
+    var threshold = mean * 2.5;
+    return (sales || []).map(function (v) { return v > threshold; });
+  }
+
+  // ── FAZ 10.0: Boş-ay + kampanya spike düzeltmeli aylık ortalama ─────
+  // FAZ 9.1 SalesMemoryEngine._avgConsumptionAdjusted() ile tutarlı —
+  // sadece normalizasyon şemasına eklemek için burada da tanımlandı.
+  function _avgMonthlyBoxesAdjusted(sales) {
+    var flags = flagStockBuildMonths(sales);
+    var filtered = sales.filter(function (v, i) { return v > 0 && !flags[i]; });
+    if (!filtered.length) {
+      // Tüm aktif aylar spike ise (stokçu eczane), en azından non-zero ortalaması al
+      var nonZero = sales.filter(function (v) { return v > 0; });
+      return nonZero.length ? Math.round(nonZero.reduce(function (s, v) { return s + v; }, 0) / nonZero.length * 10) / 10 : 0;
+    }
+    return Math.round(filtered.reduce(function (s, v) { return s + v; }, 0) / filtered.length * 10) / 10;
+  }
+
   // ══════════════════════════════════════════════════════════════════════
   //  BÖLÜM 4: Forecast (lineer + limiter)
   // ══════════════════════════════════════════════════════════════════════
@@ -547,6 +575,8 @@
         var inactiveMonths= sales.length - activeMonths;
         var nonZeroSales  = sales.filter(function (v) { return v > 0; });
         var avgMonthlyBoxes = activeMonths > 0 ? totalBoxes / activeMonths : 0;
+        // FAZ 10.0: kampanya spike'ları çıkarılmış düzeltmeli ortalama (additive)
+        var avgMonthlyBoxesAdj = _avgMonthlyBoxesAdjusted(sales);
         var historicalMax = nonZeroSales.length ? Math.max.apply(null, nonZeroSales) : 0;
         var historicalMin = nonZeroSales.length ? Math.min.apply(null, nonZeroSales) : 0;
 
@@ -595,6 +625,7 @@
           ttt:                   e.ttt,
           totalBoxes:            totalBoxes,
           avgMonthlyBoxes:       Math.round(avgMonthlyBoxes * 10) / 10,
+          avgMonthlyBoxesAdjusted: avgMonthlyBoxesAdj, // FAZ 10.0: spike-filtered
           historicalMaxBoxes:    historicalMax,
           historicalMinBoxes:    historicalMin,
           activeMonths:          activeMonths,
@@ -643,6 +674,40 @@
   // ══════════════════════════════════════════════════════════════════════
 
   function buildTop30Pharmacies(tttFilter) {
+    // FAZ 8.1 — kanonik sıralama delegasyonu (PharmacyRanking yüklüyse)
+    if (window.PharmacyRanking && typeof window.PharmacyRanking.rankPharmacies === 'function') {
+      try {
+        var ranked = window.PharmacyRanking.rankPharmacies(tttFilter);
+        var candidates81 = ranked.filter(function (r) { return r.classification !== 'CAMPAIGN_BUYER'; });
+        return candidates81.slice(0, 30).map(function (p, i) {
+          return {
+            rank: i + 1,
+            gln: p.gln, eczane: p.eczane, brick: p.brick, ttt: p.representative,
+            classification: p.classification,
+            reorderProbability: p.reorderProbability,
+            expectedOrderBoxes: p.forecastBoxes,
+            expectedOrderValue: p.forecastValue,
+            opportunityScore:   p.opportunityScore,
+            visitPriorityScore: p.canonicalScore,
+            expectedOrderDate:  p.expectedOrderDate,
+            daysToNextOrder:    p.daysToNextOrder,
+            daysSinceLastOrder: p.daysSinceLastOrder,
+            avgMonthlyBoxes:    p.avgMonthlyBoxes,
+            trendSlope:         p.trendSlope,
+            growthRate:         p.growthRate,
+            productAffinityScore: p.productAffinityScore,
+            score:              p.canonicalScore,
+            forecastBoxes:      p.forecastBoxes,
+            momentum:           p.growthRate > 10 ? 'yükselen' : p.growthRate < -10 ? 'düşüş' : 'stabil',
+            lostRisk:           (p.consecutiveZeroMonths || 0) >= 2,
+            spikeFlag:          p.classification === 'CAMPAIGN_BUYER',
+            reason:             _buildReason(p)
+          };
+        });
+      } catch (_e) {
+        console.warn('[PharmacyIntelligence] PharmacyRanking delege hata, legacy hesaba düşülüyor:', _e.message);
+      }
+    }
     var all = buildPharmacyProfiles(tttFilter);
     var candidates = all.filter(function (p) {
       return p.classification !== 'CAMPAIGN_BUYER' && p.totalBoxes > 0;
@@ -971,6 +1036,8 @@
   window.buildPharmacyContext               = buildPharmacyContext;
   window.buildPharmacyIntelligenceContext   = buildPharmacyIntelligenceContext;
   window.renderPharmacyIntelligenceCard     = renderPharmacyIntelligenceCard;
+  // FAZ 10.0: kampanya spike işaretleme (public — FAZ 9.4 Digital Twin'de de kullanılabilir)
+  window.flagStockBuildMonths               = flagStockBuildMonths;
 
   window._PI464_LOADED             = true;
   window._PHARMACY_INTELLIGENCE_READY = true;

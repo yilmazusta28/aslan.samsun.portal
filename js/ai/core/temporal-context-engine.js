@@ -321,7 +321,8 @@
       imsDataWeek: imsDataISOWeek,             // IMS verisinin ISO yıl haftası
       imsDataWeekRange: imsDataWeekRange,       // ör. {start:'2026-06-08', end:'2026-06-14', label:'8 Haziran – 14 Haziran'}
       weekDateRanges: weekDateRanges,           // h1..hN → tarih aralıkları
-      dataLagWeeks: dataLagWeeks,
+      dataLagWeeks: dataLagWeeks,              // IMS gecikmesi (hafta cinsinden)
+      eczaneDataLagWeeks: 4,                   // FAZ 9.5: eczane satışları ~1 ay (4 hafta) geride gelir — sabit iş kuralı
       lastIMSUpdate: imsDataWeekRange ? imsDataWeekRange.label : null, // en iyi tahmin
       nextExpectedIMSUpdate: 'Her Salı'
     };

@@ -429,12 +429,27 @@
   //  4) createPattern / updatePattern (SAF — DOM/async YOK)
   // ──────────────────────────────────────────────────────────────────
 
+  // FAZ 11.2: manualFeedback varsa otomatik status'a tercih edilir (temsilci gözlemi öncelikli).
+  var _MANUAL_TO_STATUS = {
+    UYGULANDIM:           'success',
+    SIPARIS_ALINDI:       'success',
+    SIPARIS_ALINAMADI:    'fail',
+    ZIYARET_GERCEKLESMEDI:'not_evaluable'
+  };
+  function _effectiveStatus(outcome) {
+    if (outcome.manualFeedback && outcome.manualFeedback.type) {
+      return _MANUAL_TO_STATUS[outcome.manualFeedback.type] || outcome.status;
+    }
+    return outcome.status;
+  }
+
   // ── createPattern(outcome, conditions) ──────────────────────────────
   function createPattern(outcome, conditions) {
     var now = new Date().toISOString();
-    var isSuccess = outcome.status === 'success';
-    var isPartial = outcome.status === 'partial';
-    var isFail    = outcome.status === 'fail';
+    var eff       = _effectiveStatus(outcome);
+    var isSuccess = eff === 'success';
+    var isPartial = eff === 'partial';
+    var isFail    = eff === 'fail';
 
     var sampleSize    = 1;
     var successCount  = isSuccess ? 1 : 0;
@@ -476,9 +491,10 @@
     var now = new Date().toISOString();
     var o   = existingPattern.outcomes;
 
-    var isSuccess = outcome.status === 'success';
-    var isPartial = outcome.status === 'partial';
-    var isFail    = outcome.status === 'fail';
+    var eff       = _effectiveStatus(outcome);
+    var isSuccess = eff === 'success';
+    var isPartial = eff === 'partial';
+    var isFail    = eff === 'fail';
 
     var newSampleSize   = o.sampleSize + 1;
     var newSuccessCount = o.successCount + (isSuccess ? 1 : 0);
@@ -530,7 +546,8 @@
 
       // not_evaluable sonuçlar öğrenme sinyali taşımaz — pattern'ı
       // güncellemiyoruz (sampleSize'ı anlamsız şekilde şişirmemek için).
-      if (outcome.status === 'not_evaluable') {
+      // FAZ 11.2: manualFeedback varsa ve not_evaluable'a map ediyorsa da atla.
+      if (_effectiveStatus(outcome) === 'not_evaluable') {
         return Promise.resolve(null);
       }
 

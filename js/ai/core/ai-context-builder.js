@@ -311,23 +311,6 @@
     }, { overallGrowth: 0, overallTrend: 'stable', risingProducts: [], decliningProducts: [] });
   }
 
-  // ── _resolveSourceAdapterFields — FAZ 7.0 GENEL köprü ────────────────
-  // SourceAdapterRegistry'ye kayıtlı TÜM adapter'ların (şu an:
-  // fieldObservations, stockSignals — ileride SharePoint/Temsilci
-  // Notları/vb.) normalize edilmiş çıktısını, KENDİ contextHook alan
-  // adlarıyla döner. YENİ BİR KAYNAK EKLENDİĞİNDE BU FONKSİYON
-  // DEĞİŞMEZ — registry kendi içinde genel (§13, §16 FAZ 7.0).
-  // SourceAdapterRegistry yüklü değilse (rollback / FAZ 7.0 öncesi durum)
-  // boş obje döner — context'in geri kalanı ETKİLENMEZ.
-  function _resolveSourceAdapterFields() {
-    return _safe(function () {
-      if (window.SourceAdapterRegistry && typeof window.SourceAdapterRegistry.getContextFields === 'function') {
-        return window.SourceAdapterRegistry.getContextFields();
-      }
-      return {};
-    }, {});
-  }
-
   // ── _resolveTrendSummary — ürün bazlı trend dağılımı ─────────────────
   function _resolveTrendSummary(records) {
     return _safe(function () {
@@ -337,6 +320,16 @@
         stable: records.filter(function (r) { return r.calculated.trend === 'stable'; }).map(function (r) { return r.product; })
       };
     }, { up: [], down: [], stable: [] });
+  }
+
+  // ── _resolveCompetitiveCampaigns — FAZ 8.0: CompetitiveAdapter bağlama ─
+  // competitive-adapter.js (FAZ 6.4) yüklüyse gerçek veriyi döndürür;
+  // yoksa null döner — tüketiciler null kontrolü yapmalı.
+  function _resolveCompetitiveCampaigns() {
+    return _safe(function () {
+      if (!window.CompetitiveAdapter || typeof window.CompetitiveAdapter.normalizeCompetitive !== 'function') return null;
+      return window.CompetitiveAdapter.normalizeCompetitive();
+    }, null);
   }
 
   // ── buildContext — ana giriş noktası ────────────────────────────────
@@ -410,11 +403,8 @@
       // FAZ 6.3 — recommendation-memory.js geçmişi (ttt bazlı, varsa)
       recommendationHistory: _resolveRecommendationHistory(ttt),
 
-      // FAZ 6.3 — PLACEHOLDER alanlar (§11 şeması, sonraki fazlar doldurur):
-      //   competitiveCampaigns ← FAZ 6.4 (competitive-adapter.js)
-      //   decision             ← FAZ 6.7 (Decision Engine)
-      //   rca                  ← FAZ 6.6 (RCA Engine)
-      competitiveCampaigns: null,
+      // FAZ 8.0 — CompetitiveAdapter bağlandı (önceden null placeholder'dı)
+      competitiveCampaigns: _resolveCompetitiveCampaigns(),
 
       // FAZ 6.7 — Decision Engine (DecisionEngine.decide())
       decision: _safe(function () {
@@ -431,14 +421,16 @@
         return window.OpportunityScoreEngine.getOpportunityContext(ttt);
       }, null),
 
+      // FAZ 9.4 — Digital Twin Builder: lazy referans (eczane başına on-demand)
+      // Tüketiciler: context.digitalTwin(eczane, tttFilter) şeklinde çağırır.
+      // Tüm eczaneler için önceden hesaplanmaz — performans riski önlenir.
+      digitalTwin: _safe(function () {
+        if (!window.DigitalTwinBuilder || typeof window.DigitalTwinBuilder.getDigitalTwin !== 'function') return null;
+        return window.DigitalTwinBuilder.getDigitalTwin.bind(window.DigitalTwinBuilder);
+      }, null),
+
       generatedAt: new Date().toISOString()
     };
-
-    // FAZ 7.0 — SourceAdapterRegistry köprüsü (AI_MIMARI_ANALIZ_VE_YOL_
-    // HARITASI.md §13, §16). Yukarıdaki context nesnesi DEĞİŞMEDEN bırakılır
-    // ("ekle, kırma" prensibi) — kayıtlı adapter'ların alanları buraya
-    // SONRADAN eklenir. Yeni bir kaynak eklendiğinde bu satır AYNEN kalır.
-    Object.assign(context, _resolveSourceAdapterFields());
 
     return context;
   }

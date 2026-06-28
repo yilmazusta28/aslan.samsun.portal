@@ -722,6 +722,13 @@ body{
   .tsb-rank-col{grid-column:1;grid-row:auto;justify-content:flex-start}
 }
 
+/* ── FAZ 12.4 — Prim sayfası mobil grid ── */
+.prim-urun-inputs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:600px){
+  .prim-inner-g2{grid-template-columns:1fr!important}
+  .prim-urun-inputs{grid-template-columns:1fr}
+}
+
 /* ── AI GÖREV MOTORU ─────────────────────────────────────── */
 .engine-hero{
   background:linear-gradient(135deg,#0f0035 0%,#4F008C 45%,#0E4F5C 100%);

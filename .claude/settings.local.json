@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --check /Users/necipcebeci/Repositories/PharmaVision/js/ai/core/pharmacy-behavior-engine.js)",
+      "Bash(node --check /Users/necipcebeci/Repositories/PharmaVision/js/ai/territory/market-share-engine.js)",
+      "Bash(node --check /Users/necipcebeci/Repositories/PharmaVision/js/ai/territory/launch-readiness-engine.js)",
+      "Bash(node --check /Users/necipcebeci/Repositories/PharmaVision/js/ai/core/ai-context-builder.js)"
+    ]
+  }
+}

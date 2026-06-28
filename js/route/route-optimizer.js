@@ -253,7 +253,10 @@
           daysToNextOrder:    p.daysToNextOrder     || 0,
           classification:     p.classification,
           gapContribution:    p.gapContribution     || 0,
-          gln:                p.gln                 || ''
+          gln:                p.gln                 || '',
+          // FAZ 10.3/11.1: Explainable AI — kademeden gelen açıklama
+          tier:               p.tier  || 0,
+          neden:              p.neden || null
         });
         totalBoxes += (p.expectedOrderBoxes || 0);
         totalValue += (p.expectedOrderValue || 0);
@@ -292,8 +295,62 @@
   //  BÖLÜM 7: Ana rota üreteci
   // ══════════════════════════════════════════════════════════════════════
 
+  // ── FAZ 10.3: 5-Kademe Sıralama Yardımcıları ──────────────────────────
+
+  // Kademe 1: Bugünkü PLANLI brickler (RoutePlanInput manuel girişi)
+  function _tier1PlannedBricks(enriched, tttFilter) {
+    if (!window.RoutePlanInput || typeof window.RoutePlanInput.getTodayPlanSync !== 'function') return [];
+    var plan = window.RoutePlanInput.getTodayPlanSync(tttFilter);
+    if (!plan || !plan.bricks || !plan.bricks.length) return [];
+    var plannedBricks = plan.bricks.map(function (b) { return b.toUpperCase(); });
+    return enriched.filter(function (p) {
+      return plannedBricks.indexOf((p.brick || '').toUpperCase()) >= 0;
+    }).map(function (p) { return Object.assign({}, p, { tier: 1, neden: 'Planlanmış brick (' + p.brick + ')' }); });
+  }
+
+  // Kademe 2: Sipariş zamanı gelen eczaneler (daysToNextOrder <= 7)
+  function _tier2OrderDue(enriched) {
+    return enriched.filter(function (p) {
+      return (p.daysToNextOrder || 999) <= 7 && p.reorderProbability >= 50;
+    }).map(function (p) { return Object.assign({}, p, { tier: 2, neden: 'Sipariş zamanı (' + p.daysToNextOrder + ' gün)' }); });
+  }
+
+  // Kademe 3: Rakip baskısı olan eczaneler (competitiveCampaigns + brick eşleme)
+  function _tier3CompetitivePressure(enriched, tttFilter) {
+    var pressuredBricks = {};
+    try {
+      if (window.CompetitiveAdapter && typeof window.CompetitiveAdapter.normalizeCompetitive === 'function') {
+        var cData = window.CompetitiveAdapter.normalizeCompetitive();
+        var comps = (cData && cData.competitorActions) || [];
+        comps.filter(function (a) { return !a.isOwn && a.kampanya; }).forEach(function (a) {
+          if (a.brick) pressuredBricks[(a.brick || '').toUpperCase()] = true;
+        });
+      }
+    } catch (_e) {}
+    if (!Object.keys(pressuredBricks).length) return [];
+    return enriched.filter(function (p) {
+      return pressuredBricks[(p.brick || '').toUpperCase()];
+    }).map(function (p) { return Object.assign({}, p, { tier: 3, neden: 'Rakip baskısı — ' + p.brick }); });
+  }
+
+  // Kademe 4: Yüksek Opportunity Score (OpportunityScoreEngine, FAZ 6.5)
+  function _tier4HighOpportunity(enriched) {
+    return enriched.filter(function (p) { return (p.opportunityScore || 0) >= 70; })
+      .map(function (p) { return Object.assign({}, p, { tier: 4, neden: 'Yüksek fırsat (opp=' + p.opportunityScore + ')' }); });
+  }
+
+  // Kademe 5: Ziyaret edilmemiş yüksek potansiyelli eczaneler (FAZ 9.2)
+  function _tier5UnselectedHighPotential(enriched, tttFilter) {
+    if (!window.CoverageSelection || typeof window.CoverageSelection.listUnselectedHighPotential !== 'function') return [];
+    try {
+      // listUnselectedHighPotential Promise döner — sync cache için enriched'den proxy kullan
+      return enriched.filter(function (p) { return (p.reorderProbability || 0) >= 60; })
+        .map(function (p) { return Object.assign({}, p, { tier: 5, neden: 'Ziyaret planına eklenmesi önerilir (potansiyel)' }); });
+    } catch (_e) { return []; }
+  }
+
   function buildTodayRoute(tttFilter) {
-    var maxVisits = (window.ROUTE_OPTIMIZER.settings || {}).maxDailyVisits || DEFAULT_MAX_DAILY_VISITS;
+    var MAX_DAILY = 5; // FAZ 10.3: SON-MASTER'ın istediği maksimum 5 eczane
 
     // Profilleri al
     var profiles = _getProfiles(tttFilter);
@@ -302,16 +359,48 @@
     // Zenginleştir
     var enriched = _enrichProfiles(profiles);
 
-    // Brick cluster
-    var clusters = _clusterByBrick(enriched);
-
-    // Bugünün günü (0=Pazar, 1=Pazartesi...5=Cuma)
+    // Bugünün günü
     var today     = new Date().getDay();
-    var dayOffset = (today === 0 || today === 6) ? 1 : today - 1; // hafta içi
+    var dayOffset = (today === 0 || today === 6) ? 1 : today - 1;
     var dayName   = DAY_NAMES[Math.min(dayOffset, 4)];
 
-    // Bugünün rotası: ilk maxVisits eczane (en yüksek skordan)
-    return _buildDayRoute(dayName, clusters, 0, maxVisits);
+    // FAZ 10.3: 5-kademe sıralama
+    var used = {};
+    var result = [];
+
+    function _addFromTier(tieredList) {
+      tieredList.forEach(function (p) {
+        var key = p.gln || p.eczane;
+        if (!used[key] && result.length < MAX_DAILY) {
+          used[key] = true;
+          result.push(p);
+        }
+      });
+    }
+
+    _addFromTier(_tier1PlannedBricks(enriched, tttFilter));
+    _addFromTier(_tier2OrderDue(enriched));
+    _addFromTier(_tier3CompetitivePressure(enriched, tttFilter));
+    _addFromTier(_tier4HighOpportunity(enriched));
+    _addFromTier(_tier5UnselectedHighPotential(enriched, tttFilter));
+
+    // Kademe dolmadıysa kalan yüksek-skor eczanelerden tamamla (fallback)
+    if (result.length < MAX_DAILY) {
+      var clusters = _clusterByBrick(enriched);
+      clusters.forEach(function (cluster) {
+        cluster.pharmacies.forEach(function (p) {
+          var key = p.gln || p.eczane;
+          if (!used[key] && result.length < MAX_DAILY) {
+            used[key] = true;
+            result.push(Object.assign({}, p, { tier: 0, neden: 'Genel sıralama' }));
+          }
+        });
+      });
+    }
+
+    // _buildDayRoute için sahte tek-cluster yapısı
+    var fakeCluster = [{ name: dayName, pharmacies: result }];
+    return _buildDayRoute(dayName, fakeCluster, 0, MAX_DAILY);
   }
 
   function buildWeeklyRoutes(tttFilter) {
@@ -632,12 +721,20 @@
         '<td style="font-size:10px;color:var(--dim)">' + p.brick + '</td>' +
         '<td style="text-align:center">' + _prioBadge(p.priority) + '</td>' +
         '<td style="text-align:center">' + _clsBadge(p.classification) + '</td>' +
-        '<td style="text-align:center">' + _probBar(p.reorderProbability) + '</td>' +
+        '<td style="text-align:center">' + (typeof window.renderConfidenceMeter === 'function' ? window.renderConfidenceMeter(p.reorderProbability) : _probBar(p.reorderProbability)) + '</td>' +
         '<td style="text-align:center;font-weight:700;color:#0891B2;font-size:12px">' + p.expectedOrderBoxes + '</td>' +
         '<td style="text-align:center;font-weight:800;font-size:12px;color:' + _scoreColor(p.visitScore) + '">' + p.visitScore + '</td>' +
         '<td style="text-align:center;font-weight:800;font-size:11px;color:#15803D">' +
           (p.expectedOrderValue > 0 ? p.expectedOrderValue.toLocaleString('tr-TR') + '₺' : '—') + '</td>' +
         '<td style="text-align:center">' + orderIn + '</td>' +
+        '<td style="position:relative;min-width:180px">' +
+          (typeof window.renderNedenButton === 'function'
+            ? window.renderNedenButton(null, p.neden || null)
+            : (p.neden ? '<span style="font-size:10px;color:var(--dim)">' + p.neden + '</span>' : '—')) +
+          (typeof window.renderManualFeedbackButtons === 'function'
+            ? window.renderManualFeedbackButtons({ eczane: p.eczane, brick: p.brick, ttt: (typeof tttFilter !== 'undefined' ? tttFilter : null) })
+            : '') +
+        '</td>' +
       '</tr>';
     }).join('');
 
@@ -668,11 +765,12 @@
               '<th>Brick</th>' +
               '<th style="text-align:center">Öncelik</th>' +
               '<th style="text-align:center">Sınıf</th>' +
-              '<th style="text-align:center">Reorder %</th>' +
+              '<th style="text-align:center">Güven</th>' +
               '<th style="text-align:center">Beklenen Kutu</th>' +
               '<th style="text-align:center">Visit Skoru</th>' +
               '<th style="text-align:center">Beklenen TL</th>' +
               '<th style="text-align:center">Sipariş Ne Zaman</th>' +
+              '<th style="text-align:center">Neden?</th>' +
             '</tr></thead>' +
             '<tbody>' + rows + '</tbody>' +
           '</table>' +

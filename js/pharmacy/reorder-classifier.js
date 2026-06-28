@@ -329,7 +329,34 @@
 
   // ── 11. buildClassifierTop30(ttt) ────────────────────────────────────
   // CAMPAIGN_BUYER hariç, score'a göre sıralı ilk 30
+  // FAZ 8.1 — PharmacyRanking kanonik sıralamaya delege eder (yüklüyse)
   function buildClassifierTop30(tttFilter) {
+    if (window.PharmacyRanking && typeof window.PharmacyRanking.rankPharmacies === 'function') {
+      try {
+        var ranked81 = window.PharmacyRanking.rankPharmacies(tttFilter);
+        var cands81  = ranked81.filter(function (r) { return r.classification !== 'CAMPAIGN_BUYER'; });
+        return cands81.slice(0, 30).map(function (r, i) {
+          return {
+            rank:               i + 1,
+            gln:                r.gln,
+            eczane:             r.eczane,
+            brick:              r.brick,
+            ttt:                r.representative,
+            classification:     r.classification,
+            reorderProbability: r.reorderProbability,
+            forecastBoxes:      r.forecastBoxes,
+            score:              r.canonicalScore,
+            daysSinceLastOrder: r.daysSinceLastOrder,
+            lastPurchaseDate:   null,
+            nextOrderProducts:  r.nextOrderProducts || [],
+            daysToNextOrder:    r.daysToNextOrder != null ? r.daysToNextOrder : 99,
+            expectedOrderBoxes: r.forecastBoxes || 0
+          };
+        });
+      } catch (_e) {
+        console.warn('[ReorderClassifier] PharmacyRanking delege hata, legacy hesaba düşülüyor:', _e.message);
+      }
+    }
     var all = classifyAllPharmacies(tttFilter);
 
     var candidates = all.filter(function (r) {

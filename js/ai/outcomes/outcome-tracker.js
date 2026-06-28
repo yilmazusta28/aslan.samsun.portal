@@ -189,6 +189,73 @@
     });
   }
 
+  // ── recordManualFeedback(visitContext, feedbackType) ─────────────────
+  // FAZ 11.2 — Manuel gün sonu outcome kaydı.
+  //   visitContext: { eczane, brick, ttt, product? }
+  //   feedbackType: 'UYGULANDIM'|'SIPARIS_ALINDI'|'SIPARIS_ALINAMADI'|'ZIYARET_GERCEKLESMEDI'
+  // Mevcut `status` alanına DOKUNMAZ — sadece `manualFeedback: {type, recordedAt}` ekler.
+  // Eğer eşleşen kayıt yoksa minimal bir kayıt oluşturur (status: null).
+  var _MANUAL_TYPE_TO_STATUS = {
+    UYGULANDIM:           'success',
+    SIPARIS_ALINDI:       'success',
+    SIPARIS_ALINAMADI:    'fail',
+    ZIYARET_GERCEKLESMEDI:'not_evaluable'
+  };
+
+  function recordManualFeedback(visitContext, feedbackType) {
+    if (!visitContext || !feedbackType) return Promise.resolve(null);
+    var now     = new Date().toISOString();
+    var todayStr= now.slice(0, 10);
+    var manualId= 'manual|' + (visitContext.ttt || '') + '|' + (visitContext.eczane || '') + '|' + todayStr;
+
+    return getOutcomes().then(function (all) {
+      // Var olan kaydı ara — eczane + tarih eşleşmesi
+      var existing = all.find(function (o) {
+        return o.id === manualId ||
+          (o.pharmacy === visitContext.eczane && (o.evaluationDate || '').slice(0, 10) === todayStr);
+      });
+
+      var outcome;
+      if (existing) {
+        outcome = Object.assign({}, existing, {
+          manualFeedback: { type: feedbackType, recordedAt: now }
+        });
+      } else {
+        // Minimal yeni kayıt — status null (arşiv; PatternLearning manualFeedback'i okur)
+        outcome = {
+          id:                 manualId,
+          recommendationId:   null,
+          recommendationType: 'VISIT',
+          pharmacy:           visitContext.eczane || null,
+          brick:              visitContext.brick  || null,
+          product:            visitContext.product || null,
+          ttt:                visitContext.ttt    || null,
+          status:             null,
+          manualFeedback:     { type: feedbackType, recordedAt: now },
+          evaluationDate:     todayStr,
+          notes:              'Manuel giriş — FAZ 11.2'
+        };
+      }
+
+      return _saveOutcomeRaw(outcome).then(function (saved) {
+        if (!saved) return null;
+        // PatternLearning'i besle — manualFeedback'i status olarak kullan
+        var effectiveStatus = _MANUAL_TYPE_TO_STATUS[feedbackType] || 'not_evaluable';
+        var enriched = Object.assign({}, saved, { status: effectiveStatus });
+        if (window.PatternLearningEngine &&
+            typeof window.PatternLearningEngine.updateLearningPatterns === 'function') {
+          window.PatternLearningEngine.updateLearningPatterns(enriched).catch(function () {});
+        }
+        // PharmacyBehaviorEngine cache'ini geçersiz kıl (FAZ 11.2 Learning Loop)
+        if (window.PharmacyBehaviorEngine &&
+            typeof window.PharmacyBehaviorEngine.clearCache === 'function') {
+          window.PharmacyBehaviorEngine.clearCache();
+        }
+        return saved;
+      });
+    });
+  }
+
   // ── getOutcomes() → Promise<outcome[]> (tümü) ────────────────────────
   function getOutcomes() {
     if (_usingFallback) return Promise.resolve(_memoryFallback.slice());
@@ -747,6 +814,7 @@
     evaluateRecommendationOutcome: evaluateRecommendationOutcome,
     evaluateOpenRecommendations:   evaluateOpenRecommendations,
     saveOutcome:                   saveOutcome,
+    recordManualFeedback:          recordManualFeedback,
     getOutcomes:                   getOutcomes,
     getOutcomeByRecommendationId:  getOutcomeByRecommendationId,
     getOutcomesByProduct:          getOutcomesByProduct,
