@@ -1816,6 +1816,13 @@ function renderEczaneTable(data) {
       </div>`;
     }).join('');
 
+    // FAZ 9.3-DÜZELTME — sayısal stok girişi tetikleme butonu (audit bulgusu:
+    // recordStockEntry() hiçbir UI'dan çağrılmıyordu — bu buton o eksiği kapatır,
+    // mevcut nitel dropdown'lara DOKUNMADAN, aynı hücreye EK olarak eklendi)
+    const stokSayisalBtn = `<button onclick="openStokSayisalPopover('${e.gln}','${e.ad.replace(/'/g,"\\'")}')"
+      title="Ürün bazında sayısal stok gir (örn. Panocer 12) — son sipariş/IMS'den daha güvenilir kabul edilir"
+      style="margin-top:3px;width:100%;font-size:9px;padding:2px 4px;border:1px dashed #94A3B8;border-radius:4px;background:transparent;color:#64748B;cursor:pointer">🔢 Sayı gir</button>`;
+
     // FAZ 12.1 — coverage checkbox
     const _isSelected = _faz121Cache.selectedSet.has(e.ad) || _faz121Cache.selectedSet.has(e.gln);
     const _isHighPot  = _faz121Cache.highPotentialSet.has(e.ad) || _faz121Cache.highPotentialSet.has(e.gln);
@@ -1847,7 +1854,7 @@ function renderEczaneTable(data) {
       <td class="mono" style="font-weight:700;color:var(--c1)">${e.toplam>0?fK(e.toplam):'—'}</td>
       <td class="mono" style="font-size:10px">${e.tutar>0?fTL(e.tutar):'—'}</td>
       <td>${urunBadges}</td>
-      <td style="min-width:90px;padding:4px 6px">${stokLines}</td>
+      <td style="min-width:90px;padding:4px 6px">${stokLines}${stokSayisalBtn}</td>
       <td style="font-size:10px;color:var(--dim);white-space:nowrap">${_visitDate}</td>
       <td style="padding:4px 6px">${_behHtml}</td>
     </tr>`;
@@ -1914,6 +1921,90 @@ function stokCsvIndir() {
   a.href = URL.createObjectURL(blob);
   a.download = 'stok_durumu_' + (ttt||'takim') + '_' + new Date().toISOString().slice(0,10) + '.csv';
   a.click();
+}
+
+// ── FAZ 9.3-DÜZELTME — Sayısal Stok Girişi Popover ──────────────────────
+// Audit bulgusu: stock-entry-adapter.js (FAZ 9.3) recordStockEntry()/
+// getLatestStockEntry() doğru yazılmıştı ama hiçbir UI elemanı ÇAĞIRMIYORDU.
+// Bu üç fonksiyon o bağlantıyı kurar. Mevcut nitel dropdown (stokGuncelle)
+// ve localStorage stok-adapter.js'e DOKUNULMADI — bu, AYNI hücreye eklenen
+// İKİNCİ, sayısal bir giriş yoludur (FAZ 9.3 kararı: ikisi ayrı kalır).
+let _stokSayisalEczane = null;
+
+function openStokSayisalPopover(gln, eczane) {
+  _stokSayisalEczane = eczane;
+  const ov = document.getElementById('stokSayisalOverlay');
+  const pop = document.getElementById('stokSayisalPopover');
+  const title = document.getElementById('stokSayisalEczaneAdi');
+  const inputsEl = document.getElementById('stokSayisalInputs');
+  const statusEl = document.getElementById('stokSayisalStatus');
+  if (!ov || !pop || !inputsEl) return;
+
+  title.textContent = eczane;
+  statusEl.textContent = '';
+  const urunler = (typeof URUN_ORDER !== 'undefined') ? URUN_ORDER : [];
+
+  // Önce boş iskeleti çiz, son bilinen sayısal girişi (varsa) asenkron doldur
+  inputsEl.innerHTML = urunler.map(function (u, i) {
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="font-size:11px;color:${URUN_CLR[u]||'#64748B'};font-weight:700;min-width:90px">${u}</span>
+      <input type="number" min="0" step="1" id="stokSayisalInput_${i}" data-urun="${u}"
+        placeholder="—" style="flex:1;font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg)">
+    </div>`;
+  }).join('');
+
+  ov.style.display = 'block';
+  pop.style.display = 'block';
+
+  if (window.StockEntryAdapter && typeof window.StockEntryAdapter.getLatestStockEntry === 'function') {
+    window.StockEntryAdapter.getLatestStockEntry(eczane).then(function (entry) {
+      if (!entry || !entry.products || _stokSayisalEczane !== eczane) return;
+      entry.products.forEach(function (p) {
+        const idx = urunler.indexOf(p.product);
+        if (idx === -1) return;
+        const inp = document.getElementById('stokSayisalInput_' + idx);
+        if (inp) inp.value = p.stock;
+      });
+    }).catch(function () { /* sessiz — önceki giriş yoksa boş kalır */ });
+  }
+}
+
+function closeStokSayisalPopover() {
+  document.getElementById('stokSayisalOverlay').style.display = 'none';
+  document.getElementById('stokSayisalPopover').style.display = 'none';
+  _stokSayisalEczane = null;
+}
+
+function saveStokSayisalGiris() {
+  const statusEl = document.getElementById('stokSayisalStatus');
+  if (!_stokSayisalEczane) return;
+  if (!window.StockEntryAdapter || typeof window.StockEntryAdapter.recordStockEntry !== 'function') {
+    if (statusEl) statusEl.textContent = '⚠ StockEntryAdapter yüklenmedi.';
+    return;
+  }
+
+  const urunler = (typeof URUN_ORDER !== 'undefined') ? URUN_ORDER : [];
+  const products = [];
+  urunler.forEach(function (u, i) {
+    const inp = document.getElementById('stokSayisalInput_' + i);
+    const v = inp ? inp.value.trim() : '';
+    if (v !== '' && !isNaN(v)) products.push({ product: u, stock: Number(v) });
+  });
+
+  if (!products.length) {
+    if (statusEl) statusEl.textContent = '⚠ En az bir ürün için sayı girin.';
+    return;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  window.StockEntryAdapter.recordStockEntry(_stokSayisalEczane, today, products)
+    .then(function () {
+      if (statusEl) statusEl.textContent = '✓ Kaydedildi (' + products.length + ' ürün)';
+      setTimeout(closeStokSayisalPopover, 900);
+    })
+    .catch(function (e) {
+      if (statusEl) statusEl.textContent = '❌ Hata: ' + (e && e.message ? e.message : 'kayıt başarısız');
+    });
 }
 
 function renderEczaneCharts(filtered, eczList) {
@@ -6131,6 +6222,24 @@ function _buildEczaneDrawerRefresh(){
 
 <!-- Eczane Drawer -->
 <div class="filter-drawer" id="eczaneDrawer"></div>
+
+<!-- FAZ 9.3-DÜZELTME — Sayısal Stok Girişi Popover (tek global örnek, her
+     eczane satırından açılır; recordStockEntry() artık gerçekten çağrılıyor) -->
+<div id="stokSayisalOverlay" onclick="closeStokSayisalPopover()"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9998"></div>
+<div id="stokSayisalPopover"
+  style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+    background:var(--surf);border:1px solid var(--border);border-radius:14px;
+    padding:16px;width:min(320px,90vw);z-index:9999;box-shadow:0 12px 32px rgba(0,0,0,.25)">
+  <div style="font-size:12px;font-weight:700;color:var(--fg);margin-bottom:4px" id="stokSayisalEczaneAdi">—</div>
+  <div style="font-size:10px;color:var(--dim);margin-bottom:10px">Ürün başına mevcut stok (kutu). Sadece doldurduğun ürünler kaydedilir.</div>
+  <div id="stokSayisalInputs"></div>
+  <div id="stokSayisalStatus" style="font-size:10px;margin-top:6px;min-height:14px"></div>
+  <div style="display:flex;gap:8px;margin-top:10px">
+    <button onclick="saveStokSayisalGiris()" style="flex:1;font-size:11px;padding:6px 10px;border:none;border-radius:8px;background:var(--c1);color:#fff;cursor:pointer;font-weight:700">Kaydet</button>
+    <button onclick="closeStokSayisalPopover()" style="font-size:11px;padding:6px 12px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--dim);cursor:pointer">Kapat</button>
+  </div>
+</div>
 
 <script>
 // ── FAZ 12.2 — Saha Gözlemleri UI ─────────────────────────────
