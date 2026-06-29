@@ -71,6 +71,19 @@ function renderEngine() {
   document.getElementById('emv_donem').textContent = cur ? cur.label : '—';
   document.getElementById('engineTttBadge').textContent = engineSelTTT;
 
+  // Günlük Hedef & Prim Puanı (ön değerler — motor çalışınca güncellenir)
+  var _remNum = (typeof rem === 'number') ? rem : parseInt(rem) || 0;
+  var _dailyEl = document.getElementById('emv_daily');
+  var _primEl  = document.getElementById('emv_prim');
+  if (_dailyEl) {
+    _dailyEl.textContent = (_remNum > 0 && _emvKalan > 0) ? fTL(Math.round(_emvKalan / _remNum)) : '—';
+  }
+  if (_primEl) {
+    var _pp = gt ? (gt.prim_pct || 0) : 0;
+    _primEl.textContent = _pp ? fPct(_pp) : '—';
+    _primEl.className = 'engine-meta-val ' + (_pp>=91?'good':_pp>=70?'warn':'danger');
+  }
+
   // Eğer daha önce çalıştırıldıysa output koru
 }
 
@@ -262,17 +275,98 @@ function _runEngineCore() {
       </div>
     </div>`).join('') || '<div style="color:var(--dim);font-size:12px;text-align:center;padding:20px">Tüm ürünler hedefe ulaştı 🏆</div>';
 
-  // ── FAZ 12.0-DÜZELTME (audit bulgusu) ───────────────────────────────
-  // Burada eskiden "Kart 2: Bu Haftanın Top30 Eczane Planı" hesabı vardı
-  // (_isoWeekKey/_weeklyPlan/eczTasks, 30 eczaneye kadar liste, WPP_V3_
-  // localStorage cache). FAZ 12.0 raporu bu kartın kaldırıldığını iddia
-  // etmişti ama yalnızca enginePharmacyTop30/engineReorderTop30 ID'leri
-  // kaldırılmıştı — BU kart farklı bir isimle ("Bu Haftanın Eczane Planı")
-  // hâlâ render ediliyordu ve SON-MASTER'ın "Top 30 tamamen kaldırılmış
-  // olmalıdır" kabul kriteriyle ÇELİŞİYORDU. Hesap + render TAMAMEN
-  // kaldırıldı — yerini Sayfa 1'deki "Günün Öncelikli Eczaneleri" kartı
-  // (FAZ 10.3 + FAZ 12.0, max 5, gunununOncelikliEczaneleriCard) alıyor.
-  // Rollback: bu yorum bloğunu silip eski hesabı geri eklemek yeterli.
+  // ── Kart 2: Bu Haftanın Top30 Eczane Planı ─────────────────────────
+  // ISO hafta: Pazartesi'de otomatik yenilenir, aynı hafta localStorage cache
+  const _isoWeekKey = () => {
+    const d = new Date(), dow = d.getDay() || 7;
+    d.setDate(d.getDate() + 4 - dow);
+    const y = d.getFullYear();
+    const wk = Math.ceil((((d - new Date(y,0,1)) / 86400000) + 1) / 7);
+    return `${y}-W${String(wk).padStart(2,'0')}`;
+  };
+  const _thisWeek = _isoWeekKey();
+  const _cacheKey = `WPP_V3_${ttt}_${_thisWeek}`; // V3: nextOrderProducts eklendi
+
+  let _weeklyPlan = null;
+  try { const _r = localStorage.getItem(_cacheKey); if (_r) _weeklyPlan = JSON.parse(_r); } catch(_) {}
+
+  if (!_weeklyPlan?.list?.length) {
+    let _src = [];
+    try {
+      if (typeof runPharmacyIntelligence === 'function' && window._PHARMACY_INTELLIGENCE_READY) {
+        runPharmacyIntelligence(ttt);
+        _src = window.PHARMACY_INTELLIGENCE?.top30 || [];
+      }
+      if (!_src.length && typeof buildClassifierTop30 === 'function') _src = buildClassifierTop30(ttt) || [];
+    } catch(_e) { console.warn('[ai-engine] weekly plan hata:', _e.message); }
+
+    if (_src.length) {
+      _weeklyPlan = {
+        weekKey: _thisWeek, ttt, generatedAt: new Date().toISOString(),
+        list: _src.slice(0,30).map((e,i) => ({
+          rank: i+1,
+          eczane:             e.eczane || e.ad || '—',
+          brick:              e.brick  || '—',
+          classification:     e.classification || 'OTHER',
+          reorderProbability: e.reorderProbability ?? e.score ?? 0,
+          expectedOrderBoxes: e.expectedOrderBoxes ?? e.forecastBoxes ?? 0,
+          opportunityScore:   e.opportunityScore   ?? 0,
+          visitPriorityScore: e.visitPriorityScore ?? e.score ?? 0,
+          daysToNextOrder:    e.daysToNextOrder    ?? 99,
+          expectedOrderDate:  e.expectedOrderDate  ?? '—',
+          nextOrderProducts:  e.nextOrderProducts  ?? []
+        }))
+      };
+      try { localStorage.setItem(_cacheKey, JSON.stringify(_weeklyPlan)); } catch(_) {}
+    }
+  }
+
+  const _clsMap = {
+    REGULAR_BUYER: ['#EFF6FF','#1D4ED8','✓ Düzenli'],
+    GROWING:       ['#DCFCE7','#15803D','↑ Büyüyen'],
+    AT_RISK:       ['#FEE2E2','#DC2626','⚠ Risk'],
+    REACTIVATION:  ['#F3E8FF','#7C3AED','🔄 Kazanım'],
+    CAMPAIGN_BUYER:['#FEF3C7','#D97706','⚡ Kampanya'],
+    OTHER:         ['#F1F5F9','#64748B','· Diğer']
+  };
+  const _clsBadge = cls => { const c=_clsMap[cls]||_clsMap['OTHER']; return `<span style="font-size:9px;font-weight:700;background:${c[0]};color:${c[1]};border-radius:4px;padding:1px 5px">${c[2]}</span>`; };
+  const [_wYear,_wNum] = _thisWeek.split('-W');
+  const _weekLabel = `${_wYear} / ${_wNum}. Hafta`;
+  const _top30Count = _weeklyPlan?.list?.length || 0;
+
+  const eczTasks = _weeklyPlan && _top30Count > 0
+    ? _weeklyPlan.list.map(e => {
+        const pColor = e.reorderProbability>=70?'#16A34A':e.reorderProbability>=45?'#D97706':'#DC2626';
+        const orderTag = e.daysToNextOrder<=0
+          ? `<span style="color:#DC2626;font-weight:800;font-size:9px">⚡Bugün</span>`
+          : e.daysToNextOrder<=7
+            ? `<span style="color:#D97706;font-weight:700;font-size:9px">${e.daysToNextOrder}g</span>`
+            : `<span style="color:var(--dim);font-size:9px">${e.daysToNextOrder}g</span>`;
+        // Ürün sipariş yakınlık badge'leri
+        const _nop = (e.nextOrderProducts || []).slice(0,3).map(p => {
+          const sn = p.urun.replace('GRİPORT COLD','GRP').replace('ACİDPASS','ACP')
+                           .replace('PANOCER','PAN').replace('MOKSEFEN','MKS').replace('FAMTREC','FAM');
+          const bg  = p.overdue ? '#FEE2E2' : p.urgent ? '#FEF3C7' : '#F1F5F9';
+          const col = p.overdue ? '#DC2626' : p.urgent ? '#92400E' : '#475569';
+          return `<span style="font-size:8px;font-weight:700;background:${bg};color:${col};border-radius:3px;padding:1px 4px">${sn} ${p.overdue?'⚡':''}${p.label}${p.kutu?' ~'+p.kutu+'K':''}</span>`;
+        }).join(' ');
+        return `
+        <div class="task-row" style="padding:5px 8px;border-bottom:1px solid var(--border)">
+          <div class="task-priority tp-${e.rank<=10?'1':e.rank<=20?'2':'3'}" style="min-width:20px;width:20px;height:20px;font-size:9px;border-radius:6px">${e.rank}</div>
+          <div class="task-text" style="flex:1;min-width:0">
+            <div class="task-main" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.eczane}</div>
+            <div class="task-detail" style="display:flex;align-items:center;gap:3px;flex-wrap:wrap">
+              <span class="task-tag tt-brick" style="font-size:8px">${e.brick}</span>
+              ${_clsBadge(e.classification)}
+              ${typeof window.renderConfidenceMeter === 'function' ? window.renderConfidenceMeter(e.reorderProbability) : `<span style="font-size:9px;color:${pColor};font-weight:700">%${e.reorderProbability}</span>`}
+              <span style="font-size:9px;color:#0891B2;font-weight:700">${e.expectedOrderBoxes}K</span>
+              ${orderTag}
+            </div>
+            ${_nop ? `<div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:2px">${_nop}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('')
+    : `<div style="color:var(--dim);font-size:12px;text-align:center;padding:20px">${!eczaneLoaded?'⏳ Eczane verisi yükleniyor…':'Motor çalıştırıldığında plan oluşturulur.'}</div>`;
 
   // Kart 4: Prim durumu
   const primTasks = `
@@ -313,6 +407,16 @@ function _runEngineCore() {
         <div><div class="task-card-title">Bugün Sat</div><div class="task-card-sub">Ürün Günlük Hedef</div></div>
       </div>
       ${urunTasks}
+    </div>
+    <div class="task-card" style="overflow:hidden">
+      <div class="task-card-header">
+        <div class="task-card-icon" style="background:linear-gradient(135deg,rgba(79,0,140,.1),rgba(79,0,140,.05))">🏥</div>
+        <div>
+          <div class="task-card-title">Bu Haftanın Eczane Planı</div>
+          <div class="task-card-sub">${_weekLabel} · ${_top30Count} eczane · <span style="color:#0891B2">Pazartesi yenilenir</span></div>
+        </div>
+      </div>
+      <div style="max-height:420px;overflow-y:auto;margin:0 -14px">${eczTasks}</div>
     </div>
     <div class="task-card">
       <div class="task-card-header">
@@ -472,6 +576,63 @@ function _runEngineCore() {
     } catch(e) {
       console.warn('[FAZ6.9] renderAutonomousDashboard hata:', e.message);
     }
+  }
+
+  // ── SON-MASTER: Hero meta — tam değerlerle güncelle ──
+  var _emvDailyEl = document.getElementById('emv_daily');
+  var _emvPrimEl  = document.getElementById('emv_prim');
+  if (_emvDailyEl) _emvDailyEl.textContent = kalanPerDay > 0 ? fTL(Math.round(kalanPerDay)) : '—';
+  if (_emvPrimEl) {
+    _emvPrimEl.textContent = primPuan ? fPct(primPuan) : '—';
+    _emvPrimEl.className = 'engine-meta-val ' + (primPuan>=91?'good':primPuan>=70?'warn':'danger');
+  }
+
+  // ── SON-MASTER: Günün En Kritik 3 Aksiyonu kartı ──
+  var _top3El = document.getElementById('gunun3AksiyonCard');
+  if (_top3El) {
+    var _actions = [];
+    if (_weeklyPlan && _weeklyPlan.list && _weeklyPlan.list.length) {
+      var _tp = _weeklyPlan.list[0];
+      _actions.push({ icon: '📍', label: 'İlk ziyaret: ' + _tp.eczane, detail: 'Güven %' + _tp.reorderProbability + ' · ' + _tp.brick, color: '#0E7490' });
+    }
+    if (critBricks.length) {
+      _actions.push({ icon: '⚠️', label: critBricks[0].brick + ' brickinde risk', detail: 'MI: ' + (critBricks[0].mi!=null?critBricks[0].mi.toFixed(0):'—') + ' · GI: ' + (critBricks[0].gi!=null?critBricks[0].gi.toFixed(0):'—'), color: '#DC2626' });
+    }
+    if (oppBricks.length) {
+      _actions.push({ icon: '🚀', label: oppBricks[0].brick + ' brickinde fırsat', detail: 'MI: ' + (oppBricks[0].mi!=null?oppBricks[0].mi.toFixed(0):'—') + ' · GI: ' + (oppBricks[0].gi!=null?oppBricks[0].gi.toFixed(0):'—'), color: '#059669' });
+    }
+    // Prim aksiyonu fallback
+    if (_actions.length < 3 && kalanPerDay > 0) {
+      _actions.push({ icon: '💰', label: 'Günlük hedef: ' + fTL(Math.round(kalanPerDay)), detail: 'Dönem gerçekleşme %' + (totalReal||0).toFixed(0) + ' · Prim puanı %' + (primPuan||0).toFixed(0), color: '#7C3AED' });
+    }
+    _top3El.innerHTML =
+      '<div style="background:linear-gradient(135deg,rgba(79,0,140,.04),rgba(27,206,216,.03));border:1.5px solid rgba(79,0,140,.12);border-radius:14px;padding:14px 16px;margin-bottom:16px">' +
+        '<div style="font-size:10px;font-weight:700;color:var(--c1);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;display:flex;align-items:center;gap:6px">' +
+          '<i class="fas fa-bolt"></i> Günün En Kritik 3 Aksiyonu' +
+        '</div>' +
+        _actions.slice(0, 3).map(function(a, idx) {
+          return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0' + (idx < Math.min(_actions.length,3)-1 ? ';border-bottom:1px solid var(--border)' : '') + '">' +
+            '<div style="width:28px;height:28px;border-radius:8px;background:' + a.color + '18;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">' + a.icon + '</div>' +
+            '<div style="flex:1;min-width:0">' +
+              '<div style="font-size:12px;font-weight:700;color:var(--text)">' + (idx+1) + '. ' + a.label + '</div>' +
+              '<div style="font-size:10px;color:var(--dim);margin-top:1px">' + a.detail + '</div>' +
+            '</div>' +
+          '</div>';
+        }).join('') +
+      '</div>';
+  }
+
+  // ── SON-MASTER: AI Koç (Sales Coach V2) — motor sonunda render ──
+  try {
+    if (typeof renderCoachSummaryCard === 'function' && window._SALES_COACH_V2_READY) {
+      var _scTtt = (ttt !== 'ŞENOL YILMAZ') ? ttt : null;
+      renderCoachSummaryCard('salesCoachSummaryCard', _scTtt);
+      if (typeof renderScenarioCard === 'function') {
+        renderScenarioCard('salesCoachScenarioCard', _scTtt);
+      }
+    }
+  } catch (_scErr) {
+    console.warn('[SalesCoachV2] motor render hata:', _scErr.message);
   }
 
   // ── FAZ 12.0: Günün Öncelikli Eczaneleri (FAZ 10.3 / 5-kademe, max 5) ──
@@ -769,7 +930,13 @@ function setAiTTT(ttt) {
 
   selAiTTT     = ttt;
   engineSelTTT = ttt;
+  window._engineAutoRan = false; // TTT değişince yeni TTT için motor yeniden çalışır
   renderAiAsistan();
+  // SON-MASTER: TTT seçimi motor çalıştırmasını tetikler
+  if (typeof GENEL !== 'undefined' && GENEL && GENEL.length && !_engineRunLock) {
+    window._engineAutoRan = true;
+    runEngine();
+  }
 }
 
 // ── showZamHesapQuick: quick sekmesindeki zam panelini göster (FIX-RT-07) ──
