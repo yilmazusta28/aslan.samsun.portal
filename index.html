@@ -5663,6 +5663,18 @@ function _buildEczaneDrawerRefresh(){
 
       </div><!-- /engineOutput -->
 
+      <!-- ═══ TERRITORY SUMMARY CARD (FAZ 6.9 — territory-engine.js) ═══ -->
+      <!-- ROLLBACK: Bu div eksikti; territorySummaryCard id'si bulunamıyor hatası veriyordu -->
+      <div id="territorySummaryCard" style="display:none;margin-bottom:16px">
+        <div id="territorySummaryContainer"></div>
+      </div>
+
+      <!-- ═══ AUTONOMOUS PLANNING CARD (FAZ 5.7 — autonomous-planning-engine.js) ═══ -->
+      <!-- ROLLBACK: Bu div eksikti; autonomousDashboardCard id'si bulunamıyor hatası veriyordu -->
+      <div id="autonomousDashboardCard" style="display:none;margin-bottom:16px">
+        <div id="autonomousDashboardContainer"></div>
+      </div>
+
       <!-- ═══ GÜNÜN ÖNCELİKLİ ECZANELERİ (FAZ 12.0 / FAZ 10.3) ═══ -->
       <div id="gunununOncelikliEczaneleriCard" style="margin-bottom:16px"></div>
 
@@ -6068,10 +6080,13 @@ function _buildEczaneDrawerRefresh(){
         <div style="font-size:11px;color:var(--dim,#6b7280)">Ekip performansı ve AI özeti</div>
       </div>
     </div>
-    <div id="executiveDashboardContainer">
-      <div style="padding:24px;text-align:center;color:var(--dim,#6b7280);font-size:12px">
-        <div style="font-size:28px;margin-bottom:8px">📊</div>
-        Yönetici paneli yükleniyor…
+    <!-- ROLLBACK: executiveDashboardCard wrapper eksikti; JS'de id bulunamıyordu -->
+    <div id="executiveDashboardCard">
+      <div id="executiveDashboardContainer">
+        <div style="padding:24px;text-align:center;color:var(--dim,#6b7280);font-size:12px">
+          <div style="font-size:28px;margin-bottom:8px">📊</div>
+          Yönetici paneli yükleniyor…
+        </div>
       </div>
     </div>
 
