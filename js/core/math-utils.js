@@ -9,16 +9,10 @@
 // ── Güvenli Sayı Çözümleyici ─────────────────────────────────
 // Türkçe virgül/nokta decimal ayraçlarını handle eder
 // Kaynak: index.html (csv-parser bloğundan bağımsız kopya)
-// ROLLBACK: v1 (% handling yoktu — "56,34%" → 5634 hatası)
-// FIX: % işareti strip edilmeden önce regex'e giriyordu, artık başta temizleniyor
 function parseN(v) {
   if (v === null || v === undefined) return 0;
   if (typeof v === 'number') return isNaN(v) ? 0 : v;
   let s = String(v).trim().replace(/\s/g, '');
-  if (!s || s === '-' || s === '--') return 0;
-  // % işaretini kaldır — regex'e girmeden önce (BUG FIX: "56,34%" → "56,34")
-  s = s.replace('%', '').trim();
-  if (!s || s === '-') return 0;
   // Excel parantez-negatif format: (972.456) veya (1.234,56)
   let negative = false;
   if (s.startsWith('(') && s.endsWith(')')) {
