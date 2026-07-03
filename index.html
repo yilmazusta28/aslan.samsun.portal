@@ -514,7 +514,12 @@
 <script src="js/ai/core/learning-hub.js"></script>
 <!-- END FAZ 6.2 Learning Hub -->
 
-<!-- PHASE 5.7: Autonomous Planning Engine — AI Saha Komutanı -->
+<!-- PHASE 5.7: Autonomous Planning Engine — AI Saha Komutanı
+     AUDIT2 Bulgu 3 düzeltmesi ile artık BAĞLI: Sayfa 5 (AI Asistan)
+     altındaki "🎖️ AI Saha Komutanı" accordion'u (id="acc_autonomous_planning",
+     ~satır 5884) açıldığında renderAutonomousDashboard() çağrılıyor.
+     Rollback: o accordion bloğunu silmek yeterli, bu script tag'i tek
+     başına zararsızdır (guard: window._APE_LOADED). -->
 <script src="js/ai/autonomous-planning-engine.js"></script>
 <script>
 // PHASE2-STUB: SoundFX + HapticFX extracted to js/utils/audio-utils.js
@@ -1342,6 +1347,13 @@ function renderEczaneContent() {
   const totIade  = eczList.reduce((s,e)=>s+e.iade,0);
   const aktif    = eczList.filter(e=>e.toplam>0).length;
   const buyuyen  = eczList.filter(e=>e.subat>e.ocak).length;
+  // AUDIT2 Bulgu 2(c) düzeltmesi: kaç eczanede sayısal stok girişi var —
+  // adoption'ı görünür kılmak için. _faz121Cache henüz doldurulmadıysa
+  // (ilk render, sidecar veri asenkron geliyor) 0/toplam gösterir, sidecar
+  // yüklenince bu kart da yeniden render ile güncellenir.
+  const stokGirisSayisi = (typeof _faz121Cache !== 'undefined')
+    ? eczList.filter(e => _faz121Cache.stockDateMap[e.ad]).length
+    : 0;
 
   document.getElementById('eczaneSummaryCards').innerHTML = [
     {icon:'🏥',label:'Toplam Eczane',val:eczList.length,color:'var(--c1)'},
@@ -1349,6 +1361,7 @@ function renderEczaneContent() {
     {icon:'📦',label:'Toplam Adet',val:fK(totAdet),color:'#0891B2'},
     {icon:'💰',label:'Toplam Tutar',val:fTL(totTutar),color:'#521FD1'},
     {icon:'📈',label:'Büyüyen Eczane',val:buyuyen,color:'#D97706'},
+    {icon:'🔢',label:'Stok Girişi Yapılan',val:`${stokGirisSayisi}/${eczList.length}`,color:'#0E7490'},
   ].map(c=>`<div style="background:var(--surf);border:1px solid var(--border);border-radius:9px;padding:10px 12px;text-align:center">
     <div style="font-size:16px">${c.icon}</div>
     <div style="font-size:18px;font-weight:800;color:${c.color}">${c.val}</div>
@@ -1466,8 +1479,13 @@ async function _loadFaz121SidecarData(ttt) {
       });
     }
     // Son ziyaret tarihleri: pre-load StockEntryAdapter for each pharmacy (batch)
+    // AUDIT2 Bulgu 2(a) düzeltmesi: eskiden .slice(0,100) ile sadece ilk 100
+    // eczane sorgulanıyordu — 100'den fazla eczanesi olan TTT'lerde "Son
+    // Ziyaret" sütunu geri kalanlar için SESSİZCE hiç dolmuyordu. IndexedDB
+    // sorguları zaten Promise.all ile paralel çalıştığı için sınırı kaldırmak
+    // güvenli; tüm eczaneler artık sorgulanıyor.
     if (window.StockEntryAdapter && typeof window.StockEntryAdapter.getLatestStockEntry === 'function' && _eczaneData.length) {
-      const promises = _eczaneData.slice(0, 100).map(async (e) => {
+      const promises = _eczaneData.map(async (e) => {
         try {
           const entry = await window.StockEntryAdapter.getLatestStockEntry(e.ad);
           if (entry && entry.date) _faz121Cache.stockDateMap[e.ad] = entry.date;
@@ -1831,7 +1849,14 @@ function renderEczaneTable(data) {
       }
     })(this)" style="cursor:pointer;width:14px;height:14px">`;
     // FAZ 12.1 — son ziyaret
-    const _visitDate  = _faz121Cache.stockDateMap[e.ad] || '—';
+    // AUDIT2 Bulgu 2(b) düzeltmesi: "—" hem "veri yok" hem "hata" gibi
+    // okunabiliyordu. Artık ayırt edici: sidecar veri henüz gelmediyse
+    // (stockDateMap boş) nötr "—", sidecar geldi ama bu eczane için hiç
+    // sayısal stok girişi yoksa açık mesaj gösterilir.
+    const _visitDate  = _faz121Cache.stockDateMap[e.ad]
+      || (Object.keys(_faz121Cache.stockDateMap).length > 0
+            ? '<span style="color:var(--dim);font-style:italic">Henüz giriş yok</span>'
+            : '—');
     // FAZ 12.1 — AI profil (PharmacyBehaviorEngine sync cache)
     const _beh = _faz121Cache.behaviorMap[e.ad] || _faz121Cache.behaviorMap[e.gln] || null;
     const _behTypeMap = { REGULAR_BUYER:'Düzenli',GROWING:'Büyüyen',AT_RISK:'Risk',
@@ -2459,7 +2484,7 @@ function renderMigi2() {
       <div style="font-size:11px;color:var(--dim);margin-bottom:12px">
         Veriler arka planda çekiliyor olabilir. Lütfen bekleyin veya yenile butonuna basın.
       </div>
-      <button onclick="syncData()" style="padding:8px 18px;border-radius:8px;border:1px solid var(--c1);
+      <button onclick="syncData(true)" style="padding:8px 18px;border-radius:8px;border:1px solid var(--c1);
         background:var(--c1);color:#fff;cursor:pointer;font-size:12px">🔄 Verileri Yenile</button>
       <div style="font-size:10px;margin-top:12px;color:var(--dim)">
         Sorun devam ederse tarayıcı konsolunu (F12) kontrol edin.<br>
@@ -5057,7 +5082,7 @@ function _buildEczaneDrawerRefresh(){
       <div><div class="brand-name">Samsun Satış Portalı</div><div class="brand-sub" id="topbarPeriodLabel">Dashboard</div></div>
     </div>
     <div class="sync-bar">
-      <button class="sync-btn" onclick="syncData()" style="display:none"><i class="fas fa-sync-alt"></i> Güncelle</button>
+      <button class="sync-btn" onclick="syncData(true)" style="display:none"><i class="fas fa-sync-alt"></i> Güncelle</button>
       <span class="sync-status" id="syncStatus">Gömülü veri</span>
       <!-- Dark Mode Toggle -->
       <button id="darkToggleBtn" onclick="toggleDarkMode()" title="Karanlık/Aydınlık mod"
@@ -5880,6 +5905,26 @@ function _buildEczaneDrawerRefresh(){
     <div id="teamLearningCard" style="display:none;padding:12px 16px"></div>
   </div>
   <!-- END FAZ 6.9 Team Learning -->
+
+  <!-- PHASE 5.7: Autonomous Planning Engine — AI Saha Komutanı
+       AUDIT2 Bulgu 3 düzeltmesi: motor (js/ai/autonomous-planning-engine.js,
+       1024 satır) script tag'i index.html:518'de yüklü olmasına rağmen
+       hiçbir UI elemanı generateDailyPlan/generateWeeklyPlan/
+       renderAutonomousDashboard vb. çağırmıyordu — sıfır kullanıcı değeri
+       üretiyordu. Motorun kendi renderAutonomousDashboard(containerId, ttt)
+       fonksiyonu zaten kendi kendine yeten bir dashboard render ediyor
+       (günlük/haftalık görev, aksiyon kartları, gap kapama, senaryo
+       simülasyonu) — burada sadece diğer accordion'larla AYNI lazy-render
+       desenine bağlanıyor. Rollback: bu accordion bloğunu silmek yeterli,
+       motor dosyasının kendisi ve script tag'i etkilenmez. -->
+  <div class="card mb16" id="acc_autonomous_planning">
+    <div class="card-hd" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';if(!window._pvApeRendered){window._pvApeRendered=true;const _apeTtt=(typeof selTTT!=='undefined'&&selTTT)?selTTT:(typeof ALL_TTTS!=='undefined'&&ALL_TTTS[0])||null;if(typeof renderAutonomousDashboard==='function')renderAutonomousDashboard('autonomousPlanningCard',_apeTtt);}">
+      <span class="card-title">🎖️ AI Saha Komutanı — Günlük/Haftalık Görev Planı</span>
+      <span class="card-badge" style="margin-left:auto;background:#EDE9FE;color:#5B21B6">Autonomous Planning</span>
+    </div>
+    <div id="autonomousPlanningCard" style="display:none;padding:12px 16px"></div>
+  </div>
+  <!-- END PHASE 5.7 Autonomous Planning Engine -->
 
 </div><!-- /page5 -->
 

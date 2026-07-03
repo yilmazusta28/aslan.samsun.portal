@@ -226,12 +226,45 @@ function parseMiGiBrickCSV(csvText) {
 // syncData() eş zamanlı çift çağrı koruması buradan yönetilir.
 
 // ── Ana Veri Yükleme Fonksiyonu ──────────────────────────────
-async function syncData() {
+// AUDIT2 Bulgu 4 düzeltmesi: data-cache.js (Phase 2.3.5) artık gerçekten
+// kullanılıyor. `forceFresh=true` ile çağrılırsa (manuel "Güncelle" butonu,
+// bkz. index.html:2462/5060) cache atlanır, HER ZAMAN GitHub'dan taze veri
+// çekilir — kullanıcının elle tetiklediği bir yenileme asla eski veri
+// göstermemeli. `forceFresh` verilmezse (otomatik ilk açılış — initApp()),
+// geçerli (<24 saat) bir cache varsa önce ONDAN anında yüklenir (ağ
+// beklemeden ekran dolar), ardından YİNE DE arkaplanda taze fetch denenir
+// (aşağıdaki ana akış devam eder) — yani cache asla fetch'in YERİNE geçmez,
+// sadece ilk boyamayı hızlandırır. Başarılı her fetch sonunda saveDataCache()
+// çağrılır. Rollback: bu bloğu ve dosya sonundaki saveDataCache() çağrısını
+// silmek yeterli, syncData() eskisi gibi çalışmaya devam eder.
+async function syncData(forceFresh) {
   if (_syncLock) { console.log('[syncData] Zaten çalışıyor, atlandı'); return; }
   _syncLock = true;
   const statusEl = document.getElementById('syncStatus');
   const loadMsg  = document.getElementById('loadMsg');
   statusEl.textContent = '⏳ Güncelleniyor…';
+
+  if (!forceFresh && typeof window.loadDataCache === 'function') {
+    try {
+      const _hadCache = window.loadDataCache();
+      if (_hadCache) {
+        console.log('[syncData] Geçerli cache bulundu — anında gösteriliyor, taze veri arkaplanda çekiliyor.');
+        rebuildKutuFromIMS();
+        if (loadMsg) loadMsg.textContent = 'Önbellekten yüklendi, güncelleniyor…';
+        if (curPage === 0)      renderAna();
+        else if (curPage === 1) renderPazar();
+        else if (curPage === 2) renderTakip();
+        else if (curPage === 3) { initMigi1(); initMigi2(); }
+        else if (curPage === 4) buildPrimInputs();
+        else if (curPage === 5) renderAiAsistan();
+        else if (curPage === 6) renderEczane();
+        const _loadingEl = document.getElementById('loading');
+        if (_loadingEl) _loadingEl.style.display = 'none';
+      }
+    } catch (e) {
+      console.warn('[syncData] Cache ön-yükleme hatası (sessiz, fresh fetch devam ediyor):', e.message);
+    }
+  }
 
   // file:// protokolünde CORS engeli — kullanıcıyı bilgilendir
   if (window.location.protocol === 'file:') {
@@ -450,6 +483,12 @@ async function syncData() {
       'KUTU:', KUTU.length, 'TTTS:', ALL_TTTS);
     console.log('[IMS_TL_MAP]', JSON.stringify(IMS_TL_MAP));
     console.log('[TR_SIRA_MAP]', JSON.stringify(TR_SIRA_MAP));
+
+    // AUDIT2 Bulgu 4 düzeltmesi: taze fetch başarıyla bitti — 24 saatlik
+    // cache'e yaz (bir sonraki ilk açılışta anında gösterim için).
+    if (typeof window.saveDataCache === 'function') {
+      try { window.saveDataCache(); } catch (e) { console.warn('[syncData] saveDataCache hata (sessiz):', e.message); }
+    }
 
   } catch (err) {
     statusEl.textContent = '❌ ' + err.message;

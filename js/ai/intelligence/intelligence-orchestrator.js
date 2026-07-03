@@ -198,80 +198,16 @@
     return lines.join('\n');
   }
 
-  // ── renderIntelligenceSummary ─────────────────────────────
-  // Opsiyonel basit UI — Top Risk / Top Opportunity / Trend Score kartları.
-  // Mevcut sayfalara eklenmez; sadece çağrıldığında belirtilen container'a yazar.
-  // @param {string} ttt
-  // @param {string} [containerId]  — varsayılan: 'intelligenceSummaryContainer'
-  function renderIntelligenceSummary(ttt, containerId) {
-    var container = document.getElementById(containerId || 'intelligenceSummaryContainer');
-    if (!container) return; // Container yoksa sessizce çık — UI bozulmaz
-
-    var intel = buildSalesIntelligence(ttt);
-
-    var topRisk = intel.risks && intel.risks[0];
-    var topOpp  = intel.opportunities && intel.opportunities[0];
-    var trend   = intel.trends;
-    var topRec  = intel.recommendations && intel.recommendations[0];
-
-    var severityColor = function(s) {
-      return s === 'HIGH' ? 'var(--bad, #DC2626)' : s === 'MEDIUM' ? '#D97706' : '#16A34A';
-    };
-    var trendColor = function(t) {
-      return t === 'UP' ? '#16A34A' : t === 'DOWN' ? '#DC2626' : '#6B7280';
-    };
-
-    var html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;padding:10px 0">';
-
-    // Trend kartı
-    html += '<div style="background:var(--card,#fff);border:1px solid var(--brd,#e5e7eb);border-radius:10px;padding:12px">' +
-      '<div style="font-size:10px;color:var(--dim,#6b7280);text-transform:uppercase;letter-spacing:1px">Trend</div>' +
-      '<div style="font-size:20px;font-weight:700;color:' + trendColor(trend.trend) + ';margin:4px 0">' +
-        (trend.trend === 'UP' ? '📈' : trend.trend === 'DOWN' ? '📉' : '➡️') + ' ' + trend.trend +
-      '</div>' +
-      '<div style="font-size:11px;color:var(--dim,#6b7280)">' + (trend.summary || '—') + '</div>' +
-      '<div style="font-size:10px;margin-top:4px;color:var(--dim,#6b7280)">Güven: %' + trend.confidence + '</div>' +
-    '</div>';
-
-    // Top Risk kartı
-    if (topRisk) {
-      html += '<div style="background:var(--card,#fff);border:1px solid var(--brd,#e5e7eb);border-radius:10px;padding:12px">' +
-        '<div style="font-size:10px;color:var(--dim,#6b7280);text-transform:uppercase;letter-spacing:1px">En Yüksek Risk</div>' +
-        '<div style="font-size:13px;font-weight:600;color:' + severityColor(topRisk.severity) + ';margin:4px 0">' + topRisk.title + '</div>' +
-        '<div style="font-size:11px;color:var(--dim,#6b7280);line-height:1.4">' + topRisk.detail.slice(0, 80) + (topRisk.detail.length > 80 ? '…' : '') + '</div>' +
-      '</div>';
-    }
-
-    // Top Opportunity kartı
-    if (topOpp) {
-      html += '<div style="background:var(--card,#fff);border:1px solid var(--brd,#e5e7eb);border-radius:10px;padding:12px">' +
-        '<div style="font-size:10px;color:var(--dim,#6b7280);text-transform:uppercase;letter-spacing:1px">En İyi Fırsat</div>' +
-        '<div style="font-size:13px;font-weight:600;color:#4F008C;margin:4px 0">' + topOpp.title + '</div>' +
-        '<div style="font-size:11px;color:var(--dim,#6b7280);line-height:1.4">' + topOpp.reason + '</div>' +
-      '</div>';
-    }
-
-    // Top Recommendation kartı
-    if (topRec) {
-      html += '<div style="background:var(--card,#fff);border:1px solid var(--brd,#e5e7eb);border-radius:10px;padding:12px">' +
-        '<div style="font-size:10px;color:var(--dim,#6b7280);text-transform:uppercase;letter-spacing:1px">Öncelikli Aksiyon</div>' +
-        '<div style="font-size:11px;font-weight:600;color:var(--fg,#111);margin:4px 0">' +
-          '<span style="background:#4F008C;color:#fff;border-radius:4px;padding:1px 5px;font-size:10px;margin-right:4px">' +
-          (topRec.urgency === 'NOW' ? 'BUGÜN' : topRec.urgency === 'THIS_WEEK' ? 'BU HAFTA' : 'BU DÖNEM') + '</span>' +
-          topRec.action +
-        '</div>' +
-        '<div style="font-size:11px;color:var(--dim,#6b7280);line-height:1.4">' + (topRec.detail || '').slice(0, 80) + (topRec.detail && topRec.detail.length > 80 ? '…' : '') + '</div>' +
-      '</div>';
-    }
-
-    html += '</div>';
-    container.innerHTML = html;
-  }
+  // AUDIT2 Küçük Bulgu 5 temizliği: eski `renderIntelligenceSummary` render
+  // sarmalayıcısı hiçbir yerde çağrılmıyordu (statik grep ile doğrulandı) —
+  // altındaki gerçek veri motoru (buildSalesIntelligence → AICore.analyze)
+  // ai-context.js üzerinden çalışmaya devam ediyor, bu satır SADECE ölü
+  // render kodunu kaldırıyor. Rollback: git geçmişinden eski fonksiyon
+  // gövdesi geri alınabilir, hiçbir başka dosya buna bağımlı değildi.
 
   // ── EXPORTS ────────────────────────────────────────────────
   window.buildSalesIntelligence     = buildSalesIntelligence;
   window.formatIntelligenceForAI    = formatIntelligenceForAI;
-  window.renderIntelligenceSummary  = renderIntelligenceSummary;
 
   console.debug('[intelligence-orchestrator] Phase 3.0 yüklendi.');
 
