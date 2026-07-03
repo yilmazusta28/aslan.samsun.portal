@@ -90,6 +90,7 @@
 <script src="js/core/async-guard.js"></script>
 <script src="js/core/constants.js"></script>
 <script src="js/core/date-utils.js"></script>
+<script src="js/core/period-archive-manager.js"></script>
 <script src="js/core/math-utils.js"></script>
 <script src="js/core/formatters.js"></script>
 <script src="js/core/prim-calc.js"></script>
@@ -130,6 +131,18 @@
      bağımlılar) — geri almak için motorların önceki sürümlerine dönülmeli. -->
 <script src="js/ai/core/ims-adapter.js"></script>
 <!-- END AI Mimari Stabilizasyonu — IMS Adapter -->
+
+<!-- FAZ — Arşiv → AI Motor Bağlantısı
+     js/core/period-archive-manager.js içinde localStorage'da biriken
+     6 aylık arşiv verisini insight/runrate/decision motorlarının
+     tüketebileceği normalize formata çevirir (bkz. dosya başlığı).
+     Bağımlılık: period-archive-manager.js (date-utils.js sonrası yüklü),
+     date-utils.js (PERIODS).
+     Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — bağlı motorlar
+     (insight-engine, runrate-engine, decision-engine) window.PeriodArchiveAdapter
+     yokluğunda sessizce eski davranışlarına döner. -->
+<script src="js/ai/core/period-archive-adapter.js"></script>
+<!-- END FAZ — Arşiv → AI Motor Bağlantısı -->
 
 <!-- İŞ KURALI — IMS Dönemsel Zaman Modeli (Temporal Intelligence)
      Kullanıcı tarafından tanımlanan temel iş kuralı: h1..h9 alanları
@@ -380,11 +393,6 @@
 <script src="js/ai/core/sales-memory-engine.js"></script>
 <script src="js/ai/core/coverage-selection.js"></script>
 <script src="js/ai/core/stock-entry-adapter.js"></script>
-<!-- FAZ 12.6: Dönemsel Arşiv Motoru — GENEL/IMS tablolar sıfırlanmadan önce
-     6 aylık iki yarı-yıl arşivine (yari1: Oca-Haz, yari2: Tem-Ara) otomatik
-     yazar. AI motorları getMergedRows() ile geçmişe bakar. Rollback: bu
-     satırı sil — hiçbir şey kırılmaz (adapter opsiyonel). -->
-<script src="js/ai/core/period-archive-adapter.js"></script>
 <script src="js/ai/core/digital-twin-builder.js"></script>
 <!-- FAZ 10.2: Haftalık Rota Planı (Manuel Giriş)
      Temsilcinin kendi brick planını girdiği AYRI veri modeli.
@@ -1367,12 +1375,30 @@ function renderEczaneContent() {
     eczaneLoaded = true;
   }
 
-  // ROADMAP: PHASE 4.5 (Pharmacy Intelligence Top30) ve PHASE 4.6.1
-  // (Reorder Classifier Top30) UI tetikleyicileri kaldırıldı.
-  // Sayfa 2 (Eczane Yönetimi) artık "sadece veri" — AI Top30 kararları
-  // tek karar ekranı olan "Günün Öncelikli Eczaneleri" kartında sunuluyor.
-  // Altyapı: renderPharmacyIntelligenceCard / renderClassifierTop30Card
-  // fonksiyonları js dosyalarında SİLİNMEDİ, sadece buradan çağrılmıyorlar.
+  // PHASE 4.5: Pharmacy Intelligence Top30 Kartı
+  try {
+    if (typeof renderPharmacyIntelligenceCard === 'function') {
+      const _piTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
+      renderPharmacyIntelligenceCard('pharmacyIntelligenceCard', _piTTT);
+      const _piBadge = document.getElementById('acc_top30visit_badge');
+      if (_piBadge) _piBadge.textContent = '30 eczane';
+    }
+  } catch(_piErr) {
+    console.warn('[PharmacyIntelligence] render hata (sessiz):', _piErr.message);
+  }
+
+  // PHASE 4.6.1: Reorder Classifier Top30 Kartı
+  // Rollback: bu try bloğunu sil + reorderClassifierCard div'ini kaldır
+  try {
+    if (typeof renderClassifierTop30Card === 'function' && window._REORDER_CLASSIFIER_READY) {
+      const _rcTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
+      renderClassifierTop30Card('reorderClassifierCard', _rcTTT);
+      const _rcBadge = document.getElementById('acc_reorder30_badge');
+      if (_rcBadge) _rcBadge.textContent = '30 eczane';
+    }
+  } catch(_rcErr) {
+    console.warn('[ReorderClassifier] render hata (sessiz):', _rcErr.message);
+  }
 
   // PHASE 4.7: Satış Şartları & Sipariş Analizi — filtre değişiminde yenile
   // Rollback: bu try bloğunu sil
@@ -1740,7 +1766,7 @@ function renderEczaneTable(data) {
       <th onclick="sortEczane('tutar')" style="cursor:pointer">Tutar ▾</th>
       <th>Ürünler</th>
       <th style="min-width:90px">📦 Stok</th>
-      <th style="min-width:110px">📋 Stok Girişi</th>
+      <th style="min-width:80px">Son Ziyaret</th>
       <th style="min-width:110px">AI Profil</th>`;
   }
 
@@ -1806,21 +1832,8 @@ function renderEczaneTable(data) {
           .then(function(){_faz121Cache.selectedSet[cb.checked?'add':'delete']('${e.ad.replace(/'/g,"\\'")}');});
       }
     })(this)" style="cursor:pointer;width:14px;height:14px">`;
-    // FAZ 12.5 — Stok Girişi: sync cache'den en son giriş
-    const _syncEntry  = (window.StockEntryAdapter &&
-      typeof window.StockEntryAdapter.getLatestStockEntrySync === 'function')
-      ? window.StockEntryAdapter.getLatestStockEntrySync(e.ad) : null;
-    const _stockLabel = _syncEntry
-      ? (() => {
-          const prods = (_syncEntry.products || []);
-          if (!prods.length) return '—';
-          // en fazla 2 ürün göster: "Panocer 34, Acidpass 46"
-          return prods.slice(0,2).map(p =>
-            `${(p.product||'').split(' ')[0]} <b>${p.stock}</b>`
-          ).join(', ') + (prods.length > 2 ? ` +${prods.length-2}` : '');
-        })()
-      : '<span style="color:var(--dim);font-size:9px">Giriş yok</span>';
-    const _eczaneEnc  = encodeURIComponent(e.ad);
+    // FAZ 12.1 — son ziyaret
+    const _visitDate  = _faz121Cache.stockDateMap[e.ad] || '—';
     // FAZ 12.1 — AI profil (PharmacyBehaviorEngine sync cache)
     const _beh = _faz121Cache.behaviorMap[e.ad] || _faz121Cache.behaviorMap[e.gln] || null;
     const _behTypeMap = { REGULAR_BUYER:'Düzenli',GROWING:'Büyüyen',AT_RISK:'Risk',
@@ -1839,17 +1852,7 @@ function renderEczaneTable(data) {
       <td class="mono" style="font-size:10px">${e.tutar>0?fTL(e.tutar):'—'}</td>
       <td>${urunBadges}</td>
       <td style="min-width:90px;padding:4px 6px">${stokLines}</td>
-      <td style="min-width:110px;padding:3px 5px">
-        <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
-          <span style="font-size:10px;line-height:1.3">${_stockLabel}</span>
-          <button onclick="openStokModal('${e.ad.replace(/'/g,"\\'")}')"
-            style="flex-shrink:0;border:1px solid var(--c1);background:transparent;color:var(--c1);
-                   border-radius:6px;padding:2px 7px;font-size:9px;font-weight:700;cursor:pointer;
-                   white-space:nowrap;line-height:1.6" title="Stok Girişi Yap">
-            ${_syncEntry ? '✏️ Güncelle' : '+ Giriş'}
-          </button>
-        </div>
-      </td>
+      <td style="font-size:10px;color:var(--dim);white-space:nowrap">${_visitDate}</td>
       <td style="padding:4px 6px">${_behHtml}</td>
     </tr>`;
   }).join('');
@@ -5899,15 +5902,31 @@ function _buildEczaneDrawerRefresh(){
   <!-- Özet kartları -->
   <div id="eczaneSummaryCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:16px"></div>
 
-  <!-- PHASE 4.7: Açılır/Kapanır Bölümler -->
-  <!-- ROADMAP: "İlk 30 Ziyaret Önceliği" ve "Bu Hafta Siparişe En Yakın 30 Eczane"
-       AI karar kartları (Top30) buradan kaldırıldı — Sayfa 2 (Eczane Yönetimi) artık
-       "sadece veri" ilkesine uyuyor. Bu kararlar tek AI ekranı olan
-       "Günün Öncelikli Eczaneleri" kartında (bkz. gunununOncelikliEczaneleriCard, page5)
-       maks. 5 eczane ile sunuluyor. Altyapı motorları (buildTop30Pharmacies,
-       buildTop30VisitPriority, renderPharmacyIntelligenceCard, renderClassifierTop30Card)
-       SİLİNMEDİ — autonomous-planning-engine.js ve diğer dahili tüketiciler için
-       data-katmanında duruyorlar, sadece bu UI kartları kaldırıldı. -->
+  <!-- PHASE 4.5 & 4.6.1 & 4.7: Açılır/Kapanır AI Bölümleri -->
+
+  <!-- Accordion: İlk 30 Ziyaret Önceliği -->
+  <div class="eczane-accordion mb16" id="acc_top30visit">
+    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('top30visit')">
+      <span class="eczane-acc-icon" id="acc_top30visit_icon">▶</span>
+      <span class="card-title" style="margin:0">🏆 İlk 30 Ziyaret Önceliği</span>
+      <span class="card-badge" id="acc_top30visit_badge" style="margin-left:auto">AI Analizi</span>
+    </div>
+    <div class="eczane-acc-body" id="acc_top30visit_body" style="display:none">
+      <div id="pharmacyIntelligenceCard"></div>
+    </div>
+  </div>
+
+  <!-- Accordion: Bu Hafta Siparişe En Yakın 30 -->
+  <div class="eczane-accordion mb16" id="acc_reorder30">
+    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('reorder30')">
+      <span class="eczane-acc-icon" id="acc_reorder30_icon">▶</span>
+      <span class="card-title" style="margin:0">📦 Bu Hafta Siparişe En Yakın 30 Eczane</span>
+      <span class="card-badge" id="acc_reorder30_badge" style="margin-left:auto">AI Analizi</span>
+    </div>
+    <div class="eczane-acc-body" id="acc_reorder30_body" style="display:none">
+      <div id="reorderClassifierCard"></div>
+    </div>
+  </div>
 
   <!-- PHASE 4.7 Accordion: Satış Şartları Yönetimi -->
   <div class="eczane-accordion mb16" id="acc_satis_sartlari">
@@ -6068,67 +6087,6 @@ function _buildEczaneDrawerRefresh(){
         Yönetici paneli yükleniyor…
       </div>
     </div>
-
-    <!-- ═══ FAZ 12.6 — Dönem Yönetimi & Veri Geçişi ═══ -->
-    <div style="background:var(--surf);border:1.5px solid rgba(79,0,140,.2);border-radius:14px;padding:16px;margin-top:16px" id="donemYonetimiPanel">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-        <div>
-          <div style="font-size:13px;font-weight:800;color:var(--fg)">📅 Dönem Yönetimi</div>
-          <div style="font-size:10px;color:var(--dim);margin-top:2px">GENEL_TABLO / IMS_TABLO sıfırlanmadan önce arşivle · 6 aylık yarı-yıl bazlı yedek</div>
-        </div>
-        <div id="donemBadge" style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;background:rgba(79,0,140,.1);color:var(--c1)">— yükleniyor —</div>
-      </div>
-
-      <!-- Aktif dönem bilgisi + IMS gecikme uyarısı -->
-      <div id="donemAktifInfo" style="background:var(--surf2,rgba(0,0,0,.04));border-radius:10px;padding:12px;margin-bottom:12px;font-size:11px;color:var(--dim);line-height:1.6">
-        Dönem bilgisi hesaplanıyor…
-      </div>
-
-      <!-- Arşivleme bölümü -->
-      <div style="border:1px dashed rgba(79,0,140,.2);border-radius:10px;padding:12px;margin-bottom:12px">
-        <div style="font-size:11px;font-weight:700;color:var(--fg);margin-bottom:8px">🗄️ Aktif Dönemi Arşivle</div>
-        <div style="font-size:10px;color:var(--dim);margin-bottom:10px;line-height:1.5">
-          Yeni dönem verilerini yüklemeden <strong>önce</strong> bu butona basın. Mevcut
-          GENEL_TABLO ve IMS_TABLO verileri 6 aylık arşive kopyalanır.
-          Sonra GitHub'a yeni CSV dosyalarını yükleyip "Veriyi Yenile" yapın.
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <button onclick="_donemArşivle()" id="btnDonemArsivle"
-            style="font-size:11px;font-weight:700;padding:8px 16px;background:linear-gradient(135deg,#4F008C,#7B2FBE);color:#fff;border:none;border-radius:8px;cursor:pointer">
-            🗄️ Şu Anki Dönemi Arşivle
-          </button>
-          <span id="arsivStatus" style="font-size:10px;color:var(--dim)"></span>
-        </div>
-      </div>
-
-      <!-- Arşiv listesi -->
-      <div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <div style="font-size:11px;font-weight:700;color:var(--fg)">📦 Mevcut Arşivler</div>
-          <button onclick="_loadArsivList()" style="font-size:9px;padding:3px 8px;border:1px solid var(--border);background:transparent;color:var(--dim);border-radius:6px;cursor:pointer">↻ Yenile</button>
-        </div>
-
-        <!-- Yarı-yıl sekmeleri -->
-        <div style="display:flex;gap:6px;margin-bottom:10px">
-          <button onclick="_switchYariTab('yari1')" id="tabYari1"
-            style="font-size:10px;font-weight:700;padding:5px 12px;border-radius:8px;border:1.5px solid rgba(79,0,140,.3);background:rgba(79,0,140,.1);color:var(--c1);cursor:pointer">
-            1. Yarıyıl (Oca–Haz)
-          </button>
-          <button onclick="_switchYariTab('yari2')" id="tabYari2"
-            style="font-size:10px;font-weight:700;padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--dim);cursor:pointer">
-            2. Yarıyıl (Tem–Ara)
-          </button>
-        </div>
-
-        <div id="arsivListYari1" style="display:block">
-          <div style="font-size:10px;color:var(--dim);text-align:center;padding:12px">Yükleniyor…</div>
-        </div>
-        <div id="arsivListYari2" style="display:none">
-          <div style="font-size:10px;color:var(--dim);text-align:center;padding:12px">Yükleniyor…</div>
-        </div>
-      </div>
-    </div>
-    <!-- ═══ END FAZ 12.6 ═══ -->
 
     <!-- ═══ FAZ 12.2 — Saha Gözlemleri Manuel Giriş ═══ -->
     <div style="background:var(--surf);border:1.5px solid rgba(79,0,140,.15);border-radius:14px;padding:16px;margin-top:16px">
@@ -6296,404 +6254,6 @@ document.addEventListener('click', function(e) {
   HapticFX.tap();
   SoundFX.click();
 }, true);
-</script>
-
-<!-- ══════════════════════════════════════════════════════════
-     FAZ 12.6 — Dönem Yönetimi UI JS
-     ══════════════════════════════════════════════════════════ -->
-<script>
-(function () {
-  'use strict';
-
-  var _activeYariTab = 'yari1';
-
-  // ── Sayfa 7 her açıldığında tetiklenir (goPage(7) çağrısında) ──────
-  window._initDonemYonetimi = function () {
-    _renderAktifDonemInfo();
-    _loadArsivList();
-  };
-
-  // ── Aktif dönem + IMS gecikme bilgisi ──────────────────────────────
-  function _renderAktifDonemInfo() {
-    var badgeEl = document.getElementById('donemBadge');
-    var infoEl  = document.getElementById('donemAktifInfo');
-    if (!badgeEl || !infoEl) return;
-
-    var ctx = null;
-    try {
-      if (window.TemporalContextEngine &&
-          typeof window.TemporalContextEngine.getTemporalContext === 'function') {
-        ctx = window.TemporalContextEngine.getTemporalContext();
-      }
-    } catch (e) {}
-
-    if (!ctx || !ctx.currentCycle) {
-      badgeEl.textContent = 'Dönem bilgisi yok';
-      infoEl.innerHTML = '<span style="color:var(--dim)">Temporal context alınamadı. Veriyi yenileyip tekrar deneyin.</span>';
-      return;
-    }
-
-    // Doğru dönem label'ını PERIODS'tan al
-    var periods = (typeof PERIODS !== 'undefined') ? PERIODS : [];
-    var activePeriod = periods.find(function (p) { return p.key === ctx.cycleKey; });
-    var label = activePeriod ? activePeriod.label : ctx.currentCycle;
-
-    badgeEl.textContent = label + ' — Aktif';
-    badgeEl.style.background = activePeriod ? activePeriod.badgeBg : 'rgba(79,0,140,.1)';
-    badgeEl.style.color       = activePeriod ? activePeriod.badgeColor : 'var(--c1)';
-
-    // IMS gecikme satırı
-    var lagHtml = '';
-    if (ctx.dataLagWeeks !== null) {
-      var lagColor = ctx.dataLagWeeks <= 1 ? '#059669' : ctx.dataLagWeeks <= 2 ? '#D97706' : '#DC2626';
-      lagHtml = '<div style="margin-top:6px;padding:6px 8px;background:rgba(0,0,0,.04);border-radius:7px;border-left:3px solid ' + lagColor + '">' +
-        '⏱ <b>IMS Gecikme:</b> Aktif veri ' + (ctx.dataLagWeeks === 1 ? '1 hafta' : ctx.dataLagWeeks + ' hafta') + ' geride ' +
-        (ctx.imsDataWeekRange ? '(' + ctx.imsDataWeekRange.label + ' haftası)' : '') + '. ' +
-        'Sisteme her Salı girilir; en güncel hafta verisinin gelmesi için Salı akşamına kadar bekleyin.' +
-        '</div>';
-    }
-
-    // Cycle haftaları
-    var weekHtml = '';
-    if (ctx.cycleWeek) {
-      weekHtml = '<div style="margin-top:4px">📊 Dönem içi <b>h' + ctx.cycleWeek + '</b>. hafta verisi yüklü</div>';
-    }
-
-    // Yarı-yıl
-    var yari = (window.PeriodArchiveAdapter && window.PeriodArchiveAdapter.YARI_MAP)
-      ? window.PeriodArchiveAdapter.YARI_MAP[ctx.cycleKey] : null;
-    var yariHtml = yari
-      ? '<div style="margin-top:4px">📂 Bu dönem: <b>' +
-        (window.PeriodArchiveAdapter.YARI_LABELS[yari] || yari) + '</b> arşivine gidecek</div>'
-      : '';
-
-    infoEl.innerHTML =
-      '<div><b>' + label + '</b> &nbsp;·&nbsp; ' + ctx.currentCycle + '</div>' +
-      weekHtml + yariHtml + lagHtml;
-  }
-
-  // ── Dönem arşivle ──────────────────────────────────────────────────
-  window._donemArşivle = function () {
-    var btn    = document.getElementById('btnDonemArsivle');
-    var status = document.getElementById('arsivStatus');
-    if (!status) return;
-
-    if (!window.PeriodArchiveAdapter) {
-      status.textContent = '❌ PeriodArchiveAdapter yüklenemedi.';
-      return;
-    }
-
-    var ctx = null;
-    try {
-      ctx = window.TemporalContextEngine
-        ? window.TemporalContextEngine.getTemporalContext() : null;
-    } catch (e) {}
-
-    if (!ctx || !ctx.cycleKey) {
-      status.textContent = '❌ Aktif dönem tespit edilemedi.';
-      return;
-    }
-
-    var genelRows = (typeof GENEL !== 'undefined') ? GENEL : [];
-    var imsRows   = (typeof IMS   !== 'undefined') ? IMS   : [];
-
-    if (!genelRows.length && !imsRows.length) {
-      status.textContent = '⚠️ Arşivlenecek veri yok — önce veriyi yenileyin.';
-      return;
-    }
-
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ Arşivleniyor…'; }
-    status.textContent = '';
-
-    window.PeriodArchiveAdapter.archivePeriod(ctx.cycleKey, genelRows, imsRows)
-      .then(function () {
-        status.style.color = '#059669';
-        status.textContent = '✓ ' + (ctx.currentCycle || ctx.cycleKey) +
-          ' arşivlendi (' + genelRows.length + ' genel, ' + imsRows.length + ' IMS satırı)';
-        if (btn) { btn.disabled = false; btn.textContent = '🗄️ Şu Anki Dönemi Arşivle'; }
-        _loadArsivList();
-      })
-      .catch(function (err) {
-        status.style.color = '#DC2626';
-        status.textContent = '❌ Hata: ' + (err.message || err);
-        if (btn) { btn.disabled = false; btn.textContent = '🗄️ Şu Anki Dönemi Arşivle'; }
-      });
-  };
-
-  // ── Yarı-yıl sekme geçişi ──────────────────────────────────────────
-  window._switchYariTab = function (yari) {
-    _activeYariTab = yari;
-    ['yari1','yari2'].forEach(function (y) {
-      var btn = document.getElementById('tab' + (y === 'yari1' ? 'Yari1' : 'Yari2'));
-      var div = document.getElementById('arsivList' + (y === 'yari1' ? 'Yari1' : 'Yari2'));
-      var isActive = y === yari;
-      if (btn) {
-        btn.style.borderColor  = isActive ? 'rgba(79,0,140,.3)' : 'var(--border)';
-        btn.style.background   = isActive ? 'rgba(79,0,140,.1)' : 'transparent';
-        btn.style.color        = isActive ? 'var(--c1)' : 'var(--dim)';
-        btn.style.fontWeight   = isActive ? '700' : '500';
-      }
-      if (div) div.style.display = isActive ? 'block' : 'none';
-    });
-  };
-
-  // ── Arşiv listesi render ───────────────────────────────────────────
-  window._loadArsivList = function () {
-    if (!window.PeriodArchiveAdapter) return;
-
-    ['yari1','yari2'].forEach(function (yari) {
-      var el = document.getElementById('arsivList' + (yari === 'yari1' ? 'Yari1' : 'Yari2'));
-      if (!el) return;
-      el.innerHTML = '<div style="font-size:10px;color:var(--dim);text-align:center;padding:12px">Yükleniyor…</div>';
-
-      window.PeriodArchiveAdapter.getYariArchive(yari).then(function (archives) {
-        if (!archives.length) {
-          el.innerHTML = '<div style="font-size:10px;color:var(--dim);text-align:center;padding:16px">Henüz bu yarı-yıl için arşiv yok.</div>';
-          return;
-        }
-
-        // Dönem sırası
-        var ORDER = yari === 'yari1' ? ['1d','2d','k1'] : ['4d','5d','k2'];
-        var allPeriods = (typeof PERIODS !== 'undefined') ? PERIODS : [];
-
-        var html = '<div style="display:flex;flex-direction:column;gap:6px">';
-        ORDER.forEach(function (key) {
-          var arc = archives.find(function (a) { return a.periodKey === key; });
-          var meta = allPeriods.find(function (p) { return p.key === key; });
-          var label = meta ? meta.label : key;
-          var months = meta ? meta.months : '';
-          var color  = meta ? meta.badgeColor : '#6b7280';
-          var bg     = meta ? meta.badgeBg    : 'rgba(107,114,128,.1)';
-
-          if (!arc) {
-            // Henüz arşivlenmemiş
-            html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px dashed var(--border);border-radius:9px;opacity:.5">' +
-              '<div style="width:8px;height:8px;border-radius:50%;background:var(--border)"></div>' +
-              '<div style="flex:1;font-size:11px;color:var(--dim)">' + label + ' <span style="color:var(--dim);font-size:9px">— ' + months + '</span></div>' +
-              '<div style="font-size:9px;color:var(--dim);font-style:italic">Arşiv yok</div>' +
-              '</div>';
-          } else {
-            var dateStr = arc.archivedAt ? arc.archivedAt.slice(0,10) : '?';
-            html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:' + bg + ';border:1px solid ' + color + '40;border-radius:9px">' +
-              '<div style="width:8px;height:8px;border-radius:50%;background:' + color + '"></div>' +
-              '<div style="flex:1">' +
-                '<div style="font-size:11px;font-weight:700;color:' + color + '">' + label + '</div>' +
-                '<div style="font-size:9px;color:var(--dim)">' + arc.genelRowCount + ' genel · ' + arc.imsRowCount + ' IMS · ' + dateStr + '</div>' +
-                (arc.imsLagNote ? '<div style="font-size:9px;color:#D97706;margin-top:2px">⚠️ ' + arc.imsLagNote + '</div>' : '') +
-              '</div>' +
-              '<button onclick="_arsivSil(\'' + key + '\')" ' +
-                'style="font-size:9px;padding:3px 7px;border:1px solid ' + color + '40;background:transparent;color:' + color + ';border-radius:6px;cursor:pointer;opacity:.7" ' +
-                'title="Bu arşivi sil">🗑</button>' +
-              '</div>';
-          }
-        });
-        html += '</div>';
-        el.innerHTML = html;
-      }).catch(function () {
-        el.innerHTML = '<div style="font-size:10px;color:#DC2626;padding:8px">Arşiv yüklenemedi.</div>';
-      });
-    });
-  };
-
-  // ── Tekil arşiv sil ────────────────────────────────────────────────
-  window._arsivSil = function (periodKey) {
-    if (!window.PeriodArchiveAdapter) return;
-    var meta = window.PeriodArchiveAdapter.getPeriodMeta(periodKey);
-    var label = meta ? meta.label : periodKey;
-    if (!confirm(label + ' arşivini silmek istediğinizden emin misiniz?')) return;
-    window.PeriodArchiveAdapter.clearArchive(periodKey).then(function () {
-      _loadArsivList();
-    });
-  };
-
-  // ── goPage(7) hook — sayfa açılınca başlat ─────────────────────────
-  // Mevcut goPage fonksiyonunu wrap'le (eğer daha önce wrap edilmediyse)
-  if (typeof window._donemYonetimiHooked === 'undefined') {
-    window._donemYonetimiHooked = true;
-    var _origGoPage = window.goPage;
-    window.goPage = function (n) {
-      if (typeof _origGoPage === 'function') _origGoPage(n);
-      if (n === 7) {
-        setTimeout(function () {
-          if (typeof window._initDonemYonetimi === 'function') {
-            window._initDonemYonetimi();
-          }
-        }, 120);
-      }
-    };
-  }
-
-  console.debug('[donem-yonetimi-ui] FAZ 12.6 yüklendi.');
-})();
-</script>
-
-
-     Temsilci saha ziyaretinde eczane stoğunu ürün bazlı sayısal
-     olarak girer. Veri → StockEntryAdapter (IndexedDB/fallback)
-     → DigitalTwinBuilder sync cache → AI tüketim döngüsü kararı.
-     ══════════════════════════════════════════════════════════ -->
-<div id="stokModalBackdrop" class="modal-backdrop" onclick="closeStokModal()"></div>
-<div id="stokModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="stokModalTitle">
-  <div class="modal-hd">
-    <div>
-      <div class="modal-title" id="stokModalTitle">📋 Stok Girişi</div>
-      <div class="modal-sub" id="stokModalSub">Eczane seçilmedi</div>
-    </div>
-    <button class="modal-close" onclick="closeStokModal()" aria-label="Kapat">✕</button>
-  </div>
-  <div class="modal-body">
-    <p style="font-size:11px;color:var(--dim);margin:0 0 12px">
-      Bugünkü rafta gördüğünüz kutu sayılarını girin.
-      AI bu veriden tüketim hızı ve yeniden sipariş tarihini tahmin eder.
-    </p>
-    <div id="stokModalRows"><!-- JS ile doldurulur --></div>
-    <div style="margin-top:12px;padding:10px;background:var(--surf2);border-radius:8px;font-size:10px;color:var(--dim);line-height:1.5" id="stokModalPrev"></div>
-  </div>
-  <div class="modal-actions">
-    <button onclick="closeStokModal()"
-      style="padding:8px 16px;border:1px solid var(--border);background:transparent;
-             color:var(--dim);border-radius:8px;font-size:12px;cursor:pointer">
-      İptal
-    </button>
-    <button onclick="saveStokModal()"
-      style="padding:8px 20px;border:none;background:var(--c1);color:#fff;
-             border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">
-      💾 Kaydet
-    </button>
-  </div>
-</div>
-
-<script>
-// ── FAZ 12.5: Stok Girişi Modal JS ────────────────────────────────────────
-(function () {
-  'use strict';
-
-  var _activeEczane = null;
-
-  function _urunListesi() {
-    return (window.URUN_ORDER && window.URUN_ORDER.length)
-      ? window.URUN_ORDER
-      : ['PANOCER', 'ACİDPASS', 'GRİPORT COLD', 'MOKSEFEN', 'FAMTREC'];
-  }
-
-  function openStokModal(eczane) {
-    if (!eczane) return;
-    _activeEczane = eczane;
-
-    // Başlık
-    var sub = document.getElementById('stokModalSub');
-    if (sub) sub.textContent = eczane;
-
-    // Ürün satırları
-    var rows = document.getElementById('stokModalRows');
-    if (rows) {
-      rows.innerHTML = _urunListesi().map(function (u) {
-        return '<div class="stock-entry-row">' +
-          '<label>' + u + '</label>' +
-          '<input type="number" id="stokInp_' + u.replace(/\s+/g,'_') + '" ' +
-          'min="0" max="9999" placeholder="—" inputmode="numeric">' +
-          '</div>';
-      }).join('');
-    }
-
-    // Önceki giriş
-    var prev = document.getElementById('stokModalPrev');
-    if (prev) {
-      if (window.StockEntryAdapter &&
-          typeof window.StockEntryAdapter.getLatestStockEntrySync === 'function') {
-        var last = window.StockEntryAdapter.getLatestStockEntrySync(eczane);
-        if (last && last.products && last.products.length) {
-          // Önceki değerleri input'lara yerleştir
-          last.products.forEach(function (p) {
-            var inp = document.getElementById('stokInp_' + (p.product || '').replace(/\s+/g,'_'));
-            if (inp) inp.value = p.stock;
-          });
-          var dateStr = last.date || (last.enteredAt ? last.enteredAt.slice(0,10) : '');
-          prev.textContent = 'Son giriş: ' + dateStr + ' — ' +
-            last.products.map(function (p) { return p.product + ' ' + p.stock; }).join(', ');
-        } else {
-          prev.textContent = 'Bu eczane için daha önce stok girişi yapılmamış.';
-        }
-      } else {
-        prev.textContent = 'StockEntryAdapter yüklenemedi.';
-      }
-    }
-
-    // Modal aç
-    var modal    = document.getElementById('stokModal');
-    var backdrop = document.getElementById('stokModalBackdrop');
-    if (modal)    modal.classList.add('open');
-    if (backdrop) backdrop.classList.add('show');
-
-    // İlk input'a focus
-    setTimeout(function () {
-      var first = rows ? rows.querySelector('input') : null;
-      if (first) first.focus();
-    }, 180);
-  }
-
-  function closeStokModal() {
-    var modal    = document.getElementById('stokModal');
-    var backdrop = document.getElementById('stokModalBackdrop');
-    if (modal)    modal.classList.remove('open');
-    if (backdrop) backdrop.classList.remove('show');
-    _activeEczane = null;
-  }
-
-  function saveStokModal() {
-    if (!_activeEczane) return;
-    if (!window.StockEntryAdapter ||
-        typeof window.StockEntryAdapter.recordStockEntry !== 'function') {
-      alert('StockEntryAdapter bulunamadı.');
-      return;
-    }
-
-    var products = _urunListesi().map(function (u) {
-      var inp = document.getElementById('stokInp_' + u.replace(/\s+/g,'_'));
-      var val = inp ? inp.value.trim() : '';
-      return { product: u, stock: val !== '' ? parseFloat(val) : null };
-    }).filter(function (p) { return p.stock !== null; });
-
-    if (!products.length) {
-      alert('En az bir ürün için stok miktarı girin.');
-      return;
-    }
-
-    var today = new Date().toISOString().slice(0, 10);
-    window.StockEntryAdapter.recordStockEntry(_activeEczane, today, products)
-      .then(function () {
-        // DigitalTwinBuilder cache'ini temizle — bu eczanenin twin'i yeniden hesaplansın
-        if (window.DigitalTwinBuilder &&
-            typeof window.DigitalTwinBuilder.clearCache === 'function') {
-          window.DigitalTwinBuilder.clearCache();
-        }
-        closeStokModal();
-        // Tabloyu yenile (mevcut render fonksiyonunu çağır)
-        if (typeof renderEczaneContent === 'function') {
-          try { renderEczaneContent(); } catch (e) { /* sessiz */ }
-        }
-        // Bildirim
-        if (typeof showToast === 'function') {
-          showToast('Stok girişi kaydedildi ✓', 'success');
-        }
-      })
-      .catch(function (err) {
-        console.error('[StokModal] Kayıt hatası:', err);
-        alert('Kayıt sırasında hata oluştu: ' + (err.message || err));
-      });
-  }
-
-  // Escape ile kapat
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') closeStokModal();
-  });
-
-  window.openStokModal  = openStokModal;
-  window.closeStokModal = closeStokModal;
-  window.saveStokModal  = saveStokModal;
-
-  console.debug('[stok-modal] FAZ 12.5 yüklendi.');
-})();
 </script>
 </body>
 </html>
