@@ -9,11 +9,6 @@
 //    current_sales / elapsed_work_days = günlük hız
 //    günlük hız × toplam_dönem_iş_günü = dönem sonu projeksiyonu
 //
-//  ✅ YENİ — historicalContext alanı (opsiyonel, salt-okunur):
-//    js/ai/core/period-archive-adapter.js yüklüyse, 6 aylık arşivdeki bir
-//    önceki dönemin final realizasyonunu ekler. Mevcut confidence
-//    FORMÜLÜNE dokunulmadı — sadece bilgilendirme amaçlı ek alandır.
-//
 //  Bağımlılık:
 //    js/data/data-state.js  (GENEL, IMS)
 //    js/core/date-utils.js  (PERIODS, workDays, HOLIDAYS)
@@ -112,8 +107,7 @@
       totalDays:             0,
       periodLabel:           '—',
       confidence:            0,
-      note:                  'Veri yetersiz.',
-      historicalContext:     null   // 6 Aylık Arşiv — bkz. period-archive-adapter.js
+      note:                  'Veri yetersiz.'
     };
 
     try {
@@ -173,22 +167,6 @@
 
       result.note = 'Günlük run rate: ₺' + Math.round(dailyRate).toLocaleString('tr-TR') +
         ' | ' + elapsedDays + '/' + totalDays + ' iş günü geçti.';
-
-      // ── 6 Aylık Arşiv — Önceki Dönem Bağlamı (YENİ) ─────────────
-      // Mevcut confidence FORMÜLÜNE dokunulmadı (kasıtlı — bkz. FIX-CONF-01
-      // yorumu, formül önceden titizlikle ayarlandı). Bu blok sadece
-      // BİLGİLENDİRME amaçlı salt-okunur bir alan ekler; period-archive-
-      // adapter.js yüklü değilse veya arşiv boşsa sessizce null kalır.
-      if (window.PeriodArchiveAdapter && typeof window.PeriodArchiveAdapter.getPreviousArchivedPeriod === 'function') {
-        var prevPeriodRR = window.PeriodArchiveAdapter.getPreviousArchivedPeriod(ttt);
-        if (prevPeriodRR && prevPeriodRR.genelTotal) {
-          result.historicalContext = {
-            previousPeriodLabel: prevPeriodRR.label,
-            previousRealization: prevPeriodRR.genelTotal.tl_pct || 0,
-            currentRealization:  currentReal
-          };
-        }
-      }
 
     } catch (e) {
       console.warn('[runrate-engine] calculateRunRate hata:', e.message);

@@ -363,27 +363,6 @@ async function syncData() {
     GENEL.length = 0;  GENEL.push(...dedupedGenel);
     // ── END GENEL DEDUP ──────────────────────────────────────────────
 
-    // ── FAZ — 6 Aylık Dönem Arşivleme ──────────────────────────────
-    // GENEL_TABLO.csv/IMS_TABLO.csv her dönem sonunda kullanıcı tarafından
-    // sıfırlanıp yeni dönemin verisiyle doldurulur (iş kuralı). Bu motor,
-    // dönem geçişini günün tarihinden tespit eder ve giden dönemin SON
-    // bilinen (final) verisini kalıcı olarak yarıyıl arşivine (H1/H2)
-    // taşır. Hata toleranslı — arşivleme başarısız olsa bile syncData akışı
-    // ETKİLENMEZ (rollback-safe).
-    if (window.PeriodArchiveManager) {
-      try {
-        var _archiveResult = window.PeriodArchiveManager.processNewSync(dedupedGenel, newIMS);
-        if (_archiveResult && _archiveResult.archived) {
-          console.log('[period-archive] Dönem geçişi tespit edildi:',
-            _archiveResult.previousPeriodKey, '→', _archiveResult.currentPeriodKey,
-            '| Önceki dönem arşivlendi.');
-        }
-      } catch (e) {
-        console.warn('[period-archive] processNewSync hata (sessiz):', e.message);
-      }
-    }
-    // ── END FAZ — 6 Aylık Dönem Arşivleme ──────────────────────────
-
     // IMS TL fiyatlarını güncelle
     Object.assign(IMS_TL_MAP, newImsTL);
 

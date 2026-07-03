@@ -26,12 +26,6 @@
 //    haftalık satışlarda güçlü yükseliş gösteriyor"). Bu YENİ bir
 //    insight türüdür (mevcut bir özelliğin yerini almaz, ekler).
 //
-//  ✅ YENİ — "Önceki Dönem Karşılaştırması" insight'ı (Blok 7):
-//    js/ai/core/period-archive-adapter.js üzerinden, 6 aylık arşivde
-//    kayıtlı bir önceki dönemin final realizasyonuyla mevcut dönem
-//    karşılaştırılır. Arşiv boşsa (örn. uygulamanın ilk dönemi)
-//    sessizce hiçbir insight üretmez — rollback-safe.
-//
 //  Analiz edilen veriler: ims-adapter.js (IMS), GENEL, KUTU, MIGI_BRICK_TL_RAW
 //  AI çağrısı: YOK — tamamen yerel hesaplama
 //  UI değişikliği: YOK
@@ -192,25 +186,6 @@
         insights.push({ type: 'anomaly', level: 'warning',
           text: 'Ürün dengesi bozuk: ' + highPct.map(function(r){ return r.urun; }).join(', ') +
             ' güçlü iken ' + lowPct.map(function(r){ return r.urun; }).join(', ') + ' kritik açıkta.' });
-      }
-
-      // ── 7. Önceki Dönem Karşılaştırması (6 Aylık Arşiv — YENİ) ──
-      // js/ai/core/period-archive-adapter.js üzerinden, GENEL_TABLO.csv
-      // dönem sonunda sıfırlanmadan ÖNCE arşivlenmiş bir önceki dönemin
-      // final realizasyonuyla mevcut dönemi karşılaştırır. Arşivde veri
-      // yoksa (ör. uygulamanın ilk dönemi) SESSİZCE hiçbir şey üretmez.
-      if (window.PeriodArchiveAdapter && typeof window.PeriodArchiveAdapter.getPreviousArchivedPeriod === 'function') {
-        var prevPeriod = window.PeriodArchiveAdapter.getPreviousArchivedPeriod(ttt);
-        if (prevPeriod && prevPeriod.genelTotal) {
-          var prevPct = prevPeriod.genelTotal.tl_pct || 0;
-          var deltaPct = totalPct - prevPct;
-          if (Math.abs(deltaPct) >= 10) {
-            insights.push({ type: 'period_comparison', level: deltaPct > 0 ? 'positive' : 'negative',
-              text: prevPeriod.label + ' realizasyonu %' + prevPct.toFixed(1) + ' idi, bu dönem %' +
-                totalPct.toFixed(1) + ' (' + (deltaPct > 0 ? '+' : '') + deltaPct.toFixed(1) + ' puan ' +
-                (deltaPct > 0 ? 'artış' : 'düşüş') + ').' });
-          }
-        }
       }
 
     } catch (e) {

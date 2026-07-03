@@ -39,7 +39,6 @@
 //        outcomeSignal: null|number,
 //        competitiveFlag: boolean,
 //        temporalContext: null|{cycleWeek, remainingWeeks}
-//        historicalContext: null|{previousPeriodLabel, previousRealization} // YENİ — 6 Aylık Arşiv
 //      }
 //    }
 //
@@ -350,11 +349,6 @@
       return window.TemporalContextEngine ? window.TemporalContextEngine.getTemporalContext() : null;
     }, null);
 
-    // 6 Aylık Arşiv — Önceki Dönem Bağlamı (YENİ, bkz. period-archive-adapter.js)
-    var historicalCtx = _safe(function () {
-      return window.PeriodArchiveAdapter ? window.PeriodArchiveAdapter.getPreviousArchivedPeriod(ttt) : null;
-    }, null);
-
     // Adım 1 — alternatifler
     // FAZ 10.1: PHARMACY_VISIT → eczane-seviyesi dal (mevcut 5 tip değişmedi)
     var alternatives;
@@ -425,10 +419,6 @@
           cycleWeek: temporalCtx.cycleWeek,
           remainingWeeks: temporalCtx.remainingWeeks,
           imsDataWeekRange: temporalCtx.imsDataWeekRange
-        } : null,
-        historicalContext: (historicalCtx && historicalCtx.genelTotal) ? {
-          previousPeriodLabel: historicalCtx.label,
-          previousRealization: historicalCtx.genelTotal.tl_pct || 0
         } : null
       }
     };
