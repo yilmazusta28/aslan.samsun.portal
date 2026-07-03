@@ -2717,8 +2717,22 @@ function goPage(i){
     if(btn) btn.classList.toggle('active',k===i);
   }
   // ── Tab bar gösterge şeridini kaydır ──────────────────
+  // AUDIT4 düzeltmesi: eskiden sabit translateX(i*100%) + CSS'te sabit
+  // width:calc(100%/8) kullanılıyordu — bu, mtb7 (Yönetici) rol bazlı
+  // gizlendiğinde (Temsilci girişinde 7 buton görünür) şeridin yanlış
+  // hizalanmasına yol açıyordu. Artık şerit, o an DOM'da GÖRÜNÜR olan
+  // buton sayısına göre genişlik/konum hesaplıyor — hem 7 hem 8 butonlu
+  // durumda doğru hizalanıyor.
   const ind=document.getElementById('mtbIndicator');
-  if(ind){ ind.style.transform=`translateX(${i*100}%)`; }
+  if(ind){
+    const _mtbAll = Array.from(document.querySelectorAll('#mobileTabBar .mtb-btn'));
+    const _mtbVisible = _mtbAll.filter(b => getComputedStyle(b).display !== 'none');
+    const _mtbIdx = _mtbVisible.findIndex(b => b.id === 'mtb'+i);
+    if (_mtbVisible.length > 0) {
+      ind.style.width = (100 / _mtbVisible.length) + '%';
+      if (_mtbIdx >= 0) ind.style.transform = `translateX(${_mtbIdx * 100}%)`;
+    }
+  }
   // ────────────────────────────────────────────────────────
   if(window.innerWidth<=1024)closeSidebar();
   if(i===0)renderAna();
@@ -5225,6 +5239,15 @@ function _buildEczaneDrawerRefresh(){
   <button class="mtb-btn" id="mtb6" onclick="goPage(6)">
     <span class="mtb-icon"><i class="fas fa-clinic-medical"></i></span>
     <span class="mtb-label">Eczane</span>
+  </button>
+  <!-- FAZ 8.2 — Yönetici sekmesi (mobil) — eskiden eksikti: goPage() zaten
+       mtb7'yi arıyordu (k<=7 döngüsü) ve .mtb-indicator CSS'i 8 sütuna göre
+       hesaplanmıştı (width:calc(100%/8)), ama bu buton hiç eklenmemişti —
+       mobilde Yönetici sayfasına ULAŞILACAK HİÇBİR YOL yoktu. RoleVisibility
+       ile snav7 ile aynı şekilde sadece Yönetici rolüne gösterilir. -->
+  <button class="mtb-btn" id="mtb7" onclick="goPage(7)">
+    <span class="mtb-icon"><i class="fas fa-user-tie"></i></span>
+    <span class="mtb-label">Yönetici</span>
   </button>
 </div>
 

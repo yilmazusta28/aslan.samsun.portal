@@ -40,7 +40,12 @@
   }
 
   // Elements only Yönetici should see
-  var YONETICI_ONLY_IDS = ['snav7'];
+  // AUDIT4 düzeltmesi: mtb7 (mobil alt tab bar) eklendi — masaüstü sidebar'da
+  // (snav7) rol bazlı gizleme zaten vardı, ama mobil tab bar'da hem buton
+  // hiç yoktu (index.html'de ayrıca eklendi) hem de burada unutulmuştu.
+  // ntab7 de eklendi (tutarlılık için — o bar CSS'te her zaman gizli ama
+  // ileride açılırsa rol kuralı hazır olsun).
+  var YONETICI_ONLY_IDS = ['snav7', 'mtb7', 'ntab7'];
 
   function applyRoleVisibility() {
     var role = getCurrentRole();
