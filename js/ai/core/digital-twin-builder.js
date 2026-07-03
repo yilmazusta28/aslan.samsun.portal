@@ -50,11 +50,12 @@
       ? Math.round((behaviorProfile.avgMonthlyBoxes || 0) / 30 * 10) / 10
       : 0;
 
-    // Öncelik 1: StockEntryAdapter sayısal giriş (asenkron — sync fallback)
+    // Öncelik 1: StockEntryAdapter sayısal giriş — FAZ 12.5 sync cache.
+    // getLatestStockEntrySync(), temsilci modal'dan kayıt girince dolar.
     var stockEntrySync = _safe(function () {
-      if (!window.StockEntryAdapter) return null;
-      // Sync fallback: _fallback içine bak (PharmaDB olmadan girilmişse)
-      return null;
+      if (!window.StockEntryAdapter ||
+          typeof window.StockEntryAdapter.getLatestStockEntrySync !== 'function') return null;
+      return window.StockEntryAdapter.getLatestStockEntrySync(eczane);
     }, null);
 
     // Öncelik 2: stok-adapter.js nitel (KRİTİK/NORMAL/YETERLİ)
@@ -63,16 +64,48 @@
       return null; // getStokByGln eczane adıyla değil GLN ile çalışır
     }, null);
 
-    // Nitel → yaklaşık aralık eşlemesi
+    // Nitel → yaklaşık aralık eşlemesi (FAZ 7.0 stok-adapter.js için)
     var nitelRatio = { 'KRİTİK': 0.2, 'NORMAL': 0.5, 'YETERLİ': 1.0, 'YOK': 0 };
+
+    // ── FAZ 12.5: Sayısal giriş varsa kullan ──────────────────────────
+    // stockEntrySync → { products: [{product, stock}], date, enteredAt }
+    if (stockEntrySync && stockEntrySync.products && stockEntrySync.products.length) {
+      // Tüm ürünlerin stok toplamı (portföy geneli ham gösterge)
+      var totalStock = stockEntrySync.products.reduce(function (s, p) {
+        return s + (parseFloat(p.stock) || 0);
+      }, 0);
+      var productCount = stockEntrySync.products.length;
+      var avgStock = productCount ? Math.round(totalStock / productCount) : 0;
+
+      // Tüketim döngüsü tahmini: avgDaily > 0 ise kaç gün stok var
+      var daysRemaining = (avgDaily > 0 && avgStock > 0)
+        ? Math.round(avgStock / avgDaily) : null;
+
+      var depletionDate = null;
+      if (daysRemaining !== null) {
+        var d = new Date(stockEntrySync.date || stockEntrySync.enteredAt);
+        d.setDate(d.getDate() + daysRemaining);
+        depletionDate = d.toISOString().slice(0, 10);
+      }
+
+      return {
+        lastKnownStock:         avgStock,            // ort. ürün başı kutu
+        lastKnownStockDetail:   stockEntrySync.products, // ham ürün listesi
+        lastStockDate:          stockEntrySync.date || stockEntrySync.enteredAt.slice(0,10),
+        estimatedRemaining:     daysRemaining,       // gün
+        estimatedDepletionDate: depletionDate,
+        confidenceLevel:        'sayisal_gircis',    // en yüksek güven
+        avgDailyConsumption:    avgDaily
+      };
+    }
 
     // Stok verisi yoksa null dön
     return {
-      lastKnownStock:        null,
-      estimatedRemaining:    null,
+      lastKnownStock:         null,
+      estimatedRemaining:     null,
       estimatedDepletionDate: null,
-      confidenceLevel:       'veri_yok',
-      avgDailyConsumption:   avgDaily
+      confidenceLevel:        'veri_yok',
+      avgDailyConsumption:    avgDaily
     };
   }
 
@@ -165,9 +198,11 @@
         ? { isSeasontal: true, evidenceFields: behaviorProfile.evidenceFields }
         : { isSeasonal: false },
 
-      // Stok
+      // Stok (FAZ 12.5: sayısal giriş öncelikli)
       lastKnownStock:          stockEstimate.lastKnownStock,
-      estimatedRemainingStock: stockEstimate.estimatedRemaining,
+      lastKnownStockDetail:    stockEstimate.lastKnownStockDetail || null, // [{product,stock}]
+      lastStockDate:           stockEstimate.lastStockDate || null,
+      estimatedRemainingStock: stockEstimate.estimatedRemaining,          // gün
       estimatedDepletionDate:  stockEstimate.estimatedDepletionDate,
       stockConfidenceLevel:    stockEstimate.confidenceLevel,
 

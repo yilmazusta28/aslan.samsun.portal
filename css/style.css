@@ -928,3 +928,47 @@ body{
 @media(min-width:769px){
   #mobileTabBar{display:none!important}
 }
+
+/* ══════════════════════════════════════════════════════════
+   FAZ 12.5 — Stok Girişi Modal (js/ui/modal-system.js altyapısını
+   kullanır; daha önce hiç CSS karşılığı yoktu).
+   ══════════════════════════════════════════════════════════ */
+.modal-backdrop{
+  position:fixed;inset:0;background:rgba(15,15,30,.55);
+  opacity:0;pointer-events:none;transition:opacity .2s ease;z-index:990;
+}
+.modal-backdrop.show{opacity:1;pointer-events:auto}
+.modal{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-46%);
+  width:min(420px,92vw);max-height:86vh;overflow:auto;
+  background:var(--surf);border:1px solid var(--border);border-radius:16px;
+  box-shadow:0 20px 60px rgba(0,0,0,.25);
+  opacity:0;pointer-events:none;z-index:991;
+  transition:opacity .18s ease,transform .18s ease;
+}
+.modal.open{opacity:1;pointer-events:auto;transform:translate(-50%,-50%)}
+.modal-hd{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;border-bottom:1px solid var(--border);
+}
+.modal-title{font-size:14px;font-weight:800;color:var(--text)}
+.modal-sub{font-size:11px;color:var(--dim);margin-top:2px}
+.modal-close{
+  border:none;background:transparent;color:var(--dim);
+  font-size:16px;cursor:pointer;line-height:1;padding:4px;
+}
+.modal-body{padding:16px 18px}
+.modal-actions{
+  display:flex;gap:8px;justify-content:flex-end;
+  padding:12px 18px;border-top:1px solid var(--border);
+}
+.stock-entry-row{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:10px;padding:7px 0;border-bottom:1px dashed var(--border);
+}
+.stock-entry-row:last-child{border-bottom:none}
+.stock-entry-row label{font-size:12px;font-weight:600;color:var(--text)}
+.stock-entry-row input{
+  width:84px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;
+  background:var(--surf2);color:var(--text);font-size:12px;text-align:right;
+}
