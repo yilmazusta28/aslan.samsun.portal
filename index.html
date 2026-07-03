@@ -1115,13 +1115,22 @@ async function renderEczane() {
   }
   // ── END PHASE 5.2 ─────────────────────────────────────────────────
 
-  // HOTFIX: eski tek-dosya ECZANE.csv artık repo'da yok (404 veriyordu).
-  // PHASE 5.2 PharmacyDataManager discovery hiç dosya bulamadıysa gerçekten
-  // veri yok demektir — eski fetch'i tekrar denemeye gerek yok.
+  // Eski tek-dosya yükleme (Phase 5.2 devreye girmediğinde veya ek olarak)
   if (!eczaneLoaded) {
-    statusEl.textContent = '⚠️ Eczane verisi bulunamadı (ECZANE/ klasöründe dosya yok)';
-    console.warn('[ECZANE] PharmacyDataManager veri bulamadı, eski ECZANE.csv kaldırıldı (404)');
-    return;
+    statusEl.textContent = '⏳ ECZANE.csv yükleniyor...';
+    try {
+      const resp = await fetch(GS_ECZANE_URL + '?v=' + Date.now(), { cache: 'no-store' });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const csv = await resp.text();
+      ECZANE_RAW = parseEczaneCSV(csv);
+      eczaneLoaded = true;
+      statusEl.textContent = `✅ ${ECZANE_RAW.length.toLocaleString('tr-TR')} satış kaydı`;
+      console.log('[ECZANE] Loaded:', ECZANE_RAW.length, 'records');
+    } catch(err) {
+      statusEl.textContent = '❌ ' + err.message;
+      console.error('[ECZANE]', err);
+      return;
+    }
   }
 
   buildEczaneFilters();

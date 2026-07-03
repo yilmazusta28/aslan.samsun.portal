@@ -296,20 +296,15 @@ Fırsat Brick (İlk333 + MI≥110 + GI≥100): ${migiRows.filter(r=>r.sira<=333&
 function buildEczaneContext(ttt) {
   if (!eczaneLoaded || !ECZANE_RAW) {
     // Eczane yüklü değilse AI'a not düş, arka planda yükle
-    // HOTFIX: eski tek-dosya ECZANE.csv artık repo'da yok (404) — PHASE 5.2
-    // PharmacyDataManager (aylık dosyalar) üzerinden yükle.
     if (!eczaneLoaded) {
-      if (window.PharmacyDataManager && typeof window.PharmacyDataManager.loadAll === 'function') {
-        window.PharmacyDataManager.loadAll()
-          .then(function (rows) {
-            ECZANE_RAW = rows;
-            eczaneLoaded = true;
-            console.log('[ECZANE BG] Loaded:', ECZANE_RAW.length);
-          })
-          .catch(function (e) { console.warn('[ECZANE BG]', e); });
-      } else {
-        console.warn('[ECZANE BG] PharmacyDataManager yüklü değil — eczane verisi alınamadı');
-      }
+      // Arka planda yüklemeyi tetikle (async, sonuç bekleme)
+      fetch(GS_ECZANE_URL + '?v=' + Date.now(), { cache: 'no-store' })
+        .then(r => r.ok ? r.text() : Promise.reject('HTTP ' + r.status))
+        .then(csv => {
+          ECZANE_RAW = parseEczaneCSV(csv);
+          eczaneLoaded = true;
+          console.log('[ECZANE BG] Loaded:', ECZANE_RAW.length);
+        }).catch(e => console.warn('[ECZANE BG]', e));
     }
     return '\n\n--- ECZANE VERİSİ ---\n(Eczane sayfası henüz yüklenmedi - bir sonraki soruda dahil edilecek)';
   }
@@ -628,9 +623,7 @@ function buildExecutiveContext(ttts) {
 // ── aiQuick — hızlı analiz tetikleyici ────────────────────────
 // Phase 4.1: artık buildExecutiveContext() ile zenginleştirilmiş context kullanır.
 function aiQuick(type) {
-  // NOT: "Sohbet" sekmesi kaldırıldı (bkz. UI geçmişi) — yanıt artık
-  // Görev Motoru sekmesindeki engineAiChatArea'da gösteriliyor.
-  if (typeof switchAiTab === 'function') switchAiTab('motor');
+  if (typeof switchAiTab === 'function') switchAiTab('chat');
   // Phase 4.2 — strateji tipini kaydet
   try {
     var _aqTTT = (typeof selAiTTT !== 'undefined' ? selAiTTT : '');

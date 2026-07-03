@@ -896,12 +896,6 @@ function getFilteredData(filters) {
     // PHASE 5.2: pharmacyStore API
     loadAll:                      loadAll,
     clearCache:                   clearCache,
-    // HOTFIX: pharmacy-ranking.js için senkron cache erişimi
-    getCachedData:                function () {
-      return (typeof pharmacyStore !== 'undefined' && Array.isArray(pharmacyStore) && pharmacyStore.length)
-        ? pharmacyStore
-        : (window.pharmacyActiveData && window.pharmacyActiveData.length ? window.pharmacyActiveData : null);
-    },
     getPharmacyStore:             getPharmacyStore,
     getFilteredData:              getFilteredData,
     updatePharmacyStore:          _updatePharmacyStore,

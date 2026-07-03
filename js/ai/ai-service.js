@@ -95,7 +95,7 @@ async function sendAiMsgWithText(text) {
 
   // B-01-1: Concurrency guard
   if (_aiInflight) {
-    var _ca = document.getElementById('engineAiChatArea');
+    var _ca = document.getElementById('aiChatArea');
     if (_ca) {
       _ca.innerHTML += '<div class="ai-bubble-ai" style="opacity:.6;font-size:11px">' +
         '<strong style="color:#92400E">⏳ Bekle</strong><br>' +
@@ -109,21 +109,14 @@ async function sendAiMsgWithText(text) {
   // B-02-5: TTT snapshot — fetch sırasında selAiTTT değişirse stale discard
   var _reqTTT = selAiTTT;
 
-  // HOTFIX: "Sohbet" sekmesi (aiChatArea/aiInput/aiSendBtn) kaldırıldı —
-  // yanıtlar artık Görev Motoru sekmesindeki engineAiChatArea'da gösterilir.
-  var _sendBtn   = null;
-  var _sendInput = null;
+  // B-01-2 + B-01-3: UI lock
+  var _sendBtn   = document.getElementById('aiSendBtn');
+  var _sendInput = document.getElementById('aiInput');
+  if (_sendBtn)   { _sendBtn.disabled   = true;  _sendBtn.style.opacity   = '0.5'; }
+  if (_sendInput) { _sendInput.disabled = true; }
 
-  var engOut = document.getElementById('engineOutput');
-  var engEmpty = document.getElementById('engineEmpty');
-  if (engOut)   engOut.style.display = 'block';
-  if (engEmpty) engEmpty.style.display = 'none';
-  var aiOutWrap = document.getElementById('engineAiOutput');
-  if (aiOutWrap) aiOutWrap.style.display = 'block';
-
-  var chatArea = document.getElementById('engineAiChatArea');
+  var chatArea = document.getElementById('aiChatArea');
   var statusEl = document.getElementById('aiStatus');
-  if (!chatArea) { _aiInflight = false; return; }
 
   chatArea.innerHTML += '<div class="ai-bubble-user">' +
     '<strong style="color:#4F008C">👤 Siz</strong><br>' + text + '</div>';
