@@ -1012,6 +1012,10 @@ let selEczaneAy    = 'TÜMÜ'; // legacy
 let selEczaneAylar = new Set(); // multi-select ay listesi (boş = Tümü)
 let eczaneSortKey  = 'toplam';
 let eczaneSortAsc  = false;
+// Sayfa Başına Eczane — kullanıcı talebi: tüm eczaneler listelensin, 20'şerli
+// sayfalara bölünsün, sayfa numarasına tıklanınca devam etsin.
+const ECZANE_PAGE_SIZE = 20;
+let eczaneCurrentPage  = 1;
 
 // Brick → TTT eşleşmesi (MIGI_RAW'dan türetilir)
 function getBrickTTTMap() {
@@ -1728,6 +1732,7 @@ function renderTeamLearningCard() {
 
 function filterEczaneTable() {
   _eczaneSearchFilter = (document.getElementById('eczaneSearch')?.value||'').toLowerCase();
+  eczaneCurrentPage = 1; // arama değişince baştan başla
   renderEczaneTable(_eczaneData);
 }
 
@@ -1735,7 +1740,57 @@ function sortEczane(key) {
   SoundFX.click();
   if (eczaneSortKey === key) eczaneSortAsc = !eczaneSortAsc;
   else { eczaneSortKey = key; eczaneSortAsc = false; }
+  eczaneCurrentPage = 1; // sıralama değişince baştan başla
   renderEczaneTable(_eczaneData);
+}
+
+// Sayfa numarasına tıklanınca çağrılır — mevcut filtre/sıralama korunur,
+// sadece sayfa değişir (veri yeniden çekilmez, sadece yeniden dilimlenir).
+function goToEczanePage(n) {
+  eczaneCurrentPage = n;
+  renderEczaneTable(_eczaneData);
+  const tbl = document.getElementById('eczaneTable');
+  if (tbl) tbl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Sayfa numarası şeridini üretir (Önceki / 1 … 4 5 [6] 7 8 … 20 / Sonraki).
+// Çok sayfa varsa ortadaki pencere + baş/son sayfa + "…" ile kısaltılır.
+function _renderEczanePagination(totalPages) {
+  const el = document.getElementById('eczanePagination');
+  if (!el) return;
+  if (totalPages <= 1) { el.innerHTML = ''; return; }
+
+  const cur = eczaneCurrentPage;
+  const btn = (n, label, active) => `<button onclick="goToEczanePage(${n})"
+    style="min-width:28px;padding:5px 8px;font-size:11px;border-radius:6px;cursor:pointer;
+    border:1px solid ${active?'var(--c1)':'var(--border)'};
+    background:${active?'var(--c1)':'var(--surf)'};
+    color:${active?'#fff':'var(--fg)'};font-weight:${active?'700':'500'}">${label}</button>`;
+
+  let pages = [];
+  const WINDOW = 1; // aktif sayfanın her iki yanında kaç sayfa gösterilsin
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1 || i === totalPages || (i >= cur - WINDOW && i <= cur + WINDOW)) {
+      pages.push(i);
+    } else if (pages[pages.length - 1] !== '…') {
+      pages.push('…');
+    }
+  }
+
+  let html = '';
+  html += `<button onclick="goToEczanePage(${Math.max(1, cur - 1)})" ${cur === 1 ? 'disabled' : ''}
+    style="min-width:28px;padding:5px 8px;font-size:11px;border-radius:6px;cursor:${cur===1?'default':'pointer'};
+    border:1px solid var(--border);background:var(--surf);color:${cur===1?'var(--dim)':'var(--fg)'}">‹</button>`;
+  pages.forEach(p => {
+    html += (p === '…')
+      ? `<span style="padding:5px 4px;font-size:11px;color:var(--dim)">…</span>`
+      : btn(p, p, p === cur);
+  });
+  html += `<button onclick="goToEczanePage(${Math.min(totalPages, cur + 1)})" ${cur === totalPages ? 'disabled' : ''}
+    style="min-width:28px;padding:5px 8px;font-size:11px;border-radius:6px;cursor:${cur===totalPages?'default':'pointer'};
+    border:1px solid var(--border);background:var(--surf);color:${cur===totalPages?'var(--dim)':'var(--fg)'}">›</button>`;
+
+  el.innerHTML = html;
 }
 
 function renderEczaneTable(data) {
@@ -1751,11 +1806,19 @@ function renderEczaneTable(data) {
     return eczaneSortAsc ? (av>bv?1:-1) : (av<bv?1:-1);
   });
 
-  const MAX_ROWS = 200;
-  const shown = list.slice(0, MAX_ROWS);
+  // Sayfalama — kullanıcı talebi: TÜM eczaneler listelenir, 20'şerli
+  // sayfalara bölünür, sayfa numarasına tıklanınca kaldığı yerden devam eder.
+  // (Eskiden ilk 200 kayıtla sınırlıydı, geri kalanı hiç gösterilmiyordu.)
+  const totalPages = Math.max(1, Math.ceil(list.length / ECZANE_PAGE_SIZE));
+  if (eczaneCurrentPage > totalPages) eczaneCurrentPage = totalPages;
+  if (eczaneCurrentPage < 1) eczaneCurrentPage = 1;
+  const pageStart = (eczaneCurrentPage - 1) * ECZANE_PAGE_SIZE;
+  const shown = list.slice(pageStart, pageStart + ECZANE_PAGE_SIZE);
 
   document.getElementById('eczaneTblBadge').textContent =
-    `${list.length} eczane${list.length>MAX_ROWS?' (ilk '+MAX_ROWS+' gösteriliyor)':''}`;
+    `${list.length} eczane — sayfa ${eczaneCurrentPage}/${totalPages}`;
+
+  _renderEczanePagination(totalPages);
 
   // Aktif aylara göre thead güncelle
   const _aylar = [...new Set(data.flatMap(e=>Object.keys(e).filter(k=>k.startsWith('ay_')).map(k=>k.slice(3))))].sort();
@@ -6154,6 +6217,8 @@ function _buildEczaneDrawerRefresh(){
         <tbody id="eczaneTbody"></tbody>
       </table>
     </div>
+    <!-- Sayfalama — 20 eczane/sayfa, tıklanınca goToEczanePage() çağrılır -->
+    <div id="eczanePagination" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;justify-content:center;padding:12px 10px;border-top:1px solid var(--border)"></div>
   </div>
 
   <!-- Brick özet grafiği -->
