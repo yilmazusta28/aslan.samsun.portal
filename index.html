@@ -1375,30 +1375,12 @@ function renderEczaneContent() {
     eczaneLoaded = true;
   }
 
-  // PHASE 4.5: Pharmacy Intelligence Top30 Kartı
-  try {
-    if (typeof renderPharmacyIntelligenceCard === 'function') {
-      const _piTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
-      renderPharmacyIntelligenceCard('pharmacyIntelligenceCard', _piTTT);
-      const _piBadge = document.getElementById('acc_top30visit_badge');
-      if (_piBadge) _piBadge.textContent = '30 eczane';
-    }
-  } catch(_piErr) {
-    console.warn('[PharmacyIntelligence] render hata (sessiz):', _piErr.message);
-  }
-
-  // PHASE 4.6.1: Reorder Classifier Top30 Kartı
-  // Rollback: bu try bloğunu sil + reorderClassifierCard div'ini kaldır
-  try {
-    if (typeof renderClassifierTop30Card === 'function' && window._REORDER_CLASSIFIER_READY) {
-      const _rcTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
-      renderClassifierTop30Card('reorderClassifierCard', _rcTTT);
-      const _rcBadge = document.getElementById('acc_reorder30_badge');
-      if (_rcBadge) _rcBadge.textContent = '30 eczane';
-    }
-  } catch(_rcErr) {
-    console.warn('[ReorderClassifier] render hata (sessiz):', _rcErr.message);
-  }
+  // FAZ — Top-30 Kaldırma (AUDIT2 Bulgu 1): eskiden burada PHASE 4.5
+  // (renderPharmacyIntelligenceCard) ve PHASE 4.6.1 (renderClassifierTop30Card)
+  // render çağrıları vardı — hedef div'leri (pharmacyIntelligenceCard,
+  // reorderClassifierCard) accordion'larla birlikte kaldırıldığı için bu
+  // çağrılar da kaldırıldı. Veri fonksiyonlarının kendisi (buildTop30Pharmacies
+  // vb.) SİLİNMEDİ, sadece bu UI render bağlantısı kesildi.
 
   // PHASE 4.7: Satış Şartları & Sipariş Analizi — filtre değişiminde yenile
   // Rollback: bu try bloğunu sil
@@ -5984,31 +5966,22 @@ function _buildEczaneDrawerRefresh(){
   <!-- Özet kartları -->
   <div id="eczaneSummaryCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:16px"></div>
 
-  <!-- PHASE 4.5 & 4.6.1 & 4.7: Açılır/Kapanır AI Bölümleri -->
+  <!-- PHASE 4.7: Açılır/Kapanır AI Bölümleri -->
 
-  <!-- Accordion: İlk 30 Ziyaret Önceliği -->
-  <div class="eczane-accordion mb16" id="acc_top30visit">
-    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('top30visit')">
-      <span class="eczane-acc-icon" id="acc_top30visit_icon">▶</span>
-      <span class="card-title" style="margin:0">🏆 İlk 30 Ziyaret Önceliği</span>
-      <span class="card-badge" id="acc_top30visit_badge" style="margin-left:auto">AI Analizi</span>
-    </div>
-    <div class="eczane-acc-body" id="acc_top30visit_body" style="display:none">
-      <div id="pharmacyIntelligenceCard"></div>
-    </div>
-  </div>
-
-  <!-- Accordion: Bu Hafta Siparişe En Yakın 30 -->
-  <div class="eczane-accordion mb16" id="acc_reorder30">
-    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('reorder30')">
-      <span class="eczane-acc-icon" id="acc_reorder30_icon">▶</span>
-      <span class="card-title" style="margin:0">📦 Bu Hafta Siparişe En Yakın 30 Eczane</span>
-      <span class="card-badge" id="acc_reorder30_badge" style="margin-left:auto">AI Analizi</span>
-    </div>
-    <div class="eczane-acc-body" id="acc_reorder30_body" style="display:none">
-      <div id="reorderClassifierCard"></div>
-    </div>
-  </div>
+  <!-- FAZ — Top-30 Kaldırma (kullanıcı kararı, AUDIT2 Bulgu 1 çözümü):
+       Burada eskiden İKİ ayrı, neredeyse birebir aynı Top-30 accordion kartı
+       vardı ("🏆 İlk 30 Ziyaret Önceliği" → pharmacyIntelligenceCard, ve
+       "📦 Bu Hafta Siparişe En Yakın 30 Eczane" → reorderClassifierCard).
+       SON-MASTER'ın "Top 30 tamamen kaldırılmış olmalıdır" kabul kriterine
+       göre İKİSİ DE kaldırıldı (kullanıcı onayı: "İkisini de kaldır").
+       Kaldırılan: iki <div class="eczane-accordion"> bloğu + index.html'deki
+       PHASE 4.5 / PHASE 4.6.1 render try/catch blokları (aşağıda, satır
+       ~1378 civarı).
+       DOKUNULMADI: pharmacy-intelligence.js'teki buildTop30Pharmacies() —
+       bu fonksiyon autonomous-planning-engine.js tarafından hâlâ VERİ
+       kaynağı olarak kullanılıyor, sadece UI render'ı kaldırıldı.
+       Rollback: bu yorumun altına iki accordion div'ini geri ekleyip
+       PHASE 4.5/4.6.1 render bloklarını geri koymak yeterli. -->
 
   <!-- PHASE 4.7 Accordion: Satış Şartları Yönetimi -->
   <div class="eczane-accordion mb16" id="acc_satis_sartlari">
