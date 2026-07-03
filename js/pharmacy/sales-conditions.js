@@ -792,6 +792,24 @@
 
     var etkiCarpani = HaberTakibiManager.getEtkiCarpani();
 
+    // Sıralama/filtreleme/sayfalama — Eczane Detay Listesi (index.html) ile
+    // AYNI desen: tıklanabilir sütun başlıkları (▾), arama, ve sayfa
+    // numarası şeridi. Burada eczane sayısı çok daha yüksek olabileceğinden
+    // sayfa başına 10 eczane gösterilir (ana listede 20).
+    var URUN_ANALIZ_PAGE_SIZE = 10;
+
+    // Her eczane için sıralanabilir "toplam öngörülen sipariş" alanı ekle
+    // (ürün bazlı hücrelerin toplamı) — ana listedeki "Toplam" sütunuyla
+    // aynı mantık: en öncelikli eczaneleri üste getirebilmek için.
+    analiz.forEach(function (e) {
+      var toplamOngoru = 0;
+      PRODUCTS.forEach(function (urun) {
+        var u = e.urunAnaliz[urun];
+        if (u && typeof u.ongorilenSiparis === 'number') toplamOngoru += u.ongorilenSiparis;
+      });
+      e._toplamOngoru = toplamOngoru;
+    });
+
     // Benzersiz brick listesi
     var brickListesi = ['TÜMÜ'].concat(
       analiz.map(function(e){ return e.brick; })
@@ -813,7 +831,7 @@
     container.innerHTML =
       '<div class="card">' +
         '<div class="card-hd" style="flex-wrap:wrap;gap:6px">' +
-          '<span class="card-badge">' + analiz.length + ' eczane</span>' +
+          '<span class="card-badge" id="urunAnalizBadge">' + analiz.length + ' eczane</span>' +
           (etkiCarpani > 1.0
             ? '<span class="card-badge" style="background:#FEF3C7;color:#D97706">' +
               '⚡ Piyasa etkisi ×' + etkiCarpani.toFixed(2) + ' aktif</span>'
@@ -832,17 +850,69 @@
         '<div class="card-body-0 scroll-x">' +
           '<table class="tbl" id="urunAnalizTable" style="min-width:900px">' +
             '<thead><tr>' +
-              '<th>Eczane</th>' +
-              '<th>Brick</th>' +
+              '<th onclick="window._sortUrunAnaliz(\'eczane\')" style="cursor:pointer">Eczane ▾</th>' +
+              '<th onclick="window._sortUrunAnaliz(\'brick\')" style="cursor:pointer">Brick ▾</th>' +
+              '<th onclick="window._sortUrunAnaliz(\'_toplamOngoru\')" style="cursor:pointer;text-align:center">Toplam Öngörü ▾</th>' +
               headerCells +
             '</tr></thead>' +
             '<tbody id="urunAnalizTbody"></tbody>' +
           '</table>' +
         '</div>' +
+        '<div id="urunAnalizPagination" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;justify-content:center;padding:12px 10px;border-top:1px solid var(--border)"></div>' +
       '</div>';
 
-    // Filtre + render fonksiyonu
-    window._urunAnalizData = analiz;
+    // Sıralama/sayfalama state — bu karta özel, global eczane listesini etkilemez
+    window._urunAnalizData      = analiz;
+    window._urunAnalizSortKey   = window._urunAnalizSortKey   || '_toplamOngoru';
+    window._urunAnalizSortAsc   = (window._urunAnalizSortAsc === undefined) ? false : window._urunAnalizSortAsc;
+    window._urunAnalizPage      = 1;
+
+    window._sortUrunAnaliz = function (key) {
+      if (window._urunAnalizSortKey === key) window._urunAnalizSortAsc = !window._urunAnalizSortAsc;
+      else { window._urunAnalizSortKey = key; window._urunAnalizSortAsc = (key === 'eczane' || key === 'brick'); }
+      window._urunAnalizPage = 1; // sıralama değişince baştan başla
+      window._filterUrunAnalizTable();
+    };
+
+    window._goToUrunAnalizPage = function (n) {
+      window._urunAnalizPage = n;
+      window._filterUrunAnalizTable();
+      var tbl = document.getElementById('urunAnalizTable');
+      if (tbl) tbl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    };
+
+    window._renderUrunAnalizPagination = function (totalPages) {
+      var el = document.getElementById('urunAnalizPagination');
+      if (!el) return;
+      if (totalPages <= 1) { el.innerHTML = ''; return; }
+      var cur = window._urunAnalizPage;
+      var mkBtn = function (n, label, active) {
+        return '<button onclick="window._goToUrunAnalizPage(' + n + ')" style="min-width:28px;padding:5px 8px;' +
+          'font-size:11px;border-radius:6px;cursor:pointer;border:1px solid ' + (active ? 'var(--c1)' : 'var(--border)') +
+          ';background:' + (active ? 'var(--c1)' : 'var(--surf)') + ';color:' + (active ? '#fff' : 'var(--fg)') +
+          ';font-weight:' + (active ? '700' : '500') + '">' + label + '</button>';
+      };
+      var pages = [];
+      var WINDOW = 1;
+      for (var i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= cur - WINDOW && i <= cur + WINDOW)) pages.push(i);
+        else if (pages[pages.length - 1] !== '…') pages.push('…');
+      }
+      var html = '<button onclick="window._goToUrunAnalizPage(' + Math.max(1, cur - 1) + ')" ' + (cur === 1 ? 'disabled' : '') +
+        ' style="min-width:28px;padding:5px 8px;font-size:11px;border-radius:6px;cursor:' + (cur === 1 ? 'default' : 'pointer') +
+        ';border:1px solid var(--border);background:var(--surf);color:' + (cur === 1 ? 'var(--dim)' : 'var(--fg)') + '">‹</button>';
+      pages.forEach(function (p) {
+        html += (p === '…')
+          ? '<span style="padding:5px 4px;font-size:11px;color:var(--dim)">…</span>'
+          : mkBtn(p, p, p === cur);
+      });
+      html += '<button onclick="window._goToUrunAnalizPage(' + Math.min(totalPages, cur + 1) + ')" ' + (cur === totalPages ? 'disabled' : '') +
+        ' style="min-width:28px;padding:5px 8px;font-size:11px;border-radius:6px;cursor:' + (cur === totalPages ? 'default' : 'pointer') +
+        ';border:1px solid var(--border);background:var(--surf);color:' + (cur === totalPages ? 'var(--dim)' : 'var(--fg)') + '">›</button>';
+      el.innerHTML = html;
+    };
+
+    // Filtre + sıralama + sayfalama + render fonksiyonu
     window._filterUrunAnalizTable = function() {
       var searchVal = (document.getElementById('urunAnalizSearch')&&document.getElementById('urunAnalizSearch').value||'').toLowerCase();
       var brickVal  = document.getElementById('urunAnalizBrick') ? document.getElementById('urunAnalizBrick').value : 'TÜMÜ';
@@ -851,9 +921,31 @@
         var searchOk = !searchVal || e.eczane.toLowerCase().includes(searchVal) || (e.brick||'').toLowerCase().includes(searchVal);
         return brickOk && searchOk;
       });
+
+      // Sıralama — Eczane Detay Listesi'ndeki sortEczane() ile aynı mantık
+      var sKey = window._urunAnalizSortKey, sAsc = window._urunAnalizSortAsc;
+      filtered.sort(function (a, b) {
+        var av = a[sKey], bv = b[sKey];
+        if (typeof av === 'string') { av = av.toLowerCase(); bv = (bv || '').toLowerCase(); }
+        else { av = av || 0; bv = bv || 0; }
+        return sAsc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
+      });
+
+      var badgeEl = document.getElementById('urunAnalizBadge');
+
+      // Sayfalama — en fazla 10 eczane/sayfa
+      var totalPages = Math.max(1, Math.ceil(filtered.length / URUN_ANALIZ_PAGE_SIZE));
+      if (window._urunAnalizPage > totalPages) window._urunAnalizPage = totalPages;
+      if (window._urunAnalizPage < 1) window._urunAnalizPage = 1;
+      var pageStart = (window._urunAnalizPage - 1) * URUN_ANALIZ_PAGE_SIZE;
+      var pageItems = filtered.slice(pageStart, pageStart + URUN_ANALIZ_PAGE_SIZE);
+
+      if (badgeEl) badgeEl.textContent = filtered.length + ' eczane — sayfa ' + window._urunAnalizPage + '/' + totalPages;
+      window._renderUrunAnalizPagination(totalPages);
+
       var tbody = document.getElementById('urunAnalizTbody');
       if (!tbody) return;
-      tbody.innerHTML = filtered.map(function(e){
+      tbody.innerHTML = pageItems.map(function(e){
         var urunCells = PRODUCTS.map(function (urun) {
           var u = e.urunAnaliz[urun];
           if (!u) return '<td style="text-align:center;color:var(--dim);font-size:10px">—</td>';
@@ -868,6 +960,7 @@
         return '<tr>' +
           '<td style="font-weight:600;font-size:12px">' + e.eczane + '</td>' +
           '<td style="font-size:10px;color:var(--dim)">' + e.brick + '</td>' +
+          '<td style="text-align:center;font-weight:700;font-size:12px;color:var(--c1)">' + e._toplamOngoru + '</td>' +
           urunCells +
         '</tr>';
       }).join('');
