@@ -43,6 +43,22 @@
 
   var _fallback = {}; // pharmacy → StockEntry[] (IndexedDB yoksa)
 
+  // ── FAZ 12.5 — Senkron okuma cache'i ─────────────────────────────────
+  // getLatestStockEntry() async (IndexedDB) olduğu için sync motorlar
+  // (örn. digital-twin-builder.js) doğrudan okuyamıyordu. Bu cache
+  // recordStockEntry() ve getLatestStockEntry() her çağrıldığında
+  // (yani UI bir eczaneyi açtığında/kaydettiğinde) doldurulur; sync
+  // motorlar getLatestStockEntrySync() ile en güncel bilineni okur.
+  var _syncCache = {}; // pharmacy → StockEntry | null
+
+  function getLatestStockEntrySync(pharmacy) {
+    return _syncCache.hasOwnProperty(pharmacy) ? _syncCache[pharmacy] : null;
+  }
+
+  function primeSyncCache(pharmacy, entry) {
+    _syncCache[pharmacy] = entry || null;
+  }
+
   // ── recordStockEntry ───────────────────────────────────────────────────
   function recordStockEntry(pharmacy, date, products) {
     var entry = {
@@ -52,10 +68,14 @@
       enteredAt:  new Date().toISOString()
     };
 
+    // FAZ 12.5: kaydedilen giriş anında sync cache'e yazılır — bu giriş
+    // her zaman en güncel olduğu için ekstra okuma beklemeye gerek yok.
+    primeSyncCache(pharmacy, entry);
+
     if (!window.PharmaDB) {
       if (!_fallback[pharmacy]) _fallback[pharmacy] = [];
       _fallback[pharmacy].push(entry);
-      return Promise.resolve();
+      return Promise.resolve(entry);
     }
 
     return window.PharmaDB.withStore(STORE, 'readwrite', function (store) {
@@ -76,13 +96,17 @@
   function getLatestStockEntry(pharmacy) {
     if (!window.PharmaDB) {
       var entries = _fallback[pharmacy] || [];
-      return Promise.resolve(entries.length ? entries[entries.length - 1] : null);
+      var result = entries.length ? entries[entries.length - 1] : null;
+      primeSyncCache(pharmacy, result);
+      return Promise.resolve(result);
     }
 
     return window.PharmaDB.withStore(STORE, 'readonly', function (store) {
       if (!store) {
         var fb = _fallback[pharmacy] || [];
-        return Promise.resolve(fb.length ? fb[fb.length - 1] : null);
+        var fbResult = fb.length ? fb[fb.length - 1] : null;
+        primeSyncCache(pharmacy, fbResult);
+        return Promise.resolve(fbResult);
       }
       return new Promise(function (resolve, reject) {
         var results = [];
@@ -92,8 +116,9 @@
           var cursor = e.target.result;
           if (cursor) { results.push(cursor.value); cursor.continue(); }
           else {
-            if (!results.length) { resolve(null); return; }
+            if (!results.length) { primeSyncCache(pharmacy, null); resolve(null); return; }
             results.sort(function (a, b) { return b.enteredAt.localeCompare(a.enteredAt); });
+            primeSyncCache(pharmacy, results[0]);
             resolve(results[0]);
           }
         };
@@ -146,12 +171,13 @@
   }
 
   window.StockEntryAdapter = {
-    recordStockEntry:    recordStockEntry,
-    getLatestStockEntry: getLatestStockEntry,
-    getStockHistory:     getStockHistory,
-    discover:            discover,
-    contextHook:         'stockEntries',
-    version:             '9.3'
+    recordStockEntry:       recordStockEntry,
+    getLatestStockEntry:    getLatestStockEntry,
+    getLatestStockEntrySync: getLatestStockEntrySync, // FAZ 12.5: sync motorlar için
+    getStockHistory:        getStockHistory,
+    discover:               discover,
+    contextHook:            'stockEntries',
+    version:                '9.3.1'
   };
 
   // SourceAdapterRegistry'ye kendini kayıt et (varsa)

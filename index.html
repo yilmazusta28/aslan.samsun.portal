@@ -90,6 +90,7 @@
 <script src="js/core/async-guard.js"></script>
 <script src="js/core/constants.js"></script>
 <script src="js/core/date-utils.js"></script>
+<script src="js/core/period-archive-manager.js"></script>
 <script src="js/core/math-utils.js"></script>
 <script src="js/core/formatters.js"></script>
 <script src="js/core/prim-calc.js"></script>
@@ -130,6 +131,18 @@
      bağımlılar) — geri almak için motorların önceki sürümlerine dönülmeli. -->
 <script src="js/ai/core/ims-adapter.js"></script>
 <!-- END AI Mimari Stabilizasyonu — IMS Adapter -->
+
+<!-- FAZ — Arşiv → AI Motor Bağlantısı
+     js/core/period-archive-manager.js içinde localStorage'da biriken
+     6 aylık arşiv verisini insight/runrate/decision motorlarının
+     tüketebileceği normalize formata çevirir (bkz. dosya başlığı).
+     Bağımlılık: period-archive-manager.js (date-utils.js sonrası yüklü),
+     date-utils.js (PERIODS).
+     Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — bağlı motorlar
+     (insight-engine, runrate-engine, decision-engine) window.PeriodArchiveAdapter
+     yokluğunda sessizce eski davranışlarına döner. -->
+<script src="js/ai/core/period-archive-adapter.js"></script>
+<!-- END FAZ — Arşiv → AI Motor Bağlantısı -->
 
 <!-- İŞ KURALI — IMS Dönemsel Zaman Modeli (Temporal Intelligence)
      Kullanıcı tarafından tanımlanan temel iş kuralı: h1..h9 alanları
