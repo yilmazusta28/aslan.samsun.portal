@@ -1,0 +1,72 @@
+name: JS Syntax Check
+
+on:
+  push:
+    paths:
+      - 'js/**/*.js'
+      - 'index.html'
+  pull_request:
+    paths:
+      - 'js/**/*.js'
+      - 'index.html'
+
+jobs:
+  syntax-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check JS syntax (node --check)
+        run: |
+          set -e
+          fail=0
+          while IFS= read -r -d '' f; do
+            if ! node --check "$f" 2>/tmp/err.log; then
+              echo "::error file=$f::Syntax error"
+              cat /tmp/err.log
+              fail=1
+            fi
+          done < <(find js -name '*.js' -print0)
+          if [ "$fail" -eq 1 ]; then
+            echo ""
+            echo "❌ Bir veya daha fazla JS dosyasında syntax hatası bulundu."
+            exit 1
+          fi
+          echo "✅ Tüm JS dosyaları syntax açısından geçerli."
+
+      - name: Check inline <script> blocks in index.html
+        run: |
+          set -e
+          node -e "
+            const fs = require('fs');
+            const vm = require('vm');
+            const html = fs.readFileSync('index.html', 'utf8');
+            // <script> ... </script> bloklarını yakala (src= olanları hariç tut)
+            const re = /<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g;
+            let m, i = 0, fail = false;
+            while ((m = re.exec(html)) !== null) {
+              i++;
+              const code = m[1];
+              if (!code.trim()) continue;
+              try {
+                new vm.Script(code, { filename: 'index.html inline #' + i });
+              } catch (e) {
+                console.error('❌ index.html inline <script> #' + i + ': ' + e.message);
+                fail = true;
+              }
+            }
+            if (fail) process.exit(1);
+            console.log('✅ index.html içindeki inline <script> blokları geçerli (' + i + ' blok kontrol edildi).');
+          "
+
+      - name: Validate manifest.json (if present)
+        run: |
+          if [ -f data/eczane/manifest.json ]; then
+            node -e "JSON.parse(require('fs').readFileSync('data/eczane/manifest.json','utf8')); console.log('✅ manifest.json geçerli JSON')"
+          else
+            echo "ℹ️ manifest.json henüz yok — atlandı."
+          fi

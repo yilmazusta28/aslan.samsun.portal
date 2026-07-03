@@ -101,7 +101,9 @@
       });
 
       // Sabah aksiyonlarından kritik mesaj
-      var morningUrgent = daily.morning.filter(function (a) { return a.urgency === 'URGENT'; });
+      // HOTFIX: generateDailyPlan {} dönebilir → daily.morning undefined → crash
+      var morningActions = (daily && Array.isArray(daily.morning)) ? daily.morning : [];
+      var morningUrgent = morningActions.filter(function (a) { return a.urgency === 'URGENT'; });
       if (morningUrgent.length) {
         coaching.push({
           type:    'BUGÜN ÖNCE',

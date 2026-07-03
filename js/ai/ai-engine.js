@@ -219,11 +219,20 @@ function _runEngineCore() {
     }
   }
   // Eczane yüklü değilse arka planda yükle (motor tekrar çalıştırılınca hazır olur)
+  // HOTFIX: eski tek-dosya ECZANE.csv artık repo'da yok (404) — PHASE 5.2
+  // PharmacyDataManager (aylık dosyalar / ECZANE/ klasörü) üzerinden yükle.
   if (!eczaneLoaded && !ECZANE_RAW) {
-    fetch(GS_ECZANE_URL+'?v='+Date.now(),{cache:'no-store'})
-      .then(r=>r.ok?r.text():Promise.reject('HTTP '+r.status))
-      .then(csv=>{ECZANE_RAW=parseEczaneCSV(csv);eczaneLoaded=true;console.log('[ECZANE BG-engine]',ECZANE_RAW.length);})
-      .catch(e=>console.warn('[ECZANE BG-engine]',e));
+    if (window.PharmacyDataManager && typeof window.PharmacyDataManager.loadAll === 'function') {
+      window.PharmacyDataManager.loadAll()
+        .then(function (rows) {
+          ECZANE_RAW = rows;
+          eczaneLoaded = true;
+          console.log('[ECZANE BG-engine]', ECZANE_RAW.length);
+        })
+        .catch(function (e) { console.warn('[ECZANE BG-engine]', e); });
+    } else {
+      console.warn('[ECZANE BG-engine] PharmacyDataManager yüklü değil — eczane verisi alınamadı');
+    }
   }
   // ECZANE_RAW ham satır formatı: {gln, ad, brick, urun, adet, ay, ttt}
   // Motor için eczane bazında topla (ay ayrımı olmadan toplam adet)

@@ -93,9 +93,28 @@
     }, null);
 
     if (!profiles || !profiles.length) {
-      console.warn('[pharmacy-ranking] PharmacyBehaviorEngine verisi yok — boş liste döndü');
-      _cache[cacheKey] = [];
-      return [];
+      // HOTFIX: ECZANE_RAW henüz yüklenmemiş olabilir (PharmacyDataManager async).
+      // getCachedData() varsa senkron olarak çek ve tekrar dene.
+      var _fallbackRows = _safe(function () {
+        return window.PharmacyDataManager &&
+               typeof window.PharmacyDataManager.getCachedData === 'function'
+               ? window.PharmacyDataManager.getCachedData()
+               : null;
+      }, null);
+      if (_fallbackRows && _fallbackRows.length) {
+        if (typeof ECZANE_RAW !== 'undefined') {
+          ECZANE_RAW   = _fallbackRows;
+          eczaneLoaded = true;
+        }
+        profiles = _safe(function () {
+          return window.PharmacyBehaviorEngine.buildBehaviorProfiles(tttFilter);
+        }, null);
+      }
+      if (!profiles || !profiles.length) {
+        console.warn('[pharmacy-ranking] PharmacyBehaviorEngine verisi yok — boş liste döndü');
+        _cache[cacheKey] = [];
+        return [];
+      }
     }
 
     var ranked = profiles
