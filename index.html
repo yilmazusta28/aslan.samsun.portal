@@ -6008,7 +6008,42 @@ function _buildEczaneDrawerRefresh(){
         <div id="zamResultQ" style="margin-top:10px"></div>
       </div>
 
+      <!-- AUDIT7 düzeltmesi — KÖK NEDEN: aiQuick() (yukarıdaki hızlı analiz
+           butonları) ve sendAiMsg()/sendAiMsgWithText() (js/ai/ai-service.js)
+           yanıtı `#aiChatArea` id'li bir kutuya yazıyordu, ve aiQuick() önce
+           switchAiTab('chat') çağırıp `#aiTab_chat` sekmesini göstermeye
+           çalışıyordu — ama HİÇBİR YERDE `id="aiTab_chat"` veya
+           `id="aiChatArea"` elementi YOKTU (muhtemelen sekme sayısı 3'ten
+           2'ye indirilirken bu bölüm yanlışlıkla silinmiş). Sonuç: her
+           tıklamada switchAiTab('chat') TÜM sekmeleri (Hızlı Analiz dahil)
+           gizliyor ama hiçbirini göstermiyordu (boş ekran), ardından
+           sendAiMsgWithText() `chatArea.innerHTML` satırında `null` üzerinde
+           çöküyordu — bu çökme `_aiInflight` kilidini SIFIRLAMADAN
+           (try/catch bloğunun DIŞINDA gerçekleştiği için) oluyordu, yani
+           İLK tıklamadan SONRA kilit sonsuza dek takılı kalıp bir daha HİÇBİR
+           sorgu (Hızlı Analiz dahil) çalışmıyordu — sayfa yenilenene kadar.
+           Çözüm: eksik `aiChatArea`/`aiInput`/`aiSendBtn` doğrudan Hızlı
+           Analiz sekmesinin İÇİNE eklendi (artık ayrı/gizli bir "chat"
+           sekmesine ihtiyaç yok) ve aiQuick() içindeki switchAiTab('chat')
+           çağrısı switchAiTab('quick') olarak düzeltildi (bkz. ai-context.js). -->
+      <div class="card mb16" style="border:1.5px solid rgba(79,0,140,.15);margin-top:14px">
+        <div class="card-hd">
+          <span class="card-title"><i class="fas fa-comments"></i> AI Yanıtı</span>
+        </div>
+        <div class="card-body" style="padding:14px 18px">
+          <div id="aiChatArea" style="display:flex;flex-direction:column;gap:12px;min-height:50px;max-height:420px;overflow-y:auto"></div>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <input type="text" id="aiInput" class="inp" placeholder="Serbest soru sorun..."
+              style="flex:1;font-size:12px" onkeydown="if(event.key==='Enter')sendAiMsg()">
+            <button class="btn-calc" id="aiSendBtn" onclick="sendAiMsg()" style="font-size:11px;white-space:nowrap">
+              <i class="fas fa-paper-plane" style="margin-right:5px"></i>Gönder
+            </button>
+          </div>
+        </div>
+      </div>
+
     </div><!-- /aiTab_quick -->
+
 
   </div><!-- /tab card -->
 

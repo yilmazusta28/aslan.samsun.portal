@@ -118,6 +118,22 @@ async function sendAiMsgWithText(text) {
   var chatArea = document.getElementById('aiChatArea');
   var statusEl = document.getElementById('aiStatus');
 
+  // AUDIT7 sertleştirmesi: `chatArea`/`statusEl` bulunamazsa (örn. ileride
+  // bu ID'ler yine yanlışlıkla kaldırılırsa) eskiden burada `null.innerHTML`
+  // ile SESSİZCE çöküyordu VE bu satır try/catch/finally BLOĞUNUN DIŞINDA
+  // olduğu için `_aiInflight` kilidi asla serbest bırakılmıyordu — tek bir
+  // eksik DOM elemanı sayfa yenilenene kadar TÜM AI sorgularını kalıcı
+  // olarak kilitliyordu. Artık böyle bir durumda erken ve güvenli çıkış
+  // yapılıyor, kilit serbest bırakılıyor, konsola açık hata yazılıyor.
+  if (!chatArea || !statusEl) {
+    console.error('[ai-service] #aiChatArea veya #aiStatus DOM\'da bulunamadı — AI yanıtı gösterilemiyor.');
+    _aiInflight = false;
+    if (_sendBtn)   { _sendBtn.disabled   = false; _sendBtn.style.opacity   = ''; }
+    if (_sendInput) { _sendInput.disabled = false; }
+    alert('AI yanıt alanı yüklenemedi. Sayfayı yenileyip tekrar deneyin.');
+    return;
+  }
+
   chatArea.innerHTML += '<div class="ai-bubble-user">' +
     '<strong style="color:#4F008C">👤 Siz</strong><br>' + text + '</div>';
   requestAnimationFrame(function(){ chatArea.scrollTop = chatArea.scrollHeight; });

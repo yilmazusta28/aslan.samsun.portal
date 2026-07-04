@@ -623,7 +623,13 @@ function buildExecutiveContext(ttts) {
 // ── aiQuick — hızlı analiz tetikleyici ────────────────────────
 // Phase 4.1: artık buildExecutiveContext() ile zenginleştirilmiş context kullanır.
 function aiQuick(type) {
-  if (typeof switchAiTab === 'function') switchAiTab('chat');
+  // AUDIT7 düzeltmesi: eskiden switchAiTab('chat') çağrılıyordu — ama
+  // `aiTab_chat` diye bir sekme HİÇ YOKTU (bkz. index.html aiTab_quick
+  // içindeki "AI Yanıtı" kartı yorumu). Bu satır tüm sekmeleri (Hızlı
+  // Analiz dahil) gizleyip hiçbirini göstermiyordu, ardından aşağıdaki
+  // sendAiMsgWithText() de var olmayan #aiChatArea üzerinde çöküyordu.
+  // Yanıt artık Hızlı Analiz sekmesinin İÇİNDEKİ #aiChatArea'da gösteriliyor.
+  if (typeof switchAiTab === 'function') switchAiTab('quick');
   // Phase 4.2 — strateji tipini kaydet
   try {
     var _aqTTT = (typeof selAiTTT !== 'undefined' ? selAiTTT : '');
