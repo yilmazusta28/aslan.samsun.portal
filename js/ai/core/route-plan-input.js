@@ -198,15 +198,43 @@
     var rep = options.representative || _currentRep();
 
     // Brick listesini al (mevcut global'den)
+    // BUG DÜZELTMESİ: IMS, data-state.js'de `let IMS = []` ile classic
+    // script top-level scope'unda tanımlı — `window.IMS` DEĞİL (let/const
+    // window nesnesine yazılmaz). Diğer motorlar (route-optimizer.js,
+    // brick-ranking-engine.js vb.) bu yüzden hep bare `IMS` okur; burada da
+    // aynı desen kullanılmalı, yoksa brick listesi IMS yüklü olsa bile hep
+    // boş kalır ve "Brick verisi yüklenemedi" hatası kalıcı olarak görünür.
     var brickList = [];
+    var _imsAvailable = (typeof IMS !== 'undefined') && Array.isArray(IMS);
+    var _imsLen = _imsAvailable ? IMS.length : -1;
     try {
-      if (window.IMS && Array.isArray(window.IMS)) {
-        window.IMS.forEach(function (r) {
+      if (_imsAvailable) {
+        // 1. geçiş: sadece bu temsilcinin KENDİ (pazar/rakip değil) brickleri
+        IMS.forEach(function (r) {
+          if (r.is_mkt) return;
+          if (rep && r.ttt && r.ttt !== rep) return;
           if (r.brick && brickList.indexOf(r.brick) < 0) brickList.push(r.brick);
         });
+        // Rep filtresiyle hiçbir şey bulunamadıysa (örn. rep adı IMS'teki
+        // normalize edilmiş isimle birebir eşleşmiyor) — en azından TÜM
+        // (pazar hariç) brickleri göster; hiç göstermemekten iyidir.
+        if (!brickList.length && rep) {
+          IMS.forEach(function (r) {
+            if (r.is_mkt) return;
+            if (r.brick && brickList.indexOf(r.brick) < 0) brickList.push(r.brick);
+          });
+        }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn('[route-plan-input] brick listesi okuma hatası:', e.message);
+    }
     brickList.sort();
+
+    if (!brickList.length) {
+      console.warn('[route-plan-input] Brick listesi boş — teşhis:',
+        'IMS tanımlı mı?', _imsAvailable, '| IMS uzunluğu:', _imsLen,
+        '| rep:', rep, '| örnek IMS satırı:', _imsAvailable && IMS[0] ? IMS[0] : 'yok');
+    }
 
     // Haftalık planı yükle ve formu göster
     getWeekPlan(rep).then(function (weekPlans) {
