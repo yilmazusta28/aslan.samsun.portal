@@ -678,7 +678,7 @@ Bu gap'i eczane bazında nasıl dağıt?
 4. Kampanya alımı yapıp uzun süre almayacak eczaneleri işaretle
 5. Brick bazında eczane yoğunlaşma analizi — hangi brickte potansiyel var
 
-Detaylı hesaplama kuralları (MUTLAKA uygula):
+Analizde şu somut kuralları uygula:
 - Her eczane için aylık tüketim ortalaması hesapla. Örnek: Oca=30, Mar=25 ise (Şub atlayan) ortalama=(30+25)/2=27.5 kutu/ay.
 - Büyük tek alışları tespit et (kampanya). Bir ayda normal tüketimin 3x+ üzerinde alış varsa kampanya olarak işaretle; bir sonraki sipariş 3-6 ay veya daha uzun süre gecikebilir.
 - Satış şartları: ACİDPASS:10+1,20+3,50+15,100+35 | PANOCER:10+3,30+12,50+25,100+60,165+135 | GRİPORT COLD:5+1,12+3,20+4,50+20,80+40 | MOKSEFEN:5+1,10+3,30+15
@@ -687,11 +687,6 @@ Detaylı hesaplama kuralları (MUTLAKA uygula):
 
 ${ctx}`,
 
-    // FAZ 13.5 — kaldırılan "Hızlı Analiz" sekmesindeki 'rakip' promptunun
-    // Görev Motoru'na taşınmış hâli. Görev Motoru'nun DAHA ZENGİN context'i
-    // (buildForecastContext + buildPrimContext + buildSimulatorContext +
-    // buildTerritoryContext + buildExecutiveContext, ${ctx} içinde birleşik)
-    // ile aynı analiz artık daha isabetli çalışır.
     rakip: `Görev Motoru — Rakip Analizi
 
 Temsilci: ${engineSelTTT} | Kalan: ${remDays} iş günü
@@ -701,8 +696,7 @@ IMS verilerini kullanarak rakip analizi yap:
 2. Rakibin en güçlü olduğu brickler (bizim payımız <%15, rakip payı >%30) ve orada ne yapılabileceğini öner.
 3. Rakibin zayıf olduğu brickler (rakip payı <%20) ve büyüme fırsatlarını listele.
 4. Son 3 hafta trendine göre rakip büyüyen bricklerde savunma, rakip gerileyen bricklerde saldırı stratejisi öner.
-5. Brick bazında en kritik 5 öncelikli hedefi somut ziyaret planıyla açıkla.
-6. Kalan ${remDays} iş günü içinde bu rakip mücadelesinin genel realizasyon hedefine katkısını sayısallaştır.
+5. Brick bazında en kritik 5 öncelikli hedefi somut ziyaret planıyla açıkla, kalan ${remDays} iş gününe göre önceliklendir.
 
 ${ctx}`
   };
