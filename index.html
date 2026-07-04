@@ -2859,10 +2859,11 @@ function buildTTTPicker(){
   // FAZ 13.1 — Yönetici (ŞENOL YILMAZ) artık kendi ayrı "Yönetici" sayfasına
   // (page7) sahip; "Genel Durum" temsilci seçim kartlarında görünmesine
   // gerek yok — burası artık SADECE saha temsilcilerini listeler.
-  // ALL_TTTS zaten Şenol Yılmaz'ı içermiyor (bkz. data-loader.js), bu
-  // yüzden ekstra filtreye gerek yok, sadece elle eklenen 'ŞENOL YILMAZ'
-  // öğesi listeden çıkarıldı.
-  const allList=ALL_TTTS;
+  // ALL_TTTS zaten Şenol Yılmaz'ı içermiyor (bkz. data-loader.js), ama
+  // FAZ 13.2 sağlamlaştırması: CSV'den gelen ham ad beklenmedik bir yazım
+  // varyantıyla gelirse yine de stripTR() tabanlı ekstra güvenlik filtresi
+  // ile kesin olarak dışarıda tutulur.
+  const allList=(ALL_TTTS||[]).filter(t=>(typeof stripTR==='function'?stripTR(t):t).toUpperCase().trim()!=='SENOL YILMAZ');
   const grid=document.getElementById('tttPickerGrid');
   if(!grid)return;
 

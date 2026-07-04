@@ -384,17 +384,27 @@
   function _populateTttSelect(selectId) {
     var sel = document.getElementById(selectId);
     if (!sel) return;
-    // BUG DÜZELTMESİ: select HTML'de zaten 1 placeholder option
+    // BUG DÜZELTMESİ 1 (FAZ 13.1): select HTML'de zaten 1 placeholder option
     // (<option value="">— Temsilci Seçin —</option>) içeriyordu, bu yüzden
     // eski "if (sel.options.length) return" kontrolü HER ZAMAN true dönüyor
     // ve gerçek temsilci listesi ASLA eklenmiyordu (seçim kutusu hep boş
-    // görünüyordu). Artık "gerçekten dolduruldu mu" bir data-flag ile
-    // kontrol ediliyor — placeholder'dan bağımsız, güvenli tekrar çalışma.
-    if (sel.dataset.populated === '1') return;
+    // görünüyordu).
+    // BUG DÜZELTMESİ 2 (FAZ 13.2): Şenol Yılmaz girişinde artık sayfa7
+    // otomatik açıldığından (bkz. index.html doLogin()), bu fonksiyon veri
+    // GELMEDEN ÖNCE de bir kez çalışabiliyor — ALL_TTTS henüz boşken
+    // "dolduruldu" bayrağı kalıcı olarak set edilirse, veri sonradan
+    // gelince select GERÇEKTEN hiç dolmuyordu. Artık bayrak yerine, mevcut
+    // seçenek sayısı (placeholder hariç) ile ALL_TTTS uzunluğu her çağrıda
+    // karşılaştırılıyor — liste değiştiyse (örn. boştan dolduysa) select
+    // güncel seçim korunarak yeniden oluşturuluyor.
     var list = (typeof ALL_TTTS !== 'undefined') ? ALL_TTTS : [];
+    var currentCount = sel.options.length - 1; // placeholder hariç
+    if (currentCount === list.length && sel.dataset.populated === '1') return;
+    var prevVal = sel.value;
     sel.innerHTML = '<option value="">— Temsilci Seçin —</option>' +
       list.map(function (t) { return '<option value="' + t + '">' + t + '</option>'; }).join('');
-    sel.dataset.populated = '1';
+    if (list.indexOf(prevVal) !== -1) sel.value = prevVal;
+    if (list.length) sel.dataset.populated = '1';
   }
 
   function onManagerTttChange() {

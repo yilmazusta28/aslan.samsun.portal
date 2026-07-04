@@ -41,7 +41,15 @@ function renderEngine() {
   // çubuğunda SADECE saha temsilcileri listelenir. Not: openBolgeGeneliMotoru()
   // hâlâ setAiTTT('ŞENOL YILMAZ') ile engineSelTTT'yi bölge geneline
   // ayarlayabilir — bar'da buton görünmez ama motor normal çalışır.
-  const allT = ALL_TTTS;
+  // FAZ 13.2 SAĞLAMLAŞTIRMA: ALL_TTTS normalde Şenol'u içermiyor (bkz.
+  // data-loader.js), ama CSV'den gelen ham ad beklenmedik bir yazımla
+  // (boşluk/varyant) normalizasyon haritasını atlarsa yine de listede
+  // görünebilir. Bu yüzden burada ekstra bir stripTR() tabanlı güvenlik
+  // filtresi var — hangi yazım varyantı gelirse gelsin Şenol Yılmaz asla
+  // bu çubukta görünmez.
+  const allT = (ALL_TTTS || []).filter(function (t) {
+    return (typeof stripTR === 'function' ? stripTR(t) : t).toUpperCase().trim() !== 'SENOL YILMAZ';
+  });
   if (!engineSelTTT && ALL_TTTS.length) engineSelTTT = _autoSelTTT(ALL_TTTS[0]);
 
   bar.innerHTML = allT.map(t => {
