@@ -314,6 +314,15 @@
 <script src="js/ai/executive/executive-summary-engine.js"></script>
 <script src="js/ai/executive/executive-engine.js"></script>
 
+<!-- FAZ 13.0: Yönetici Paneli Genişletmesi (Ekip Kutu Hedef Toplamı,
+     Tam Ekip Sıralaması, Temsilci Brick Detayı, AI Pazar Analizi Özeti)
+     Bağımlılık: team-ranking-engine.js (yukarıda), risk-engine.js (aşağıda,
+     opsiyonel — yoksa risk bloğu sessizce atlanır çünkü typeof ile kontrol edilir).
+     Rollback: bu satırı silmek page7'deki 4 yeni bloğu boş bırakır,
+     başka hiçbir sayfa/motor etkilenmez. -->
+<script src="js/ai/executive/manager-panel-engine.js"></script>
+<!-- END FAZ 13.0 -->
+
 <!-- FAZ 6.8: Team Learning Engine (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §16)
      "En başarılı temsilci davranışını öğren → diğerlerine öner."
      buildTeamRanking() + PharmacyBehaviorEngine + LearningHub'ı okuyarak
@@ -2773,7 +2782,7 @@ function goPage(i){
   else if(i===5){ if(typeof renderAiAsistan==='function') renderAiAsistan(); }
   else if(i===6)renderEczane();
   // FAZ 8.2 — Yönetici sekmesi
-  else if(i===7){ if(typeof renderExecutiveDashboard==='function') renderExecutiveDashboard('executiveDashboardContainer'); }
+  else if(i===7){ if(typeof renderExecutiveDashboard==='function') renderExecutiveDashboard('executiveDashboardContainer'); if(typeof renderManagerExtra==='function') renderManagerExtra(); }
 }
 
 // ── DARK MODE ────────────────────────────────────────────
@@ -6047,15 +6056,14 @@ function _buildEczaneDrawerRefresh(){
 
   </div><!-- /tab card -->
 
-  <!-- FAZ 6.9: Takım Öğrenmesi (TeamLearningEngine) — yönetici ekranı -->
-  <div class="card mb16" id="acc_team_learning_exec">
-    <div class="card-hd" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';if(!window._pvTeamLearningRendered){window._pvTeamLearningRendered=true;renderTeamLearningCard();}">
-      <span class="card-title">🏆 Takım Öğrenmesi & Peer Benchmark</span>
-      <span class="card-badge" style="margin-left:auto;background:#FEE2E2;color:#991B1B">Team Learning</span>
-    </div>
-    <div id="teamLearningCard" style="display:none;padding:12px 16px"></div>
-  </div>
-  <!-- END FAZ 6.9 Team Learning -->
+  <!-- FAZ 13.0 DÜZELTMESİ: "Takım Öğrenmesi & Peer Benchmark" kartı buradan
+       (AI Asistan / page5, her temsilcinin gördüğü sayfa) Yönetici Sekmesine
+       (page7) TAŞINDI — kart ekip-geneli peer benchmark içerdiği için sadece
+       bölge müdürünün görmesi gereken bir yönetici raporudur; kendi comment'i
+       zaten "yönetici ekranı" diyordu ama fiziksel olarak page5'teydi.
+       Rollback: bu yorumu silip aşağıdaki orijinal div bloğunu geri
+       yapıştırmak yeterli — renderTeamLearningCard() ve teamLearningCard id'si
+       değişmedi, sadece page7'de yeniden konumlandı. -->
 
   <!-- PHASE 5.7: Autonomous Planning Engine — AI Saha Komutanı
        AUDIT2 Bulgu 3 düzeltmesi: motor (js/ai/autonomous-planning-engine.js,
@@ -6331,13 +6339,115 @@ function _buildEczaneDrawerRefresh(){
       </div>
       <div>
         <div style="font-size:16px;font-weight:700;color:var(--txt,#111)">Yönetici Paneli</div>
-        <div style="font-size:11px;color:var(--dim,#6b7280)">Ekip performansı ve AI özeti</div>
+        <div style="font-size:11px;color:var(--dim,#6b7280)">Bölge Müdürü — Bölge Geneli Durum, Ekip Performansı, Temsilci Analizi</div>
       </div>
     </div>
+
+    <!-- ═══ 1) EKİP ÖZETİ (KPI kartları, İlk 5 sıralama, Yönetim Görüşleri) ═══ -->
     <div id="executiveDashboardContainer">
       <div style="padding:24px;text-align:center;color:var(--dim,#6b7280);font-size:12px">
         <div style="font-size:28px;margin-bottom:8px">📊</div>
         Yönetici paneli yükleniyor…
+      </div>
+    </div>
+
+    <!-- ═══ FAZ 13.0 — 2) BÖLGE GENELİ (ŞENOL YILMAZ) ═══
+         GENEL_TABLO'daki resmi "ŞENOL YILMAZ" (Bölge Toplamı) satırı +
+         AI Görev Motoruna doğrudan bağlantı (motor ÇOĞALTILMADI — AI Asistan
+         sayfasındaki gerçek motor, bölge seçili şekilde açılır). -->
+    <div class="card mb16" style="margin-top:16px;border:1.5px solid rgba(99,102,241,.25)">
+      <div class="card-hd">
+        <span class="card-title">🏢 Bölge Geneli — ŞENOL YILMAZ</span>
+        <span class="card-badge" style="font-size:9px">GENEL_TABLO Resmi Bölge Toplamı</span>
+      </div>
+      <div class="card-body">
+        <div id="mgrRegionKpi"></div>
+        <button onclick="openBolgeGeneliMotoru()" style="font-size:12px;font-weight:700;padding:9px 18px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+          🚀 Bölge Geneli AI Görev Motorunu Aç
+        </button>
+        <div style="font-size:9px;color:var(--dim);margin-top:6px">AI Asistan sayfasındaki görev motorunu, temsilci olarak "ŞENOL YILMAZ" (bölge geneli) seçili şekilde doğrudan açar.</div>
+      </div>
+    </div>
+
+    <!-- ═══ FAZ 13.0 — Kritik Aksiyon Listesi (ekleme/katkı) ═══ -->
+    <div class="card mb16">
+      <div class="card-hd"><span class="card-title">🚨 Ekip Genelinde Kritik Aksiyon Listesi</span><span class="card-badge" style="font-size:9px">Tüm Temsilciler — Yüksek Risk</span></div>
+      <div class="card-body" id="mgrCriticalActions"></div>
+    </div>
+
+    <!-- ═══ FAZ 13.0 — 1) Ekip Toplamı: IMS TL Kutu Hedef & Kalan ═══ -->
+    <div class="card mb16">
+      <div class="card-hd"><span class="card-title">IMS TL Kutu Hedef &amp; Kalan (Bölge Toplamı)</span><span class="card-badge" style="font-size:9px">Tüm Ekip — IMS TL Hesabına Göre Kutu Hesaplaması</span></div>
+      <div class="card-body-0 scroll-x">
+        <table class="tbl" id="mgrKutuTable" style="min-width:820px">
+          <thead><tr>
+            <th>Ürün</th><th>Hedef Kutu</th><th>Çıkan Kutu</th>
+            <th>Kalan %70</th><th>Kalan %91</th><th>Kalan %100</th>
+            <th>Hft. Ger. Kutu</th><th>Hft. Ger. TL</th><th>Kalan Hft. Ger. TL</th>
+          </tr></thead>
+          <tbody id="mgrKutuBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ FAZ 13.0 — 2) Tüm Ekip Performans Sıralaması ═══ -->
+    <div class="card mb16">
+      <div class="card-hd"><span class="card-title">Ekip Performans Sıralaması (Tümü)</span><span class="card-badge" style="font-size:9px">Skor = %30 Real + %25 Forecast + %20 Büyüme + %15 Pazar Payı + Risk</span></div>
+      <div class="card-body-0 scroll-x">
+        <table class="tbl" id="mgrRankingTable" style="min-width:760px">
+          <thead><tr>
+            <th>#</th><th>Temsilci</th><th>Real %</th><th>Forecast %</th>
+            <th>Büyüme</th><th>Pazar Payı</th><th>Skor</th><th>Kategori</th><th>Tahmini Prim</th>
+          </tr></thead>
+          <tbody id="mgrRankingBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- FAZ 13.0 DÜZELTMESİ: "Takım Öğrenmesi & Peer Benchmark" kartı buradan
+         (AI Asistan / page5, her temsilcinin gördüğü sayfa) Yönetici Sekmesine
+         (page7) TAŞINDI — kart ekip-geneli peer benchmark içerdiği için sadece
+         bölge müdürünün görmesi gereken bir yönetici raporudur; kendi comment'i
+         zaten "yönetici ekranı" diyordu ama fiziksel olarak page5'teydi.
+         Rollback: bu kartı silmek ve page5'teki eski konumuna geri koymak
+         yeterli — renderTeamLearningCard() ve teamLearningCard id'si değişmedi. -->
+    <div class="card mb16" id="acc_team_learning_exec">
+      <div class="card-hd" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';if(!window._pvTeamLearningRendered){window._pvTeamLearningRendered=true;renderTeamLearningCard();}">
+        <span class="card-title">🏆 Takım Öğrenmesi & Peer Benchmark</span>
+        <span class="card-badge" style="margin-left:auto;background:#FEE2E2;color:#991B1B">Team Learning</span>
+      </div>
+      <div id="teamLearningCard" style="display:none;padding:12px 16px"></div>
+    </div>
+
+    <!-- ═══ FAZ 13.0 — 3) Temsilci Brick Detayı + 4) AI Pazar Analizi ═══ -->
+    <div class="card mb16">
+      <div class="card-hd">
+        <span class="card-title">Temsilci Brick Detayı &amp; AI Pazar Analizi</span>
+        <span class="card-badge" style="font-size:9px">Bölge Müdürü Özeti</span>
+      </div>
+      <div class="card-body">
+        <div style="margin-bottom:12px">
+          <label style="font-size:10px;font-weight:700;color:var(--dim);display:block;margin-bottom:4px">Temsilci Seçin</label>
+          <select id="mgrTttSelect" onchange="onManagerTttChange()" style="width:100%;max-width:320px;font-size:12px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surf);color:var(--fg)">
+            <option value="">— Temsilci Seçin —</option>
+          </select>
+        </div>
+
+        <div class="scroll-x" style="margin-bottom:14px">
+          <table class="tbl" id="mgrBrickDetailTable" style="min-width:620px">
+            <thead><tr>
+              <th>Brick Sıra</th><th>Brick</th><th>Hedef TL</th><th>Satış TL</th><th>Kalan TL</th><th>Pazar Payı (PP%)</th>
+            </tr></thead>
+            <tbody id="mgrBrickDetailBody">
+              <tr><td colspan="6" style="text-align:center;color:var(--dim);padding:14px">Bir temsilci seçin.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="insight">
+          <div class="insight-title">🧭 AI Pazar Analizi — Bölge Müdürü Özeti</div>
+          <div class="insight-body" id="mgrAiAnalizBody">Bir temsilci seçin.</div>
+        </div>
       </div>
     </div>
 
