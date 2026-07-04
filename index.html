@@ -2182,6 +2182,25 @@ function doLogin(){
       || normTTT(user)
       || CANONICAL_TTTS.find(t => stripTR(t).toLowerCase() === stripTR(user).toLowerCase())
       || '';
+    // AUDIT6 — KÖK NEDEN BULUNDU VE DÜZELTİLDİ:
+    // `let LOGGED_IN_USER = ''` (yukarıda, dosya başında) İNLINE <script>
+    // içinde top-level `let` ile tanımlı. Tarayıcılarda top-level `let`/`const`
+    // değişkenleri (ES2015+) — `var`'ın aksine — `window` nesnesine ASLA
+    // property olarak eklenmez, sadece paylaşılan sözcüksel (lexical) global
+    // kapsamda bare isimle erişilebilir kalır. role-visibility.js ayrı bir
+    // <script src> dosyası ve BİLİNÇLİ OLARAK `window.LOGGED_IN_USER` okuyor
+    // (ReferenceError'dan kaçınmak için) — ama bu satır `let` yüzünden HER
+    // ZAMAN `undefined` dönüyordu, dolayısıyla getCurrentRole() giriş yapan
+    // kim olursa olsun DAİMA 'TEMSILCI' hesaplıyordu. Şenol Yılmaz girişinde
+    // "Bölge Müdürü" yazısı bir an için doğru görünüyordu (satır aşağıdaki
+    // _sr.textContent, bare LOGGED_IN_USER okuyor, doğru çalışıyor) ama HEMEN
+    // ARDINDAN applyRoleVisibility() çağrılıp window.LOGGED_IN_USER'ı (undefined)
+    // okuyunca "Uzman Tıbbi Tanıtım Temsilcisi" ile ÜZERİNE YAZIYORDU — ve
+    // aynı sebeple snav7/mtb7 (Yönetici sekmesi) hep gizli kalıyordu.
+    // Çözüm: LOGGED_IN_USER'ı `window` üzerine de açıkça yansıtmak — `let`
+    // bildirimi DEĞİŞTİRİLMEDİ (başka kodu etkileme riski almamak için),
+    // sadece window.LOGGED_IN_USER senkron tutuluyor.
+    window.LOGGED_IN_USER = LOGGED_IN_USER;
     console.log('[LOGIN] user:', user, '| key:', _userKey, '| LOGGED_IN_USER:', LOGGED_IN_USER);
     // Sidebar kullanıcı bilgisi + fotoğraf
     const _sn=document.getElementById('sidebarName');
