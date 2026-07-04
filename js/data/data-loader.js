@@ -474,6 +474,17 @@ async function syncData(forceFresh) {
     else if (curPage === 4) buildPrimInputs();
     else if (curPage === 5) renderAiAsistan();
     else if (curPage === 6) renderEczane();
+    // FAZ 13.1 DÜZELTMESİ: bu dispatch'te page7 (Yönetici) eksikti — Şenol
+    // Yılmaz girişinde artık varsayılan sayfa page7 olduğundan (bkz.
+    // index.html doLogin()), veri senkronize OLDUKTAN SONRA panel
+    // yenilenmiyordu (goPage(7) veri gelmeden önce çağrıldığı için ilk
+    // render'da "veri yüklenmemiş" görünüyordu ve syncData bitince asla
+    // güncellenmiyordu). Diğer sayfalar zaten burada yenileniyordu, page7
+    // unutulmuştu.
+    else if (curPage === 7) {
+      if (typeof renderExecutiveDashboard === 'function') renderExecutiveDashboard('executiveDashboardContainer');
+      if (typeof renderManagerExtra === 'function') renderManagerExtra();
+    }
 
     const now = new Date();
     statusEl.textContent = '✅ ' + now.toLocaleTimeString('tr-TR');

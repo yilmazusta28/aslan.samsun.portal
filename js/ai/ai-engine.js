@@ -35,7 +35,13 @@ function renderEngine() {
   // Temsilci bar oluştur
   const bar = document.getElementById('engineTttBar');
   if (!bar) return;
-  const allT = ['ŞENOL YILMAZ', ...ALL_TTTS];
+  // FAZ 13.1 — ŞENOL YILMAZ (Bölge Müdürü) artık kendi "Yönetici" sayfasından
+  // (page7 → "🚀 Bölge Geneli AI Görev Motorunu Aç") bu motoru bölge-geneli
+  // modda açıyor; bu yüzden AI & Görev Motoru sayfasındaki temsilci seçim
+  // çubuğunda SADECE saha temsilcileri listelenir. Not: openBolgeGeneliMotoru()
+  // hâlâ setAiTTT('ŞENOL YILMAZ') ile engineSelTTT'yi bölge geneline
+  // ayarlayabilir — bar'da buton görünmez ama motor normal çalışır.
+  const allT = ALL_TTTS;
   if (!engineSelTTT && ALL_TTTS.length) engineSelTTT = _autoSelTTT(ALL_TTTS[0]);
 
   bar.innerHTML = allT.map(t => {

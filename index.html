@@ -824,7 +824,9 @@ function renderAiAsistan() {
   if (typeof switchAiTab === 'function') switchAiTab('motor');
   renderEngine();
 
-  const aiAll = ['ŞENOL YILMAZ', ...allTTTs];
+  // FAZ 13.1 — bkz. ai-engine.js renderEngine(): ŞENOL YILMAZ artık bu
+  // listede görünmüyor (Yönetici sayfasına taşındı).
+  const aiAll = allTTTs;
   const _aiTttBarEl = document.getElementById('aiTttBar');
   if (_aiTttBarEl) {
     _aiTttBarEl.innerHTML = aiAll.map(t =>
@@ -2227,6 +2229,12 @@ function doLogin(){
     }
     // FAZ 12.3 — rol bazlı görünürlük (LOGGED_IN_USER artık set)
     if(typeof applyRoleVisibility === 'function') { applyRoleVisibility(); }
+    // FAZ 13.1 — ŞENOL YILMAZ (Bölge Müdürü) girişinde varsayılan sayfa
+    // "Genel Durum" (page0) DEĞİL, doğrudan "Yönetici" (page7) paneli
+    // açılır — bölge müdürünün ekip özetini/kritik aksiyonları anında
+    // görmesi için. Diğer tüm temsilciler için davranış DEĞİŞMEDİ
+    // (varsayılan page0 — HTML'de zaten "active" olan sayfa).
+    if(LOGGED_IN_USER==='ŞENOL YILMAZ' && typeof goPage==='function'){ goPage(7); }
     // initApp Blok-2'de tanımlı — DOM tamamen yüklendiği için güvenli çağır
     if(typeof initApp === 'function') { initApp(); }
     else { window._pendingLogin = true; }
@@ -2848,7 +2856,13 @@ function buildSideNav(){/* TTT picker is inside ana sayfa now */}
 //  TTT PICKER (inside Ana Sayfa)
 // ═══════════════════════════════════════════════════════════
 function buildTTTPicker(){
-  const allList=['ŞENOL YILMAZ',...ALL_TTTS];
+  // FAZ 13.1 — Yönetici (ŞENOL YILMAZ) artık kendi ayrı "Yönetici" sayfasına
+  // (page7) sahip; "Genel Durum" temsilci seçim kartlarında görünmesine
+  // gerek yok — burası artık SADECE saha temsilcilerini listeler.
+  // ALL_TTTS zaten Şenol Yılmaz'ı içermiyor (bkz. data-loader.js), bu
+  // yüzden ekstra filtreye gerek yok, sadece elle eklenen 'ŞENOL YILMAZ'
+  // öğesi listeden çıkarıldı.
+  const allList=ALL_TTTS;
   const grid=document.getElementById('tttPickerGrid');
   if(!grid)return;
 
@@ -2865,7 +2879,7 @@ function buildTTTPicker(){
     const photoUrl=getTTTPhoto(t);
     const avatarBg=isSenol
       ?'linear-gradient(135deg,#0E7490,#1BCED8)'
-      :`linear-gradient(135deg,${TTT_COLORS[Math.max(0,idx-1)%TTT_COLORS.length]},${TTT_COLORS[(Math.max(0,idx-1)+2)%TTT_COLORS.length]})`;
+      :`linear-gradient(135deg,${TTT_COLORS[idx%TTT_COLORS.length]},${TTT_COLORS[(idx+2)%TTT_COLORS.length]})`;
     const initials=t.split(' ').map(s=>s[0]).slice(0,2).join('');
     const shortName=isSenol?t:t.split(' ').slice(0,2).join(' ');
 
@@ -6333,8 +6347,10 @@ function _buildEczaneDrawerRefresh(){
 <!-- FAZ 8.2 — Yönetici Sekmesi (page 7) — executive-engine.js renderExecutiveDashboard() burayı doldurur -->
 <div class="page" id="page7">
   <div style="padding:16px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center">
+
+    <!-- ═══ FAZ 13.1 — YÖNETİCİ PANELİ BAŞLIĞI (yeniden tasarlandı) ═══ -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;flex-shrink:0">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
       </div>
       <div>
@@ -6343,19 +6359,40 @@ function _buildEczaneDrawerRefresh(){
       </div>
     </div>
 
+    <!-- FAZ 13.1 — Bölüm içi hızlı gezinme (uzun sayfada bölümler arası
+         atlama için). Sadece #ankor'a scroll yapar, hiçbir motor/veri
+         akışını etkilemez — saf navigasyon kolaylığı. -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;padding:8px;background:var(--surf,#fff);border:1px solid var(--border);border-radius:12px">
+      <a href="#mgr-sec-genel"      style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(99,102,241,.08);color:#6366f1;text-decoration:none;white-space:nowrap">📊 Genel Bakış</a>
+      <a href="#mgr-sec-kritik"     style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(220,38,38,.08);color:#DC2626;text-decoration:none;white-space:nowrap">🚨 Kritik Aksiyonlar</a>
+      <a href="#mgr-sec-performans" style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(5,150,105,.08);color:#059669;text-decoration:none;white-space:nowrap">🏆 Ekip Performansı</a>
+      <a href="#mgr-sec-temsilci"   style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(14,116,144,.08);color:#0E7490;text-decoration:none;white-space:nowrap">🔍 Temsilci Analizi</a>
+      <a href="#mgr-sec-saha"       style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(217,119,6,.08);color:#D97706;text-decoration:none;white-space:nowrap">📋 Saha Yönetimi</a>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         BÖLÜM 1 — GENEL BAKIŞ
+         (Ekip KPI özeti + Bölge Geneli resmi toplam + AI Motor bağlantısı)
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="mgr-sec-genel" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;scroll-margin-top:12px">
+      <span style="font-size:14px">📊</span>
+      <span style="font-size:12.5px;font-weight:800;color:var(--fg,#111);letter-spacing:.3px;text-transform:uppercase">Genel Bakış</span>
+      <span style="flex:1;height:1px;background:var(--border)"></span>
+    </div>
+
     <!-- ═══ 1) EKİP ÖZETİ (KPI kartları, İlk 5 sıralama, Yönetim Görüşleri) ═══ -->
-    <div id="executiveDashboardContainer">
+    <div id="executiveDashboardContainer" class="mb16">
       <div style="padding:24px;text-align:center;color:var(--dim,#6b7280);font-size:12px">
         <div style="font-size:28px;margin-bottom:8px">📊</div>
         Yönetici paneli yükleniyor…
       </div>
     </div>
 
-    <!-- ═══ FAZ 13.0 — 2) BÖLGE GENELİ (ŞENOL YILMAZ) ═══
+    <!-- ═══ FAZ 13.0 — BÖLGE GENELİ (ŞENOL YILMAZ) ═══
          GENEL_TABLO'daki resmi "ŞENOL YILMAZ" (Bölge Toplamı) satırı +
          AI Görev Motoruna doğrudan bağlantı (motor ÇOĞALTILMADI — AI Asistan
          sayfasındaki gerçek motor, bölge seçili şekilde açılır). -->
-    <div class="card mb16" style="margin-top:16px;border:1.5px solid rgba(99,102,241,.25)">
+    <div class="card mb16" style="border:1.5px solid rgba(99,102,241,.25)">
       <div class="card-hd">
         <span class="card-title">🏢 Bölge Geneli — ŞENOL YILMAZ</span>
         <span class="card-badge" style="font-size:9px">GENEL_TABLO Resmi Bölge Toplamı</span>
@@ -6365,14 +6402,33 @@ function _buildEczaneDrawerRefresh(){
         <button onclick="openBolgeGeneliMotoru()" style="font-size:12px;font-weight:700;padding:9px 18px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
           🚀 Bölge Geneli AI Görev Motorunu Aç
         </button>
-        <div style="font-size:9px;color:var(--dim);margin-top:6px">AI Asistan sayfasındaki görev motorunu, temsilci olarak "ŞENOL YILMAZ" (bölge geneli) seçili şekilde doğrudan açar.</div>
+        <div style="font-size:9px;color:var(--dim);margin-top:6px">AI Asistan sayfasındaki görev motorunu, temsilci olarak "ŞENOL YILMAZ" (bölge geneli) seçili şekilde doğrudan açar. Bu bağlantı, temsilci seçim listelerinden kaldırılan "ŞENOL YILMAZ" seçeneğinin yerini alır.</div>
       </div>
     </div>
 
+    <!-- ═══════════════════════════════════════════════════════════
+         BÖLÜM 2 — KRİTİK AKSİYONLAR
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="mgr-sec-kritik" style="display:flex;align-items:center;gap:8px;margin:24px 0 10px;scroll-margin-top:12px">
+      <span style="font-size:14px">🚨</span>
+      <span style="font-size:12.5px;font-weight:800;color:var(--fg,#111);letter-spacing:.3px;text-transform:uppercase">Kritik Aksiyonlar</span>
+      <span style="flex:1;height:1px;background:var(--border)"></span>
+    </div>
+
     <!-- ═══ FAZ 13.0 — Kritik Aksiyon Listesi (ekleme/katkı) ═══ -->
-    <div class="card mb16">
+    <div class="card mb16" style="border:1.5px solid rgba(220,38,38,.18)">
       <div class="card-hd"><span class="card-title">🚨 Ekip Genelinde Kritik Aksiyon Listesi</span><span class="card-badge" style="font-size:9px">Tüm Temsilciler — Yüksek Risk</span></div>
       <div class="card-body" id="mgrCriticalActions"></div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         BÖLÜM 3 — EKİP PERFORMANSI
+         (Kutu Hedef & Kalan · Tam Sıralama · Takım Öğrenmesi)
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="mgr-sec-performans" style="display:flex;align-items:center;gap:8px;margin:24px 0 10px;scroll-margin-top:12px">
+      <span style="font-size:14px">🏆</span>
+      <span style="font-size:12.5px;font-weight:800;color:var(--fg,#111);letter-spacing:.3px;text-transform:uppercase">Ekip Performansı</span>
+      <span style="flex:1;height:1px;background:var(--border)"></span>
     </div>
 
     <!-- ═══ FAZ 13.0 — 1) Ekip Toplamı: IMS TL Kutu Hedef & Kalan ═══ -->
@@ -6419,6 +6475,16 @@ function _buildEczaneDrawerRefresh(){
       <div id="teamLearningCard" style="display:none;padding:12px 16px"></div>
     </div>
 
+    <!-- ═══════════════════════════════════════════════════════════
+         BÖLÜM 4 — TEMSİLCİ ANALİZİ
+         (Brick bazlı detay + AI destekli pazar analizi özeti)
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="mgr-sec-temsilci" style="display:flex;align-items:center;gap:8px;margin:24px 0 10px;scroll-margin-top:12px">
+      <span style="font-size:14px">🔍</span>
+      <span style="font-size:12.5px;font-weight:800;color:var(--fg,#111);letter-spacing:.3px;text-transform:uppercase">Temsilci Analizi</span>
+      <span style="flex:1;height:1px;background:var(--border)"></span>
+    </div>
+
     <!-- ═══ FAZ 13.0 — 3) Temsilci Brick Detayı + 4) AI Pazar Analizi ═══ -->
     <div class="card mb16">
       <div class="card-hd">
@@ -6451,8 +6517,18 @@ function _buildEczaneDrawerRefresh(){
       </div>
     </div>
 
+    <!-- ═══════════════════════════════════════════════════════════
+         BÖLÜM 5 — SAHA YÖNETİMİ
+         (Saha gözlemleri manuel giriş + AI eğitim girdileri kısayolları)
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="mgr-sec-saha" style="display:flex;align-items:center;gap:8px;margin:24px 0 10px;scroll-margin-top:12px">
+      <span style="font-size:14px">📋</span>
+      <span style="font-size:12.5px;font-weight:800;color:var(--fg,#111);letter-spacing:.3px;text-transform:uppercase">Saha Yönetimi</span>
+      <span style="flex:1;height:1px;background:var(--border)"></span>
+    </div>
+
     <!-- ═══ FAZ 12.2 — Saha Gözlemleri Manuel Giriş ═══ -->
-    <div style="background:var(--surf);border:1.5px solid rgba(79,0,140,.15);border-radius:14px;padding:16px;margin-top:16px">
+    <div class="mb16" style="background:var(--surf);border:1.5px solid rgba(79,0,140,.15);border-radius:14px;padding:16px">
       <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:12px">📋 Saha Gözlemleri</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <div>
@@ -6482,7 +6558,7 @@ function _buildEczaneDrawerRefresh(){
     </div>
 
     <!-- ═══ FAZ 12.2 — AI Eğitim Girdileri Kısayolları ═══ -->
-    <div style="background:var(--surf);border:1px solid var(--border);border-radius:14px;padding:14px;margin-top:12px">
+    <div style="background:var(--surf);border:1px solid var(--border);border-radius:14px;padding:14px">
       <div style="font-size:12px;font-weight:700;color:var(--fg);margin-bottom:10px">🔗 AI Eğitim Girdileri Özeti</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button onclick="goPage(6)" style="font-size:11px;padding:6px 12px;border:1px solid rgba(79,0,140,.2);background:rgba(79,0,140,.06);color:var(--c1);border-radius:8px;cursor:pointer">☑ Ziyaret Planı (FAZ 9.2)</button>

@@ -384,10 +384,17 @@
   function _populateTttSelect(selectId) {
     var sel = document.getElementById(selectId);
     if (!sel) return;
-    if (sel.options.length) return; // zaten dolu
+    // BUG DÜZELTMESİ: select HTML'de zaten 1 placeholder option
+    // (<option value="">— Temsilci Seçin —</option>) içeriyordu, bu yüzden
+    // eski "if (sel.options.length) return" kontrolü HER ZAMAN true dönüyor
+    // ve gerçek temsilci listesi ASLA eklenmiyordu (seçim kutusu hep boş
+    // görünüyordu). Artık "gerçekten dolduruldu mu" bir data-flag ile
+    // kontrol ediliyor — placeholder'dan bağımsız, güvenli tekrar çalışma.
+    if (sel.dataset.populated === '1') return;
     var list = (typeof ALL_TTTS !== 'undefined') ? ALL_TTTS : [];
     sel.innerHTML = '<option value="">— Temsilci Seçin —</option>' +
       list.map(function (t) { return '<option value="' + t + '">' + t + '</option>'; }).join('');
+    sel.dataset.populated = '1';
   }
 
   function onManagerTttChange() {
