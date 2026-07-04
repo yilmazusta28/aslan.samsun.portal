@@ -1684,7 +1684,7 @@ function renderLaunchReadinessCard() {
 }
 
 // FAZ 6.8 — Takım Öğrenmesi Kartı (page5 yönetici)
-function renderTeamLearningCard() {
+function renderTeamLearningCard(forceTtt) {
   const el = document.getElementById('teamLearningCard');
   if (!el) return;
   el.style.display = 'block';
@@ -1727,15 +1727,29 @@ function renderTeamLearningCard() {
       </div>`;
     });
   }
-  const myTtt = typeof selTTT !== 'undefined' ? selTTT : null;
+  // BUG DÜZELTMESİ (FAZ 13.4): Bu kart artık Yönetici sayfasında (page7)
+  // yaşıyor ve bölge müdürü "Temsilci Brick Detayı" alanındaki
+  // mgrTttSelect ile İSTEDİĞİ temsilciyi inceleyebiliyor. Eski kod burada
+  // hâlâ "Genel Durum" sayfasının kendi seçim değişkeni olan global
+  // `selTTT`'yi okuyordu — bu Yönetici sayfasıyla İLGİSİZ bir değişken
+  // olduğu için "SİZİN İÇİN ÖNERİ" bölümü her zaman selTTT'nin o anki
+  // (genelde ilk açılışta sabitlenmiş) değerine göre donuk kalıyor,
+  // dolayısıyla hangi temsilci Yönetici sayfasında seçilirse seçilsin
+  // AYNI kişinin (örn. Aykut Dinler) önerisi görünüyordu. Artık öncelik:
+  // 1) fonksiyona açıkça geçilen forceTtt  2) mgrTttSelect'in o anki değeri
+  // 3) (Yönetici sayfası dışında çağrılırsa) Genel Durum'un selTTT'si.
+  const mgrSelEl = document.getElementById('mgrTttSelect');
+  const myTtt = forceTtt || (mgrSelEl && mgrSelEl.value) || (typeof selTTT !== 'undefined' ? selTTT : null);
   if (myTtt && pkg.recommendations[myTtt]) {
     const rec = pkg.recommendations[myTtt];
     html += `<div style="margin-top:14px;background:#EDE9FE;border-radius:10px;padding:12px 14px">
-      <div style="font-size:10px;font-weight:700;color:#6D28D9;margin-bottom:4px">SİZİN İÇİN ÖNERİ</div>
+      <div style="font-size:10px;font-weight:700;color:#6D28D9;margin-bottom:4px">SİZİN İÇİN ÖNERİ — ${myTtt}</div>
       <div style="font-size:12px;font-weight:700;color:var(--fg);margin-bottom:3px">${rec.focus}</div>
       <div style="font-size:11px;color:var(--dim);margin-bottom:6px">${rec.gap}</div>
       <div style="font-size:11px;color:#6D28D9">→ ${rec.action}</div>
     </div>`;
+  } else {
+    html += `<div style="margin-top:14px;font-size:11px;color:var(--dim);text-align:center;padding:10px">Kişiselleştirilmiş öneri için "Temsilci Brick Detayı" alanından bir temsilci seçin.</div>`;
   }
   el.innerHTML = html;
 }
@@ -6517,7 +6531,7 @@ function _buildEczaneDrawerRefresh(){
          Rollback: bu kartı silmek ve page5'teki eski konumuna geri koymak
          yeterli — renderTeamLearningCard() ve teamLearningCard id'si değişmedi. -->
     <div class="card mb16" id="acc_team_learning_exec">
-      <div class="card-hd" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';if(!window._pvTeamLearningRendered){window._pvTeamLearningRendered=true;renderTeamLearningCard();}">
+      <div class="card-hd" onclick="const p=this.nextElementSibling;const open=p.style.display==='none';p.style.display=open?'block':'none';if(open)renderTeamLearningCard();">
         <span class="card-title">🏆 Takım Öğrenmesi & Peer Benchmark</span>
         <span class="card-badge" style="margin-left:auto;background:#FEE2E2;color:#991B1B">Team Learning</span>
       </div>

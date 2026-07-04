@@ -537,6 +537,14 @@
     var ttt = sel ? sel.value : '';
     renderManagerBrickDetail(ttt, 'mgrBrickDetailBody');
     renderManagerAiAnaliz(ttt, 'mgrAiAnalizBody');
+    // FAZ 13.4 — "Takım Öğrenmesi & Peer Benchmark" kartı bu değere bağlı
+    // (bkz. index.html renderTeamLearningCard()). Kart o an açıksa (display
+    // !== 'none'), temsilci değişince "SİZİN İÇİN ÖNERİ" bölümü de canlı
+    // güncellensin; kart kapalıysa gereksiz çalıştırmayalım.
+    var tlc = document.getElementById('teamLearningCard');
+    if (tlc && tlc.style.display !== 'none' && typeof renderTeamLearningCard === 'function') {
+      renderTeamLearningCard(ttt);
+    }
   }
   window.onManagerTttChange = onManagerTttChange;
 
