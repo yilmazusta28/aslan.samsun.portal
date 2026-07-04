@@ -548,6 +548,63 @@
   }
   window.onManagerTttChange = onManagerTttChange;
 
+  // ── FAZ 13.5 — EKİP HAFTALIK ROTA PLANLARI (Bölge Müdürü Görünümü) ──────
+  // Her temsilcinin route-plan-input.js (FAZ 10.2) üzerinden KENDİSİNİN
+  // girdiği haftalık brick planını (Pzt-Cum) tek tabloda gösterir.
+  // Salt-okunur özet — kayıt/silme işlemleri temsilcinin kendi ekranında
+  // (Eczane sayfası > "Haftalık Rota Planım") kalır, burada DEĞİŞTİRİLMEZ.
+  function renderManagerTeamRoutePlans(containerId) {
+    var el = document.getElementById(containerId || 'mgrTeamRouteBody');
+    if (!el) return;
+    if (!window.RoutePlanInput || typeof window.RoutePlanInput.getWeekPlan !== 'function') {
+      el.innerHTML = '<div style="font-size:11px;color:var(--dim)">Rota planlama modülü (route-plan-input.js) yüklenemedi.</div>';
+      return;
+    }
+    var list = (typeof ALL_TTTS !== 'undefined') ? ALL_TTTS : [];
+    var DAYS = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'];
+    el.innerHTML = '<div style="font-size:11px;color:var(--dim)">Yükleniyor…</div>';
+
+    Promise.all(list.map(function (rep) {
+      return window.RoutePlanInput.getWeekPlan(rep).catch(function () { return []; });
+    })).then(function (allPlans) {
+      var html = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">';
+      html += '<thead><tr style="text-align:left;border-bottom:2px solid var(--border,#e5e7eb)">';
+      html += '<th style="padding:6px 8px;white-space:nowrap">Temsilci</th>';
+      DAYS.forEach(function (d) { html += '<th style="padding:6px 8px;white-space:nowrap">' + d + '</th>'; });
+      html += '</tr></thead><tbody>';
+
+      list.forEach(function (rep, i) {
+        var plans = allPlans[i] || [];
+        var byDay = {};
+        plans.forEach(function (p) { byDay[p.weekday] = p.bricks || []; });
+        var hasAny = Object.keys(byDay).some(function (k) { return (byDay[k] || []).length; });
+
+        html += '<tr style="border-bottom:1px solid var(--border,#f3f4f6)">';
+        html += '<td style="padding:6px 8px;font-weight:700;white-space:nowrap">' + rep + '</td>';
+        for (var d = 1; d <= 5; d++) {
+          var bricks = byDay[d] || [];
+          html += '<td style="padding:6px 8px;color:' + (bricks.length ? 'var(--fg,#111)' : 'var(--dim,#9ca3af)') + '">' +
+            (bricks.length ? bricks.join(', ') : '—') + '</td>';
+        }
+        html += '</tr>';
+        if (!hasAny) {
+          // Sessizce işaretle — ayrı bir satır değil, sadece stil ile belirtildi.
+        }
+      });
+      html += '</tbody></table></div>';
+
+      var girenSayisi = list.filter(function (rep, i) {
+        return (allPlans[i] || []).some(function (p) { return (p.bricks || []).length; });
+      }).length;
+      html += '<div style="font-size:10px;color:var(--dim);margin-top:8px">' +
+        girenSayisi + ' / ' + list.length + ' temsilci bu hafta için manuel plan girdi. Plan girmeyenler için AI\'nın otomatik önerdiği rota (Bugünkü Akıllı Rota kartı) esas alınır.</div>';
+
+      el.innerHTML = html;
+    }).catch(function (e) {
+      el.innerHTML = '<div style="font-size:11px;color:var(--dim)">Yüklenemedi: ' + e.message + '</div>';
+    });
+  }
+
   function renderManagerExtra() {
     try {
       renderManagerRegionKpi('mgrRegionKpi');
@@ -557,6 +614,7 @@
       renderManagerKutuAggregate('mgrKutuBody');
       renderTeamCriticalActions('mgrCriticalActions');
       renderManagerRankingFull('mgrRankingBody');
+      renderManagerTeamRoutePlans('mgrTeamRouteBody');
       _populateTttSelect('mgrTttSelect');
       var sel = document.getElementById('mgrTttSelect');
       var ttt = sel ? sel.value : '';
@@ -590,6 +648,7 @@
   window.renderManagerBrickDetail   = renderManagerBrickDetail;
   window.buildManagerBrickNarrative = buildManagerBrickNarrative;
   window.renderManagerAiAnaliz      = renderManagerAiAnaliz;
+  window.renderManagerTeamRoutePlans= renderManagerTeamRoutePlans;
   window.renderManagerExtra         = renderManagerExtra;
 
   console.debug('[manager-panel-engine] FAZ 13.0 yüklendi.');
