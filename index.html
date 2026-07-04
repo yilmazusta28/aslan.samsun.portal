@@ -6407,6 +6407,54 @@ function _buildEczaneDrawerRefresh(){
       </div>
     </div>
 
+    <!-- ═══ FAZ 13.3 — BÖLGE ÖZET ANALİZİ (iadeler dahil) ═══
+         "Genel Durum" sayfasında her temsilcinin gördüğü Özet Analizi
+         kutusunun bölge-geneli karşılığı. renderAnaInsight()/
+         buildCompetitionAlerts() ile AYNI mantık; ALL_TTTS'teki HERKESİN
+         iade (negatif haftalık kutu) uyarıları burada tek listede toplanır. -->
+    <div class="insight mb16">
+      <div class="insight-title">🏢 Bölge Özet Analizi</div>
+      <div class="insight-body" id="mgrBolgeOzetBody">Yükleniyor…</div>
+    </div>
+    <div id="mgrBolgeAlertBox" style="display:none" class="alert-box mb16">
+      <div class="alert-title">⚠️ Dikkat — Bölge Genelinde İade Uyarıları</div>
+      <div class="alert-body" id="mgrBolgeAlertBody"></div>
+    </div>
+
+    <!-- ═══ FAZ 13.3 — BÖLGE ÜRÜN BAZLI PERFORMANS ═══
+         renderTTTDetail()'deki "Ürün Bazlı Performans" tablosunun AYNISI,
+         ŞENOL YILMAZ (bölge resmi toplamı) satırları üzerinden. -->
+    <div class="card mb16">
+      <div class="card-hd"><span class="card-title">Bölge Ürün Bazlı Performans</span><span class="card-badge">TL Detay — Bölge Toplamı</span></div>
+      <div class="card-body-0 scroll-x">
+        <table class="tbl" style="min-width:640px">
+          <thead><tr><th>Ürün</th><th>Hedef TL</th><th>Satış TL</th><th>Kalan TL</th><th>TL %</th><th>Gerçekleşme</th><th>Prim Puan %</th></tr></thead>
+          <tbody id="mgrUrunBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ FAZ 13.3 — BÖLGE HAFTALIK TL SATIŞ TRENDİ ═══
+         renderTTTDetail()'deki tttHaftaTlChart ile AYNI mantık — ürün
+         bazında haftalık (1-9. hafta) TL çizgi grafiği, bölge toplamı. -->
+    <div class="card mb16">
+      <div class="card-hd"><span class="card-title">📈 Bölge Haftalık TL Satış Trendi</span><span class="card-badge">Ürün Bazlı — 9 Hafta</span></div>
+      <div class="card-body"><div class="ch-md"><canvas id="mgrHaftaTlChart"></canvas></div></div>
+    </div>
+
+    <!-- ═══ FAZ 13.3 — BÖLGE HAFTALIK TL DÖKÜMÜ ═══
+         "Satış Takibi" sayfasındaki weeklyTlBody tablosunun AYNISI, bölge
+         toplamı (ŞENOL YILMAZ) satırları üzerinden — haftalık TL kırılımı. -->
+    <div class="card mb16">
+      <div class="card-hd"><span class="card-title">Bölge Haftalık TL Dökümü</span><span class="card-badge">Ürün Bazlı — Bölge Toplamı</span></div>
+      <div class="card-body-0 scroll-x">
+        <table class="tbl" style="min-width:660px">
+          <thead><tr><th>Ürün</th><th>1.H</th><th>2.H</th><th>3.H</th><th>4.H</th><th>5.H</th><th>6.H</th><th>7.H</th><th>8.H</th><th>9.H</th><th>Ort.</th></tr></thead>
+          <tbody id="mgrHaftaTlDokumBody"></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- ═══════════════════════════════════════════════════════════
          BÖLÜM 2 — KRİTİK AKSİYONLAR
          ═══════════════════════════════════════════════════════════ -->

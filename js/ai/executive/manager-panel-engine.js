@@ -63,7 +63,132 @@
       '</div>';
   }
 
-  // ── BÖLGE GENELİ AI GÖREV MOTORU — mevcut motoru (ai-engine.js) doğrudan
+  // ── 0b) BÖLGE ÖZET ANALİZİ (iadeler dahil) ───────────────────────────
+  // "Genel Durum" sayfasındaki renderAnaInsight() + buildCompetitionAlerts()
+  // ile AYNI mantık — mevcut fonksiyonlar ÇOĞALTILMADI, doğrudan çağrılır
+  // (index.html'de global tanımlıdır). buildCompetitionAlerts('ŞENOL YILMAZ')
+  // zaten ALL_TTTS'teki HERKESİN iade (negatif haftalık kutu) uyarılarını
+  // toplar — bölge müdürü özetinde bu yüzden TÜM EKİBİN iadeleri görünür.
+  function renderManagerBolgeOzet(bodyId, alertBoxId, alertBodyId) {
+    var el = document.getElementById(bodyId || 'mgrBolgeOzetBody');
+    if (!el) return;
+    var ekip = (GENEL || []).filter(function (r) { return r.urun === 'GENEL TOPLAM' && r.ttt !== MANAGER_NAME; });
+    var sorted = ekip.slice().sort(function (a, b) { return (b.tl_pct || 0) - (a.tl_pct || 0); });
+    var best = sorted[0], worst = sorted[sorted.length - 1];
+    var avg = ekip.length ? ekip.reduce(function (s, r) { return s + (r.tl_pct || 0); }, 0) / ekip.length : 0;
+    var over70 = ekip.filter(function (r) { return (r.tl_pct || 0) >= 70; }).length;
+    var urunSatis = (URUN_ORDER || []).map(function (u) {
+      return { u: u, sum: (GENEL || []).filter(function (r) { return r.urun === u && r.ttt !== MANAGER_NAME; }).reduce(function (s, r) { return s + (r.satis_tl || 0); }, 0) };
+    }).sort(function (a, b) { return b.sum - a.sum; });
+    var gt = (GENEL || []).find(function (r) { return r.ttt === MANAGER_NAME && r.urun === 'GENEL TOPLAM'; }) || {};
+
+    el.innerHTML =
+      '🏢 <strong>Bölge Müdürü ' + MANAGER_NAME + '</strong> — Bölge toplam satış: <strong>' + fTL(gt.satis_tl) + '</strong> (' + fPct(gt.tl_pct) + ' hedef). TR Sırası: <strong>#' + (gt.tr_sira || '—') + '</strong>. ' +
+      'Ekip ort. gerçekleşme: <strong>' + avg.toFixed(1) + '%</strong>. <strong>' + over70 + '/' + ekip.length + '</strong> temsilci %70 üstünde. ' +
+      'Lider: <strong>' + (best ? best.ttt : '—') + '</strong> (' + fPct(best ? best.tl_pct : 0) + '). Gelişim gereken: <strong>' + (worst ? worst.ttt : '—') + '</strong> (' + fPct(worst ? worst.tl_pct : 0) + '). ' +
+      'Bölge en güçlü ürün: <strong>' + (urunSatis[0] ? urunSatis[0].u : '—') + '</strong> (' + fTL(urunSatis[0] ? urunSatis[0].sum : 0) + ').';
+
+    var alertBox = document.getElementById(alertBoxId || 'mgrBolgeAlertBox');
+    var alertBody = document.getElementById(alertBodyId || 'mgrBolgeAlertBody');
+    if (alertBox && alertBody) {
+      var alerts = (typeof buildCompetitionAlerts === 'function') ? buildCompetitionAlerts(MANAGER_NAME) : [];
+      if (alerts.length) {
+        alertBox.style.display = 'block';
+        alertBody.innerHTML = alerts.join('<br>');
+      } else {
+        alertBox.style.display = 'none';
+      }
+    }
+  }
+
+  // ── 0c) BÖLGE ÜRÜN BAZLI PERFORMANS ──────────────────────────────────
+  // renderTTTDetail()'deki tttUrunBody tablosuyla AYNI kolonlar, ama
+  // ttt==='ŞENOL YILMAZ' (bölge resmi toplamı) satırları üzerinden.
+  function buildManagerUrunPerformans() {
+    return (URUN_ORDER || [])
+      .map(function (u) { return (GENEL || []).find(function (r) { return r.ttt === MANAGER_NAME && r.urun === u; }); })
+      .filter(Boolean);
+  }
+
+  function renderManagerUrunPerformans(containerId) {
+    var body = document.getElementById(containerId || 'mgrUrunBody');
+    if (!body) return;
+    var rows = buildManagerUrunPerformans();
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--dim);padding:14px">Veri yok — CSV yüklenmemiş olabilir.</td></tr>';
+      return;
+    }
+    body.innerHTML = rows.map(function (r) {
+      var pct = Math.min(r.tl_pct || 0, 100);
+      var barColor = URUN_CLR[r.urun] || 'var(--c3)';
+      return '<tr>' +
+        '<td style="font-weight:700;color:' + (URUN_CLR[r.urun] || 'var(--c1)') + '">' + r.urun + '</td>' +
+        '<td class="mono">' + fTL(r.hedef_tl) + '</td>' +
+        '<td class="mono" style="font-weight:700">' + fTL(r.satis_tl) + '</td>' +
+        '<td class="mono ' + (r.kalan_tl < 0 ? 'negative' : 'positive') + '">' + fTL(r.kalan_tl) + '</td>' +
+        '<td><span class="bdg ' + pCls(r.tl_pct) + '">' + fPct(r.tl_pct) + '</span></td>' +
+        '<td><div class="prog" style="width:80px"><div class="prog-fill ' + barCls(r.tl_pct) + '" style="width:' + pct + '%;background:' + barColor + '"></div></div></td>' +
+        '<td class="mono">' + fPct(r.prim_pct) + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  // ── 0d) BÖLGE HAFTALIK TL SATIŞ TRENDİ (grafik) ──────────────────────
+  // renderTTTDetail()'deki tttHaftaTlChart ile AYNI mantık — her ürün için
+  // haftalık (h1..h9) TL çizgisi, ŞENOL YILMAZ (bölge) satırları üzerinden.
+  function renderManagerHaftaTlChart(canvasId) {
+    var rows = buildManagerUrunPerformans();
+    if (!rows.length || typeof mkChart !== 'function') return;
+    var wkeys = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'h7', 'h8', 'h9'];
+    mkChart(canvasId || 'mgrHaftaTlChart', 'line', {
+      labels: wkeys.map(function (_, i) { return (i + 1) + '.Hft'; }),
+      datasets: rows.map(function (r, i) {
+        var clr = URUN_CLR[r.urun] || TTT_COLORS[i % TTT_COLORS.length];
+        return {
+          label: r.urun,
+          data: wkeys.map(function (w) { return r[w] || 0; }),
+          borderColor: clr, backgroundColor: clr + '18',
+          tension: .4, fill: false, pointRadius: 4, borderWidth: 2.5
+        };
+      })
+    }, {
+      plugins: { title: { display: true, text: 'Bölge Geneli — Haftalık TL', color: '#4F008C', font: { size: 11, weight: 'bold' } } },
+      scales: { y: { ticks: { callback: function (v) { return fTL(v); } } } }
+    });
+  }
+
+  // ── 0e) BÖLGE HAFTALIK TL DÖKÜMÜ (tablo) ─────────────────────────────
+  // "Satış Takibi" sayfasındaki weeklyTlBody ile AYNI kolonlar/toplam satırı
+  // mantığı — ŞENOL YILMAZ (bölge) satırları üzerinden.
+  function renderManagerHaftaTlDokum(containerId) {
+    var body = document.getElementById(containerId || 'mgrHaftaTlDokumBody');
+    if (!body) return;
+    var wk = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'h7', 'h8', 'h9'];
+    var rows = (URUN_ORDER || [])
+      .map(function (u) { return (GENEL || []).find(function (r) { return r.ttt === MANAGER_NAME && r.urun === u; }); })
+      .filter(function (r) { return r && r.hedef_tl > 0; });
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--dim);padding:14px">Veri yok.</td></tr>';
+      return;
+    }
+    body.innerHTML = rows.map(function (r) {
+      var vals = wk.map(function (w) { return r[w] || 0; });
+      var nz = vals.filter(function (v) { return v > 0; });
+      var avg = nz.length ? nz.reduce(function (a, b) { return a + b; }, 0) / nz.length : 0;
+      return '<tr><td style="font-weight:700;color:' + (URUN_CLR[r.urun] || 'var(--c1)') + '">' + r.urun + '</td>' +
+        vals.map(function (v) { return '<td class="mono" style="' + (v > 0 ? '' : 'color:#A0AEC0') + '">' + (v > 0 ? fTL(v) : '—') + '</td>'; }).join('') +
+        '<td class="mono" style="color:var(--c2);font-weight:700">' + fTL(avg) + '</td></tr>';
+    }).join('');
+    var tots = wk.map(function (w) { return rows.reduce(function (s, r) { return s + (r[w] || 0); }, 0); });
+    var nzT = tots.filter(function (v) { return v > 0; });
+    var avgT = nzT.length ? nzT.reduce(function (a, b) { return a + b; }, 0) / nzT.length : 0;
+    body.innerHTML += '<tr class="toplam-row" style="border-top:2px solid var(--border);background:#F7F9FC">' +
+      '<td style="font-weight:700">TOPLAM</td>' +
+      tots.map(function (v) { return '<td class="mono" style="font-weight:600;color:var(--c2)">' + (v > 0 ? fTL(v) : '—') + '</td>'; }).join('') +
+      '<td class="mono" style="font-weight:700;color:var(--c1)">' + fTL(avgT) + '</td></tr>';
+  }
+
+
   // ŞENOL YILMAZ (bölge) seçili biçimde açar. Motor ÇOĞALTILMADI —
   // AI Asistan sayfasındaki GERÇEK motora bağlanılır (tek kaynak, tek doğruluk).
   function openBolgeGeneliMotoru() {
@@ -418,6 +543,9 @@
   function renderManagerExtra() {
     try {
       renderManagerRegionKpi('mgrRegionKpi');
+      renderManagerBolgeOzet('mgrBolgeOzetBody', 'mgrBolgeAlertBox', 'mgrBolgeAlertBody');
+      renderManagerUrunPerformans('mgrUrunBody');
+      renderManagerHaftaTlDokum('mgrHaftaTlDokumBody');
       renderManagerKutuAggregate('mgrKutuBody');
       renderTeamCriticalActions('mgrCriticalActions');
       renderManagerRankingFull('mgrRankingBody');
@@ -426,6 +554,13 @@
       var ttt = sel ? sel.value : '';
       renderManagerBrickDetail(ttt, 'mgrBrickDetailBody');
       renderManagerAiAnaliz(ttt, 'mgrAiAnalizBody');
+      // Grafik: canvas'ın DOM'a tam yerleşmesi için kısa bir gecikme
+      // (mevcut renderEkipCharts/renderTTTDetail'de kullanılan AYNI desen).
+      if (typeof _safeTimeout === 'function') {
+        _safeTimeout(function () { renderManagerHaftaTlChart('mgrHaftaTlChart'); }, 50);
+      } else {
+        renderManagerHaftaTlChart('mgrHaftaTlChart');
+      }
     } catch (e) {
       console.warn('[manager-panel-engine] renderManagerExtra hata:', e.message);
     }
@@ -433,6 +568,11 @@
 
   // ── EXPORT ────────────────────────────────────────────────
   window.renderManagerRegionKpi     = renderManagerRegionKpi;
+  window.renderManagerBolgeOzet     = renderManagerBolgeOzet;
+  window.buildManagerUrunPerformans = buildManagerUrunPerformans;
+  window.renderManagerUrunPerformans= renderManagerUrunPerformans;
+  window.renderManagerHaftaTlChart  = renderManagerHaftaTlChart;
+  window.renderManagerHaftaTlDokum  = renderManagerHaftaTlDokum;
   window.buildTeamCriticalActions   = buildTeamCriticalActions;
   window.renderTeamCriticalActions  = renderTeamCriticalActions;
   window.buildManagerKutuAggregate  = buildManagerKutuAggregate;
