@@ -33,10 +33,26 @@
 
   var MANAGER_USER = 'ŞENOL YILMAZ';
 
+  // AUDIT5 sertleştirmesi: karşılaştırma artık stripTR() (ASCII normalizasyon)
+  // ÜZERİNDEN yapılıyor — window.LOGGED_IN_USER normal şartlarda zaten
+  // normTTT() ile 'ŞENOL YILMAZ' olarak canonicalize ediliyor (bkz.
+  // index.html doLogin()), ama olası bir üst katman değişikliğinde
+  // ASCII varyant ('SENOL YILMAZ' vb.) sızarsa bile rol tespiti bozulmasın
+  // diye ekstra güvenlik katmanı. stripTR tanımı: js/data/data-normalizer.js.
+  function _stripTRLocal(s) {
+    return String(s || '')
+      .replace(/Ğ/g,'G').replace(/ğ/g,'g')
+      .replace(/Ü/g,'U').replace(/ü/g,'u')
+      .replace(/Ş/g,'S').replace(/ş/g,'s')
+      .replace(/İ/g,'I').replace(/ı/g,'i')
+      .replace(/Ö/g,'O').replace(/ö/g,'o')
+      .replace(/Ç/g,'C').replace(/ç/g,'c');
+  }
+
   function getCurrentRole() {
     var user = '';
-    try { user = (window.LOGGED_IN_USER || '').toUpperCase().trim(); } catch (_e) {}
-    return user === MANAGER_USER.toUpperCase() ? 'YONETICI' : 'TEMSILCI';
+    try { user = _stripTRLocal(window.LOGGED_IN_USER || '').toUpperCase().trim(); } catch (_e) {}
+    return user === _stripTRLocal(MANAGER_USER).toUpperCase() ? 'YONETICI' : 'TEMSILCI';
   }
 
   // Elements only Yönetici should see

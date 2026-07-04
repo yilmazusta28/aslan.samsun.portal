@@ -2160,7 +2160,18 @@ function doLogin(){
   const user=document.getElementById('loginUser').value.trim();
   const pass=document.getElementById('loginPass').value;
   const errEl=document.getElementById('loginErr');
-  const isUserOk=VALID_USERS.some(u=>u.toLowerCase()===user.toLowerCase());
+  // AUDIT5 sertleştirmesi: eskiden sadece VALID_USERS'ta TEK TEK yazılmış
+  // büyük/küçük harf varyantlarıyla birebir (.toLowerCase()) karşılaştırılıyordu.
+  // JS'in VARSAYILAN toLowerCase()/toUpperCase() metodu Türkçe locale
+  // KULLANMAZ — örn. büyük 'I' harfi 'toLowerCase()' ile Türkçe'deki gibi
+  // noktasız 'ı' değil, İngilizce noktalı 'i' olur ("YILMAZ" → "yilmaz",
+  // "yılmaz" DEĞİL). Bazı klavye/otomatik-düzeltme senaryolarında kullanıcı
+  // adı, VALID_USERS'taki 3 sabit varyanttan hiçbirine birebir uymayabilir.
+  // stripTR() ile Türkçe karakterleri ASCII'ye indirgeyip karşılaştırmak bu
+  // sınıftaki TÜM varyasyonlara (büyük/küçük harf + Türkçe/ASCII karışımı)
+  // karşı dayanıklı hale getiriyor — şifre kontrolü değişmedi, sadece
+  // kullanıcı adı eşleşmesi gevşetildi.
+  const isUserOk=VALID_USERS.some(u=>stripTR(u).toLowerCase()===stripTR(user).toLowerCase());
   if(isUserOk&&pass===VALID_PASS){
     document.getElementById('loginScreen').style.display='none';
     errEl.style.display='none';
