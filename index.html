@@ -3406,7 +3406,6 @@ function renderManagerHeroBanner() {
 
   const mgrName = 'ŞENOL YILMAZ';
   const sg = (typeof GENEL !== 'undefined' ? GENEL : []).find(r => r.ttt === mgrName && r.urun === 'GENEL TOPLAM') || {};
-  const ekipSayisi = (typeof ALL_TTTS !== 'undefined' ? ALL_TTTS : []).filter(t => t !== mgrName).length;
 
   const photoUrl = typeof getTTTPhoto === 'function' ? getTTTPhoto(mgrName) : null;
   const initials = mgrName.split(' ').map(s => s[0]).slice(0, 2).join('');
@@ -3420,6 +3419,11 @@ function renderManagerHeroBanner() {
   const kalanCol = kalanTL >= 0 ? '#34D399' : '#FCA5A5';
   const kalanTxt = kalanTL >= 0 ? fTL(kalanTL) + ' ✓' : '\u2212' + fTL(Math.abs(kalanTL));
 
+  // TR Sırası (bkz. renderTTTDetail() içindeki AYNI mantık — TR_SIRA_MAP)
+  const mgrTrSira = (typeof TR_SIRA_MAP !== 'undefined' ? TR_SIRA_MAP[mgrName] : 0) || 0;
+  const mgrTrCol  = mgrTrSira <= 30 ? '#34D399' : mgrTrSira <= 60 ? '#FCD34D' : '#F87171';
+  const mgrTrTag  = mgrTrSira ? (mgrTrSira <= 30 ? '🏆 İlk 30' : mgrTrSira <= 60 ? '🥈 İlk 60' : '📊 Sıralamada') : '—';
+
   el.innerHTML = `
     <div class="tsb-layout">
       <!-- Sol: Fotoğraf + isim -->
@@ -3428,8 +3432,8 @@ function renderManagerHeroBanner() {
           ${photoImg}
           <div class="tsb-initials" style="display:${photoUrl ? 'none' : 'flex'}">${initials}</div>
         </div>
-        <div class="tsb-name-block">
-          <div class="tsb-person-name">🏢 ${mgrName}</div>
+        <div class="tsb-name-block" style="max-width:110px">
+          <div class="tsb-person-name" style="white-space:nowrap">${mgrName}</div>
           <div class="tsb-role-lbl">Bölge Müdürü</div>
         </div>
       </div>
@@ -3457,15 +3461,16 @@ function renderManagerHeroBanner() {
             <div class="tsb-lbl">PPI %</div>
             <div class="tsb-val" style="color:${(sg.prim_pct || 0) >= 91 ? '#34D399' : (sg.prim_pct || 0) >= 70 ? '#FCD34D' : '#F87171'}">${fPct(sg.prim_pct || 0)}</div>
           </div>
-          <div class="tsb-cell">
-            <div class="tsb-lbl">Ekip</div>
-            <div class="tsb-val">${ekipSayisi} Temsilci</div>
-          </div>
         </div>
       </div>
 
-      <!-- Sağ: Bölge Geneli AI Görev Motoru (FAZ 13.4 — tek yer, tekrar yok) -->
-      <div class="tsb-rank-col">
+      <!-- Sağ: TR Sırası + Bölge Geneli AI Görev Motoru (FAZ 13.4 — tek yer, tekrar yok) -->
+      <div class="tsb-rank-col" style="flex-direction:column;gap:10px">
+        <div class="tsb-rank-badge">
+          <div class="tsb-rank-lbl">TR Sırası</div>
+          <div class="tsb-rank-num" style="color:${mgrTrCol}">#${mgrTrSira || '—'}</div>
+          <div class="tsb-rank-tag" style="color:${mgrTrCol}">${mgrTrTag}</div>
+        </div>
         <button onclick="openBolgeGeneliMotoru()" style="font-size:11px;font-weight:700;padding:9px 14px;background:rgba(255,255,255,.16);color:#fff;border:1.5px solid rgba(255,255,255,.3);border-radius:10px;cursor:pointer;display:inline-flex;flex-direction:column;align-items:center;gap:2px;white-space:nowrap">
           <span>🚀 Bölge Geneli</span>
           <span style="font-size:9px;opacity:.85;font-weight:600">AI Görev Motorunu Aç</span>
@@ -6510,25 +6515,17 @@ function _buildEczaneDrawerRefresh(){
          akışını etkilemez — saf navigasyon kolaylığı.
          FAZ 13.4: "📊 Genel Bakış" pill'i kaldırıldı (ilgili bölüm silindi). -->
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;padding:8px;background:var(--surf,#fff);border:1px solid var(--border);border-radius:12px">
-      <a href="#mgr-sec-kritik"     style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(220,38,38,.08);color:#DC2626;text-decoration:none;white-space:nowrap">🚨 Kritik Aksiyonlar</a>
       <a href="#mgr-sec-performans" style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(5,150,105,.08);color:#059669;text-decoration:none;white-space:nowrap">🏆 Ekip Performansı</a>
       <a href="#mgr-sec-temsilci"   style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(14,116,144,.08);color:#0E7490;text-decoration:none;white-space:nowrap">🔍 Temsilci Analizi</a>
       <a href="#mgr-sec-saha"       style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(217,119,6,.08);color:#D97706;text-decoration:none;white-space:nowrap">📋 Saha Yönetimi</a>
+      <a href="#mgr-sec-kritik"     style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(220,38,38,.08);color:#DC2626;text-decoration:none;white-space:nowrap">🚨 Kritik Aksiyonlar</a>
     </div>
 
-    <!-- ═══ FAZ 13.0 — BÖLGE GENELİ (ŞENOL YILMAZ) ═══
-         GENEL_TABLO'daki resmi "ŞENOL YILMAZ" (Bölge Toplamı) satırı.
-         FAZ 13.4: AI Görev Motoru butonu buradan mgrHeroBanner'a taşındı —
-         tekrarı önlemek için burada KALDIRILDI. -->
-    <div class="card mb16" style="border:1.5px solid rgba(99,102,241,.25)">
-      <div class="card-hd">
-        <span class="card-title">🏢 Bölge Geneli — ŞENOL YILMAZ</span>
-        <span class="card-badge" style="font-size:9px">GENEL_TABLO Resmi Bölge Toplamı</span>
-      </div>
-      <div class="card-body">
-        <div id="mgrRegionKpi"></div>
-      </div>
-    </div>
+    <!-- ═══ FAZ 13.0 — BÖLGE GENELİ (ŞENOL YILMAZ) KARTI KALDIRILDI ═══
+         Kullanıcı isteği: bu kart mgrHeroBanner ile aynı bilgiyi (hedef,
+         satış, kalan TL, TL %) tekrar ediyordu — kaldırıldı. mgrRegionKpi
+         id'si ve renderManagerRegionKpi() fonksiyonu rollback kolaylığı için
+         dosyada bırakıldı, ancak artık çağrılmıyor/render edilmiyor. -->
 
     <!-- ═══ FAZ 13.3 — BÖLGE ÖZET ANALİZİ (iadeler dahil) ═══
          "Genel Durum" sayfasında her temsilcinin gördüğü Özet Analizi
@@ -6579,22 +6576,8 @@ function _buildEczaneDrawerRefresh(){
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════
-         BÖLÜM 2 — KRİTİK AKSİYONLAR
-         ═══════════════════════════════════════════════════════════ -->
-    <div id="mgr-sec-kritik" style="display:flex;align-items:center;gap:8px;margin:24px 0 10px;scroll-margin-top:12px">
-      <span style="font-size:14px">🚨</span>
-      <span style="font-size:12.5px;font-weight:800;color:var(--fg,#111);letter-spacing:.3px;text-transform:uppercase">Kritik Aksiyonlar</span>
-      <span style="flex:1;height:1px;background:var(--border)"></span>
-    </div>
-
-    <!-- ═══ FAZ 13.0 — Kritik Aksiyon Listesi (ekleme/katkı) ═══ -->
-    <div class="card mb16" style="border:1.5px solid rgba(220,38,38,.18)">
-      <div class="card-hd"><span class="card-title">🚨 Ekip Genelinde Kritik Aksiyon Listesi</span><span class="card-badge" style="font-size:9px">Tüm Temsilciler — Yüksek Risk</span></div>
-      <div class="card-body" id="mgrCriticalActions"></div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════════════
-         BÖLÜM 3 — EKİP PERFORMANSI
+         BÖLÜM 2 — EKİP PERFORMANSI (KRİTİK AKSİYONLAR — kullanıcı isteğiyle
+         Saha Yönetimi bölümünden SONRAYA taşındı, en sona bkz.)
          (Kutu Hedef & Kalan · Tam Sıralama · Takım Öğrenmesi)
          ═══════════════════════════════════════════════════════════ -->
     <div id="mgr-sec-performans" style="display:flex;align-items:center;gap:8px;margin:24px 0 10px;scroll-margin-top:12px">
@@ -6648,7 +6631,7 @@ function _buildEczaneDrawerRefresh(){
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════
-         BÖLÜM 4 — TEMSİLCİ ANALİZİ
+         BÖLÜM 3 — TEMSİLCİ ANALİZİ
          (Brick bazlı detay + AI destekli pazar analizi özeti)
          ═══════════════════════════════════════════════════════════ -->
     <div id="mgr-sec-temsilci" style="display:flex;align-items:center;gap:8px;margin:24px 0 10px;scroll-margin-top:12px">
@@ -6690,7 +6673,7 @@ function _buildEczaneDrawerRefresh(){
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════
-         BÖLÜM 5 — SAHA YÖNETİMİ
+         BÖLÜM 4 — SAHA YÖNETİMİ
          (Saha gözlemleri manuel giriş + AI eğitim girdileri kısayolları)
          ═══════════════════════════════════════════════════════════ -->
     <div id="mgr-sec-saha" style="display:flex;align-items:center;gap:8px;margin:24px 0 10px;scroll-margin-top:12px">
@@ -6744,6 +6727,22 @@ function _buildEczaneDrawerRefresh(){
         <button onclick="goPage(6)" style="font-size:11px;padding:6px 12px;border:1px solid rgba(5,150,105,.2);background:rgba(5,150,105,.06);color:#059669;border-radius:8px;cursor:pointer">✓ Gün Sonu Geri Bildirimi (FAZ 11.2)</button>
       </div>
       <div style="font-size:10px;color:var(--dim);margin-top:8px">Eczane sayfasında her eczane satırında ☑ checkbox (ziyaret planı) ve öneri kartlarında manuel feedback butonları mevcuttur.</div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         BÖLÜM 5 — KRİTİK AKSİYONLAR
+         (Kullanıcı isteğiyle Saha Yönetimi bölümünden SONRAYA taşındı.)
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="mgr-sec-kritik" style="display:flex;align-items:center;gap:8px;margin:24px 0 10px;scroll-margin-top:12px">
+      <span style="font-size:14px">🚨</span>
+      <span style="font-size:12.5px;font-weight:800;color:var(--fg,#111);letter-spacing:.3px;text-transform:uppercase">Kritik Aksiyonlar</span>
+      <span style="flex:1;height:1px;background:var(--border)"></span>
+    </div>
+
+    <!-- ═══ FAZ 13.0 — Kritik Aksiyon Listesi (ekleme/katkı) ═══ -->
+    <div class="card mb16" style="border:1.5px solid rgba(220,38,38,.18)">
+      <div class="card-hd"><span class="card-title">🚨 Ekip Genelinde Kritik Aksiyon Listesi</span><span class="card-badge" style="font-size:9px">Tüm Temsilciler — Yüksek Risk</span></div>
+      <div class="card-body" id="mgrCriticalActions"></div>
     </div>
   </div>
 </div>

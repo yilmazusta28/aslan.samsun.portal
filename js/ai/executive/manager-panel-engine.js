@@ -607,7 +607,9 @@
 
   function renderManagerExtra() {
     try {
-      renderManagerRegionKpi('mgrRegionKpi');
+      // FAZ 13.4-DÜZELTME: renderManagerRegionKpi() artık çağrılmıyor —
+      // "Bölge Geneli — ŞENOL YILMAZ" kartı kaldırıldı (mgrHeroBanner ile
+      // aynı bilgiyi tekrar ediyordu). Fonksiyon rollback için dosyada durur.
       renderManagerBolgeOzet('mgrBolgeOzetBody', 'mgrBolgeAlertBox', 'mgrBolgeAlertBody');
       renderManagerUrunPerformans('mgrUrunBody');
       renderManagerHaftaTlDokum('mgrHaftaTlDokumBody');
