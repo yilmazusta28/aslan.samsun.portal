@@ -1518,6 +1518,9 @@ async function _loadFaz121SidecarData(ttt) {
 }
 
 // ── Eczane Sayfası Accordion Toggle ──────────────────────────
+// NOT (FAZ 13.x): Bu fonksiyon artık HTML'de hiçbir yerden çağrılmıyor
+// (accordion'lar sekmelere dönüştürüldü, bkz. goEczaneSubTab()) — geriye
+// dönük uyumluluk / rollback kolaylığı için silinmedi.
 function toggleEczaneAcc(id) {
   const body   = document.getElementById('acc_' + id + '_body');
   const icon   = document.getElementById('acc_' + id + '_icon');
@@ -1527,6 +1530,105 @@ function toggleEczaneAcc(id) {
   body.style.display = isOpen ? 'none' : 'block';
   if (icon) icon.classList.toggle('open', !isOpen);
   if (hd)   hd.classList.toggle('open',  !isOpen);
+  if (typeof SoundFX !== 'undefined') SoundFX.click();
+}
+
+// ── FAZ 13.x — Eczane Sayfası Alt Sekmeleri ──────────────────────────
+// Kullanıcı isteği: "Eczane Satış sayfasında çok fazla veri var" — eskiden
+// art arda dizili 8 accordion + her zaman açık tablo tek uzun sayfaydı,
+// şimdi 10 ayrı alt sayfaya (tab) bölündü. Her panelin render/veri mantığı
+// AYNEN korunuyor (window._pvXRendered bayrakları, acc_X_badge id'leri,
+// renderEczaneContent()'teki filtre-değişince-yenile blokları); burada
+// sadece "hangi panel görünür" ve "ilk açılışta bir kez render et" mantığı
+// var — eskiden accordion'un onclick'inde duran kod buraya taşındı.
+const ECZ_SUBTABS = [
+  'detay', 'urun_analiz', 'route_plan_input', 'todayroute',
+  'satis_sartlari', 'haber_takibi', 'ai_perf', 'ai_decision',
+  'market_share', 'launch_readiness'
+];
+let _eczActiveSubTab = 0;
+
+function goEczaneSubTab(idx) {
+  idx = Math.max(0, Math.min(ECZ_SUBTABS.length - 1, idx | 0));
+  _eczActiveSubTab = idx;
+
+  ECZ_SUBTABS.forEach(function (key, i) {
+    const panel = document.getElementById('eczsub_' + key);
+    if (panel) panel.style.display = (i === idx) ? 'block' : 'none';
+  });
+
+  document.querySelectorAll('.eczsub-tab').forEach(function (btn, i) {
+    btn.classList.toggle('active', i === idx);
+  });
+  const sel = document.getElementById('eczSubSelect');
+  if (sel) sel.value = String(idx);
+
+  // İlk açılışta bir kez render et (eskiden accordion onclick'indeydi)
+  try {
+    switch (ECZ_SUBTABS[idx]) {
+      case 'urun_analiz':
+        if (!window._pvUrunAnalizRendered) {
+          window._pvUrunAnalizRendered = true;
+          const _ttt = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
+          if (typeof renderEczaneUrunAnalizKarti === 'function') renderEczaneUrunAnalizKarti('eczaneUrunAnalizKarti', _ttt);
+        }
+        break;
+      case 'route_plan_input':
+        if (typeof window.RoutePlanInput === 'object') {
+          const _rpTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
+          window.RoutePlanInput.renderRoutePlanForm('routePlanFormContainer', { representative: _rpTTT });
+        }
+        break;
+      case 'todayroute':
+        // renderEczaneContent() zaten her filtre değişiminde bunu dolduruyor;
+        // ilk açılış garantisi için burada da bir kez tetikleriz.
+        if (typeof renderTodayRouteCard === 'function' && window._ROUTE_OPTIMIZER_READY) {
+          const _roTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
+          renderTodayRouteCard('todayRouteCard', _roTTT);
+          renderWeeklyRouteCard('weeklyRouteCard', _roTTT);
+        }
+        break;
+      case 'satis_sartlari':
+        if (!window._pvSartlariRendered) {
+          window._pvSartlariRendered = true;
+          if (typeof renderSatisKosullariPanel === 'function') renderSatisKosullariPanel('satisKosullariPanel');
+        }
+        break;
+      case 'haber_takibi':
+        if (!window._pvHaberRendered) {
+          window._pvHaberRendered = true;
+          if (typeof renderHaberTakibiPanel === 'function') renderHaberTakibiPanel('haberTakibiPanel');
+        }
+        break;
+      case 'ai_perf':
+        if (!window._pvAiPerfRendered) {
+          window._pvAiPerfRendered = true;
+          if (window.LearningEngine) LearningEngine.renderAIPerformanceDashboard('aiPerfDashboard');
+        }
+        break;
+      case 'ai_decision':
+        if (!window._pvDecisionRendered) {
+          window._pvDecisionRendered = true;
+          if (typeof renderAIDecisionCard === 'function') renderAIDecisionCard();
+        }
+        break;
+      case 'market_share':
+        if (!window._pvMarketShareRendered) {
+          window._pvMarketShareRendered = true;
+          if (typeof renderMarketShareCard === 'function') renderMarketShareCard();
+        }
+        break;
+      case 'launch_readiness':
+        if (!window._pvLaunchRendered) {
+          window._pvLaunchRendered = true;
+          if (typeof renderLaunchReadinessCard === 'function') renderLaunchReadinessCard();
+        }
+        break;
+    }
+  } catch (_e) {
+    console.warn('[EczaneSubTab] lazy-render hata (sessiz):', _e.message);
+  }
+
   if (typeof SoundFX !== 'undefined') SoundFX.click();
 }
 
@@ -6068,174 +6170,214 @@ function _buildEczaneDrawerRefresh(){
   <!-- Özet kartları -->
   <div id="eczaneSummaryCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:16px"></div>
 
-  <!-- PHASE 4.7: Açılır/Kapanır AI Bölümleri -->
-
-  <!-- FAZ — Top-30 Kaldırma (kullanıcı kararı, AUDIT2 Bulgu 1 çözümü):
-       Burada eskiden İKİ ayrı, neredeyse birebir aynı Top-30 accordion kartı
-       vardı ("🏆 İlk 30 Ziyaret Önceliği" → pharmacyIntelligenceCard, ve
-       "📦 Bu Hafta Siparişe En Yakın 30 Eczane" → reorderClassifierCard).
-       SON-MASTER'ın "Top 30 tamamen kaldırılmış olmalıdır" kabul kriterine
-       göre İKİSİ DE kaldırıldı (kullanıcı onayı: "İkisini de kaldır").
-       Kaldırılan: iki <div class="eczane-accordion"> bloğu + index.html'deki
-       PHASE 4.5 / PHASE 4.6.1 render try/catch blokları (aşağıda, satır
-       ~1378 civarı).
-       DOKUNULMADI: pharmacy-intelligence.js'teki buildTop30Pharmacies() —
-       bu fonksiyon autonomous-planning-engine.js tarafından hâlâ VERİ
-       kaynağı olarak kullanılıyor, sadece UI render'ı kaldırıldı.
-       Rollback: bu yorumun altına iki accordion div'ini geri ekleyip
-       PHASE 4.5/4.6.1 render bloklarını geri koymak yeterli. -->
-
-  <!-- PHASE 4.7 Accordion: Satış Şartları Yönetimi -->
-  <div class="eczane-accordion mb16" id="acc_satis_sartlari">
-    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('satis_sartlari');if(!window._pvSartlariRendered){window._pvSartlariRendered=true;if(typeof renderSatisKosullariPanel==='function')renderSatisKosullariPanel('satisKosullariPanel');}">
-      <span class="eczane-acc-icon" id="acc_satis_sartlari_icon">▶</span>
-      <span class="card-title" style="margin:0">⚙️ Satış Şartları Yönetimi</span>
-      <span class="card-badge" id="acc_satis_sartlari_badge" style="margin-left:auto">MF & Kampanya</span>
-    </div>
-    <div class="eczane-acc-body" id="acc_satis_sartlari_body" style="display:none">
-      <div id="satisKosullariPanel"></div>
-    </div>
+  <!-- FAZ 13.x: Eczane Sayfası Alt Sekmeleri (sub-tabs)
+       Eskiden bu sayfada 8 accordion art arda dizili duruyordu + her zaman
+       açık "Eczane Detay Listesi" tablosu. Kullanıcı isteğiyle (çok fazla
+       veri tek sayfada) hepsi 10 ayrı alt sayfaya (tab) bölündü. Masaüstünde
+       yatay sekme çubuğu (.eczsub-bar), mobilde (≤768px, bkz. css/style.css
+       @media(max-width:768px)) açılır seçici (#eczSubSelect) gösterilir —
+       ikisi de goEczaneSubTab(idx)'i çağırır (index.html: goEczaneSubTab).
+       Her panelin İÇ İÇERİĞİ (id'ler: satisKosullariPanel, haberTakibiPanel,
+       aiPerfDashboard, eczaneUrunAnalizKarti, todayRouteCard/weeklyRouteCard,
+       routePlanFormContainer, aiDecisionCard, marketShareCard,
+       launchReadinessCard, eczaneTable/eczaneBrickChart/eczaneUrunChart)
+       DEĞİŞMEDİ — render fonksiyonları ve renderEczaneContent()'teki
+       filtre-değişince-yenile mantığı (window._pvXRendered bayrakları,
+       acc_X_badge id'leri) AYNEN korunuyor, sadece "accordion aç/kapa"
+       yerine "sekme değiştir" ile tetikleniyor (bkz. goEczaneSubTab()).
+       Rollback: bu bloğu silip PATCH_GUIDE.md / git geçmişinden önceki
+       accordion sürümünü geri yapıştırmak yeterli; hiçbir render
+       fonksiyonu veya veri motoru değişmedi. -->
+  <div class="eczsub-bar" role="tablist">
+    <button type="button" class="eczsub-tab active" onclick="goEczaneSubTab(0)">📋 Eczane Detay Listesi</button>
+    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(1)">📦 Ürün Sipariş Analizi</button>
+    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(2)">📝 Haftalık Rota Planım</button>
+    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(3)">🗺️ Bugünkü Akıllı Rota</button>
+    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(4)">⚙️ Satış Şartları Yönetimi</button>
+    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(5)">📰 Piyasa Haberleri</button>
+    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(6)">🧠 AI Tahmin Performansı</button>
+    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(7)">🎯 AI Karar Önerisi</button>
+    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(8)">📊 Pazar Payı Analizi</button>
+    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(9)">🚀 Lansman Hazırlık</button>
+  </div>
+  <div class="eczsub-select-wrap">
+    <select class="eczsub-select" id="eczSubSelect" onchange="goEczaneSubTab(parseInt(this.value,10))">
+      <option value="0">📋 Eczane Detay Listesi</option>
+      <option value="1">📦 Eczane Ürün Sipariş Analizi</option>
+      <option value="2">📝 Haftalık Rota Planım (Manuel)</option>
+      <option value="3">🗺️ Bugünkü Akıllı Rota</option>
+      <option value="4">⚙️ Satış Şartları Yönetimi</option>
+      <option value="5">📰 Piyasa Haberleri ve Özel Durumlar</option>
+      <option value="6">🧠 AI Tahmin Performansı</option>
+      <option value="7">🎯 AI Karar Önerisi</option>
+      <option value="8">📊 Pazar Payı Analizi</option>
+      <option value="9">🚀 Lansman Hazırlık</option>
+    </select>
   </div>
 
-  <!-- PHASE 4.7 Accordion: Piyasa Haberleri -->
-  <div class="eczane-accordion mb16" id="acc_haber_takibi">
-    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('haber_takibi');if(!window._pvHaberRendered){window._pvHaberRendered=true;if(typeof renderHaberTakibiPanel==='function')renderHaberTakibiPanel('haberTakibiPanel');}">
-      <span class="eczane-acc-icon" id="acc_haber_takibi_icon">▶</span>
-      <span class="card-title" style="margin:0">📰 Piyasa Haberleri & Özel Durumlar</span>
-      <span class="card-badge" id="acc_haber_takibi_badge" style="margin-left:auto">Fiyat / Kampanya</span>
-    </div>
-    <div class="eczane-acc-body" id="acc_haber_takibi_body" style="display:none">
-      <div id="haberTakibiPanel"></div>
-    </div>
-  </div>
+  <!-- ═══ 1. Eczane Detay Listesi ═══ -->
+  <div class="eczsub-panel" id="eczsub_detay">
+    <!-- FAZ 7.0 — Stok Risk Banner (dolduğunda görünür) -->
+    <div id="stokRiskBanner" style="display:none;margin-bottom:10px"></div>
 
-  <!-- PHASE 5.4 Accordion: AI Tahmin Performansı -->
-  <div class="eczane-accordion mb16" id="acc_ai_perf">
-    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('ai_perf');if(!window._pvAiPerfRendered){window._pvAiPerfRendered=true;if(window.LearningEngine)LearningEngine.renderAIPerformanceDashboard('aiPerfDashboard');}">
-      <span class="eczane-acc-icon" id="acc_ai_perf_icon">▶</span>
-      <span>🧠 AI Tahmin Performansı</span>
-      <span id="acc_ai_perf_badge" class="card-badge" style="margin-left:auto;background:#F3E8FF;color:#7C3AED;font-size:9px">Bekleniyor</span>
+    <!-- Eczane tablosu -->
+    <div class="card mb16">
+      <div class="card-hd">
+        <span class="card-title">📋 Eczane Detay Listesi</span>
+        <span class="card-badge" id="eczaneTblBadge">—</span>
+        <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+          <input type="text" id="eczaneSearch" class="inp" placeholder="🔍 Eczane ara..." 
+            style="padding:5px 10px;font-size:11px;width:160px" oninput="filterEczaneTable()">
+        </div>
+      </div>
+      <div class="card-body-0 scroll-x">
+        <table class="tbl" id="eczaneTable" style="min-width:700px">
+          <thead>
+            <tr id="eczaneThead">
+              <th onclick="sortEczane('ad')" style="cursor:pointer">Eczane ▾</th>
+              <th onclick="sortEczane('brick')" style="cursor:pointer">Brick ▾</th>
+              <th onclick="sortEczane('ocak')" style="cursor:pointer">Oca ▾</th>
+              <th onclick="sortEczane('subat')" style="cursor:pointer">Şub ▾</th>
+              <th onclick="sortEczane('toplam')" style="cursor:pointer">Toplam ▾</th>
+              <th onclick="sortEczane('tutar')" style="cursor:pointer">Tutar ▾</th>
+              <th>Ürünler</th>
+            </tr>
+          </thead>
+          <tbody id="eczaneTbody"></tbody>
+        </table>
+      </div>
+      <!-- Sayfalama — 20 eczane/sayfa, tıklanınca goToEczanePage() çağrılır -->
+      <div id="eczanePagination" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;justify-content:center;padding:12px 10px;border-top:1px solid var(--border)"></div>
     </div>
-    <div id="acc_ai_perf_body" class="eczane-acc-body" style="display:none">
-      <div id="aiPerfDashboard"></div>
-    </div>
-  </div>
 
-  <!-- PHASE 4.7 Accordion: Eczane × Ürün Sipariş Analizi -->
-  <div class="eczane-accordion mb16" id="acc_ecz_urun_analiz">
-    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('ecz_urun_analiz');if(!window._pvUrunAnalizRendered){window._pvUrunAnalizRendered=true;const _ttt=(typeof selEczaneTTT!=='undefined'&&selEczaneTTT!=='TÜMÜ')?selEczaneTTT:null;if(typeof renderEczaneUrunAnalizKarti==='function')renderEczaneUrunAnalizKarti('eczaneUrunAnalizKarti',_ttt);}">
-      <span class="eczane-acc-icon" id="acc_ecz_urun_analiz_icon">▶</span>
-      <span class="card-title" style="margin:0">📦 Eczane × Ürün Sipariş Analizi</span>
-      <span class="card-badge" id="acc_ecz_urun_analiz_badge" style="margin-left:auto">Şarta Uygun Öneri</span>
-    </div>
-    <div class="eczane-acc-body" id="acc_ecz_urun_analiz_body" style="display:none">
-      <div id="eczaneUrunAnalizKarti"></div>
-    </div>
-  </div>
-  <!-- END PHASE 4.7 -->
-  <div class="eczane-accordion mb16" id="acc_todayroute">
-    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('todayroute')">
-      <span class="eczane-acc-icon" id="acc_todayroute_icon">▶</span>
-      <span class="card-title" style="margin:0">🗺️ Bugünkü Akıllı Rota</span>
-      <span class="card-badge" id="acc_todayroute_badge" style="margin-left:auto">Rota Planı</span>
-    </div>
-    <div class="eczane-acc-body" id="acc_todayroute_body" style="display:none">
-      <div id="todayRouteCard"></div>
-      <div id="weeklyRouteCard"></div>
-    </div>
-  </div>
-
-  <!-- FAZ 10.2: Haftalık Rota Planı (Manuel Giriş) — temsilci kendi brick planını girer -->
-  <div class="eczane-accordion mb16" id="acc_route_plan_input">
-    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('route_plan_input');if(typeof window.RoutePlanInput==='object'){const _rpTTT=(typeof selEczaneTTT!=='undefined'&&selEczaneTTT!=='TÜMÜ')?selEczaneTTT:null;window.RoutePlanInput.renderRoutePlanForm('routePlanFormContainer',{representative:_rpTTT});}">
-      <span class="eczane-acc-icon" id="acc_route_plan_input_icon">▶</span>
-      <span class="card-title" style="margin:0">📝 Haftalık Rota Planım (Manuel)</span>
-      <span class="card-badge" id="acc_route_plan_input_badge" style="margin-left:auto">Kendi Planım</span>
-    </div>
-    <div class="eczane-acc-body" id="acc_route_plan_input_body" style="display:none">
-      <div id="routePlanFormContainer"></div>
-    </div>
-  </div>
-
-  <!-- FAZ 6.9: AI Karar Önerisi (DecisionEngine) -->
-  <div class="eczane-accordion mb16" id="acc_ai_decision">
-    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('ai_decision');if(!window._pvDecisionRendered){window._pvDecisionRendered=true;renderAIDecisionCard();}">
-      <span class="eczane-acc-icon" id="acc_ai_decision_icon">▶</span>
-      <span class="card-title" style="margin:0">🎯 AI Karar Önerisi</span>
-      <span class="card-badge" id="acc_ai_decision_badge" style="margin-left:auto;background:#EDE9FE;color:#6D28D9">AI Öneri</span>
-    </div>
-    <div class="eczane-acc-body" id="acc_ai_decision_body" style="display:none">
-      <div id="aiDecisionCard"></div>
-    </div>
-  </div>
-
-  <!-- FAZ 6.9: Pazar Payı Analizi (MarketShareEngine) -->
-  <div class="eczane-accordion mb16" id="acc_market_share">
-    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('market_share');if(!window._pvMarketShareRendered){window._pvMarketShareRendered=true;renderMarketShareCard();}">
-      <span class="eczane-acc-icon" id="acc_market_share_icon">▶</span>
-      <span class="card-title" style="margin:0">📊 Pazar Payı Analizi</span>
-      <span class="card-badge" id="acc_market_share_badge" style="margin-left:auto;background:#ECFDF5;color:#065F46">Market Share</span>
-    </div>
-    <div class="eczane-acc-body" id="acc_market_share_body" style="display:none">
-      <div id="marketShareCard"></div>
-    </div>
-  </div>
-
-  <!-- FAZ 6.9: Lansman Hazırlık (LaunchReadinessEngine) -->
-  <div class="eczane-accordion mb16" id="acc_launch_readiness">
-    <div class="eczane-acc-hd" onclick="toggleEczaneAcc('launch_readiness');if(!window._pvLaunchRendered){window._pvLaunchRendered=true;renderLaunchReadinessCard();}">
-      <span class="eczane-acc-icon" id="acc_launch_readiness_icon">▶</span>
-      <span class="card-title" style="margin:0">🚀 Lansman Hazırlık</span>
-      <span class="card-badge" id="acc_launch_readiness_badge" style="margin-left:auto;background:#FEF3C7;color:#92400E">Lansman Öncesi</span>
-    </div>
-    <div class="eczane-acc-body" id="acc_launch_readiness_body" style="display:none">
-      <div id="launchReadinessCard"></div>
-    </div>
-  </div>
-  <!-- END FAZ 6.9 Eczane AI Kartları -->
-
-  <!-- FAZ 7.0 — Stok Risk Banner (dolduğunda görünür) -->
-  <div id="stokRiskBanner" style="display:none;margin-bottom:10px"></div>
-
-  <!-- Eczane tablosu -->
-  <div class="card mb16">
-    <div class="card-hd">
-      <span class="card-title">📋 Eczane Detay Listesi</span>
-      <span class="card-badge" id="eczaneTblBadge">—</span>
-      <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
-        <input type="text" id="eczaneSearch" class="inp" placeholder="🔍 Eczane ara..." 
-          style="padding:5px 10px;font-size:11px;width:160px" oninput="filterEczaneTable()">
+    <!-- Brick özet grafiği -->
+    <div class="g2">
+      <div class="card">
+        <div class="card-hd"><span class="card-title">📊 Brick Bazlı Dağılım</span></div>
+        <div class="card-body"><div class="ch-md"><canvas id="eczaneBrickChart"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="card-hd"><span class="card-title">💊 Ürün Dağılımı</span></div>
+        <div class="card-body"><div class="ch-md"><canvas id="eczaneUrunChart"></canvas></div></div>
       </div>
     </div>
-    <div class="card-body-0 scroll-x">
-      <table class="tbl" id="eczaneTable" style="min-width:700px">
-        <thead>
-          <tr id="eczaneThead">
-            <th onclick="sortEczane('ad')" style="cursor:pointer">Eczane ▾</th>
-            <th onclick="sortEczane('brick')" style="cursor:pointer">Brick ▾</th>
-            <th onclick="sortEczane('ocak')" style="cursor:pointer">Oca ▾</th>
-            <th onclick="sortEczane('subat')" style="cursor:pointer">Şub ▾</th>
-            <th onclick="sortEczane('toplam')" style="cursor:pointer">Toplam ▾</th>
-            <th onclick="sortEczane('tutar')" style="cursor:pointer">Tutar ▾</th>
-            <th>Ürünler</th>
-          </tr>
-        </thead>
-        <tbody id="eczaneTbody"></tbody>
-      </table>
-    </div>
-    <!-- Sayfalama — 20 eczane/sayfa, tıklanınca goToEczanePage() çağrılır -->
-    <div id="eczanePagination" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;justify-content:center;padding:12px 10px;border-top:1px solid var(--border)"></div>
   </div>
 
-  <!-- Brick özet grafiği -->
-  <div class="g2">
-    <div class="card">
-      <div class="card-hd"><span class="card-title">📊 Brick Bazlı Dağılım</span></div>
-      <div class="card-body"><div class="ch-md"><canvas id="eczaneBrickChart"></canvas></div></div>
+  <!-- ═══ 2. Eczane × Ürün Sipariş Analizi ═══ -->
+  <div class="eczsub-panel" id="eczsub_urun_analiz" style="display:none">
+    <div class="card mb16">
+      <div class="card-hd">
+        <span class="card-title">📦 Eczane × Ürün Sipariş Analizi</span>
+        <span class="card-badge" id="acc_ecz_urun_analiz_badge" style="margin-left:auto">Şarta Uygun Öneri</span>
+      </div>
+      <div class="card-body-0" id="acc_ecz_urun_analiz_body">
+        <div id="eczaneUrunAnalizKarti"></div>
+      </div>
     </div>
-    <div class="card">
-      <div class="card-hd"><span class="card-title">💊 Ürün Dağılımı</span></div>
-      <div class="card-body"><div class="ch-md"><canvas id="eczaneUrunChart"></canvas></div></div>
+  </div>
+
+  <!-- ═══ 3. Haftalık Rota Planım (Manuel) ═══ -->
+  <div class="eczsub-panel" id="eczsub_route_plan_input" style="display:none">
+    <div class="card mb16">
+      <div class="card-hd">
+        <span class="card-title">📝 Haftalık Rota Planım (Manuel)</span>
+        <span class="card-badge" id="acc_route_plan_input_badge" style="margin-left:auto">Kendi Planım</span>
+      </div>
+      <div class="card-body-0" id="acc_route_plan_input_body">
+        <div id="routePlanFormContainer"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 4. Bugünkü Akıllı Rota ═══ -->
+  <div class="eczsub-panel" id="eczsub_todayroute" style="display:none">
+    <div class="card mb16">
+      <div class="card-hd">
+        <span class="card-title">🗺️ Bugünkü Akıllı Rota</span>
+        <span class="card-badge" id="acc_todayroute_badge" style="margin-left:auto">Rota Planı</span>
+      </div>
+      <div class="card-body-0" id="acc_todayroute_body">
+        <div id="todayRouteCard"></div>
+        <div id="weeklyRouteCard"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 5. Satış Şartları Yönetimi ═══ -->
+  <div class="eczsub-panel" id="eczsub_satis_sartlari" style="display:none">
+    <div class="card mb16">
+      <div class="card-hd">
+        <span class="card-title">⚙️ Satış Şartları Yönetimi</span>
+        <span class="card-badge" id="acc_satis_sartlari_badge" style="margin-left:auto">MF & Kampanya</span>
+      </div>
+      <div class="card-body-0" id="acc_satis_sartlari_body">
+        <div id="satisKosullariPanel"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 6. Piyasa Haberleri ve Özel Durumlar ═══ -->
+  <div class="eczsub-panel" id="eczsub_haber_takibi" style="display:none">
+    <div class="card mb16">
+      <div class="card-hd">
+        <span class="card-title">📰 Piyasa Haberleri & Özel Durumlar</span>
+        <span class="card-badge" id="acc_haber_takibi_badge" style="margin-left:auto">Fiyat / Kampanya</span>
+      </div>
+      <div class="card-body-0" id="acc_haber_takibi_body">
+        <div id="haberTakibiPanel"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 7. AI Tahmin Performansı ═══ -->
+  <div class="eczsub-panel" id="eczsub_ai_perf" style="display:none">
+    <div class="card mb16">
+      <div class="card-hd">
+        <span class="card-title">🧠 AI Tahmin Performansı</span>
+        <span id="acc_ai_perf_badge" class="card-badge" style="margin-left:auto;background:#F3E8FF;color:#7C3AED;font-size:9px">Bekleniyor</span>
+      </div>
+      <div id="acc_ai_perf_body" class="card-body-0">
+        <div id="aiPerfDashboard"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 8. AI Karar Önerisi ═══ -->
+  <div class="eczsub-panel" id="eczsub_ai_decision" style="display:none">
+    <div class="card mb16">
+      <div class="card-hd">
+        <span class="card-title">🎯 AI Karar Önerisi</span>
+        <span class="card-badge" id="acc_ai_decision_badge" style="margin-left:auto;background:#EDE9FE;color:#6D28D9">AI Öneri</span>
+      </div>
+      <div class="card-body-0" id="acc_ai_decision_body">
+        <div id="aiDecisionCard"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 9. Pazar Payı Analizi ═══ -->
+  <div class="eczsub-panel" id="eczsub_market_share" style="display:none">
+    <div class="card mb16">
+      <div class="card-hd">
+        <span class="card-title">📊 Pazar Payı Analizi</span>
+        <span class="card-badge" id="acc_market_share_badge" style="margin-left:auto;background:#ECFDF5;color:#065F46">Market Share</span>
+      </div>
+      <div class="card-body-0" id="acc_market_share_body">
+        <div id="marketShareCard"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 10. Lansman Hazırlık ═══ -->
+  <div class="eczsub-panel" id="eczsub_launch_readiness" style="display:none">
+    <div class="card mb16">
+      <div class="card-hd">
+        <span class="card-title">🚀 Lansman Hazırlık</span>
+        <span class="card-badge" id="acc_launch_readiness_badge" style="margin-left:auto;background:#FEF3C7;color:#92400E">Lansman Öncesi</span>
+      </div>
+      <div class="card-body-0" id="acc_launch_readiness_body">
+        <div id="launchReadinessCard"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -6246,8 +6388,8 @@ function _buildEczaneDrawerRefresh(){
 
     <!-- ═══ FAZ 13.1 — YÖNETİCİ PANELİ BAŞLIĞI (yeniden tasarlandı) ═══ -->
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-      <div style="width:52px;height:52px;border-radius:12px;overflow:hidden;flex-shrink:0;box-shadow:0 2px 8px rgba(99,102,241,.25);border:1px solid rgba(99,102,241,.25)">
-        <img src="assets/senol-yilmaz.jpg" alt="Şenol Yılmaz" style="width:100%;height:100%;object-fit:cover;display:block">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
       </div>
       <div>
         <div style="font-size:16px;font-weight:700;color:var(--txt,#111)">Yönetici Paneli</div>
@@ -6266,7 +6408,28 @@ function _buildEczaneDrawerRefresh(){
       <a href="#mgr-sec-saha"       style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(217,119,6,.08);color:#D97706;text-decoration:none;white-space:nowrap">📋 Saha Yönetimi</a>
     </div>
 
-    <!-- ═══ FAZ 13.0 — BÖLGE GENELİ (ŞENOL YILMAZ) ═══ [1] -->
+    <!-- ═══════════════════════════════════════════════════════════
+         BÖLÜM 1 — GENEL BAKIŞ
+         (Ekip KPI özeti + Bölge Geneli resmi toplam + AI Motor bağlantısı)
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="mgr-sec-genel" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;scroll-margin-top:12px">
+      <span style="font-size:14px">📊</span>
+      <span style="font-size:12.5px;font-weight:800;color:var(--fg,#111);letter-spacing:.3px;text-transform:uppercase">Genel Bakış</span>
+      <span style="flex:1;height:1px;background:var(--border)"></span>
+    </div>
+
+    <!-- ═══ 1) EKİP ÖZETİ (KPI kartları, İlk 5 sıralama, Yönetim Görüşleri) ═══ -->
+    <div id="executiveDashboardContainer" class="mb16">
+      <div style="padding:24px;text-align:center;color:var(--dim,#6b7280);font-size:12px">
+        <div style="font-size:28px;margin-bottom:8px">📊</div>
+        Yönetici paneli yükleniyor…
+      </div>
+    </div>
+
+    <!-- ═══ FAZ 13.0 — BÖLGE GENELİ (ŞENOL YILMAZ) ═══
+         GENEL_TABLO'daki resmi "ŞENOL YILMAZ" (Bölge Toplamı) satırı +
+         AI Görev Motoruna doğrudan bağlantı (motor ÇOĞALTILMADI — AI Asistan
+         sayfasındaki gerçek motor, bölge seçili şekilde açılır). -->
     <div class="card mb16" style="border:1.5px solid rgba(99,102,241,.25)">
       <div class="card-hd">
         <span class="card-title">🏢 Bölge Geneli — ŞENOL YILMAZ</span>
@@ -6281,7 +6444,11 @@ function _buildEczaneDrawerRefresh(){
       </div>
     </div>
 
-    <!-- ═══ FAZ 13.3 — BÖLGE ÖZET ANALİZİ (iadeler dahil) ═══ [2] + [3] -->
+    <!-- ═══ FAZ 13.3 — BÖLGE ÖZET ANALİZİ (iadeler dahil) ═══
+         "Genel Durum" sayfasında her temsilcinin gördüğü Özet Analizi
+         kutusunun bölge-geneli karşılığı. renderAnaInsight()/
+         buildCompetitionAlerts() ile AYNI mantık; ALL_TTTS'teki HERKESİN
+         iade (negatif haftalık kutu) uyarıları burada tek listede toplanır. -->
     <div class="insight mb16">
       <div class="insight-title">🏢 Bölge Özet Analizi</div>
       <div class="insight-body" id="mgrBolgeOzetBody">Yükleniyor…</div>
@@ -6291,8 +6458,67 @@ function _buildEczaneDrawerRefresh(){
       <div class="alert-body" id="mgrBolgeAlertBody"></div>
     </div>
 
-    <!-- ═══ FAZ 13.0 — 1) Ekip Toplamı: IMS TL Kutu Hedef & Kalan ═══ [4] -->
-    <div class="card mb16" id="mgr-sec-performans" style="scroll-margin-top:12px">
+    <!-- ═══ FAZ 13.3 — BÖLGE ÜRÜN BAZLI PERFORMANS ═══
+         renderTTTDetail()'deki "Ürün Bazlı Performans" tablosunun AYNISI,
+         ŞENOL YILMAZ (bölge resmi toplamı) satırları üzerinden. -->
+    <div class="card mb16">
+      <div class="card-hd"><span class="card-title">Bölge Ürün Bazlı Performans</span><span class="card-badge">TL Detay — Bölge Toplamı</span></div>
+      <div class="card-body-0 scroll-x">
+        <table class="tbl" style="min-width:640px">
+          <thead><tr><th>Ürün</th><th>Hedef TL</th><th>Satış TL</th><th>Kalan TL</th><th>TL %</th><th>Gerçekleşme</th><th>Prim Puan %</th></tr></thead>
+          <tbody id="mgrUrunBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ FAZ 13.3 — BÖLGE HAFTALIK TL SATIŞ TRENDİ ═══
+         renderTTTDetail()'deki tttHaftaTlChart ile AYNI mantık — ürün
+         bazında haftalık (1-9. hafta) TL çizgi grafiği, bölge toplamı. -->
+    <div class="card mb16">
+      <div class="card-hd"><span class="card-title">📈 Bölge Haftalık TL Satış Trendi</span><span class="card-badge">Ürün Bazlı — 9 Hafta</span></div>
+      <div class="card-body"><div class="ch-md"><canvas id="mgrHaftaTlChart"></canvas></div></div>
+    </div>
+
+    <!-- ═══ FAZ 13.3 — BÖLGE HAFTALIK TL DÖKÜMÜ ═══
+         "Satış Takibi" sayfasındaki weeklyTlBody tablosunun AYNISI, bölge
+         toplamı (ŞENOL YILMAZ) satırları üzerinden — haftalık TL kırılımı. -->
+    <div class="card mb16">
+      <div class="card-hd"><span class="card-title">Bölge Haftalık TL Dökümü</span><span class="card-badge">Ürün Bazlı — Bölge Toplamı</span></div>
+      <div class="card-body-0 scroll-x">
+        <table class="tbl" style="min-width:660px">
+          <thead><tr><th>Ürün</th><th>1.H</th><th>2.H</th><th>3.H</th><th>4.H</th><th>5.H</th><th>6.H</th><th>7.H</th><th>8.H</th><th>9.H</th><th>Ort.</th></tr></thead>
+          <tbody id="mgrHaftaTlDokumBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         BÖLÜM 2 — KRİTİK AKSİYONLAR
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="mgr-sec-kritik" style="display:flex;align-items:center;gap:8px;margin:24px 0 10px;scroll-margin-top:12px">
+      <span style="font-size:14px">🚨</span>
+      <span style="font-size:12.5px;font-weight:800;color:var(--fg,#111);letter-spacing:.3px;text-transform:uppercase">Kritik Aksiyonlar</span>
+      <span style="flex:1;height:1px;background:var(--border)"></span>
+    </div>
+
+    <!-- ═══ FAZ 13.0 — Kritik Aksiyon Listesi (ekleme/katkı) ═══ -->
+    <div class="card mb16" style="border:1.5px solid rgba(220,38,38,.18)">
+      <div class="card-hd"><span class="card-title">🚨 Ekip Genelinde Kritik Aksiyon Listesi</span><span class="card-badge" style="font-size:9px">Tüm Temsilciler — Yüksek Risk</span></div>
+      <div class="card-body" id="mgrCriticalActions"></div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         BÖLÜM 3 — EKİP PERFORMANSI
+         (Kutu Hedef & Kalan · Tam Sıralama · Takım Öğrenmesi)
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="mgr-sec-performans" style="display:flex;align-items:center;gap:8px;margin:24px 0 10px;scroll-margin-top:12px">
+      <span style="font-size:14px">🏆</span>
+      <span style="font-size:12.5px;font-weight:800;color:var(--fg,#111);letter-spacing:.3px;text-transform:uppercase">Ekip Performansı</span>
+      <span style="flex:1;height:1px;background:var(--border)"></span>
+    </div>
+
+    <!-- ═══ FAZ 13.0 — 1) Ekip Toplamı: IMS TL Kutu Hedef & Kalan ═══ -->
+    <div class="card mb16">
       <div class="card-hd"><span class="card-title">IMS TL Kutu Hedef &amp; Kalan (Bölge Toplamı)</span><span class="card-badge" style="font-size:9px">Tüm Ekip — IMS TL Hesabına Göre Kutu Hesaplaması</span></div>
       <div class="card-body-0 scroll-x">
         <table class="tbl" id="mgrKutuTable" style="min-width:820px">
@@ -6306,35 +6532,7 @@ function _buildEczaneDrawerRefresh(){
       </div>
     </div>
 
-    <!-- ═══ FAZ 13.3 — BÖLGE HAFTALIK TL DÖKÜMÜ ═══ [5] -->
-    <div class="card mb16">
-      <div class="card-hd"><span class="card-title">Bölge Haftalık TL Dökümü</span><span class="card-badge">Ürün Bazlı — Bölge Toplamı</span></div>
-      <div class="card-body-0 scroll-x">
-        <table class="tbl" style="min-width:660px">
-          <thead><tr><th>Ürün</th><th>1.H</th><th>2.H</th><th>3.H</th><th>4.H</th><th>5.H</th><th>6.H</th><th>7.H</th><th>8.H</th><th>9.H</th><th>Ort.</th></tr></thead>
-          <tbody id="mgrHaftaTlDokumBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- ═══ FAZ 13.3 — BÖLGE ÜRÜN BAZLI PERFORMANS ═══ [6] -->
-    <div class="card mb16">
-      <div class="card-hd"><span class="card-title">Bölge Ürün Bazlı Performans</span><span class="card-badge">TL Detay — Bölge Toplamı</span></div>
-      <div class="card-body-0 scroll-x">
-        <table class="tbl" style="min-width:640px">
-          <thead><tr><th>Ürün</th><th>Hedef TL</th><th>Satış TL</th><th>Kalan TL</th><th>TL %</th><th>Gerçekleşme</th><th>Prim Puan %</th></tr></thead>
-          <tbody id="mgrUrunBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- ═══ FAZ 13.3 — BÖLGE HAFTALIK TL SATIŞ TRENDİ ═══ [7] -->
-    <div class="card mb16">
-      <div class="card-hd"><span class="card-title">📈 Bölge Haftalık TL Satış Trendi</span><span class="card-badge">Ürün Bazlı — 9 Hafta</span></div>
-      <div class="card-body"><div class="ch-md"><canvas id="mgrHaftaTlChart"></canvas></div></div>
-    </div>
-
-    <!-- ═══ FAZ 13.0 — 2) Tüm Ekip Performans Sıralaması ═══ [8] -->
+    <!-- ═══ FAZ 13.0 — 2) Tüm Ekip Performans Sıralaması ═══ -->
     <div class="card mb16">
       <div class="card-hd"><span class="card-title">Ekip Performans Sıralaması (Tümü)</span><span class="card-badge" style="font-size:9px">Skor = %30 Real + %25 Forecast + %20 Büyüme + %15 Pazar Payı + Risk</span></div>
       <div class="card-body-0 scroll-x">
@@ -6348,8 +6546,33 @@ function _buildEczaneDrawerRefresh(){
       </div>
     </div>
 
-    <!-- ═══ FAZ 13.0 — 3) Temsilci Brick Detayı + 4) AI Pazar Analizi ═══ [9] -->
-    <div class="card mb16" id="mgr-sec-temsilci" style="scroll-margin-top:12px">
+    <!-- FAZ 13.0 DÜZELTMESİ: "Takım Öğrenmesi & Peer Benchmark" kartı buradan
+         (AI Asistan / page5, her temsilcinin gördüğü sayfa) Yönetici Sekmesine
+         (page7) TAŞINDI — kart ekip-geneli peer benchmark içerdiği için sadece
+         bölge müdürünün görmesi gereken bir yönetici raporudur; kendi comment'i
+         zaten "yönetici ekranı" diyordu ama fiziksel olarak page5'teydi.
+         Rollback: bu kartı silmek ve page5'teki eski konumuna geri koymak
+         yeterli — renderTeamLearningCard() ve teamLearningCard id'si değişmedi. -->
+    <div class="card mb16" id="acc_team_learning_exec">
+      <div class="card-hd" onclick="const p=this.nextElementSibling;const open=p.style.display==='none';p.style.display=open?'block':'none';if(open)renderTeamLearningCard();">
+        <span class="card-title">🏆 Takım Öğrenmesi & Peer Benchmark</span>
+        <span class="card-badge" style="margin-left:auto;background:#FEE2E2;color:#991B1B">Team Learning</span>
+      </div>
+      <div id="teamLearningCard" style="display:none;padding:12px 16px"></div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         BÖLÜM 4 — TEMSİLCİ ANALİZİ
+         (Brick bazlı detay + AI destekli pazar analizi özeti)
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="mgr-sec-temsilci" style="display:flex;align-items:center;gap:8px;margin:24px 0 10px;scroll-margin-top:12px">
+      <span style="font-size:14px">🔍</span>
+      <span style="font-size:12.5px;font-weight:800;color:var(--fg,#111);letter-spacing:.3px;text-transform:uppercase">Temsilci Analizi</span>
+      <span style="flex:1;height:1px;background:var(--border)"></span>
+    </div>
+
+    <!-- ═══ FAZ 13.0 — 3) Temsilci Brick Detayı + 4) AI Pazar Analizi ═══ -->
+    <div class="card mb16">
       <div class="card-hd">
         <span class="card-title">Temsilci Brick Detayı &amp; AI Pazar Analizi</span>
         <span class="card-badge" style="font-size:9px">Bölge Müdürü Özeti</span>
@@ -6380,45 +6603,24 @@ function _buildEczaneDrawerRefresh(){
       </div>
     </div>
 
-    <!-- ═══ FAZ 13.5 — Ekip Haftalık Rota Planları (route-plan-input.js FAZ 10.2 üzerinden) ═══ [10] -->
-    <div class="mb16" id="mgr-sec-saha" style="background:var(--surf);border:1.5px solid rgba(79,0,140,.15);border-radius:14px;padding:16px;scroll-margin-top:12px">
+    <!-- ═══════════════════════════════════════════════════════════
+         BÖLÜM 5 — SAHA YÖNETİMİ
+         (Saha gözlemleri manuel giriş + AI eğitim girdileri kısayolları)
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="mgr-sec-saha" style="display:flex;align-items:center;gap:8px;margin:24px 0 10px;scroll-margin-top:12px">
+      <span style="font-size:14px">📋</span>
+      <span style="font-size:12.5px;font-weight:800;color:var(--fg,#111);letter-spacing:.3px;text-transform:uppercase">Saha Yönetimi</span>
+      <span style="flex:1;height:1px;background:var(--border)"></span>
+    </div>
+
+    <!-- ═══ FAZ 13.5 — Ekip Haftalık Rota Planları (route-plan-input.js FAZ 10.2 üzerinden) ═══ -->
+    <div class="mb16" style="background:var(--surf);border:1.5px solid rgba(79,0,140,.15);border-radius:14px;padding:16px">
       <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:4px">🗺️ Ekip Haftalık Rota Planları</div>
       <div style="font-size:10px;color:var(--dim);margin-bottom:12px">Her temsilcinin kendi "Haftalık Rota Planım" ekranından girdiği brick planları — salt okunur özet.</div>
       <div id="mgrTeamRouteBody"><div style="font-size:11px;color:var(--dim)">Yükleniyor…</div></div>
     </div>
 
-    <!-- ═══ 1) EKİP ÖZETİ (KPI kartları, İlk 5 sıralama, Yönetim Görüşleri) ═══ [11] -->
-    <div id="executiveDashboardContainer" class="mb16 anchor-genel">
-      <div style="padding:24px;text-align:center;color:var(--dim,#6b7280);font-size:12px">
-        <div style="font-size:28px;margin-bottom:8px">📊</div>
-        Yönetici paneli yükleniyor…
-      </div>
-    </div>
-    <div id="mgr-sec-genel" style="height:0;scroll-margin-top:12px"></div>
-
-    <!-- ═══ FAZ 13.0 — Kritik Aksiyon Listesi (ekleme/katkı) ═══ [12] -->
-    <div class="card mb16" id="mgr-sec-kritik" style="border:1.5px solid rgba(220,38,38,.18);scroll-margin-top:12px">
-      <div class="card-hd"><span class="card-title">🚨 Ekip Genelinde Kritik Aksiyon Listesi</span><span class="card-badge" style="font-size:9px">Tüm Temsilciler — Yüksek Risk</span></div>
-      <div class="card-body" id="mgrCriticalActions"></div>
-    </div>
-
-    <!-- FAZ 13.0 DÜZELTMESİ: "Takım Öğrenmesi & Peer Benchmark" kartı buradan
-         (AI Asistan / page5, her temsilcinin gördüğü sayfa) Yönetici Sekmesine
-         (page7) TAŞINDI — kart ekip-geneli peer benchmark içerdiği için sadece
-         bölge müdürünün görmesi gereken bir yönetici raporudur; kendi comment'i
-         zaten "yönetici ekranı" diyordu ama fiziksel olarak page5'teydi.
-         Rollback: bu kartı silmek ve page5'teki eski konumuna geri koymak
-         yeterli — renderTeamLearningCard() ve teamLearningCard id'si değişmedi. -->
-    <!-- [13] -->
-    <div class="card mb16" id="acc_team_learning_exec">
-      <div class="card-hd" onclick="const p=this.nextElementSibling;const open=p.style.display==='none';p.style.display=open?'block':'none';if(open)renderTeamLearningCard();">
-        <span class="card-title">🏆 Takım Öğrenmesi & Peer Benchmark</span>
-        <span class="card-badge" style="margin-left:auto;background:#FEE2E2;color:#991B1B">Team Learning</span>
-      </div>
-      <div id="teamLearningCard" style="display:none;padding:12px 16px"></div>
-    </div>
-
-    <!-- ═══ FAZ 12.2 — Saha Gözlemleri Manuel Giriş ═══ [14] -->
+    <!-- ═══ FAZ 12.2 — Saha Gözlemleri Manuel Giriş ═══ -->
     <div class="mb16" style="background:var(--surf);border:1.5px solid rgba(79,0,140,.15);border-radius:14px;padding:16px">
       <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:12px">📋 Saha Gözlemleri</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
@@ -6448,7 +6650,7 @@ function _buildEczaneDrawerRefresh(){
       <div id="sgList" style="margin-top:12px"></div>
     </div>
 
-    <!-- ═══ FAZ 12.2 — AI Eğitim Girdileri Kısayolları ═══ [15] -->
+    <!-- ═══ FAZ 12.2 — AI Eğitim Girdileri Kısayolları ═══ -->
     <div style="background:var(--surf);border:1px solid var(--border);border-radius:14px;padding:14px">
       <div style="font-size:12px;font-weight:700;color:var(--fg);margin-bottom:10px">🔗 AI Eğitim Girdileri Özeti</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
