@@ -89,38 +89,38 @@
       yorum bloğunda belgelenmiştir. Güncel/tam liste için ilgili dosyaların
       kendi başlıklarına ve docs/ klasöründeki FAZ raporlarına bakın.
      ═══════════════════════════════════════════════════════════════ -->
-<script src="js/core/async-guard.js"></script>
-<script src="js/core/constants.js"></script>
-<script src="js/core/date-utils.js"></script>
-<script src="js/core/period-archive-manager.js"></script>
-<script src="js/core/math-utils.js"></script>
-<script src="js/core/formatters.js"></script>
-<script src="js/core/prim-calc.js"></script>
-<script src="js/data/data-normalizer.js"></script>
-<script src="js/data/csv-parser.js"></script>
-<script src="js/data/data-state.js"></script>
-<script src="js/data/data-loader.js"></script>
-<script src="js/data/charts.js"></script>
-<script src="js/data/storage.js"></script>
+<script src="js/core/async-guard.js?v=20260705"></script>
+<script src="js/core/constants.js?v=20260705"></script>
+<script src="js/core/date-utils.js?v=20260705"></script>
+<script src="js/core/period-archive-manager.js?v=20260705"></script>
+<script src="js/core/math-utils.js?v=20260705"></script>
+<script src="js/core/formatters.js?v=20260705"></script>
+<script src="js/core/prim-calc.js?v=20260705"></script>
+<script src="js/data/data-normalizer.js?v=20260705"></script>
+<script src="js/data/csv-parser.js?v=20260705"></script>
+<script src="js/data/data-state.js?v=20260705"></script>
+<script src="js/data/data-loader.js?v=20260705"></script>
+<script src="js/data/charts.js?v=20260705"></script>
+<script src="js/data/storage.js?v=20260705"></script>
 <!-- PHASE 2.3.5: Data Cache Layer -->
-<script src="js/data/data-cache.js"></script>
-<script src="js/utils/audio-utils.js"></script>
+<script src="js/data/data-cache.js?v=20260705"></script>
+<script src="js/utils/audio-utils.js?v=20260705"></script>
 <!-- PHASE23: UI Component Layer — extracted from index.html inline script -->
 <!-- Rollback: remove these 6 lines; PHASE23-STUB blocks in inline script reactivate -->
-<script src="js/ui/ui-helpers.js"></script>
-<script src="js/ui/drawer-system.js"></script>
-<script src="js/ui/modal-system.js"></script>
-<script src="js/ui/tab-system.js"></script>
-<script src="js/ui/card-renderers.js"></script>
-<script src="js/ui/table-renderers.js"></script>
-<script src="js/ui/confidence-meter.js"></script>
-<script src="js/ui/explainable-ai.js"></script>
-<script src="js/ui/role-visibility.js"></script>
+<script src="js/ui/ui-helpers.js?v=20260705"></script>
+<script src="js/ui/drawer-system.js?v=20260705"></script>
+<script src="js/ui/modal-system.js?v=20260705"></script>
+<script src="js/ui/tab-system.js?v=20260705"></script>
+<script src="js/ui/card-renderers.js?v=20260705"></script>
+<script src="js/ui/table-renderers.js?v=20260705"></script>
+<script src="js/ui/confidence-meter.js?v=20260705"></script>
+<script src="js/ui/explainable-ai.js?v=20260705"></script>
+<script src="js/ui/role-visibility.js?v=20260705"></script>
 <!-- END PHASE23 UI Layer -->
-<script src="js/core/runtime-patches.js"></script>
+<script src="js/core/runtime-patches.js?v=20260705"></script>
 <!-- PHASE 2.3.5: Performance Monitor + Health Check (console-only, no UI) -->
-<script src="js/core/perf-monitor.js"></script>
-<script src="js/core/health-check.js"></script>
+<script src="js/core/perf-monitor.js?v=20260705"></script>
+<script src="js/core/health-check.js?v=20260705"></script>
 <!-- AI MİMARİ STABİLİZASYONU: IMS Adapter Katmanı
      Gerçek parseIMSCSV() çıktısını (ttt, brick, ilac, is_mkt, toplam, h1..h9)
      tüm AI motorlarının kullandığı ORTAK, NORMALİZE EDİLMİŞ bir modele
@@ -131,7 +131,7 @@
      motorları (Phase 3.0 + Phase 3.1) ÖNCESİ olmalı.
      Rollback: bu satırı silmek motorları KIRAR (artık ims-adapter.js'e
      bağımlılar) — geri almak için motorların önceki sürümlerine dönülmeli. -->
-<script src="js/ai/core/ims-adapter.js"></script>
+<script src="js/ai/core/ims-adapter.js?v=20260705"></script>
 <!-- END AI Mimari Stabilizasyonu — IMS Adapter -->
 
 <!-- FAZ — Arşiv → AI Motor Bağlantısı
@@ -143,7 +143,7 @@
      Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — bağlı motorlar
      (insight-engine, runrate-engine, decision-engine) window.PeriodArchiveAdapter
      yokluğunda sessizce eski davranışlarına döner. -->
-<script src="js/ai/core/period-archive-adapter.js"></script>
+<script src="js/ai/core/period-archive-adapter.js?v=20260705"></script>
 <!-- END FAZ — Arşiv → AI Motor Bağlantısı -->
 
 <!-- İŞ KURALI — IMS Dönemsel Zaman Modeli (Temporal Intelligence)
@@ -158,7 +158,7 @@
      Henüz hiçbir motora bağlanmadı — §6 kuralının "tüm AI motorları bu
      Temporal Context'i kullanmalıdır" bağlaması ayrı bir adım.
      Rollback: bu satırı silmek hiçbir şeyi KIRMAZ. -->
-<script src="js/ai/core/temporal-context-engine.js"></script>
+<script src="js/ai/core/temporal-context-engine.js?v=20260705"></script>
 <!-- END Temporal Context Engine -->
 
 <!-- FAZ 7.0: Stok Adapter — SourceAdapter arayüzü kanıtı.
@@ -167,7 +167,7 @@
      ims-adapter.js / pharmacy-adapter.js ile AYNI desen — yeni veri kaynağı,
      sıfır kırılma. UI: eczane tablosundaki inline dropdown (stokGuncelle()).
      Rollback: bu satırı sil. -->
-<script src="js/ai/core/stok-adapter.js"></script>
+<script src="js/ai/core/stok-adapter.js?v=20260705"></script>
 <!-- END FAZ 7.0 Stok Adapter -->
 
 <!-- FAZ 6.4: Competitive Adapter Katmanı (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §5, §9, §16)
@@ -180,16 +180,16 @@
      Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — henüz hiçbir motor
      buna bağımlı değil (data-loader.js'teki import bloğu da kendi içinde
      try/catch ve typeof kontrolüyle korunaklı). -->
-<script src="js/ai/core/competitive-adapter.js"></script>
+<script src="js/ai/core/competitive-adapter.js?v=20260705"></script>
 <!-- END FAZ 6.4 Competitive Adapter -->
 
 <!-- PHASE 3.0: Sales Intelligence Engine — yükleme sırası kritik -->
-<script src="js/ai/intelligence/insight-engine.js"></script>
-<script src="js/ai/intelligence/trend-engine.js"></script>
-<script src="js/ai/intelligence/risk-engine.js"></script>
-<script src="js/ai/intelligence/opportunity-engine.js"></script>
-<script src="js/ai/intelligence/recommendation-engine.js"></script>
-<script src="js/ai/intelligence/intelligence-orchestrator.js"></script>
+<script src="js/ai/intelligence/insight-engine.js?v=20260705"></script>
+<script src="js/ai/intelligence/trend-engine.js?v=20260705"></script>
+<script src="js/ai/intelligence/risk-engine.js?v=20260705"></script>
+<script src="js/ai/intelligence/opportunity-engine.js?v=20260705"></script>
+<script src="js/ai/intelligence/recommendation-engine.js?v=20260705"></script>
+<script src="js/ai/intelligence/intelligence-orchestrator.js?v=20260705"></script>
 <!-- END PHASE 3.0 Intelligence Layer -->
 
 <!-- PHASE 3.1: Predictive Forecast Engine ─────────────────────────────────
@@ -198,10 +198,10 @@
      ai-context.js içindeki Phase 3.1 enrichment bloğu try/catch ile sarılıdır —
      bu dosyalar yoksa context bozulmadan devam eder.
   ─────────────────────────────────────────────────────────────────────── -->
-<script src="js/ai/predictive/runrate-engine.js"></script>
-<script src="js/ai/predictive/forecast-engine.js"></script>
-<script src="js/ai/predictive/target-simulator.js"></script>
-<script src="js/ai/predictive/projection-engine.js"></script>
+<script src="js/ai/predictive/runrate-engine.js?v=20260705"></script>
+<script src="js/ai/predictive/forecast-engine.js?v=20260705"></script>
+<script src="js/ai/predictive/target-simulator.js?v=20260705"></script>
+<script src="js/ai/predictive/projection-engine.js?v=20260705"></script>
 <!-- END PHASE 3.1 Predictive Layer -->
 
 <!-- PHASE 3.2: Smart Target Simulator ──────────────────────────────────
@@ -210,10 +210,10 @@
      Rollback: bu 4 script satırını sil.
      ai-context.js Phase 3.2 bloğu try/catch ile sarılı — dosyalar yoksa context sağlam kalır.
   ─────────────────────────────────────────────────────────────────────── -->
-<script src="js/ai/simulator/target-simulator-engine.js"></script>
-<script src="js/ai/simulator/prim-simulator.js"></script>
-<script src="js/ai/simulator/scenario-builder.js"></script>
-<script src="js/ai/simulator/action-planner.js"></script>
+<script src="js/ai/simulator/target-simulator-engine.js?v=20260705"></script>
+<script src="js/ai/simulator/prim-simulator.js?v=20260705"></script>
+<script src="js/ai/simulator/scenario-builder.js?v=20260705"></script>
+<script src="js/ai/simulator/action-planner.js?v=20260705"></script>
 <!-- END PHASE 3.2 Smart Target Simulator -->
 
 <!-- PHASE 3.3: Territory Optimization Engine
@@ -221,8 +221,8 @@
      Yükleme sırası: dependency sırasına göre — brick-ranking → coverage → visit-planner → workload → territory-engine
      ai-context.js Phase 3.3 bloğu try/catch ile sarılı — dosyalar yoksa context sağlam kalır.
 -->
-<script src="js/ai/territory/brick-ranking-engine.js"></script>
-<script src="js/ai/territory/coverage-engine.js"></script>
+<script src="js/ai/territory/brick-ranking-engine.js?v=20260705"></script>
+<script src="js/ai/territory/coverage-engine.js?v=20260705"></script>
 
 <!-- FAZ 6.3.5: Market Share Engine (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §2, §16)
      IMS'in is_mkt:true ("PAZARI TOPLAM") satırlarından bizimPay/pazar
@@ -235,7 +235,7 @@
      BAĞLANMADI (kasıtlı — §2'nin işaret ettiği bağlama, sonraki bir adım).
      Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — henüz hiçbir motor
      buna bağımlı değil. -->
-<script src="js/ai/territory/market-share-engine.js"></script>
+<script src="js/ai/territory/market-share-engine.js?v=20260705"></script>
 <!-- END FAZ 6.3.5 Market Share Engine -->
 
 <!-- FAZ 6.6: Competitive Impact Engine (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §6, §16)
@@ -251,7 +251,7 @@
      karar motoruna veya RCA'ya BAĞLANMADI.
      Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — henüz hiçbir motor
      buna bağımlı değil. -->
-<script src="js/ai/decision/competitive-impact-engine.js"></script>
+<script src="js/ai/decision/competitive-impact-engine.js?v=20260705"></script>
 <!-- END FAZ 6.6 Competitive Impact Engine -->
 
 <!-- FAZ 6.5: 8-Bileşenli Opportunity Score Engine (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §7, §16)
@@ -264,7 +264,7 @@
      PharmacyBehaviorEngine (opsiyonel — yoksa nötr 50 puan kullanır).
      Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — AIContextBuilder
      eksik durumda null'a güvenli düşer. -->
-<script src="js/ai/decision/opportunity-score-engine.js"></script>
+<script src="js/ai/decision/opportunity-score-engine.js?v=20260705"></script>
 <!-- END FAZ 6.5 Opportunity Score Engine -->
 
 <!-- FAZ 6.7: Decision Intelligence Engine (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §9, §16)
@@ -276,20 +276,20 @@
      risk, alternatives[]}. Güven tavanı: %80 (birden fazla motor zinciri).
      AIContextBuilder.context.decision alanını doldurur (önceden null'dı).
      Rollback: bu satırı silmek hiçbir şeyi KIRMAZ. -->
-<script src="js/ai/decision/decision-engine.js"></script>
+<script src="js/ai/decision/decision-engine.js?v=20260705"></script>
 <!-- END FAZ 6.7 Decision Engine -->
 
-<script src="js/ai/territory/visit-planner.js"></script>
-<script src="js/ai/territory/workload-engine.js"></script>
-<script src="js/ai/territory/territory-engine.js"></script>
+<script src="js/ai/territory/visit-planner.js?v=20260705"></script>
+<script src="js/ai/territory/workload-engine.js?v=20260705"></script>
+<script src="js/ai/territory/territory-engine.js?v=20260705"></script>
 <!-- END PHASE 3.3 Territory Optimization Engine -->
 
 <!-- PHASE 3.4: AI Sales Coach -->
-<script src="js/ai/coach/performance-coach.js"></script>
-<script src="js/ai/coach/goal-coach.js"></script>
-<script src="js/ai/coach/habit-engine.js"></script>
-<script src="js/ai/coach/daily-plan-engine.js"></script>
-<script src="js/ai/coach/coach-engine.js"></script>
+<script src="js/ai/coach/performance-coach.js?v=20260705"></script>
+<script src="js/ai/coach/goal-coach.js?v=20260705"></script>
+<script src="js/ai/coach/habit-engine.js?v=20260705"></script>
+<script src="js/ai/coach/daily-plan-engine.js?v=20260705"></script>
+<script src="js/ai/coach/coach-engine.js?v=20260705"></script>
 <!-- END PHASE 3.4 AI Sales Coach -->
 
 <!-- FAZ 0: AI Core (AI Consolidation)
@@ -302,19 +302,19 @@
      hiçbir şey çalıştırmaz.
      Rollback: bu 3 satırı sil — intelligence-orchestrator.js otomatik
      olarak FAZ 0 öncesi (legacy) pipeline'a geri döner, hiçbir şey bozulmaz. -->
-<script src="js/ai/core/ai-context-builder.js"></script>
-<script src="js/ai/core/ai-orchestrator.js"></script>
-<script src="js/ai/core/ai-core.js"></script>
+<script src="js/ai/core/ai-context-builder.js?v=20260705"></script>
+<script src="js/ai/core/ai-orchestrator.js?v=20260705"></script>
+<script src="js/ai/core/ai-core.js?v=20260705"></script>
 <!-- END FAZ 0 AI Core -->
 
 <!-- PHASE 4.0: Executive Dashboard AI
      Yükleme sırası: ranking → risk → forecast → summary → executive
      Rollback: bu 5 satırı sil. -->
-<script src="js/ai/executive/team-ranking-engine.js"></script>
-<script src="js/ai/executive/team-risk-engine.js"></script>
-<script src="js/ai/executive/team-forecast-engine.js"></script>
-<script src="js/ai/executive/executive-summary-engine.js"></script>
-<script src="js/ai/executive/executive-engine.js"></script>
+<script src="js/ai/executive/team-ranking-engine.js?v=20260705"></script>
+<script src="js/ai/executive/team-risk-engine.js?v=20260705"></script>
+<script src="js/ai/executive/team-forecast-engine.js?v=20260705"></script>
+<script src="js/ai/executive/executive-summary-engine.js?v=20260705"></script>
+<script src="js/ai/executive/executive-engine.js?v=20260705"></script>
 
 <!-- FAZ 13.0: Yönetici Paneli Genişletmesi (Ekip Kutu Hedef Toplamı,
      Tam Ekip Sıralaması, Temsilci Brick Detayı, AI Pazar Analizi Özeti)
@@ -322,7 +322,7 @@
      opsiyonel — yoksa risk bloğu sessizce atlanır çünkü typeof ile kontrol edilir).
      Rollback: bu satırı silmek page7'deki 4 yeni bloğu boş bırakır,
      başka hiçbir sayfa/motor etkilenmez. -->
-<script src="js/ai/executive/manager-panel-engine.js"></script>
+<script src="js/ai/executive/manager-panel-engine.js?v=20260705"></script>
 <!-- END FAZ 13.0 -->
 
 <!-- FAZ 6.8: Team Learning Engine (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §16)
@@ -333,14 +333,14 @@
      (3) Kişiselleştirilmiş Öneri — her temsilciye "şu arkadaşından öğren".
      Hiçbir downstream motor değiştirilmedi. Rollback: bu satırı silmek
      hiçbir şeyi KIRMAZ. -->
-<script src="js/ai/executive/team-learning-engine.js"></script>
+<script src="js/ai/executive/team-learning-engine.js?v=20260705"></script>
 <!-- END FAZ 6.8 Team Learning Engine -->
 <!-- END PHASE 4.0 Executive Dashboard AI -->
 
 <!-- PHASE 4.2: AI Memory Layer
      localStorage persistence: AI_MEMORY_V1
      Rollback: bu satırı sil + ai-context.js Phase 4.2 bloğunu kaldır -->
-<script src="js/ai/memory/ai-memory.js"></script>
+<script src="js/ai/memory/ai-memory.js?v=20260705"></script>
 <!-- END PHASE 4.2 AI Memory Layer -->
 
 <!-- PHASE 4.5: Pharmacy Intelligence Engine
@@ -366,7 +366,7 @@
      Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — üç motor da kendi eski
      bağımsız okuma zincirlerini (pharmacyActiveData → ECZANE_RAW) korumaya
      devam eder; adapter henüz hiçbirine bağlanmadı (bkz. FAZ 6.1). -->
-<script src="js/ai/core/pharmacy-adapter.js"></script>
+<script src="js/ai/core/pharmacy-adapter.js?v=20260705"></script>
 <!-- END FAZ 6.0 Pharmacy Adapter -->
 
 <!-- FAZ 8.1: Tek Kanonik Sıralama — dört buildTop30* fonksiyonunun
@@ -374,7 +374,7 @@
      pharmacy-behavior-engine.js SONRASI yüklenmeli.
      Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — dört fonksiyon
      legacy hesaplarına otomatik düşer. -->
-<script src="js/ai/core/pharmacy-ranking.js"></script>
+<script src="js/ai/core/pharmacy-ranking.js?v=20260705"></script>
 <!-- END FAZ 8.1 Tek Kanonik Sıralama -->
 
 <!-- FAZ 6.1: Pharmacy Behavior Engine (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §16)
@@ -389,7 +389,7 @@
      ve davranışı bu fazda HİÇ DEĞİŞMEDİ.
      Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — hiçbir mevcut motor
      henüz buna bağımlı değil. -->
-<script src="js/ai/core/pharmacy-behavior-engine.js"></script>
+<script src="js/ai/core/pharmacy-behavior-engine.js?v=20260705"></script>
 <!-- END FAZ 6.1 Pharmacy Behavior Engine -->
 
 <!-- FAZ 9.x: Pharmacy Intelligence Layer
@@ -399,26 +399,26 @@
      pharmacy-behavior-engine.js (FAZ 9.0) SONRASI yüklenmeli.
      Rollback: bu 5 satırı sil — hiçbir mevcut motor buna bağımlı
      değil (DigitalTwinBuilder lazy, CoverageSelection IndexedDB). -->
-<script src="js/ai/core/pharma-db.js"></script>
-<script src="js/ai/core/saha-gozlem-store.js"></script>
-<script src="js/ai/core/sales-memory-engine.js"></script>
-<script src="js/ai/core/coverage-selection.js"></script>
-<script src="js/ai/core/stock-entry-adapter.js"></script>
-<script src="js/ai/core/digital-twin-builder.js"></script>
+<script src="js/ai/core/pharma-db.js?v=20260705"></script>
+<script src="js/ai/core/saha-gozlem-store.js?v=20260705"></script>
+<script src="js/ai/core/sales-memory-engine.js?v=20260705"></script>
+<script src="js/ai/core/coverage-selection.js?v=20260705"></script>
+<script src="js/ai/core/stock-entry-adapter.js?v=20260705"></script>
+<script src="js/ai/core/digital-twin-builder.js?v=20260705"></script>
 <!-- FAZ 10.2: Haftalık Rota Planı (Manuel Giriş)
      Temsilcinin kendi brick planını girdiği AYRI veri modeli.
      route-optimizer.js::buildWeeklyRoutes() (AI önerisi) DEĞİŞTİRİLMEDİ.
      Rollback: bu satırı sil — hiçbir mevcut kod buna bağımlı değil. -->
-<script src="js/ai/core/route-plan-input.js"></script>
+<script src="js/ai/core/route-plan-input.js?v=20260705"></script>
 <!-- END FAZ 10.2 -->
 <!-- FAZ 10.4: Rakip Intelligence ↔ Outcome Köprüsü
      competitive-adapter.js (CSV kampanya) ile outcome-tracker.js arasında
      bağlantı kurar; learning-engine.js'e besler. Rollback: bu satırı sil. -->
-<script src="js/ai/core/competitive-outcome-linker.js"></script>
+<script src="js/ai/core/competitive-outcome-linker.js?v=20260705"></script>
 <!-- END FAZ 10.4 -->
 <!-- END FAZ 9.x Pharmacy Intelligence Layer -->
 
-<script src="js/pharmacy/sales-conditions.js"></script>
+<script src="js/pharmacy/sales-conditions.js?v=20260705"></script>
 
 <!-- FAZ 6.4: Rakip Satış Şartları Yöneticisi (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §9.1, §16)
      sales-conditions.js'in (yukarıda, Phase 4.7) {min,bonus} şemasını
@@ -429,7 +429,7 @@
      CompetitiveAdapter.normalizeCompetitive() çıktısı buraya aktarılır.
      Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — henüz hiçbir motor
      buna bağımlı değil. -->
-<script src="js/pharmacy/competitor-conditions.js"></script>
+<script src="js/pharmacy/competitor-conditions.js?v=20260705"></script>
 <!-- END FAZ 6.4 Rakip Satış Şartları Yöneticisi -->
 
 <!-- FAZ 6.4.5: Lansman Hazırlık Modülü (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §9.3, §16)
@@ -442,20 +442,20 @@
      karar motoruna veya AI Asistan'a (ai-context.js) BAĞLANMADI.
      Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — henüz hiçbir motor
      buna bağımlı değil. -->
-<script src="js/ai/territory/launch-readiness-engine.js"></script>
+<script src="js/ai/territory/launch-readiness-engine.js?v=20260705"></script>
 <!-- END FAZ 6.4.5 Lansman Hazırlık Modülü -->
 <!-- END PHASE 4.7 -->
-<script src="js/pharmacy/pharmacy-intelligence.js"></script>
-<script src="js/pharmacy/pharmacy-data-manager.js"></script>
-<script src="js/pharmacy/reorder-engine.js"></script>
+<script src="js/pharmacy/pharmacy-intelligence.js?v=20260705"></script>
+<script src="js/pharmacy/pharmacy-data-manager.js?v=20260705"></script>
+<script src="js/pharmacy/reorder-engine.js?v=20260705"></script>
 <!-- PHASE 4.6.1: Reorder Classification Engine
      classifyAllPharmacies, buildClassifierTop30, buildReorderClassifierContext,
      renderClassifierTop30Card, runClassifier
      Sınıflar: REGULAR_BUYER | GROWING | AT_RISK | REACTIVATION | CAMPAIGN_BUYER
      Rollback: bu satırı sil + reorderClassifierCard div'ini kaldır + ai-context.js Phase 4.6.1 bloğunu sil -->
-<script src="js/pharmacy/reorder-classifier.js"></script>
-<script src="js/route/route-optimizer.js"></script>
-<script src="js/ai/ai-sales-coach-v2.js"></script>
+<script src="js/pharmacy/reorder-classifier.js?v=20260705"></script>
+<script src="js/route/route-optimizer.js?v=20260705"></script>
+<script src="js/ai/ai-sales-coach-v2.js?v=20260705"></script>
 <!-- END PHASE 4.6.1 Reorder Classification Engine -->
 <!-- END PHASE 4.5 Pharmacy Intelligence Engine -->
 
@@ -472,10 +472,10 @@
      buildTerritoryContext, buildExecutiveContext
      — hepsi ai-context.js içinde tanımlandı, ayrı dosya yok -->
 
-<script src="js/ai/ai-context.js"></script>
-<script src="js/ai/ai-service.js"></script>
-<script src="js/ai/learning-engine.js"></script>
-<script src="js/ai/ai-engine.js"></script>
+<script src="js/ai/ai-context.js?v=20260705"></script>
+<script src="js/ai/ai-service.js?v=20260705"></script>
+<script src="js/ai/learning-engine.js?v=20260705"></script>
+<script src="js/ai/ai-engine.js?v=20260705"></script>
 <!-- PHASE 4.6.x: Recommendation Memory Layer
      AI tarafından üretilen önerileri (next best action) localStorage'da
      pharma_recommendation_memory_v1 altında saklar. window.RecommendationMemory
@@ -493,7 +493,7 @@
      Rollback: bu satırı sil + data-loader.js içindeki
      OutcomeTracker.evaluateOpenRecommendations çağrısını kaldır
      (typeof kontrolü sayesinde dosya silinse de syncData() bozulmaz). -->
-<script src="js/ai/outcomes/outcome-tracker.js"></script>
+<script src="js/ai/outcomes/outcome-tracker.js?v=20260705"></script>
 <!-- END FAZ 1.3 Outcome Tracker -->
 
 <!-- FAZ 1.4: Learning Engine (Pattern Learning — Öğrenme Motoru)
@@ -508,7 +508,7 @@
      UI değişmez.
      Rollback: bu satırı sil (outcome-tracker.js'teki guarded çağrı
      typeof kontrolü sayesinde dosya silinse de hiçbir şey bozulmaz). -->
-<script src="js/ai/learning/learning-engine.js"></script>
+<script src="js/ai/learning/learning-engine.js?v=20260705"></script>
 <!-- END FAZ 1.4 Learning Engine -->
 
 <!-- FAZ 6.2: Learning Hub (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §8, §16)
@@ -522,7 +522,7 @@
      context.learning olarak bağlanır).
      Rollback: bu satırı silmek hiçbir şeyi KIRMAZ — hiçbir mevcut motor
      henüz buna bağımlı değil. -->
-<script src="js/ai/core/learning-hub.js"></script>
+<script src="js/ai/core/learning-hub.js?v=20260705"></script>
 <!-- END FAZ 6.2 Learning Hub -->
 
 <!-- PHASE 5.7: Autonomous Planning Engine — AI Saha Komutanı
@@ -531,7 +531,7 @@
      ~satır 5884) açıldığında renderAutonomousDashboard() çağrılıyor.
      Rollback: o accordion bloğunu silmek yeterli, bu script tag'i tek
      başına zararsızdır (guard: window._APE_LOADED). -->
-<script src="js/ai/autonomous-planning-engine.js"></script>
+<script src="js/ai/autonomous-planning-engine.js?v=20260705"></script>
 <script>
 // PHASE2-STUB: SoundFX + HapticFX extracted to js/utils/audio-utils.js
 // See: Phase 2.0a Audio Extraction
