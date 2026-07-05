@@ -155,11 +155,36 @@
         .filter(function (r) { return r.ttt === ttt; });
       var hasWeeklyData = imsRows.length > 0;
 
-      // ── Günlük run rate ───────────────────────────────────
+      // ── Günlük run rate (ham gözlem — diğer motorlar bunu kullanıyor,
+      //    dokunulmadı) ──────────────────────────────────────
       var dailyRate = elapsedDays > 0 ? currentTL / elapsedDays : 0;
 
-      // ── Projeksiyon: mevcut + kalan günler × günlük hız ──
-      var projected = currentTL + (dailyRate * remainingDays);
+      // ── FIX-RR-02 (BUG DÜZELTMESİ) ─────────────────────────────────
+      // Sorun: Dönemin ilk günlerinde (örn. yeni dönemin 1-5. iş günü)
+      // "kutu yüklemesi" (sell-in) nedeniyle satış geçici olarak çok
+      // yüksek görünebilir. Bu ham günlük hız hiç yumuşatılmadan kalan
+      // TÜM güne (örn. 40+ iş günü) sabit kabul edilip lineer çarpılınca
+      // projeksiyon gerçekçi olmayan seviyelere sıçrıyor (gözlenen örnek:
+      // ekip forecast %1377). 3 günlük bir örneklemle 40+ günlük bir
+      // projeksiyon yapmak istatistiksel olarak güvenilir değil — ve bu
+      // tek temsilcinin sapması ekip ortalamasını da bozabiliyor.
+      //
+      // Düzeltme: Projeksiyonda kullanılan hız, gözlem miktarına göre
+      // ağırlıklandırılıyor. Az gün geçtiyse (RELIABLE_DAYS eşiğinin
+      // altında) ham hıza tam güvenmek yerine "hedefe zamanında ulaşmak
+      // için gereken günlük hız" (hedefTL / totalDays) ile harmanlanıyor;
+      // gözlem arttıkça (RELIABLE_DAYS'e ulaşınca tam güven) ham hıza
+      // kayıyor. NOT: dailyRunRate alanı hâlâ HAM gözlemi döndürüyor —
+      // diğer motorlar (coach/simulator) "şu an günde ne kadar satıyorsun"
+      // bilgisini ham olarak kullanmaya devam ediyor; sadece dönem sonu
+      // PROJEKSİYONU yumuşatılıyor.
+      var RELIABLE_DAYS   = 10; // ~2 hafta iş günü — bu noktadan sonra ham hıza tam güven
+      var obsWeight        = Math.min(1, elapsedDays / RELIABLE_DAYS);
+      var targetPaceRate    = hedefTL > 0 ? (hedefTL / totalDays) : dailyRate;
+      var effectiveDailyRate = (dailyRate * obsWeight) + (targetPaceRate * (1 - obsWeight));
+
+      // ── Projeksiyon: mevcut + kalan günler × yumuşatılmış (efektif) hız ──
+      var projected = currentTL + (effectiveDailyRate * remainingDays);
 
       // ── Realizasyon tahmini ──────────────────────────────
       var projReal    = hedefTL > 0 ? (projected / hedefTL) * 100 : 0;
