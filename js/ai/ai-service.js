@@ -59,9 +59,13 @@ async function fetchAI(payload) {
     throw new Error('Sunucu hatası: HTTP ' + response.status + ' ' + response.statusText);
   }
   var data = await response.json();
-  var text = data.content && data.content[0] && data.content[0].text;
+  // DÜZELTME: content[0] her zaman metin bloğu olmayabilir (extended
+  // thinking açıksa önce {type:"thinking"} bloğu gelir) — bkz. ai-engine.js'deki aynı düzeltme.
+  var textBlock = Array.isArray(data.content)
+    ? data.content.filter(function (b) { return b && b.type === 'text' && b.text; })[0]
+    : null;
+  var text = textBlock ? textBlock.text : null;
   if (!text) {
-    // DÜZELTME: gerçek proxy/API hatasını yut madan göster (bkz. ai-engine.js'deki aynı düzeltme)
     var apiErr = (data.error && data.error.message) || data.message || null;
     throw new Error(apiErr ? 'Proxy/API hatası: ' + apiErr : 'Yanıt alınamadı (içerik boş).');
   }

@@ -736,14 +736,16 @@ ZAMAN DUYARLI DEĞERLENDİRME — MUTLAKA UYGULA:
 
     const data = await response.json();
 
-    // ── DÜZELTME: proxy HTTP 200 dönebilir ama gövde beklenen
-    // Anthropic content[] şeklinde olmayabilir (örn. proxy'nin kendisi
-    // veya arkasındaki Anthropic API'si bir hata objesi döndürmüş olabilir:
-    // {"type":"error","error":{"type":"authentication_error","message":"..."}}).
-    // Eskiden bu durumda sessizce "Yanıt alınamadı." yazılıyordu ve gerçek
-    // hata (geçersiz API anahtarı, geçersiz model adı, rate limit vb.)
-    // asla görünmüyordu. Artık gövdedeki gerçek hata mesajını gösteriyoruz.
-    let reply = data.content?.[0]?.text;
+    // ── DÜZELTME: content[0] her zaman metin bloğu OLMAYABİLİR.
+    // Genişletilmiş düşünme (extended thinking) açıksa API şu şekilde
+    // birden fazla blok döndürür: [{type:"thinking",...}, {type:"text",text:"..."}].
+    // Eskiden content[0].text sabit okunuyordu — thinking bloğunda "text"
+    // alanı olmadığı için bu her zaman boş dönüyor ve "Yanıt alınamadı"
+    // hatası veriyordu. Artık dizide type==="text" olan bloğu buluyoruz.
+    const textBlock = Array.isArray(data.content)
+      ? data.content.find(function (b) { return b && b.type === 'text' && b.text; })
+      : null;
+    let reply = textBlock ? textBlock.text : null;
     if (!reply) {
       const apiErr = data.error?.message || data.message || (typeof data === 'string' ? data : null);
       throw new Error(apiErr
