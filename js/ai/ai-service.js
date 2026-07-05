@@ -67,7 +67,8 @@ async function fetchAI(payload) {
   var text = textBlock ? textBlock.text : null;
   if (!text) {
     var apiErr = (data.error && data.error.message) || data.message || null;
-    throw new Error(apiErr ? 'Proxy/API hatası: ' + apiErr : 'Yanıt alınamadı (içerik boş).');
+    var stopInfo = data.stop_reason ? (' (stop_reason: ' + data.stop_reason + ')') : '';
+    throw new Error(apiErr ? 'Proxy/API hatası: ' + apiErr : 'Yanıt alınamadı — metin bloğu üretilemedi' + stopInfo + '.');
   }
   return text;
 }
@@ -203,7 +204,7 @@ async function sendAiMsgWithText(text) {
   try {
     var reply = await fetchAI({
       model: 'claude-sonnet-5',
-      max_tokens: 1000,
+      max_tokens: 4096,
       system: systemPrompt,
       messages: aiChatHistory.slice(-6)
     });

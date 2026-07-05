@@ -723,7 +723,7 @@ ZAMAN DUYARLI DEĞERLENDİRME — MUTLAKA UYGULA:
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         model: 'claude-sonnet-5',
-        max_tokens: 1500,
+        max_tokens: 4096,
         system: systemPrompt,
         messages: [{ role: 'user', content: prompts[type] || prompts.full }]
       })
@@ -748,9 +748,10 @@ ZAMAN DUYARLI DEĞERLENDİRME — MUTLAKA UYGULA:
     let reply = textBlock ? textBlock.text : null;
     if (!reply) {
       const apiErr = data.error?.message || data.message || (typeof data === 'string' ? data : null);
+      const stopInfo = data.stop_reason ? (' (stop_reason: ' + data.stop_reason + ')') : '';
       throw new Error(apiErr
         ? 'Proxy/API hatası: ' + apiErr
-        : 'Yanıt alınamadı — sunucudan beklenmeyen içerik döndü: ' + JSON.stringify(data).slice(0, 300));
+        : 'Yanıt alınamadı — metin bloğu üretilemedi' + stopInfo + '. Ham içerik: ' + JSON.stringify(data).slice(0, 300));
     }
 
     // ── B-02-5: Stale response koruması — fetch sırasında TTT değiştiyse yoksay ──
