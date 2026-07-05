@@ -8,10 +8,14 @@
 //    • renderCoachSummary(ttt, id) → opsiyonel dashboard kartları
 //
 //  Pipeline:
-//    analyzePerformance   (performance-coach.js)
-//    generateGoalPlan     (goal-coach.js)
-//    generateDailyPlan    (daily-plan-engine.js)
-//    generateSalesHabits  (habit-engine.js)
+//    analyzePerformance      (performance-coach.js)
+//    generateGoalPlan        (goal-coach.js)
+//    generateCoachDailyPlan  (daily-plan-engine.js) — DÜZELTME: eskiden
+//                              generateDailyPlan idi, autonomous-planning-
+//                              engine.js'deki AYNI İSİMLİ farklı fonksiyonla
+//                              window üzerinde çakışıyordu (bkz. o dosyadaki
+//                              yorum). Benzersiz isme taşındı.
+//    generateSalesHabits     (habit-engine.js)
 //    → buildSalesCoach
 //    → formatCoachForAI (ai-context.js Phase 3.4 bloğuna eklenir)
 //
@@ -29,7 +33,7 @@
 //  GitHub Pages compatible: classic script, no ES modules
 // ══════════════════════════════════════════════════════════════════════
 /* global GENEL, analyzePerformance, generateGoalPlan,
-          generateDailyPlan, generateSalesHabits,
+          generateCoachDailyPlan, generateSalesHabits,
           buildTerritoryStrategy, detectRisks, findOpportunities,
           generateRecommendations, calculateRunRate, _coachingPriorityScore */
 
@@ -101,7 +105,9 @@
       });
 
       // Sabah aksiyonlarından kritik mesaj
-      var morningUrgent = daily.morning.filter(function (a) { return a.urgency === 'URGENT'; });
+      // Savunma: daily.morning her zaman dizi olmayabilir (örn. dailyPlan
+      // beklenmedik bir şekle sahipse) — boş dizi fallback ile çökmeyi önle.
+      var morningUrgent = (daily.morning || []).filter(function (a) { return a.urgency === 'URGENT'; });
       if (morningUrgent.length) {
         coaching.push({
           type:    'BUGÜN ÖNCE',
@@ -168,8 +174,8 @@
         ? generateGoalPlan(ttt) : {};
 
       // ── 3. Günlük plan ─────────────────────────────────────
-      result.dailyPlan = (typeof generateDailyPlan === 'function')
-        ? generateDailyPlan(ttt) : {};
+      result.dailyPlan = (typeof generateCoachDailyPlan === 'function')
+        ? generateCoachDailyPlan(ttt) : {};
 
       // ── 4. Alışkanlıklar ───────────────────────────────────
       result.habits = (typeof generateSalesHabits === 'function')
