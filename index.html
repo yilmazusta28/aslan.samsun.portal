@@ -6246,8 +6246,8 @@ function _buildEczaneDrawerRefresh(){
 
     <!-- ═══ FAZ 13.1 — YÖNETİCİ PANELİ BAŞLIĞI (yeniden tasarlandı) ═══ -->
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      <div style="width:52px;height:52px;border-radius:12px;overflow:hidden;flex-shrink:0;box-shadow:0 2px 8px rgba(99,102,241,.25);border:1px solid rgba(99,102,241,.25)">
+        <img src="assets/senol-yilmaz.jpg" alt="Şenol Yılmaz" style="width:100%;height:100%;object-fit:cover;display:block">
       </div>
       <div>
         <div style="font-size:16px;font-weight:700;color:var(--txt,#111)">Yönetici Paneli</div>
@@ -6266,28 +6266,7 @@ function _buildEczaneDrawerRefresh(){
       <a href="#mgr-sec-saha"       style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(217,119,6,.08);color:#D97706;text-decoration:none;white-space:nowrap">📋 Saha Yönetimi</a>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════════════
-         BÖLÜM 1 — GENEL BAKIŞ
-         (Ekip KPI özeti + Bölge Geneli resmi toplam + AI Motor bağlantısı)
-         ═══════════════════════════════════════════════════════════ -->
-    <div id="mgr-sec-genel" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;scroll-margin-top:12px">
-      <span style="font-size:14px">📊</span>
-      <span style="font-size:12.5px;font-weight:800;color:var(--fg,#111);letter-spacing:.3px;text-transform:uppercase">Genel Bakış</span>
-      <span style="flex:1;height:1px;background:var(--border)"></span>
-    </div>
-
-    <!-- ═══ 1) EKİP ÖZETİ (KPI kartları, İlk 5 sıralama, Yönetim Görüşleri) ═══ -->
-    <div id="executiveDashboardContainer" class="mb16">
-      <div style="padding:24px;text-align:center;color:var(--dim,#6b7280);font-size:12px">
-        <div style="font-size:28px;margin-bottom:8px">📊</div>
-        Yönetici paneli yükleniyor…
-      </div>
-    </div>
-
-    <!-- ═══ FAZ 13.0 — BÖLGE GENELİ (ŞENOL YILMAZ) ═══
-         GENEL_TABLO'daki resmi "ŞENOL YILMAZ" (Bölge Toplamı) satırı +
-         AI Görev Motoruna doğrudan bağlantı (motor ÇOĞALTILMADI — AI Asistan
-         sayfasındaki gerçek motor, bölge seçili şekilde açılır). -->
+    <!-- ═══ FAZ 13.0 — BÖLGE GENELİ (ŞENOL YILMAZ) ═══ [1] -->
     <div class="card mb16" style="border:1.5px solid rgba(99,102,241,.25)">
       <div class="card-hd">
         <span class="card-title">🏢 Bölge Geneli — ŞENOL YILMAZ</span>
@@ -6302,11 +6281,7 @@ function _buildEczaneDrawerRefresh(){
       </div>
     </div>
 
-    <!-- ═══ FAZ 13.3 — BÖLGE ÖZET ANALİZİ (iadeler dahil) ═══
-         "Genel Durum" sayfasında her temsilcinin gördüğü Özet Analizi
-         kutusunun bölge-geneli karşılığı. renderAnaInsight()/
-         buildCompetitionAlerts() ile AYNI mantık; ALL_TTTS'teki HERKESİN
-         iade (negatif haftalık kutu) uyarıları burada tek listede toplanır. -->
+    <!-- ═══ FAZ 13.3 — BÖLGE ÖZET ANALİZİ (iadeler dahil) ═══ [2] + [3] -->
     <div class="insight mb16">
       <div class="insight-title">🏢 Bölge Özet Analizi</div>
       <div class="insight-body" id="mgrBolgeOzetBody">Yükleniyor…</div>
@@ -6316,67 +6291,8 @@ function _buildEczaneDrawerRefresh(){
       <div class="alert-body" id="mgrBolgeAlertBody"></div>
     </div>
 
-    <!-- ═══ FAZ 13.3 — BÖLGE ÜRÜN BAZLI PERFORMANS ═══
-         renderTTTDetail()'deki "Ürün Bazlı Performans" tablosunun AYNISI,
-         ŞENOL YILMAZ (bölge resmi toplamı) satırları üzerinden. -->
-    <div class="card mb16">
-      <div class="card-hd"><span class="card-title">Bölge Ürün Bazlı Performans</span><span class="card-badge">TL Detay — Bölge Toplamı</span></div>
-      <div class="card-body-0 scroll-x">
-        <table class="tbl" style="min-width:640px">
-          <thead><tr><th>Ürün</th><th>Hedef TL</th><th>Satış TL</th><th>Kalan TL</th><th>TL %</th><th>Gerçekleşme</th><th>Prim Puan %</th></tr></thead>
-          <tbody id="mgrUrunBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- ═══ FAZ 13.3 — BÖLGE HAFTALIK TL SATIŞ TRENDİ ═══
-         renderTTTDetail()'deki tttHaftaTlChart ile AYNI mantık — ürün
-         bazında haftalık (1-9. hafta) TL çizgi grafiği, bölge toplamı. -->
-    <div class="card mb16">
-      <div class="card-hd"><span class="card-title">📈 Bölge Haftalık TL Satış Trendi</span><span class="card-badge">Ürün Bazlı — 9 Hafta</span></div>
-      <div class="card-body"><div class="ch-md"><canvas id="mgrHaftaTlChart"></canvas></div></div>
-    </div>
-
-    <!-- ═══ FAZ 13.3 — BÖLGE HAFTALIK TL DÖKÜMÜ ═══
-         "Satış Takibi" sayfasındaki weeklyTlBody tablosunun AYNISI, bölge
-         toplamı (ŞENOL YILMAZ) satırları üzerinden — haftalık TL kırılımı. -->
-    <div class="card mb16">
-      <div class="card-hd"><span class="card-title">Bölge Haftalık TL Dökümü</span><span class="card-badge">Ürün Bazlı — Bölge Toplamı</span></div>
-      <div class="card-body-0 scroll-x">
-        <table class="tbl" style="min-width:660px">
-          <thead><tr><th>Ürün</th><th>1.H</th><th>2.H</th><th>3.H</th><th>4.H</th><th>5.H</th><th>6.H</th><th>7.H</th><th>8.H</th><th>9.H</th><th>Ort.</th></tr></thead>
-          <tbody id="mgrHaftaTlDokumBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════════════
-         BÖLÜM 2 — KRİTİK AKSİYONLAR
-         ═══════════════════════════════════════════════════════════ -->
-    <div id="mgr-sec-kritik" style="display:flex;align-items:center;gap:8px;margin:24px 0 10px;scroll-margin-top:12px">
-      <span style="font-size:14px">🚨</span>
-      <span style="font-size:12.5px;font-weight:800;color:var(--fg,#111);letter-spacing:.3px;text-transform:uppercase">Kritik Aksiyonlar</span>
-      <span style="flex:1;height:1px;background:var(--border)"></span>
-    </div>
-
-    <!-- ═══ FAZ 13.0 — Kritik Aksiyon Listesi (ekleme/katkı) ═══ -->
-    <div class="card mb16" style="border:1.5px solid rgba(220,38,38,.18)">
-      <div class="card-hd"><span class="card-title">🚨 Ekip Genelinde Kritik Aksiyon Listesi</span><span class="card-badge" style="font-size:9px">Tüm Temsilciler — Yüksek Risk</span></div>
-      <div class="card-body" id="mgrCriticalActions"></div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════════════
-         BÖLÜM 3 — EKİP PERFORMANSI
-         (Kutu Hedef & Kalan · Tam Sıralama · Takım Öğrenmesi)
-         ═══════════════════════════════════════════════════════════ -->
-    <div id="mgr-sec-performans" style="display:flex;align-items:center;gap:8px;margin:24px 0 10px;scroll-margin-top:12px">
-      <span style="font-size:14px">🏆</span>
-      <span style="font-size:12.5px;font-weight:800;color:var(--fg,#111);letter-spacing:.3px;text-transform:uppercase">Ekip Performansı</span>
-      <span style="flex:1;height:1px;background:var(--border)"></span>
-    </div>
-
-    <!-- ═══ FAZ 13.0 — 1) Ekip Toplamı: IMS TL Kutu Hedef & Kalan ═══ -->
-    <div class="card mb16">
+    <!-- ═══ FAZ 13.0 — 1) Ekip Toplamı: IMS TL Kutu Hedef & Kalan ═══ [4] -->
+    <div class="card mb16" id="mgr-sec-performans" style="scroll-margin-top:12px">
       <div class="card-hd"><span class="card-title">IMS TL Kutu Hedef &amp; Kalan (Bölge Toplamı)</span><span class="card-badge" style="font-size:9px">Tüm Ekip — IMS TL Hesabına Göre Kutu Hesaplaması</span></div>
       <div class="card-body-0 scroll-x">
         <table class="tbl" id="mgrKutuTable" style="min-width:820px">
@@ -6390,7 +6306,35 @@ function _buildEczaneDrawerRefresh(){
       </div>
     </div>
 
-    <!-- ═══ FAZ 13.0 — 2) Tüm Ekip Performans Sıralaması ═══ -->
+    <!-- ═══ FAZ 13.3 — BÖLGE HAFTALIK TL DÖKÜMÜ ═══ [5] -->
+    <div class="card mb16">
+      <div class="card-hd"><span class="card-title">Bölge Haftalık TL Dökümü</span><span class="card-badge">Ürün Bazlı — Bölge Toplamı</span></div>
+      <div class="card-body-0 scroll-x">
+        <table class="tbl" style="min-width:660px">
+          <thead><tr><th>Ürün</th><th>1.H</th><th>2.H</th><th>3.H</th><th>4.H</th><th>5.H</th><th>6.H</th><th>7.H</th><th>8.H</th><th>9.H</th><th>Ort.</th></tr></thead>
+          <tbody id="mgrHaftaTlDokumBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ FAZ 13.3 — BÖLGE ÜRÜN BAZLI PERFORMANS ═══ [6] -->
+    <div class="card mb16">
+      <div class="card-hd"><span class="card-title">Bölge Ürün Bazlı Performans</span><span class="card-badge">TL Detay — Bölge Toplamı</span></div>
+      <div class="card-body-0 scroll-x">
+        <table class="tbl" style="min-width:640px">
+          <thead><tr><th>Ürün</th><th>Hedef TL</th><th>Satış TL</th><th>Kalan TL</th><th>TL %</th><th>Gerçekleşme</th><th>Prim Puan %</th></tr></thead>
+          <tbody id="mgrUrunBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ FAZ 13.3 — BÖLGE HAFTALIK TL SATIŞ TRENDİ ═══ [7] -->
+    <div class="card mb16">
+      <div class="card-hd"><span class="card-title">📈 Bölge Haftalık TL Satış Trendi</span><span class="card-badge">Ürün Bazlı — 9 Hafta</span></div>
+      <div class="card-body"><div class="ch-md"><canvas id="mgrHaftaTlChart"></canvas></div></div>
+    </div>
+
+    <!-- ═══ FAZ 13.0 — 2) Tüm Ekip Performans Sıralaması ═══ [8] -->
     <div class="card mb16">
       <div class="card-hd"><span class="card-title">Ekip Performans Sıralaması (Tümü)</span><span class="card-badge" style="font-size:9px">Skor = %30 Real + %25 Forecast + %20 Büyüme + %15 Pazar Payı + Risk</span></div>
       <div class="card-body-0 scroll-x">
@@ -6404,33 +6348,8 @@ function _buildEczaneDrawerRefresh(){
       </div>
     </div>
 
-    <!-- FAZ 13.0 DÜZELTMESİ: "Takım Öğrenmesi & Peer Benchmark" kartı buradan
-         (AI Asistan / page5, her temsilcinin gördüğü sayfa) Yönetici Sekmesine
-         (page7) TAŞINDI — kart ekip-geneli peer benchmark içerdiği için sadece
-         bölge müdürünün görmesi gereken bir yönetici raporudur; kendi comment'i
-         zaten "yönetici ekranı" diyordu ama fiziksel olarak page5'teydi.
-         Rollback: bu kartı silmek ve page5'teki eski konumuna geri koymak
-         yeterli — renderTeamLearningCard() ve teamLearningCard id'si değişmedi. -->
-    <div class="card mb16" id="acc_team_learning_exec">
-      <div class="card-hd" onclick="const p=this.nextElementSibling;const open=p.style.display==='none';p.style.display=open?'block':'none';if(open)renderTeamLearningCard();">
-        <span class="card-title">🏆 Takım Öğrenmesi & Peer Benchmark</span>
-        <span class="card-badge" style="margin-left:auto;background:#FEE2E2;color:#991B1B">Team Learning</span>
-      </div>
-      <div id="teamLearningCard" style="display:none;padding:12px 16px"></div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════════════
-         BÖLÜM 4 — TEMSİLCİ ANALİZİ
-         (Brick bazlı detay + AI destekli pazar analizi özeti)
-         ═══════════════════════════════════════════════════════════ -->
-    <div id="mgr-sec-temsilci" style="display:flex;align-items:center;gap:8px;margin:24px 0 10px;scroll-margin-top:12px">
-      <span style="font-size:14px">🔍</span>
-      <span style="font-size:12.5px;font-weight:800;color:var(--fg,#111);letter-spacing:.3px;text-transform:uppercase">Temsilci Analizi</span>
-      <span style="flex:1;height:1px;background:var(--border)"></span>
-    </div>
-
-    <!-- ═══ FAZ 13.0 — 3) Temsilci Brick Detayı + 4) AI Pazar Analizi ═══ -->
-    <div class="card mb16">
+    <!-- ═══ FAZ 13.0 — 3) Temsilci Brick Detayı + 4) AI Pazar Analizi ═══ [9] -->
+    <div class="card mb16" id="mgr-sec-temsilci" style="scroll-margin-top:12px">
       <div class="card-hd">
         <span class="card-title">Temsilci Brick Detayı &amp; AI Pazar Analizi</span>
         <span class="card-badge" style="font-size:9px">Bölge Müdürü Özeti</span>
@@ -6461,24 +6380,45 @@ function _buildEczaneDrawerRefresh(){
       </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════════════
-         BÖLÜM 5 — SAHA YÖNETİMİ
-         (Saha gözlemleri manuel giriş + AI eğitim girdileri kısayolları)
-         ═══════════════════════════════════════════════════════════ -->
-    <div id="mgr-sec-saha" style="display:flex;align-items:center;gap:8px;margin:24px 0 10px;scroll-margin-top:12px">
-      <span style="font-size:14px">📋</span>
-      <span style="font-size:12.5px;font-weight:800;color:var(--fg,#111);letter-spacing:.3px;text-transform:uppercase">Saha Yönetimi</span>
-      <span style="flex:1;height:1px;background:var(--border)"></span>
-    </div>
-
-    <!-- ═══ FAZ 13.5 — Ekip Haftalık Rota Planları (route-plan-input.js FAZ 10.2 üzerinden) ═══ -->
-    <div class="mb16" style="background:var(--surf);border:1.5px solid rgba(79,0,140,.15);border-radius:14px;padding:16px">
+    <!-- ═══ FAZ 13.5 — Ekip Haftalık Rota Planları (route-plan-input.js FAZ 10.2 üzerinden) ═══ [10] -->
+    <div class="mb16" id="mgr-sec-saha" style="background:var(--surf);border:1.5px solid rgba(79,0,140,.15);border-radius:14px;padding:16px;scroll-margin-top:12px">
       <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:4px">🗺️ Ekip Haftalık Rota Planları</div>
       <div style="font-size:10px;color:var(--dim);margin-bottom:12px">Her temsilcinin kendi "Haftalık Rota Planım" ekranından girdiği brick planları — salt okunur özet.</div>
       <div id="mgrTeamRouteBody"><div style="font-size:11px;color:var(--dim)">Yükleniyor…</div></div>
     </div>
 
-    <!-- ═══ FAZ 12.2 — Saha Gözlemleri Manuel Giriş ═══ -->
+    <!-- ═══ 1) EKİP ÖZETİ (KPI kartları, İlk 5 sıralama, Yönetim Görüşleri) ═══ [11] -->
+    <div id="executiveDashboardContainer" class="mb16 anchor-genel">
+      <div style="padding:24px;text-align:center;color:var(--dim,#6b7280);font-size:12px">
+        <div style="font-size:28px;margin-bottom:8px">📊</div>
+        Yönetici paneli yükleniyor…
+      </div>
+    </div>
+    <div id="mgr-sec-genel" style="height:0;scroll-margin-top:12px"></div>
+
+    <!-- ═══ FAZ 13.0 — Kritik Aksiyon Listesi (ekleme/katkı) ═══ [12] -->
+    <div class="card mb16" id="mgr-sec-kritik" style="border:1.5px solid rgba(220,38,38,.18);scroll-margin-top:12px">
+      <div class="card-hd"><span class="card-title">🚨 Ekip Genelinde Kritik Aksiyon Listesi</span><span class="card-badge" style="font-size:9px">Tüm Temsilciler — Yüksek Risk</span></div>
+      <div class="card-body" id="mgrCriticalActions"></div>
+    </div>
+
+    <!-- FAZ 13.0 DÜZELTMESİ: "Takım Öğrenmesi & Peer Benchmark" kartı buradan
+         (AI Asistan / page5, her temsilcinin gördüğü sayfa) Yönetici Sekmesine
+         (page7) TAŞINDI — kart ekip-geneli peer benchmark içerdiği için sadece
+         bölge müdürünün görmesi gereken bir yönetici raporudur; kendi comment'i
+         zaten "yönetici ekranı" diyordu ama fiziksel olarak page5'teydi.
+         Rollback: bu kartı silmek ve page5'teki eski konumuna geri koymak
+         yeterli — renderTeamLearningCard() ve teamLearningCard id'si değişmedi. -->
+    <!-- [13] -->
+    <div class="card mb16" id="acc_team_learning_exec">
+      <div class="card-hd" onclick="const p=this.nextElementSibling;const open=p.style.display==='none';p.style.display=open?'block':'none';if(open)renderTeamLearningCard();">
+        <span class="card-title">🏆 Takım Öğrenmesi & Peer Benchmark</span>
+        <span class="card-badge" style="margin-left:auto;background:#FEE2E2;color:#991B1B">Team Learning</span>
+      </div>
+      <div id="teamLearningCard" style="display:none;padding:12px 16px"></div>
+    </div>
+
+    <!-- ═══ FAZ 12.2 — Saha Gözlemleri Manuel Giriş ═══ [14] -->
     <div class="mb16" style="background:var(--surf);border:1.5px solid rgba(79,0,140,.15);border-radius:14px;padding:16px">
       <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:12px">📋 Saha Gözlemleri</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
@@ -6508,7 +6448,7 @@ function _buildEczaneDrawerRefresh(){
       <div id="sgList" style="margin-top:12px"></div>
     </div>
 
-    <!-- ═══ FAZ 12.2 — AI Eğitim Girdileri Kısayolları ═══ -->
+    <!-- ═══ FAZ 12.2 — AI Eğitim Girdileri Kısayolları ═══ [15] -->
     <div style="background:var(--surf);border:1px solid var(--border);border-radius:14px;padding:14px">
       <div style="font-size:12px;font-weight:700;color:var(--fg);margin-bottom:10px">🔗 AI Eğitim Girdileri Özeti</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
