@@ -734,8 +734,22 @@ ZAMAN DUYARLI DEĞERLENDİRME — MUTLAKA UYGULA:
       throw new Error(`Sunucu hatası: HTTP ${response.status} ${response.statusText}`);
     }
 
-    const data   = await response.json();
-    const reply  = data.content?.[0]?.text || 'Yanıt alınamadı.';
+    const data = await response.json();
+
+    // ── DÜZELTME: proxy HTTP 200 dönebilir ama gövde beklenen
+    // Anthropic content[] şeklinde olmayabilir (örn. proxy'nin kendisi
+    // veya arkasındaki Anthropic API'si bir hata objesi döndürmüş olabilir:
+    // {"type":"error","error":{"type":"authentication_error","message":"..."}}).
+    // Eskiden bu durumda sessizce "Yanıt alınamadı." yazılıyordu ve gerçek
+    // hata (geçersiz API anahtarı, geçersiz model adı, rate limit vb.)
+    // asla görünmüyordu. Artık gövdedeki gerçek hata mesajını gösteriyoruz.
+    let reply = data.content?.[0]?.text;
+    if (!reply) {
+      const apiErr = data.error?.message || data.message || (typeof data === 'string' ? data : null);
+      throw new Error(apiErr
+        ? 'Proxy/API hatası: ' + apiErr
+        : 'Yanıt alınamadı — sunucudan beklenmeyen içerik döndü: ' + JSON.stringify(data).slice(0, 300));
+    }
 
     // ── B-02-5: Stale response koruması — fetch sırasında TTT değiştiyse yoksay ──
     if (engineSelTTT !== _reqEngTTT) {

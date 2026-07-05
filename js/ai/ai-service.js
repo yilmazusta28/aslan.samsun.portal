@@ -60,7 +60,11 @@ async function fetchAI(payload) {
   }
   var data = await response.json();
   var text = data.content && data.content[0] && data.content[0].text;
-  if (!text) throw new Error('Yanıt alınamadı (içerik boş).');
+  if (!text) {
+    // DÜZELTME: gerçek proxy/API hatasını yut madan göster (bkz. ai-engine.js'deki aynı düzeltme)
+    var apiErr = (data.error && data.error.message) || data.message || null;
+    throw new Error(apiErr ? 'Proxy/API hatası: ' + apiErr : 'Yanıt alınamadı (içerik boş).');
+  }
   return text;
 }
 
