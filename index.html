@@ -2908,7 +2908,7 @@ function goPage(i){
   else if(i===5){ if(typeof renderAiAsistan==='function') renderAiAsistan(); }
   else if(i===6)renderEczane();
   // FAZ 8.2 — Yönetici sekmesi
-  else if(i===7){ if(typeof renderExecutiveDashboard==='function') renderExecutiveDashboard('executiveDashboardContainer'); if(typeof renderManagerExtra==='function') renderManagerExtra(); }
+  else if(i===7){ if(typeof renderManagerHeroBanner==='function') renderManagerHeroBanner(); if(typeof renderManagerExtra==='function') renderManagerExtra(); }
 }
 
 // ── DARK MODE ────────────────────────────────────────────
@@ -3390,6 +3390,112 @@ function renderTTTDetail(){
 
   buildKutuSlicer();
   renderKutuDetail();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FAZ 13.4 — Yönetici Paneli: Mor Fotoğraflı Banner
+//  Kullanıcı isteği: "Genel Durum" sayfasında temsilci seçildikten sonra
+//  görünen mor banner (renderTTTDetail() → #tttSummaryBox, .tsb sınıfı)
+//  ile AYNI görsel dil. Aynı CSS sınıfları yeniden kullanılıyor, yeni CSS
+//  eklenmedi. ŞENOL YILMAZ'ın GENEL_TABLO'daki resmi "GENEL TOPLAM" satırı
+//  kaynak alınıyor (renderTopBar()'daki `sg` ile aynı veri).
+// ═══════════════════════════════════════════════════════════
+function renderManagerHeroBanner() {
+  const el = document.getElementById('mgrHeroBanner');
+  if (!el) return;
+
+  const mgrName = 'ŞENOL YILMAZ';
+  const sg = (typeof GENEL !== 'undefined' ? GENEL : []).find(r => r.ttt === mgrName && r.urun === 'GENEL TOPLAM') || {};
+  const ekipSayisi = (typeof ALL_TTTS !== 'undefined' ? ALL_TTTS : []).filter(t => t !== mgrName).length;
+
+  const photoUrl = typeof getTTTPhoto === 'function' ? getTTTPhoto(mgrName) : null;
+  const initials = mgrName.split(' ').map(s => s[0]).slice(0, 2).join('');
+  const photoImg = photoUrl
+    ? `<img src="${photoUrl}" crossorigin="anonymous"
+         style="width:100%;height:100%;object-fit:cover;object-position:top center"
+         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+    : '';
+
+  const kalanTL  = sg.kalan_tl || 0;
+  const kalanCol = kalanTL >= 0 ? '#34D399' : '#FCA5A5';
+  const kalanTxt = kalanTL >= 0 ? fTL(kalanTL) + ' ✓' : '\u2212' + fTL(Math.abs(kalanTL));
+
+  el.innerHTML = `
+    <div class="tsb-layout">
+      <!-- Sol: Fotoğraf + isim -->
+      <div class="tsb-photo-col">
+        <div class="tsb-avatar">
+          ${photoImg}
+          <div class="tsb-initials" style="display:${photoUrl ? 'none' : 'flex'}">${initials}</div>
+        </div>
+        <div class="tsb-name-block">
+          <div class="tsb-person-name">🏢 ${mgrName}</div>
+          <div class="tsb-role-lbl">Bölge Müdürü</div>
+        </div>
+      </div>
+
+      <!-- Orta: Bölge KPI'ları -->
+      <div class="tsb-stats-col">
+        <div class="tsb-grid">
+          <div class="tsb-cell">
+            <div class="tsb-lbl">Bölge Hedef</div>
+            <div class="tsb-val">${fTL(sg.hedef_tl)}</div>
+          </div>
+          <div class="tsb-cell">
+            <div class="tsb-lbl">Bölge Satış</div>
+            <div class="tsb-val">${fTL(sg.satis_tl)}</div>
+          </div>
+          <div class="tsb-cell">
+            <div class="tsb-lbl">Kalan TL</div>
+            <div class="tsb-val" style="color:${kalanCol}">${kalanTxt}</div>
+          </div>
+          <div class="tsb-cell">
+            <div class="tsb-lbl">TL %</div>
+            <div class="tsb-val" style="color:${sg.tl_pct >= 91 ? '#34D399' : sg.tl_pct >= 70 ? '#FCD34D' : '#F87171'}">${fPct(sg.tl_pct)}</div>
+          </div>
+          <div class="tsb-cell">
+            <div class="tsb-lbl">PPI %</div>
+            <div class="tsb-val" style="color:${(sg.prim_pct || 0) >= 91 ? '#34D399' : (sg.prim_pct || 0) >= 70 ? '#FCD34D' : '#F87171'}">${fPct(sg.prim_pct || 0)}</div>
+          </div>
+          <div class="tsb-cell">
+            <div class="tsb-lbl">Ekip</div>
+            <div class="tsb-val">${ekipSayisi} Temsilci</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sağ: Bölge Geneli AI Görev Motoru (FAZ 13.4 — tek yer, tekrar yok) -->
+      <div class="tsb-rank-col">
+        <button onclick="openBolgeGeneliMotoru()" style="font-size:11px;font-weight:700;padding:9px 14px;background:rgba(255,255,255,.16);color:#fff;border:1.5px solid rgba(255,255,255,.3);border-radius:10px;cursor:pointer;display:inline-flex;flex-direction:column;align-items:center;gap:2px;white-space:nowrap">
+          <span>🚀 Bölge Geneli</span>
+          <span style="font-size:9px;opacity:.85;font-weight:600">AI Görev Motorunu Aç</span>
+        </button>
+      </div>
+    </div>`;
+}
+
+// ── openBolgeGeneliMotoru — AI Asistan (page5) sayfasındaki "AI Saha
+// Komutanı" görev motorunu, temsilci olarak ŞENOL YILMAZ (bölge geneli)
+// seçili şekilde doğrudan açar. Temsilci seçim listelerinden kaldırılan
+// "ŞENOL YILMAZ" seçeneğinin yerini alır (bkz. buildTTTPicker() yorumu). ──
+function openBolgeGeneliMotoru() {
+  if (typeof SoundFX !== 'undefined') SoundFX.click();
+  selTTT = 'ŞENOL YILMAZ';
+  if (typeof goPage === 'function') goPage(5);
+  if (typeof setAiTTT === 'function') setAiTTT('ŞENOL YILMAZ');
+
+  _safeTimeout(() => {
+    const body = document.getElementById('autonomousPlanningCard');
+    const head = document.getElementById('acc_autonomous_planning');
+    if (body) {
+      body.style.display = 'block';
+      window._pvApeRendered = true;
+      if (typeof renderAutonomousDashboard === 'function') {
+        renderAutonomousDashboard('autonomousPlanningCard', 'ŞENOL YILMAZ');
+      }
+    }
+    if (head && head.scrollIntoView) head.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 150);
 }
 
 function buildKutuSlicer(){
@@ -6386,50 +6492,34 @@ function _buildEczaneDrawerRefresh(){
 <div class="page" id="page7">
   <div style="padding:16px">
 
-    <!-- ═══ FAZ 13.1 — YÖNETİCİ PANELİ BAŞLIĞI (yeniden tasarlandı) ═══ -->
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-      </div>
-      <div>
-        <div style="font-size:16px;font-weight:700;color:var(--txt,#111)">Yönetici Paneli</div>
-        <div style="font-size:11px;color:var(--dim,#6b7280)">Bölge Müdürü — Bölge Geneli Durum, Ekip Performansı, Temsilci Analizi</div>
-      </div>
-    </div>
+    <!-- ═══ FAZ 13.4 — YÖNETİCİ PANELİ BAŞLIĞI: MOR FOTOĞRAFLI BANNER ═══
+         Kullanıcı isteği: bu panel, "Genel Durum" sayfasında temsilci
+         seçildikten sonra görünen mor banner (bkz. .tsb / #tttSummaryBox,
+         renderTTTDetail()) ile AYNI görsel dilde olsun. Aynı CSS sınıfları
+         (.tsb, .tsb-layout, .tsb-avatar, .tsb-grid vb.) yeniden kullanılıyor
+         — yeni CSS eklenmedi. Bölge Geneli AI Görev Motoru butonu da BURAYA
+         taşındı (aşağıdaki "Bölge Geneli — ŞENOL YILMAZ" kartında artık
+         TEKRAR ETMİYOR). "📊 Genel Bakış" bölümü (eski executiveDashboardContainer
+         + başlığı) kullanıcı isteğiyle tamamen kaldırıldı.
+         Doldurulması: renderManagerHeroBanner() — goPage(7) çağrıldığında
+         çalışır (bkz. index.html içindeki goPage fonksiyonu, i===7 dalı). -->
+    <div class="tsb mb16" id="mgrHeroBanner"></div>
 
     <!-- FAZ 13.1 — Bölüm içi hızlı gezinme (uzun sayfada bölümler arası
          atlama için). Sadece #ankor'a scroll yapar, hiçbir motor/veri
-         akışını etkilemez — saf navigasyon kolaylığı. -->
+         akışını etkilemez — saf navigasyon kolaylığı.
+         FAZ 13.4: "📊 Genel Bakış" pill'i kaldırıldı (ilgili bölüm silindi). -->
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;padding:8px;background:var(--surf,#fff);border:1px solid var(--border);border-radius:12px">
-      <a href="#mgr-sec-genel"      style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(99,102,241,.08);color:#6366f1;text-decoration:none;white-space:nowrap">📊 Genel Bakış</a>
       <a href="#mgr-sec-kritik"     style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(220,38,38,.08);color:#DC2626;text-decoration:none;white-space:nowrap">🚨 Kritik Aksiyonlar</a>
       <a href="#mgr-sec-performans" style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(5,150,105,.08);color:#059669;text-decoration:none;white-space:nowrap">🏆 Ekip Performansı</a>
       <a href="#mgr-sec-temsilci"   style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(14,116,144,.08);color:#0E7490;text-decoration:none;white-space:nowrap">🔍 Temsilci Analizi</a>
       <a href="#mgr-sec-saha"       style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(217,119,6,.08);color:#D97706;text-decoration:none;white-space:nowrap">📋 Saha Yönetimi</a>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════════════
-         BÖLÜM 1 — GENEL BAKIŞ
-         (Ekip KPI özeti + Bölge Geneli resmi toplam + AI Motor bağlantısı)
-         ═══════════════════════════════════════════════════════════ -->
-    <div id="mgr-sec-genel" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;scroll-margin-top:12px">
-      <span style="font-size:14px">📊</span>
-      <span style="font-size:12.5px;font-weight:800;color:var(--fg,#111);letter-spacing:.3px;text-transform:uppercase">Genel Bakış</span>
-      <span style="flex:1;height:1px;background:var(--border)"></span>
-    </div>
-
-    <!-- ═══ 1) EKİP ÖZETİ (KPI kartları, İlk 5 sıralama, Yönetim Görüşleri) ═══ -->
-    <div id="executiveDashboardContainer" class="mb16">
-      <div style="padding:24px;text-align:center;color:var(--dim,#6b7280);font-size:12px">
-        <div style="font-size:28px;margin-bottom:8px">📊</div>
-        Yönetici paneli yükleniyor…
-      </div>
-    </div>
-
     <!-- ═══ FAZ 13.0 — BÖLGE GENELİ (ŞENOL YILMAZ) ═══
-         GENEL_TABLO'daki resmi "ŞENOL YILMAZ" (Bölge Toplamı) satırı +
-         AI Görev Motoruna doğrudan bağlantı (motor ÇOĞALTILMADI — AI Asistan
-         sayfasındaki gerçek motor, bölge seçili şekilde açılır). -->
+         GENEL_TABLO'daki resmi "ŞENOL YILMAZ" (Bölge Toplamı) satırı.
+         FAZ 13.4: AI Görev Motoru butonu buradan mgrHeroBanner'a taşındı —
+         tekrarı önlemek için burada KALDIRILDI. -->
     <div class="card mb16" style="border:1.5px solid rgba(99,102,241,.25)">
       <div class="card-hd">
         <span class="card-title">🏢 Bölge Geneli — ŞENOL YILMAZ</span>
@@ -6437,10 +6527,6 @@ function _buildEczaneDrawerRefresh(){
       </div>
       <div class="card-body">
         <div id="mgrRegionKpi"></div>
-        <button onclick="openBolgeGeneliMotoru()" style="font-size:12px;font-weight:700;padding:9px 18px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
-          🚀 Bölge Geneli AI Görev Motorunu Aç
-        </button>
-        <div style="font-size:9px;color:var(--dim);margin-top:6px">AI Asistan sayfasındaki görev motorunu, temsilci olarak "ŞENOL YILMAZ" (bölge geneli) seçili şekilde doğrudan açar. Bu bağlantı, temsilci seçim listelerinden kaldırılan "ŞENOL YILMAZ" seçeneğinin yerini alır.</div>
       </div>
     </div>
 
