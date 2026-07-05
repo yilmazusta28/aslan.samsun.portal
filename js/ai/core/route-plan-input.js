@@ -151,8 +151,8 @@
   }
 
   // ── getTodayPlanSync — SENKRON erişim (route-optimizer.js için) ───────
-  // Sadece sync cache'den okur (setDayPlan sonrası doldurulmuş olmalı).
-  // IndexedDB'yi DEĞİL, sadece bellek-içi cache'i okur.
+  // Sadece sync cache'den okur (setDayPlan sonrası veya _hydrateSyncCache()
+  // sonrası doldurulmuş olmalı).
   function getTodayPlanSync(representative) {
     var rep = representative || _currentRep();
     var wd = _todayWeekday();
@@ -162,6 +162,65 @@
     // fallback'ten de bak
     var id = _makeId(rep, wd);
     return _fallback[id] || null;
+  }
+
+  // ── getWeekPlanSync — SENKRON haftalık erişim (route-optimizer.js için) ─
+  // BUG DÜZELTMESİ: buildWeeklyRoutes() (route-optimizer.js) temsilcinin
+  // manuel haftalık planını hiç okumuyordu — bu fonksiyon o bağlantıyı
+  // kurmak için eklendi. { 1: [...bricks], 2: [...], ... 5: [...] } döner,
+  // hiç plan yoksa null.
+  function getWeekPlanSync(representative) {
+    var rep = representative || _currentRep();
+    var out = null;
+    for (var wd = 1; wd <= 5; wd++) {
+      var bricks = (_syncCache[rep] && _syncCache[rep][wd]) ? _syncCache[rep][wd] : null;
+      if (!bricks) {
+        var id = _makeId(rep, wd);
+        if (_fallback[id] && _fallback[id].bricks) bricks = _fallback[id].bricks;
+      }
+      if (bricks && bricks.length) {
+        if (!out) out = {};
+        out[wd] = bricks;
+      }
+    }
+    return out;
+  }
+
+  // ── _hydrateSyncCache — IndexedDB'deki mevcut planları bellek-içi
+  // sync cache'e yükler ────────────────────────────────────────────────
+  // BUG DÜZELTMESİ: _syncCache SADECE setDayPlan() çağrıldığında
+  // dolduruluyordu (aynı oturumda kaydedildiyse). Sayfa yeniden
+  // yüklendiğinde (yeni oturum) IndexedDB'de kayıtlı plan hâlâ dursa
+  // bile _syncCache boş kalıyor, bu yüzden getTodayPlanSync/
+  // getWeekPlanSync hep null dönüyor ve temsilcinin daha önce girip
+  // KAYDETTİĞİ plan sanki hiç girilmemiş gibi yok sayılıyordu (hem
+  // günlük hem haftalık rota AI'nın salt algoritmik önerisine dönüyordu).
+  // Modül yüklenir yüklenmez TÜM route_plans store'unu okuyup cache'i
+  // ısıtıyoruz (representative bazında ayrım index gerekmeden cursor'la).
+  function _hydrateSyncCache() {
+    if (!window.PharmaDB) return;
+    window.PharmaDB.withStore(STORE, 'readonly', function (store) {
+      if (!store) return Promise.resolve();
+      return new Promise(function (resolve) {
+        var req = store.openCursor();
+        req.onsuccess = function (e) {
+          var cursor = e.target.result;
+          if (cursor) {
+            var plan = cursor.value;
+            if (plan && plan.representative && plan.weekday) {
+              if (!_syncCache[plan.representative]) _syncCache[plan.representative] = {};
+              _syncCache[plan.representative][plan.weekday] = plan.bricks || [];
+            }
+            cursor.continue();
+          } else {
+            resolve();
+          }
+        };
+        req.onerror = function () { resolve(); };
+      });
+    }).catch(function (e) {
+      console.warn('[route-plan-input] sync cache ısıtma hatası:', e && e.message);
+    });
   }
 
   // ── clearWeekPlan — haftanın planını sil ──────────────────────────────
@@ -301,13 +360,20 @@
     setDayPlan:          setDayPlan,
     getDayPlan:          getDayPlan,
     getWeekPlan:         getWeekPlan,
+    getWeekPlanSync:     getWeekPlanSync,
     getTodayPlan:        getTodayPlan,
     getTodayPlanSync:    getTodayPlanSync,
     clearWeekPlan:       clearWeekPlan,
     renderRoutePlanForm: renderRoutePlanForm,
-    version:             '10.2'
+    version:             '10.3'
   };
 
-  console.debug('[route-plan-input] FAZ 10.2 yüklendi.');
+  // BUG DÜZELTMESİ: bkz. _hydrateSyncCache() yorumu — sayfa açılışında
+  // IndexedDB'deki mevcut planları senkron cache'e yükle. PharmaDB henüz
+  // hazır olmayabilir; withStore kendi içinde open() bekliyor, o yüzden
+  // burada ekstra bir gecikmeye gerek yok.
+  _hydrateSyncCache();
+
+  console.debug('[route-plan-input] FAZ 10.3 yüklendi.');
 
 })();

@@ -435,11 +435,45 @@
 
     var usedPharmacies = new Set();
 
+    // BUG DÜZELTMESİ: Temsilcinin route-plan-input.js (FAZ 10.2/10.3) ile
+    // GİRDİĞİ haftalık brick planı bu fonksiyon tarafından hiç okunmuyordu
+    // — "Haftalık Rota" her zaman salt algoritmik dağılım gösteriyordu,
+    // temsilci Pazartesi-Cuma için brick seçip kaydetse bile hiçbir şey
+    // değişmiyordu. buildTodayRoute()'daki Kademe-1 mantığıyla TUTARLI
+    // olacak şekilde: o gün için manuel plan VARSA önce o brick'lerdeki
+    // eczaneler kullanılır, kalan kapasite eskisi gibi (urgent + brick
+    // kümeleri) doldurulur. Manuel plan yoksa davranış hiç değişmez.
+    var manualWeekPlan = null;
+    try {
+      if (window.RoutePlanInput && typeof window.RoutePlanInput.getWeekPlanSync === 'function') {
+        manualWeekPlan = window.RoutePlanInput.getWeekPlanSync(tttFilter);
+      }
+    } catch (_e) {}
+
     for (var d = 0; d < 5; d++) {
       var dayPharmacies = [];
       var dayBoxes      = 0;
       var dayValue      = 0;
       var dayBricks     = {};
+
+      // Kademe-1: bu gün için temsilcinin manuel planı (varsa) önce eklenir
+      var weekday = d + 1; // route-plan-input.js: 1=Pazartesi...5=Cuma
+      var plannedBricks = (manualWeekPlan && manualWeekPlan[weekday] && manualWeekPlan[weekday].length)
+        ? manualWeekPlan[weekday].map(function (b) { return b.toUpperCase(); })
+        : null;
+
+      if (plannedBricks) {
+        enriched
+          .filter(function (p) { return plannedBricks.indexOf((p.brick || '').toUpperCase()) >= 0; })
+          .sort(function (a, b) { return b.visitScore - a.visitScore; })
+          .forEach(function (p) {
+            var pKey = p.gln || p.eczane;
+            if (dayPharmacies.length < maxVisits && !usedPharmacies.has(pKey)) {
+              dayPharmacies.push(p);
+              usedPharmacies.add(pKey);
+            }
+          });
+      }
 
       // Önce URGENT'ları ekle (her gün paylaştırılır)
       urgents.forEach(function (p) {

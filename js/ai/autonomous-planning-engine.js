@@ -502,25 +502,62 @@
       todayVisits = todayBrick ? (brickGroups[todayBrick] || []).slice(0, 8) : top30.slice(0, 8);
     }
 
-    // Ziyaret kartları — ürün önerileriyle
+    // BUG DÜZELTMESİ: buildTodayRoute() (route-optimizer.js) çıktısındaki
+    // eczane objeleri productAffinityScore TAŞIMIYOR (rank/eczane/brick/
+    // priority/visitScore/expectedOrderBoxes vb. daha dar bir şekil).
+    // Bu yüzden `p.productAffinityScore` her zaman undefined kalıyor,
+    // `affinity` her zaman {} oluyor ve ürün önerisi listesi ("BUGÜNÜN
+    // GÖREVİ" ve "Bugün Sat" kartı) HER ZAMAN BOŞ görünüyordu — buildTodayRoute
+    // normal koşulda hep bir sonuç döndürdüğü için brickGroups fallback'i de
+    // devreye girmiyordu. Tam profili (buildPharmacyProfiles çıktısı,
+    // productAffinityScore + visitPriorityScore + consecutiveGrowthMonths vb.
+    // içerir) eczane/gln ile eşleştirip oradan okuyoruz; toplam kutu/TL için
+    // de zaten doğru hesaplanmış expectedOrderBoxes/expectedOrderValue
+    // kullanılıyor (affinity skorunu kutu sayısı yerine dağıtım ağırlığı
+    // olarak kullanıyoruz).
+    var profileByKey = {};
+    profiles.forEach(function (pr) {
+      var k = (pr.gln || pr.eczane || '').toString();
+      if (k) profileByKey[k] = pr;
+    });
+
     var visits = todayVisits.slice(0, 10).map(function (p) {
-      var affinity = p.productAffinityScore || {};
-      var products = PRODUCTS
+      var key         = (p.gln || p.eczane || '').toString();
+      var fullProfile = profileByKey[key] || p;
+      var affinity    = fullProfile.productAffinityScore || {};
+      var totalBoxes  = p.expectedOrderBoxes || fullProfile.expectedOrderBoxes || 0;
+      var totalTL     = p.expectedOrderValue || fullProfile.expectedOrderValue || 0;
+
+      var topProducts = PRODUCTS
         .filter(function (u) { return (affinity[u] || 0) > 0; })
         .sort(function (a, b) { return (affinity[b] || 0) - (affinity[a] || 0); })
-        .slice(0, 2)
-        .map(function (u) {
-          var price = (typeof IMS_TL_MAP !== 'undefined' && IMS_TL_MAP[u]) ? IMS_TL_MAP[u] : 100;
-          var boxes = Math.max(1, Math.round((affinity[u] || 5)));
-          return { urun: u, boxes: boxes, tl: boxes * price };
-        });
+        .slice(0, 2);
+
+      var affinitySum = topProducts.reduce(function (s, u) { return s + (affinity[u] || 0); }, 0);
+
+      var products = topProducts.map(function (u) {
+        var share = affinitySum > 0 ? (affinity[u] / affinitySum) : (1 / topProducts.length);
+        var price = (typeof IMS_TL_MAP !== 'undefined' && IMS_TL_MAP[u]) ? IMS_TL_MAP[u] : 100;
+        var boxes = totalBoxes > 0 ? Math.max(1, Math.round(totalBoxes * share)) : Math.max(1, Math.round(affinity[u] || 5));
+        var tl    = totalTL > 0 ? Math.round(totalTL * share) : boxes * price;
+        return { urun: u, boxes: boxes, tl: tl };
+      });
+
+      // Ürün afinitesi hiç yoksa ama toplam beklenen kutu/TL varsa yine de
+      // jenerik tek satır göster — boş kart yerine.
+      if (!products.length && totalBoxes > 0) {
+        products.push({ urun: PRODUCTS[0], boxes: totalBoxes, tl: totalTL });
+      }
+
+      var expectedTL = totalTL || products.reduce(function (s, x) { return s + x.tl; }, 0);
+
       return {
         eczane:   p.eczane,
         brick:    p.brick || '',
-        score:    Math.round(p._visitScore || p.visitPriorityScore || 0),
+        score:    Math.round(p.visitScore || p._visitScore || fullProfile.visitPriorityScore || 0),
         products: products,
-        why:      _explainVisit(p),
-        expectedTL: products.reduce(function (s, x) { return s + x.tl; }, 0)
+        why:      _explainVisit(fullProfile),
+        expectedTL: expectedTL
       };
     });
 
@@ -958,7 +995,7 @@
     var style = document.createElement('style');
     style.id = 'ape-styles';
     style.textContent = [
-      '.ape-loading,.ape-error{padding:24px;text-align:center;color:var(--text-secondary,#888);font-size:14px}',
+      '.ape-loading,.ape-error{padding:24px;text-align:center;color:var(--dim,#6B7280);font-size:14px}',
       '.ape-hero{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#4F008C,#7B2FBE);border-radius:12px;padding:20px 24px;margin-bottom:16px;color:#fff}',
       '.ape-hero-label{font-size:11px;opacity:.8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}',
       '.ape-hero-ttt{font-size:22px;font-weight:700;margin-bottom:2px}',
@@ -967,44 +1004,44 @@
       '.ape-prob-val{font-size:22px;font-weight:800;line-height:1}',
       '.ape-prob-lbl{font-size:10px;opacity:.85;margin-top:3px}',
       '.ape-kpi-row{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}',
-      '.ape-kpi{flex:1;min-width:120px;background:var(--card-bg,#1a1a2e);border-radius:10px;padding:14px 16px;border:1px solid var(--border,#2d2d4e)}',
-      '.ape-kpi-val{font-size:18px;font-weight:700;color:var(--text-primary,#fff)}',
+      '.ape-kpi{flex:1;min-width:120px;background:var(--surf2,#F8F7FF);border-radius:10px;padding:14px 16px;border:1px solid var(--border,#2d2d4e)}',
+      '.ape-kpi-val{font-size:18px;font-weight:700;color:var(--text,#1F2937)}',
       '.ape-kpi-green{color:#22c55e}',
       '.ape-kpi-warn{color:#f59e0b}',
-      '.ape-kpi-lbl{font-size:11px;color:var(--text-secondary,#888);margin-top:4px}',
+      '.ape-kpi-lbl{font-size:11px;color:var(--dim,#6B7280);margin-top:4px}',
       '.ape-cards-row{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}',
-      '.ape-card{flex:1;min-width:180px;background:var(--card-bg,#1a1a2e);border-radius:10px;padding:14px;border:1px solid var(--border,#2d2d4e)}',
-      '.ape-card-header{font-size:13px;font-weight:700;color:var(--text-primary,#fff);margin-bottom:10px;display:flex;align-items:center;gap:6px}',
+      '.ape-card{flex:1;min-width:180px;background:var(--surf2,#F8F7FF);border-radius:10px;padding:14px;border:1px solid var(--border,#2d2d4e)}',
+      '.ape-card-header{font-size:13px;font-weight:700;color:var(--text,#1F2937);margin-bottom:10px;display:flex;align-items:center;gap:6px}',
       '.ape-card-icon{font-size:16px}',
       '.ape-card-list{margin:0;padding:0 0 0 4px;list-style:none}',
-      '.ape-card-list li{font-size:12px;color:var(--text-secondary,#aaa);padding:3px 0;border-bottom:1px solid rgba(255,255,255,.05)}',
-      '.ape-section{background:var(--card-bg,#1a1a2e);border-radius:10px;padding:16px 20px;margin-bottom:14px;border:1px solid var(--border,#2d2d4e)}',
-      '.ape-section-title{font-size:13px;font-weight:700;color:var(--accent,#a78bfa);margin-bottom:12px;text-transform:uppercase;letter-spacing:.4px}',
+      '.ape-card-list li{font-size:12px;color:var(--dim,#6B7280);padding:3px 0;border-bottom:1px solid rgba(255,255,255,.05)}',
+      '.ape-section{background:var(--surf2,#F8F7FF);border-radius:10px;padding:16px 20px;margin-bottom:14px;border:1px solid var(--border,#2d2d4e)}',
+      '.ape-section-title{font-size:13px;font-weight:700;color:var(--c2,#7B2FBE);margin-bottom:12px;text-transform:uppercase;letter-spacing:.4px}',
       '.ape-visit-item{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06)}',
       '.ape-visit-num{min-width:26px;height:26px;background:#4F008C;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}',
       '.ape-visit-body{flex:1}',
-      '.ape-visit-name{font-size:14px;font-weight:600;color:var(--text-primary,#fff);margin-bottom:4px}',
+      '.ape-visit-name{font-size:14px;font-weight:600;color:var(--text,#1F2937);margin-bottom:4px}',
       '.ape-brick-badge{font-size:11px;background:rgba(167,139,250,.15);color:#a78bfa;border-radius:4px;padding:1px 6px;margin-left:6px}',
       '.ape-visit-prod{font-size:12px;color:#94a3b8;padding:1px 0}',
       '.ape-visit-why{font-size:11px;color:#64748b;margin-top:4px}',
       '.ape-visit-tl{font-size:14px;font-weight:700;color:#22c55e;white-space:nowrap;padding-top:2px}',
-      '.ape-visit-total{margin-top:10px;font-size:13px;color:var(--text-secondary,#aaa);text-align:right}',
-      '.ape-gap-strategy{font-size:14px;color:var(--text-primary,#ddd);margin-bottom:8px}',
-      '.ape-gap-meta{font-size:13px;color:var(--text-secondary,#888)}',
+      '.ape-visit-total{margin-top:10px;font-size:13px;color:var(--dim,#6B7280);text-align:right}',
+      '.ape-gap-strategy{font-size:14px;color:var(--text,#1F2937);margin-bottom:8px}',
+      '.ape-gap-meta{font-size:13px;color:var(--dim,#6B7280)}',
       '.ape-weekly-grid{display:flex;gap:10px;flex-wrap:wrap}',
       '.ape-day-card{flex:1;min-width:100px;background:rgba(79,0,140,.15);border-radius:8px;padding:12px;border:1px solid rgba(79,0,140,.3);text-align:center}',
       '.ape-day-name{font-size:13px;font-weight:700;color:#a78bfa;margin-bottom:6px}',
-      '.ape-day-brick{font-size:12px;color:var(--text-primary,#ddd);margin-bottom:4px}',
-      '.ape-day-count{font-size:12px;color:var(--text-secondary,#888)}',
+      '.ape-day-brick{font-size:12px;color:var(--text,#1F2937);margin-bottom:4px}',
+      '.ape-day-count{font-size:12px;color:var(--dim,#6B7280)}',
       '.ape-sim-form{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center}',
-      '.ape-sim-select,.ape-sim-input{background:var(--input-bg,#0f0f23);border:1px solid var(--border,#2d2d4e);border-radius:8px;padding:8px 12px;color:var(--text-primary,#fff);font-size:13px}',
+      '.ape-sim-select,.ape-sim-input{background:var(--surf,#fff);border:1px solid var(--border,#2d2d4e);border-radius:8px;padding:8px 12px;color:var(--text,#1F2937);font-size:13px}',
       '.ape-sim-select{flex:2;min-width:140px}',
       '.ape-sim-input{flex:1;min-width:100px}',
       '.ape-sim-btn{background:#4F008C;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer}',
       '.ape-sim-btn:hover{background:#7B2FBE}',
       '.ape-sim-result-box{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:8px;padding:14px}',
-      '.ape-sim-row{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;color:var(--text-secondary,#aaa)}',
-      '.ape-sim-row b{color:var(--text-primary,#fff)}',
+      '.ape-sim-row{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;color:var(--dim,#6B7280)}',
+      '.ape-sim-row b{color:var(--text,#1F2937)}',
       '.ape-sim-empty{font-size:13px;color:#888;padding:8px 0}',
     ].join('\n');
     document.head.appendChild(style);
