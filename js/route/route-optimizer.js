@@ -360,9 +360,17 @@
     var enriched = _enrichProfiles(profiles);
 
     // Bugünün günü
-    var today     = new Date().getDay();
-    var dayOffset = (today === 0 || today === 6) ? 1 : today - 1;
-    var dayName   = DAY_NAMES[Math.min(dayOffset, 4)];
+    // BUG DÜZELTMESİ: Cumartesi/Pazar günü eskiden dayOffset sabit 1'e
+    // ayarlanıyordu — bu "Salı" (DAY_NAMES[1]) etiketini gösteriyordu ama
+    // aslında hâlâ BUGÜN için bir ziyaret listesi üretip gösteriyordu.
+    // Hafta sonu iş günü olmadığından "bugüne eczane önerilmemeli" —
+    // artık hafta sonuysa bir sonraki iş gününün (Pazartesi) planı
+    // üretiliyor ve `isWeekend` bayrağıyla işaretleniyor, render fonksiyonu
+    // bunu "bugün" yerine "Pazartesi için" diye göstermeli.
+    var today      = new Date().getDay();
+    var isWeekend  = (today === 0 || today === 6);
+    var dayOffset  = isWeekend ? 0 : today - 1; // hafta sonu → Pazartesi (index 0)
+    var dayName    = DAY_NAMES[Math.min(dayOffset, 4)];
 
     // FAZ 10.3: 5-kademe sıralama
     var used = {};
@@ -400,7 +408,9 @@
 
     // _buildDayRoute için sahte tek-cluster yapısı
     var fakeCluster = [{ name: dayName, pharmacies: result }];
-    return _buildDayRoute(dayName, fakeCluster, 0, MAX_DAILY);
+    var built = _buildDayRoute(dayName, fakeCluster, 0, MAX_DAILY);
+    if (built) built.isWeekend = isWeekend;
+    return built;
   }
 
   function buildWeeklyRoutes(tttFilter) {
@@ -668,6 +678,16 @@
 
     var t = ro.todayRoute;
 
+    // FAZ 14.2 — Hafta sonu bildirimi: Cumartesi/Pazar iş günü değil,
+    // bu yüzden "bugün" için değil bir sonraki iş günü (Pazartesi) için
+    // öneri gösteriliyor — kullanıcıyı yanıltmamak için açıkça belirtiyoruz.
+    var weekendNotice = t.isWeekend
+      ? '<div style="padding:10px 14px;margin-bottom:10px;background:rgba(217,119,6,.08);' +
+        'border:1px solid rgba(217,119,6,.25);border-radius:10px;font-size:11px;color:#92400E;font-weight:600">' +
+        '📅 Bugün hafta sonu — aşağıda <b>Pazartesi</b> için önerilen ziyaret planı gösteriliyor.' +
+        '</div>'
+      : '';
+
     // Yardımcılar
     var _prioBadge = function (priority) {
       var m = {
@@ -745,6 +765,7 @@
     }).join('');
 
     container.innerHTML =
+      weekendNotice +
       '<div class="card">' +
         '<div class="card-hd" style="flex-wrap:wrap;gap:6px">' +
           '<span class="card-badge">' + t.pharmacyCount + ' ziyaret</span>' +

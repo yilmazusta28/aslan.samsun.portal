@@ -91,7 +91,7 @@
      ═══════════════════════════════════════════════════════════════ -->
 <script src="js/core/async-guard.js?v=20260705"></script>
 <script src="js/core/constants.js?v=20260705"></script>
-<script src="js/core/date-utils.js?v=20260705"></script>
+<script src="js/core/date-utils.js?v=20260705d"></script>
 <script src="js/core/period-archive-manager.js?v=20260705"></script>
 <script src="js/core/math-utils.js?v=20260705"></script>
 <script src="js/core/formatters.js?v=20260705"></script>
@@ -454,7 +454,7 @@
      Sınıflar: REGULAR_BUYER | GROWING | AT_RISK | REACTIVATION | CAMPAIGN_BUYER
      Rollback: bu satırı sil + reorderClassifierCard div'ini kaldır + ai-context.js Phase 4.6.1 bloğunu sil -->
 <script src="js/pharmacy/reorder-classifier.js?v=20260705"></script>
-<script src="js/route/route-optimizer.js?v=20260705"></script>
+<script src="js/route/route-optimizer.js?v=20260705d"></script>
 <script src="js/ai/ai-sales-coach-v2.js?v=20260705"></script>
 <!-- END PHASE 4.6.1 Reorder Classification Engine -->
 <!-- END PHASE 4.5 Pharmacy Intelligence Engine -->
@@ -472,10 +472,10 @@
      buildTerritoryContext, buildExecutiveContext
      — hepsi ai-context.js içinde tanımlandı, ayrı dosya yok -->
 
-<script src="js/ai/ai-context.js?v=20260705"></script>
+<script src="js/ai/ai-context.js?v=20260705d"></script>
 <script src="js/ai/ai-service.js?v=20260705c"></script>
 <script src="js/ai/learning-engine.js?v=20260705"></script>
-<script src="js/ai/ai-engine.js?v=20260705c"></script>
+<script src="js/ai/ai-engine.js?v=20260705d"></script>
 <!-- PHASE 4.6.x: Recommendation Memory Layer
      AI tarafından üretilen önerileri (next best action) localStorage'da
      pharma_recommendation_memory_v1 altında saklar. window.RecommendationMemory
@@ -531,7 +531,7 @@
      ~satır 5884) açıldığında renderAutonomousDashboard() çağrılıyor.
      Rollback: o accordion bloğunu silmek yeterli, bu script tag'i tek
      başına zararsızdır (guard: window._APE_LOADED). -->
-<script src="js/ai/autonomous-planning-engine.js?v=20260705"></script>
+<script src="js/ai/autonomous-planning-engine.js?v=20260705d"></script>
 <script>
 // PHASE2-STUB: SoundFX + HapticFX extracted to js/utils/audio-utils.js
 // See: Phase 2.0a Audio Extraction

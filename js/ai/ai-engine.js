@@ -67,7 +67,7 @@ function renderEngine() {
 
   // Hero meta güncelle
   const today = new Date().toISOString().slice(0,10);
-  const cur = PERIODS.find(p=>today>=p.start&&today<=p.end);
+  const cur = (typeof getEffectivePeriod === 'function') ? getEffectivePeriod(today) : PERIODS.find(p=>today>=p.start&&today<=p.end);
   const rem = cur ? workDays(today, cur.end) : '—';
 
   const gt = GENEL.find(r=>r.ttt===engineSelTTT&&r.urun==='GENEL TOPLAM');
@@ -135,7 +135,7 @@ function _runEngineCore() {
   const todayDisplay = today.toLocaleDateString('tr-TR',{weekday:'long',day:'numeric',month:'long'});
 
   // ── Veri topla ──────────────────────────────────────────
-  const cur     = PERIODS.find(p=>todayStr>=p.start&&todayStr<=p.end);
+  const cur     = (typeof getEffectivePeriod === 'function') ? getEffectivePeriod(todayStr) : PERIODS.find(p=>todayStr>=p.start&&todayStr<=p.end);
   const remDays = cur ? workDays(todayStr, cur.end) : 0;
   const gt      = GENEL.find(r=>r.ttt===ttt&&r.urun==='GENEL TOPLAM');
   const _urunOrderRef = (typeof URUN_ORDER !== 'undefined') ? URUN_ORDER : ['PANOCER','ACİDPASS','GRİPORT COLD','MOKSEFEN','FAMTREC'];
@@ -608,7 +608,7 @@ async function engineAiAnalysis(type) {
     ctx = buildTTTContext(engineSelTTT);
   }
   const today = new Date();
-  const cur = PERIODS.find(p=>{const t=today.toISOString().slice(0,10);return t>=p.start&&t<=p.end;});
+  const cur = (typeof getEffectivePeriod === 'function') ? getEffectivePeriod(today.toISOString().slice(0,10)) : PERIODS.find(p=>{const t=today.toISOString().slice(0,10);return t>=p.start&&t<=p.end;});
   const remDays = cur ? workDays(today.toISOString().slice(0,10), cur.end) : 0;
 
   const prompts = {
@@ -705,6 +705,7 @@ ${ctx}`
 Net, somut, uygulanabilir Türkçe yanıtlar ver. Her öneri için sayısal hedef belirt.
 Brick ve eczane isimlerini mutlaka kullan.
 Format: başlıklar bold (**Başlık**), maddeler net ve kısa.
+Bölge/ekip adı geçirme: yalnızca "PHARMA VISION" veya "bölge" de — "2D" gibi iç kod isimleri KULLANMA, bunlar kullanıcıya yönelik değildir.
 
 ZAMAN DUYARLI DEĞERLENDİRME — MUTLAKA UYGULA:
 - Hedefler 2 aylık dönemde değerlendirilir. Anlık realizasyon tek başına yorum yapılamaz.

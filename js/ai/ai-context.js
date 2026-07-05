@@ -38,7 +38,9 @@ function buildTTTContext(ttt) {
   const _now2 = new Date();
   const _pad2 = n => String(n).padStart(2,'0');
   const _todayStr2 = `${_now2.getFullYear()}-${_pad2(_now2.getMonth()+1)}-${_pad2(_now2.getDate())}`;
-  const _curPeriod = PERIODS.find(p => _todayStr2 >= p.start && _todayStr2 <= p.end);
+  const _curPeriod = (typeof getEffectivePeriod === 'function')
+    ? getEffectivePeriod(_todayStr2)
+    : PERIODS.find(p => _todayStr2 >= p.start && _todayStr2 <= p.end);
   const _remDays2  = _curPeriod ? workDays(_todayStr2, _curPeriod.end) : 0;
   const _totDays   = _curPeriod ? workDays(_curPeriod.start, _curPeriod.end) : 0;
   const _passedDays = Math.max(1, _totDays - _remDays2);
@@ -61,7 +63,7 @@ function buildTTTContext(ttt) {
   const _senOrtaPct  = _hedefTL > 0 ? (_senOrta /_hedefTL*100).toFixed(1) : '—';
   const _senKotuPct  = _hedefTL > 0 ? (_senKotu /_hedefTL*100).toFixed(1) : '—';
 
-  let ctx = `=== SAMSUN 2D SATIŞ VERİLERİ ===
+  let ctx = `=== BÖLGE SATIŞ VERİLERİ ===
 Temsilci: ${ttt} | TR Sırası: #${trSira}
 Dönem: ${_curPeriod ? _curPeriod.label + ' (' + _curPeriod.months + ')' : '2026 Dönemi'}
 Dönem aralığı: ${_curPeriod ? _curPeriod.start + ' → ' + _curPeriod.end : '—'}

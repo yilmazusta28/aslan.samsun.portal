@@ -98,8 +98,12 @@
   }
 
   // Aktif dönem bilgisi
+  // BUG DÜZELTMESİ: bkz. date-utils.js getEffectivePeriod() yorumu — saf
+  // takvim tarihiyle dönem seçmek, yeni dönemin verisi henüz sisteme
+  // girilmeden "kalan gün"ü yeni döneme göre hesaplıyordu.
   function _getCurrentPeriod() {
     var today = _today();
+    if (typeof getEffectivePeriod === 'function') return getEffectivePeriod(today);
     var periods = (typeof PERIODS !== 'undefined') ? PERIODS : [];
     return periods.find(function (p) { return today >= p.start && today <= p.end; }) || null;
   }
@@ -481,7 +485,11 @@
 
     // Fallback: Top30'dan brick bazlı günlük seçim
     if (!todayVisits.length && top30.length) {
-      var dow = new Date().getDay(); // 1=Pzt 2=Sal...
+      // BUG DÜZELTMESİ: hafta sonu (Cmt/Paz) her ikisi de Pazartesi'nin
+      // brick'ine işaret etmeli — eskiden Pazar günü yanlışlıkla Cuma'nın
+      // brick'ini seçiyordu ((0-1+5)%5=4).
+      var dow = new Date().getDay(); // 0=Paz 1=Pzt ... 6=Cmt
+      var isWeekendFallback = (dow === 0 || dow === 6);
       var brickGroups = {};
       top30.forEach(function (p) {
         var b = p.brick || 'DİĞER';
@@ -489,7 +497,7 @@
         brickGroups[b].push(p);
       });
       var brickList = Object.keys(brickGroups);
-      var idx = (dow - 1 + 5) % 5; // 0-4 arası
+      var idx = isWeekendFallback ? 0 : (dow - 1 + 5) % 5; // 0-4 arası, hafta sonu → Pazartesi
       var todayBrick = brickList[idx % brickList.length];
       todayVisits = todayBrick ? (brickGroups[todayBrick] || []).slice(0, 8) : top30.slice(0, 8);
     }
