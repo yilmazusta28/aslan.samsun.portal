@@ -156,6 +156,61 @@
     return { period: calPeriod, dataStale: false };
   }
 
+  // ── _lastFilledWeekIdx ────────────────────────────────────
+  // weekSums dizisinde en son (en yüksek indexli) >0 olan haftanın
+  // 1-index'ini döndürür. 0 = hiç veri yok.
+  function _lastFilledWeekIdx(weekSums) {
+    for (var i = weekSums.length - 1; i >= 0; i--) {
+      if (weekSums[i] > 0) return i + 1;
+    }
+    return 0;
+  }
+
+  // ── _weeklyAvgDailyRate ───────────────────────────────────
+  // KULLANICI İSTEĞİ — YENİ YÖNTEM: "haftalık satış ortalamalarını iş
+  // gününe bölüp gelecek IMS'i tahmin et".
+  //
+  // Eski yöntem tek başına currentTL/elapsedDays (dönem başından bugüne
+  // KÜMÜLATİF ortalama) kullanıyordu. Sorun: dönemin ilk haftasındaki bir
+  // "sell-in" (kutu yükleme) sıçraması TÜM dönem boyunca günlük hızı kalıcı
+  // olarak şişirir çünkü kümülatif ortalamaya karışır ve hiç "unutulmaz".
+  //
+  // Bu fonksiyon bunun yerine SADECE SON birkaç TAMAMLANMIŞ IMS haftasının
+  // (h1..h9 kolonları) ortalamasını alıp haftadaki iş günü sayısına böler.
+  // Böylece:
+  //   1) Güncel gidişatı (son haftalar) kümülatif geçmişten çok daha
+  //      doğru yansıtır — tek seferlik bir sıçrama birkaç hafta sonra
+  //      pencereden düşer ve etkisi kaybolur.
+  //   2) "İş günü" bazlı olduğu için hafta sonu/tatil farklarından
+  //      etkilenmez (workDays() ile hesaplanan gerçek iş günü kullanılır).
+  //
+  // @param {Object} gt          GENEL TOPLAM satırı (h1..h9 TL kolonları)
+  // @param {number} totalDays   dönemin toplam iş günü sayısı
+  // @returns {number|null}      günlük TL hızı, yetersiz veri varsa null
+  function _weeklyAvgDailyRate(gt, totalDays) {
+    if (!gt || !totalDays) return null;
+    var weekKeys  = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'h7', 'h8', 'h9'];
+    var weekSums  = weekKeys.map(function (k) { return gt[k] || 0; });
+    var lastFilled = _lastFilledWeekIdx(weekSums);
+    if (lastFilled < 1) return null;
+
+    // Son en fazla 3 TAMAMLANMIŞ haftayı al (dönemin son haftası genelde
+    // yarım/devam ediyor olabileceğinden onu "tamamlanmış" saymıyoruz —
+    // ama veri her zaman geriden geldiği için pratikte lastFilled zaten
+    // genelde tamamlanmış haftalardır).
+    var recentWeeks = weekSums.slice(0, lastFilled).slice(-3);
+    if (!recentWeeks.length) return null;
+
+    var avgWeekTL = recentWeeks.reduce(function (s, v) { return s + v; }, 0) / recentWeeks.length;
+
+    // Bir IMS haftası dönemin 1/9'u kadar sürer → o haftaya denk gelen
+    // gerçek iş günü sayısı (tatil/hafta sonu dahil edilmiş).
+    var workDaysPerWeek = totalDays / 9;
+    if (workDaysPerWeek <= 0) return null;
+
+    return avgWeekTL / workDaysPerWeek;
+  }
+
   // ── calculateRunRate ──────────────────────────────────────
   // @param {string} ttt
   // @returns {{
@@ -259,7 +314,14 @@
       var RELIABLE_DAYS   = 10; // ~2 hafta iş günü — bu noktadan sonra ham hıza tam güven
       var obsWeight        = Math.min(1, elapsedDays / RELIABLE_DAYS);
       var targetPaceRate    = hedefTL > 0 ? (hedefTL / totalDays) : dailyRate;
-      var effectiveDailyRate = (dailyRate * obsWeight) + (targetPaceRate * (1 - obsWeight));
+
+      // KULLANICI İSTEĞİ: haftalık ortalama bazlı hız — mevcut olduğunda
+      // kümülatif "dailyRate" yerine tahmin/pace sinyali olarak bunu
+      // kullan (bkz. _weeklyAvgDailyRate yorumu). Yoksa (haftalık kolon
+      // verisi hiç girilmemişse) eski kümülatif hıza geri düş.
+      var weeklyRate     = _weeklyAvgDailyRate(genelTotal, totalDays);
+      var paceRate        = (weeklyRate != null && weeklyRate > 0) ? weeklyRate : dailyRate;
+      var effectiveDailyRate = (paceRate * obsWeight) + (targetPaceRate * (1 - obsWeight));
 
       // ── Projeksiyon: mevcut + kalan günler × yumuşatılmış (efektif) hız ──
       var projected = currentTL + (effectiveDailyRate * remainingDays);
@@ -275,7 +337,10 @@
       result.confidence            = _confidence(elapsedDays, totalDays, hasWeeklyData, projReal, currentReal);
 
       result.note = 'Günlük run rate: ₺' + Math.round(dailyRate).toLocaleString('tr-TR') +
-        ' | ' + elapsedDays + '/' + totalDays + ' iş günü geçti.';
+        ' | ' + elapsedDays + '/' + totalDays + ' iş günü geçti.' +
+        (weeklyRate != null && weeklyRate > 0
+          ? ' | Projeksiyon son haftaların ortalamasına (₺' + Math.round(weeklyRate).toLocaleString('tr-TR') + '/gün) göre.'
+          : '');
 
       // ── 6 Aylık Arşiv — Önceki Dönem Bağlamı (YENİ) ─────────────
       // Mevcut confidence FORMÜLÜNE dokunulmadı (kasıtlı — bkz. FIX-CONF-01
