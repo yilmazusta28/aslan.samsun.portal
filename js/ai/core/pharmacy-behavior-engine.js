@@ -377,6 +377,37 @@
     return _FALLBACK_AVG_BOX_PRICE;
   }
 
+  // ── _opportunityRaw / _visitPriority ──────────────────────────────────
+  // BUG DÜZELTMESİ: opportunityScore ve visitPriorityScore bu dosyada
+  // (yani UYGULAMANIN GERÇEKTEN KULLANDIĞI aktif yolda) hep null
+  // bırakılıyordu ("FAZ 9.4'te Digital Twin'den gelecek" notuyla — ama o
+  // entegrasyon hiç tamamlanmadı, bkz. digital-twin-builder.js incelemesi).
+  // Bunun etkisi sanılandan çok daha genişti:
+  //   • route-optimizer.js'in ANA visitScore formülü: (vps×0.40)+(rp×0.25)+
+  //     (opp×0.20)+(gap×0.15) — vps VE opp hep 0 olduğundan formülün
+  //     AĞIRLIĞININ %60'I tamamen ölüydü.
+  //   • route-optimizer.js'in "OPPORTUNITY" öncelik etiketi (opp>80) hiç
+  //     tetiklenemiyordu.
+  //   • autonomous-planning-engine.js'in visitScore'undaki "gap katkısı"
+  //     (%25 ağırlık) hep 0'dı.
+  //   • ai-sales-coach-v2.js'deki "YÜKSEK_FIRSAT" fırsat tipi hiç
+  //     üretilemiyordu (opportunityScore>75 hiç gerçekleşmiyordu).
+  // Çözüm: pharmacy-intelligence.js'in legacy (fallback) yolunda ZATEN
+  // ÇALIŞAN VE KANITLANMIŞ olan AYNI formülleri buraya (aktif yola) taşıdık.
+  function _opportunityRaw(reorderProb, expectedBoxes, boxPrice) {
+    return (reorderProb / 100) * expectedBoxes * (boxPrice || _FALLBACK_AVG_BOX_PRICE);
+  }
+
+  function _visitPriority(opportunityScore, reorderProb, daysSince, avgOrderCycle) {
+    var gap = avgOrderCycle > 0 ? daysSince / avgOrderCycle : 1;
+    var gapContribution = Math.min(100, gap * 50);
+    return Math.max(0, Math.min(100, Math.round(
+      opportunityScore * 0.5 +
+      reorderProb      * 0.3 +
+      gapContribution  * 0.2
+    )));
+  }
+
   // ── buildBehaviorProfiles — PharmacyAdapter → BehaviorProfile[] ──────
   function buildBehaviorProfiles(tttFilter) {
     var cacheKey = tttFilter || '__all__';
@@ -477,8 +508,9 @@
         consecutiveGrowthMonths:  consGrowth,
         consecutiveDeclineMonths: consDecline,
         consecutiveZeroMonths:    consZero,
-        opportunityScore:        null,   // FAZ 9.4'te Digital Twin'den gelecek
-        visitPriorityScore:      null,   // FAZ 9.4'te Digital Twin'den gelecek
+        opportunityScore:        0,      // aşağıda normalizasyon sonrası doldurulur
+        visitPriorityScore:      0,      // aşağıda normalizasyon sonrası doldurulur
+        _opportunityRaw:         _opportunityRaw(reorderProb, forecastBoxes, boxPrice),
         productAffinityScore:    null,
         nextOrderProducts:       [],
         daysSinceLastOrder:      daysSince,
@@ -486,6 +518,16 @@
         daysToNextOrder:         daysToNext,
         expectedOrderDate:       null
       };
+    });
+
+    // ── Normalize: opportunityScore (0-100) — pharmacy-intelligence.js'in
+    //    legacy yoluyla AYNI yöntem: batch içindeki en yüksek ham değere
+    //    göre normalize edilir.
+    var maxOpp = profiles.reduce(function (m, p) { return Math.max(m, p._opportunityRaw); }, 1);
+    profiles.forEach(function (p) {
+      p.opportunityScore   = Math.round((p._opportunityRaw / maxOpp) * 100);
+      p.visitPriorityScore = _visitPriority(p.opportunityScore, p.reorderProbability, p.daysSinceLastOrder, p.avgOrderCycle);
+      delete p._opportunityRaw;
     });
 
     _cache[cacheKey] = profiles;
