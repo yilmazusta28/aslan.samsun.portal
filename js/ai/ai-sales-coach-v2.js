@@ -100,8 +100,13 @@
     if (real >= 110) successChance = 99;
 
     // Gap: hedefe ulaşmak için gereken TL delta
-    var tlReal   = row.tl_real  || 0;
-    var tlTarget = row.tl_target|| 0;
+    // BUG DÜZELTMESİ: row.tl_real / row.tl_target GENEL_TABLO şemasında hiç
+    // yok (gerçek alanlar: satis_tl, hedef_tl — bkz. csv-parser.js). Bu
+    // yüzden gap91TL/gap100TL her zaman 0 çıkıyor ve "Dönem Sonu
+    // Senaryoları" kartı gerçek performanstan bağımsız olarak HER ZAMAN
+    // "✅ Geçildi" gösteriyordu.
+    var tlReal   = row.satis_tl || 0;
+    var tlTarget = row.hedef_tl || 0;
     var gap91TL  = Math.max(0, (tlTarget * 0.91) - tlReal);
     var gap100TL = Math.max(0, tlTarget - tlReal);
 
@@ -322,8 +327,12 @@
     var row = _getGenelRow(ttt);
     if (!row) return null;
 
-    var tlReal   = row.tl_real   || 0;
-    var tlTarget = row.tl_target || 0;
+    // BUG DÜZELTMESİ: satis_tl/hedef_tl olmalıydı (bkz. yukarıdaki
+    // _buildExecutiveSummary düzeltme notu) — eskiden tlTarget her zaman 0
+    // okunduğu için bu fonksiyon HER ZAMAN null dönüyor, "Prim Optimizasyonu"
+    // bölümü hiç görünmüyordu.
+    var tlReal   = row.satis_tl || 0;
+    var tlTarget = row.hedef_tl || 0;
     if (tlTarget <= 0) return null;
 
     var currentReal = row.tl_pct || 0;
@@ -362,23 +371,28 @@
     var row = _getGenelRow(ttt);
     if (!row) return null;
 
-    var real = row.tl_pct || 0;
-    // Kalan gün tahmini — iş günleri
-    var today     = new Date();
-    var periodEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0); // ay sonu
-    var diffDays  = Math.max(1, Math.round((periodEnd - today) / 86400000));
-    var workDays  = Math.round(diffDays * 5 / 7);
+    if (typeof calculateRunRate !== 'function') return null;
+    var rr = calculateRunRate(ttt);
+    if (!rr || !rr.totalDays || !row.hedef_tl) return null;
 
-    // Günlük run-rate
-    var daysElapsed = Math.max(1, 22 - workDays);
-    var runRate     = real / daysElapsed;
+    var tlReal   = row.satis_tl || 0;
+    var tlTarget = row.hedef_tl || 0;
 
-    var badReal        = Math.round(runRate * (daysElapsed + workDays * 0.85) * 10) / 10;
-    var normalReal     = Math.round(runRate * (daysElapsed + workDays) * 10) / 10;
-    var aggressiveReal = Math.round(runRate * (daysElapsed + workDays * 1.20) * 10) / 10;
+    // "Normal" senaryo = calculateRunRate'in kendi projeksiyonu (zaten
+    // haftalık-ortalama bazlı, gerçek dönem uzunluğuna göre doğru hesaplı).
+    // "Kötü"/"Agresif" senaryolar SADECE KALAN dönemdeki hızı ±yüzde
+    // değiştirir — şimdiye kadar gerçekleşen satış (tlReal) sabit kalır.
+    var normalTL      = rr.projectedMonthEnd || tlReal;
+    var remainingPart = Math.max(0, normalTL - tlReal);
+    var badTL         = tlReal + remainingPart * 0.85;
+    var aggressiveTL  = tlReal + remainingPart * 1.20;
+
+    var badReal        = Math.round((badTL / tlTarget) * 1000) / 10;
+    var normalReal     = Math.round((normalTL / tlTarget) * 1000) / 10;
+    var aggressiveReal = Math.round((aggressiveTL / tlTarget) * 1000) / 10;
 
     return {
-      workDaysLeft:   workDays,
+      workDaysLeft:   rr.remainingDays,
       bad:            { label: 'Kötü',    pct: Math.min(150, badReal),        icon: '🔴' },
       normal:         { label: 'Normal',  pct: Math.min(150, normalReal),     icon: '🟡' },
       aggressive:     { label: 'Agresif', pct: Math.min(150, aggressiveReal), icon: '🟢' }

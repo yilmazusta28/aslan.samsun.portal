@@ -52,14 +52,19 @@
     }
 
     // Geçmiş öğrenme sinyali
+    // BUG DÜZELTMESİ: learningSignal zaten 0-100 ölçeğinde geliyor
+    // (LearningHub.getLearningContext().successRate → outcome-tracker.js'in
+    // successRate hesabı 0-100 üretir, bkz. o dosyadaki refreshContextCache).
+    // Burada ×100 yapmak örn. gerçek %73.4'ü ekranda "%7340" olarak
+    // gösteriyordu — kullanıcıya doğrudan görünen "Neden?" panelinde.
     if (db.learningSignal != null) {
-      var ls = Math.round(db.learningSignal * 100);
+      var ls = Math.round(db.learningSignal);
       lines.push('📚 Geçmiş öğrenme başarısı: %' + ls + ' (benzer durumlarda sonuç alınan oran).');
     }
 
-    // Kayıtlı outcome sinyali
+    // Kayıtlı outcome sinyali (AYNI DÜZELTME — zaten 0-100 ölçeğinde)
     if (db.outcomeSignal != null) {
-      var os = Math.round(db.outcomeSignal * 100);
+      var os = Math.round(db.outcomeSignal);
       lines.push('📊 Kayıtlı sonuç başarısı: %' + os + ' (temsilcinin daha önce uyguladığı önerilerden başarıya ulaşma oranı).');
     }
 

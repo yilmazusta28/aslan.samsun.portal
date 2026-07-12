@@ -163,6 +163,22 @@
     return results;
   }
 
+  // ── getOverallShareSummary — index.html renderMarketShareCard() bunu
+  //    çağırıyor ama fonksiyon hiç var olmamıştı (eksik export) — bu
+  //    yüzden çağrı anında TypeError fırlatıyor ve kart kalıcı olarak boş
+  //    kalıyordu ("Pazar Payı Analizi veri üretmiyor"). Artık
+  //    analyzeMarketShare() sonuçlarından türetiliyor.
+  function getOverallShareSummary(ttt) {
+    var records = analyzeMarketShare(ttt).filter(function (r) { return r.dataQuality === 'OK'; });
+    if (!records.length) {
+      return { avgBizimPay: null, risingShareBricks: [], decliningShareBricks: [] };
+    }
+    var avg = records.reduce(function (s, r) { return s + r.ourShare; }, 0) / records.length;
+    var rising = records.filter(function (r) { return r.trend === 'up'; }).map(function (r) { return r.brick; });
+    var declining = records.filter(function (r) { return r.trend === 'down'; }).map(function (r) { return r.brick; });
+    return { avgBizimPay: avg, risingShareBricks: rising, decliningShareBricks: declining };
+  }
+
   // ── shareTrend / shareChangePct — competitive-impact-engine şeması ────
   function shareTrend(ttt, brick) {
     var results = analyzeMarketShare(ttt, brick);
@@ -179,11 +195,12 @@
   function clearCache() { _cache = {}; }
 
   window.MarketShareEngine = {
-    analyzeMarketShare: analyzeMarketShare,
-    shareTrend:         shareTrend,
-    shareChangePct:     shareChangePct,
-    clearCache:         clearCache,
-    version: '8.1-fixed'
+    analyzeMarketShare:     analyzeMarketShare,
+    getOverallShareSummary: getOverallShareSummary,
+    shareTrend:             shareTrend,
+    shareChangePct:         shareChangePct,
+    clearCache:             clearCache,
+    version: '8.2-fixed'
   };
 
   console.debug('[market-share-engine] FAZ 8.1 yüklendi (bug düzeltmesi ile).');

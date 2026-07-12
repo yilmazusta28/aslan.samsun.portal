@@ -174,13 +174,25 @@
   }
 
   // ── Yardımcı: Reorder olasılığı ──────────────────────────────────────
+  // BUG DÜZELTMESİ: Bu fonksiyon eskiden 0-1 ölçeğinde (max 0.95) bir
+  // değer döndürüyordu — ama projedeki HERKES (route-optimizer.js
+  // eşikleri >85/>=50/>=60, reorder-classifier.js, reorder-engine.js,
+  // autonomous-planning-engine.js, ai-sales-coach-v2.js, confidence-meter/
+  // probBar render fonksiyonları, hatta bu dosyanın kendi legacy ikizi
+  // pharmacy-intelligence.js._reorderProb) 0-100 ÖLÇEĞİ bekliyor/üretiyor.
+  // PharmacyBehaviorEngine HER ZAMAN yüklü olduğundan bu fonksiyonun
+  // çıktısı UYGULAMADA GERÇEKTEN AKTİF OLAN değerdi — yani "Sipariş
+  // Olasılığı" her yerde neredeyse sıfır görünüyordu (örn. gerçek %72
+  // yerine "0.72" değeri >85 eşiğini hiç geçemiyor, %-bar'ı görünmez
+  // kalıyordu). Artık 0-100 tam sayı döndürüyor — projedeki tek gerçek
+  // konvansiyona uyumlu.
   function _reorderProb(activeMonths, totalMonths, daysSince, avgCycle, growthRate) {
     if (!totalMonths) return 0;
     var activityRatio = activeMonths / totalMonths;
     var recencyFactor = avgCycle > 0 ? Math.max(0, 1 - daysSince / (avgCycle * 1.5)) : 0.5;
     var growthBonus   = growthRate > 10 ? 0.05 : 0;
     var prob = activityRatio * 0.6 + recencyFactor * 0.4 + growthBonus;
-    return Math.min(0.95, Math.max(0, Math.round(prob * 100) / 100));
+    return Math.min(95, Math.max(0, Math.round(prob * 100)));
   }
 
   // ── Yardımcı: Legacy 5-sınıf belirleme ─────────────────────────────
@@ -323,6 +335,48 @@
       secondaryType: 'REGULAR_BUYER', evidenceFields: evidence };
   }
 
+  var _FALLBACK_AVG_BOX_PRICE = 109; // pharmacy-intelligence.js AVG_BOX_PRICE ile TUTARLI
+
+  // ── _bestBoxPrice — bir eczane için en doğru TL/kutu fiyatını seçer ───
+  // BUG DÜZELTMESİ: forecastValue eskiden HER ZAMAN forecastBoxes * 150
+  // (elle yazılmış, hiçbir yerde tanımlı olmayan sabit bir fiyat — hem
+  // pharmacy-intelligence.js'in kendi AVG_BOX_PRICE'ı olan 109'dan hem de
+  // gerçek IMS_TL_MAP fiyatlarından bağımsız) ile hesaplanıyordu. Bu değer
+  // buildPharmacyProfiles() → _fromBehaviorProfile() üzerinden UYGULAMANIN
+  // GERÇEKTEN KULLANDIĞI expectedOrderValue'ya dönüşüyordu (pharmacy-
+  // intelligence.js'in KENDİ _legacyBuildPharmacyProfiles hesaplaması,
+  // PharmacyBehaviorEngine her zaman yüklü olduğu için pratikte hiç
+  // çalışmıyor — bu dosya asıl aktif yoldu).
+  // Öncelik sırası: 1) bu eczane için GERÇEK faturalanmış TL/kutu
+  // (PharmacyAdapter.averageUnitPrice — varsa en doğrusu), 2) ürün bazlı
+  // IMS_TL_MAP ağırlıklı ortalama (monthsByProduct varsa), 3) düz bölgesel
+  // ortalama (tutarlılık için pharmacy-intelligence.js'teki AYNI sabit).
+  function _bestBoxPrice(record) {
+    // 1) Gerçek faturalanmış ortalama fiyat
+    var real = null;
+    try {
+      if (window.PharmacyAdapter && typeof window.PharmacyAdapter.averageUnitPrice === 'function') {
+        real = window.PharmacyAdapter.averageUnitPrice(record);
+      }
+    } catch (e) { /* ignore */ }
+    if (real != null && real > 0) return real;
+
+    // 2) Ürün bazlı IMS_TL_MAP ağırlıklı ortalama
+    if (record && record.monthsByProduct && typeof IMS_TL_MAP !== 'undefined') {
+      var totalBoxes = 0, totalValue = 0;
+      Object.keys(record.monthsByProduct).forEach(function (urun) {
+        var ayMap = record.monthsByProduct[urun] || {};
+        var urunBoxes = Object.keys(ayMap).reduce(function (s, ay) { return s + (ayMap[ay] || 0); }, 0);
+        var price = IMS_TL_MAP[urun] || 0;
+        if (price > 0) { totalBoxes += urunBoxes; totalValue += urunBoxes * price; }
+      });
+      if (totalBoxes > 0) return totalValue / totalBoxes;
+    }
+
+    // 3) Düz bölgesel ortalama (fallback)
+    return _FALLBACK_AVG_BOX_PRICE;
+  }
+
   // ── buildBehaviorProfiles — PharmacyAdapter → BehaviorProfile[] ──────
   function buildBehaviorProfiles(tttFilter) {
     var cacheKey = tttFilter || '__all__';
@@ -394,6 +448,7 @@
       }
 
       var forecastBoxes = Math.max(0, Math.round(avg * 0.9));
+      var boxPrice = _bestBoxPrice(r);
 
       return {
         gln:            r.gln,
@@ -409,8 +464,8 @@
         classification:          legacyCls,
         reorderProbability:      reorderProb,
         forecastBoxes:           forecastBoxes,
-        forecastValue:           forecastBoxes * 150,
-        score:                   Math.round(reorderProb * 100),
+        forecastValue:           Math.round(forecastBoxes * boxPrice),
+        score:                   Math.round(reorderProb),
         totalBoxes:              total,
         avgMonthlyBoxes:         Math.round(avg * 10) / 10,
         historicalMaxBoxes:      maxVal,

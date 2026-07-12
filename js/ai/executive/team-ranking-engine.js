@@ -50,8 +50,12 @@
   // wMap hep boş kalıyor, wVals.length her zaman 0 oluyor ve fonksiyon
   // sessizce herkese aynı nötr "50" puanını veriyordu — ekrandaki
   // "Büyüme" sütununun herkeste aynı görünmesinin kök nedeni buydu.
-  // Düzeltme: kendi ürünlerine ait (is_mkt:false) haftalık h1..h9 TL
-  // kolonları toplanarak gerçek haftalık trend hesaplanıyor.
+  // Düzeltme: kendi ürünlerine ait (is_mkt:false) haftalık h1..h9 KUTU
+  // kolonları toplanarak gerçek haftalık trend hesaplanıyor. (Not: IMS
+  // satırlarında gerçek bir TL alanı yoktur, sadece kutu hacmi vardır —
+  // bkz. docs/AI_MIMARI_STABILIZASYON_RAPORU.md. Hesaplama zaten baştan
+  // beri birim-tutarlıydı çünkü sadece IMS'in kendi kutu kolonlarını
+  // birbiriyle kıyaslıyor; bu sadece bir yorum/etiket düzeltmesidir.)
   function _growthScore(ttt) {
     var imsRows = (IMS || []).filter(function (r) { return r.ttt === ttt && !r.is_mkt; });
     if (!imsRows.length) return 50; // veri yoksa nötr

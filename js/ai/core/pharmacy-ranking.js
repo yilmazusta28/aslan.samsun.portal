@@ -68,9 +68,12 @@
     return Math.round((activeMonths / totalMonths) * 100);
   }
 
-  // ── _normOpportunity — reorderProbability [0,1] → [0,100] ─────────
+  // ── _normOpportunity — reorderProbability [0,100] → [0,100] ────────
+  // (reorderProbability projede HER YERDE 0-100 ölçeğinde — bkz.
+  // pharmacy-behavior-engine.js._reorderProb() düzeltme notu. Burada
+  // sadece güvenli şekilde yuvarlanır/sınırlanır, tekrar ×100 YAPILMAZ.)
   function _normOpportunity(reorderProbability) {
-    return Math.round((reorderProbability || 0) * 100);
+    return Math.round(Math.max(0, Math.min(100, reorderProbability || 0)));
   }
 
   // ── _normUrgency — daysToNextOrder yakınlığı → [0,100] ────────────

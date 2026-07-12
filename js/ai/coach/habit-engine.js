@@ -169,11 +169,18 @@
       }
 
       // Yeni dönem başında
-      if (remaining > 60) {
+      // BUG DÜZELTMESİ: eskiden 'remaining > 60' kontrol ediliyordu, ama
+      // projedeki HİÇBİR dönem 60 iş gününü geçmiyor (tüm dönemler ~2 ay,
+      // maksimum ~46 iş günü — bkz. js/core/date-utils.js PERIODS). Bu
+      // yüzden bu alışkanlık ASLA tetiklenemiyordu. "Dönem başı" artık
+      // doğru şekilde elapsedDays (dönemin kaç iş günü geçmiş) ile
+      // tespit ediliyor — dönem uzunluğundan bağımsız çalışır.
+      var elapsedDays = rr.elapsedDays || 0;
+      if (elapsedDays > 0 && elapsedDays <= 5) {
         result.contextual.push({
           habit:   'Dönem başında tüm brickleri ziyaret et ve ilişkileri tazele',
           why:     'Dönem başı ziyareti tüm dönem boyunca pozitif satış zemini oluşturur.',
-          trigger: 'Yeni dönem başladığında (ilk 5 gün)',
+          trigger: 'Yeni dönem başladığında (ilk 5 iş günü)',
           urgency: 'BU HAFTA'
         });
       }
