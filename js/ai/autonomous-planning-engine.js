@@ -367,12 +367,12 @@
       });
 
       urunRows.sort(function (a, b) {
-        return ((b.target_tl || 0) - (b.gercek_tl || 0)) -
-               ((a.target_tl || 0) - (a.gercek_tl || 0));
+        return ((b.hedef_tl || 0) - (b.satis_tl || 0)) -
+               ((a.hedef_tl || 0) - (a.satis_tl || 0));
       });
 
       urunRows.slice(0, 5).forEach(function (r) {
-        var gap    = Math.max(0, (r.target_tl || 0) - (r.gercek_tl || 0));
+        var gap    = Math.max(0, (r.hedef_tl || 0) - (r.satis_tl || 0));
         var price  = (typeof IMS_TL_MAP !== 'undefined' && IMS_TL_MAP[r.urun]) ? IMS_TL_MAP[r.urun] : 100;
         var boxes  = Math.ceil(gap / price);
         if (boxes <= 0) return;
@@ -757,8 +757,8 @@
       var gt = _getGT(ttt);
       if (!gt) return result;
 
-      var newGercek = (gt.gercek_tl || 0) + extraTL;
-      var newReal   = gt.target_tl > 0 ? (newGercek / gt.target_tl) * 100 : 0;
+      var newGercek = (gt.satis_tl || 0) + extraTL;
+      var newReal   = gt.hedef_tl > 0 ? (newGercek / gt.hedef_tl) * 100 : 0;
       result.newReal = Math.round(newReal * 10) / 10;
       result.newGap  = Math.max(0, (gt.kalan_tl || 0) - extraTL);
 
@@ -788,7 +788,7 @@
     var rows = (typeof GENEL !== 'undefined') ? GENEL : [];
     return (tttList || []).map(function (ttt) {
       var gt = rows.find(function (r) { return r.ttt === ttt && r.urun === 'GENEL TOPLAM'; });
-      var hasPlan = !!_loadPlan(STORE_DAILY + '_' + ttt);
+      var hasPlan = !!_loadPlan(STORE_DAILY);
       return {
         ttt:        ttt,
         realPct:    gt ? (gt.tl_pct || 0) : 0,

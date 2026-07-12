@@ -408,6 +408,34 @@
     )));
   }
 
+  // ── _productAffinity ───────────────────────────────────────────────
+  // BUG DÜZELTMESİ: productAffinityScore da bu dosyada (aktif yolda) hep
+  // null bırakılıyordu. Etkisi: autonomous-planning-engine.js'in
+  // generateDailyPlan()'ı "affinity = fullProfile.productAffinityScore ||
+  // {}" okuduğundan affinity HER ZAMAN boş obje oluyor, hiçbir ürün
+  // seçilemiyor ve kod jenerik fallback'e düşüp HER ziyaret önerisinde
+  // sabit PRODUCTS[0] (PANOCER) öneriyordu — eczane aslında hiç PANOCER
+  // almasa bile. pharmacy-intelligence.js'in legacy yolunda zaten çalışan
+  // AYNI formül taşındı: son 3 ayın hacim + aktiflik ağırlıklı skoru.
+  var PRODUCTS_LIST = ['PANOCER', 'ACİDPASS', 'GRİPORT COLD', 'MOKSEFEN', 'FAMTREC'];
+  function _productAffinity(monthsByProduct, sortedMonths) {
+    var result = {};
+    var last3Months = (sortedMonths || []).slice(-3);
+    PRODUCTS_LIST.forEach(function (urun) {
+      var urunSales = (monthsByProduct && monthsByProduct[urun]) || {};
+      var total = 0, monthCount = 0;
+      last3Months.forEach(function (ay) {
+        var v = urunSales[ay] || 0;
+        total += v;
+        if (v > 0) monthCount++;
+      });
+      var volumeScore   = Math.min(100, total * 2);
+      var activityScore = last3Months.length > 0 ? (monthCount / last3Months.length) * 100 : 0;
+      result[urun] = Math.round(volumeScore * 0.7 + activityScore * 0.3);
+    });
+    return result;
+  }
+
   // ── buildBehaviorProfiles — PharmacyAdapter → BehaviorProfile[] ──────
   function buildBehaviorProfiles(tttFilter) {
     var cacheKey = tttFilter || '__all__';
@@ -511,7 +539,7 @@
         opportunityScore:        0,      // aşağıda normalizasyon sonrası doldurulur
         visitPriorityScore:      0,      // aşağıda normalizasyon sonrası doldurulur
         _opportunityRaw:         _opportunityRaw(reorderProb, forecastBoxes, boxPrice),
-        productAffinityScore:    null,
+        productAffinityScore:    _productAffinity(r.monthsByProduct, r.sortedMonths),
         nextOrderProducts:       [],
         daysSinceLastOrder:      daysSince,
         avgOrderCycle:           avgCycle,
