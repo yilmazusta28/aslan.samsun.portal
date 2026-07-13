@@ -306,11 +306,21 @@
     });
 
     // Brick bazlı IMS uyarıları
+    // BUG DÜZELTMESİ: r.ttt → r.person (gerçek alan adı) + sadece EN GÜNCEL
+    // döneme ait satırlar kullanılıyor (bkz. prim-calc.js düzeltme notu).
     try {
       var imsData = (typeof MIGI_BRICK_TL_RAW !== 'undefined') ? MIGI_BRICK_TL_RAW : [];
-      var tttBricks = imsData.filter(function (r) { return r.ttt === ttt; });
-      tttBricks.forEach(function (r) {
-        if ((r.mi || 100) < 85) {
+      var _migiDonemNum = function (d) { var p = String(d || '').split('/'); return p.length === 2 ? (+p[1] * 100 + +p[0]) : 0; };
+      var _tttRowsByBrick = {};
+      imsData.filter(function (r) { return r.person === ttt; }).forEach(function (r) {
+        if (!_tttRowsByBrick[r.brick]) _tttRowsByBrick[r.brick] = [];
+        _tttRowsByBrick[r.brick].push(r);
+      });
+      Object.keys(_tttRowsByBrick).forEach(function (brick) {
+        var rows = _tttRowsByBrick[brick];
+        var latest = rows.reduce(function (max, r) { return Math.max(max, _migiDonemNum(r.donem)); }, 0);
+        var r = rows.filter(function (rr) { return _migiDonemNum(rr.donem) === latest; })[0];
+        if (r && (r.mi || 100) < 85) {
           warnings.push({
             type:    'LOW_MI',
             eczane:  r.brick,

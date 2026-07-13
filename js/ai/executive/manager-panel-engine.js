@@ -349,13 +349,25 @@
       if (r.toplam_ppi != null && !isNaN(r.toplam_ppi)) brickMap[key].ppiVals.push(r.toplam_ppi);
     });
 
-    // 3b) Brick sırası (İlk 333 dahil) — MIGI_BRICK_TL_RAW'dan en küçük sıra
+    // 3b) Brick sırası (İlk 333 dahil) — MIGI_BRICK_TL_RAW'dan EN GÜNCEL
+    // döneme ait sira (BUG DÜZELTMESİ: eskiden tüm ayların en iyisi/en
+    // düşüğü alınıyordu — güncel ay kötü olsa bile eski iyi sıra hep
+    // kazanıyordu, bkz. prim-calc.js'deki aynı düzeltme notu).
+    var _migiDonemNum = function (d) { var p = String(d || '').split('/'); return p.length === 2 ? (+p[1] * 100 + +p[0]) : 0; };
     var siraMap = {};
+    var _siraRowsByBrick = {};
     (MIGI_BRICK_TL_RAW || []).filter(function (r) { return r.person === ttt; }).forEach(function (r) {
       var key = (r.brick || '').trim().toUpperCase();
       if (!key) return;
-      if (!siraMap[key] || (r.sira && r.sira < siraMap[key])) siraMap[key] = r.sira;
+      if (!_siraRowsByBrick[key]) _siraRowsByBrick[key] = [];
+      _siraRowsByBrick[key].push(r);
       if (!brickMap[key]) brickMap[key] = { estTL: 0, ppiVals: [] };
+    });
+    Object.keys(_siraRowsByBrick).forEach(function (key) {
+      var rows = _siraRowsByBrick[key];
+      var latest = rows.reduce(function (max, r) { return Math.max(max, _migiDonemNum(r.donem)); }, 0);
+      var latestRow = rows.filter(function (r) { return _migiDonemNum(r.donem) === latest; })[0];
+      siraMap[key] = latestRow ? latestRow.sira : null;
     });
 
     // 3c) TTT toplam hedef/satış TL → brick'lere orantılı dağıt

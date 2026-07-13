@@ -141,15 +141,25 @@ function _runEngineCore() {
   const _urunOrderRef = (typeof URUN_ORDER !== 'undefined') ? URUN_ORDER : ['PANOCER','ACİDPASS','GRİPORT COLD','MOKSEFEN','FAMTREC'];
   const urunRows= GENEL.filter(r=>r.ttt===ttt&&r.urun!=='GENEL TOPLAM')
     .sort((a,b)=>{ const oi=_urunOrderRef.indexOf(a.urun), oj=_urunOrderRef.indexOf(b.urun); return (oi<0?99:oi)-(oj<0?99:oj); });
-  // MI&GI: MIGI_BRICK_TL_RAW'dan bu temsilcinin en son döneme ait brick bazlı verisi
-  const _migiSrc = (MIGI_BRICK_TL_RAW||[]).filter(r=>r.person===ttt);
-  // Brick başına mevcut dönemdeki ortalama mi/gi değerlerini hesapla
+  // MI&GI: MIGI_BRICK_TL_RAW'dan bu temsilcinin EN GÜNCEL döneme ait brick bazlı verisi
+  // BUG DÜZELTMESİ: eski kod "en son döneme ait" diye yorum yazıyordu ama
+  // fiilen TÜM ayları (bazıları eski/güncel olmayan) filtresiz karıştırıyordu.
+  // Artık gerçekten sadece o kişi+brick için mevcut EN GÜNCEL döneme ait
+  // satırlar kullanılıyor (bkz. prim-calc.js'deki aynı düzeltme notu).
+  const _migiDonemNum = d => { const p = String(d||'').split('/'); return p.length===2 ? (+p[1]*100+ +p[0]) : 0; };
+  const _migiSrcAll = (MIGI_BRICK_TL_RAW||[]).filter(r=>r.person===ttt);
+  const _migiByBrick = {};
+  _migiSrcAll.forEach(r=>{ if(!_migiByBrick[r.brick]) _migiByBrick[r.brick]=[]; _migiByBrick[r.brick].push(r); });
   const _brickMap = {};
-  _migiSrc.forEach(r=>{
-    const k = r.brick;
-    if(!_brickMap[k]) _brickMap[k]={brick:k,sira:r.sira,miVals:[],bVals:[],person:r.person};
-    if(r.mi!=null) _brickMap[k].miVals.push(r.mi);
-    if(r.bi!=null) _brickMap[k].bVals.push(r.bi);
+  Object.keys(_migiByBrick).forEach(k=>{
+    const rows = _migiByBrick[k];
+    const latest = rows.reduce((max,r)=>Math.max(max,_migiDonemNum(r.donem)),0);
+    const latestRows = rows.filter(r=>_migiDonemNum(r.donem)===latest);
+    _brickMap[k] = { brick:k, sira: latestRows[0] ? latestRows[0].sira : null, miVals: [], bVals: [], person: ttt };
+    latestRows.forEach(r=>{
+      if(r.mi!=null) _brickMap[k].miVals.push(r.mi);
+      if(r.bi!=null) _brickMap[k].bVals.push(r.bi);
+    });
   });
   const migiRows = Object.values(_brickMap).map(b=>({
     brick:b.brick, sira:b.sira, person:b.person, ttt:ttt,

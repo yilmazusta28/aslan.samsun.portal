@@ -51,22 +51,35 @@
 
   // ── _buildBrickMigiMap ─────────────────────────────────────
   // brick → { miAvg, biAvg, sira }
+  // BUG DÜZELTMESİ: MIGI_BRICK_TL_RAW bir kişi+brick için BİRDEN FAZLA AYIN
+  // satırını içerebilir (CSV'deki her satır kendi ayını taşır). Eskiden
+  // mi/bi ortalaması TÜM ayları (bazıları eski/güncel olmayan) filtresiz
+  // karıştırıyordu, sira için de en iyi (en düşük) geçmiş değer seçiliyordu
+  // — güncel ay çok daha kötü olsa bile eski iyi sıra hep kazanıyordu.
+  // Artık sadece o kişi+brick için mevcut EN GÜNCEL döneme ait satırlar
+  // kullanılıyor (bkz. prim-calc.js'deki aynı düzeltme notu).
+  function _migiDonemNum(d) { var p = String(d || '').split('/'); return p.length === 2 ? (+p[1] * 100 + +p[0]) : 0; }
   function _buildBrickMigiMap(ttt) {
-    var map = {};
+    var byBrick = {};
     (MIGI_BRICK_TL_RAW || []).filter(function (r) { return r.person === ttt; }).forEach(function (r) {
       var key = (r.brick || '').toUpperCase();
       if (!key) return;
-      if (!map[key]) map[key] = { mi: [], bi: [], sira: r.sira || 999 };
-      if (r.mi != null) map[key].mi.push(r.mi);
-      if (r.bi != null) map[key].bi.push(r.bi);
-      if (r.sira && r.sira < map[key].sira) map[key].sira = r.sira;
+      if (!byBrick[key]) byBrick[key] = [];
+      byBrick[key].push(r);
     });
     var result = {};
-    Object.keys(map).forEach(function (key) {
-      var b  = map[key];
-      var mi = b.mi.length ? b.mi.reduce(function(s,v){return s+v;},0)/b.mi.length : null;
-      var bi = b.bi.length ? b.bi.reduce(function(s,v){return s+v;},0)/b.bi.length : null;
-      result[key] = { miAvg: mi, biAvg: bi, sira: b.sira };
+    Object.keys(byBrick).forEach(function (key) {
+      var rows = byBrick[key];
+      var latest = rows.reduce(function (max, r) { return Math.max(max, _migiDonemNum(r.donem)); }, 0);
+      var latestRows = rows.filter(function (r) { return _migiDonemNum(r.donem) === latest; });
+      var miVals = latestRows.filter(function (r) { return r.mi != null; }).map(function (r) { return r.mi; });
+      var biVals = latestRows.filter(function (r) { return r.bi != null; }).map(function (r) { return r.bi; });
+      var sira = latestRows.reduce(function (min, r) { return (r.sira && r.sira < min) ? r.sira : min; }, 999);
+      result[key] = {
+        miAvg: miVals.length ? miVals.reduce(function (s, v) { return s + v; }, 0) / miVals.length : null,
+        biAvg: biVals.length ? biVals.reduce(function (s, v) { return s + v; }, 0) / biVals.length : null,
+        sira:  sira
+      };
     });
     return result;
   }
