@@ -36,7 +36,10 @@
 //
 //  MarketShareResult:
 //    { brick, ilacGrubu, ourShare, competitorShare, trend, changePct,
-//      dataQuality: 'OK'|'NO_MARKET_DATA'|'NO_OWN_DATA' }
+//      dataQuality: 'OK'|'NO_MARKET_DATA'|'NO_OWN_DATA'|'ANOMALY_OWN_EXCEEDS_MARKET' }
+//      (ANOMALY_* — kaynak veride tutarsızlık: kendi satış > pazar toplamı;
+//       bkz. analyzeMarketShare() içindeki teşhis notu. Bu satırlar 'OK'
+//       filtrelerinde otomatik elenir; ayrıntı için konsol uyarısına bakın.)
 //
 //  Bağımlılık: js/data/data-state.js (IMS)
 //  GitHub Pages compatible: classic script, no ES modules
@@ -143,7 +146,24 @@
       var mktTotal = g.mkt.reduce(function (s, r) { return s + (r.toplam || 0); }, 0);
 
       var dataQuality = mktTotal <= 0 ? 'NO_MARKET_DATA' : (ownTotal <= 0 ? 'NO_OWN_DATA' : 'OK');
-      var ourShare  = mktTotal > 0 ? Math.round(Math.min(100, (ownTotal / mktTotal) * 100)) : 0;
+
+      // TEŞHİS: ownTotal mantıken mktTotal'ı (TÜM pazarı) aşamaz — aşıyorsa
+      // bu, kaynak veride bir tutarsızlık olduğunu gösterir (ör. aynı
+      // molekül için birden fazla "kendi ürün" satırı yanlışlıkla
+      // toplanıyor, ya da PAZARI TOPLAM satırı yanlış kolon/hafta'dan
+      // okunuyor). Eskiden bu durum Math.min(100,...) ile SESSİZCE tam
+      // "100.0%" gösterilip gizleniyordu. Artık ayrı bir kalite etiketiyle
+      // işaretleniyor ve ham sayılar konsola yazdırılıyor.
+      var rawRatio = mktTotal > 0 ? (ownTotal / mktTotal) * 100 : 0;
+      if (dataQuality === 'OK' && rawRatio > 100.5) {
+        dataQuality = 'ANOMALY_OWN_EXCEEDS_MARKET';
+        console.warn('[market-share-engine] VERİ TUTARSIZLIĞI: ' + g.brick + ' / ' + g.ilacGrubu +
+          ' — kendi satışımız (' + Math.round(ownTotal) + ') "pazar toplamı"ndan (' + Math.round(mktTotal) +
+          ') büyük çıktı (ham oran: %' + Math.round(rawRatio) + '). IMS_TABLO.csv\'de bu brick+ürün için ' +
+          'birden fazla "kendi ürün" satırı olup olmadığını veya PAZARI TOPLAM satırının doğru hafta/kolondan ' +
+          'okunduğunu kontrol edin.');
+      }
+      var ourShare  = mktTotal > 0 ? Math.round(Math.min(100, rawRatio)) : 0;
       var compShare = Math.max(0, 100 - ourShare);
 
       var trendInfo = dataQuality === 'OK' ? _weeklyShareTrend(g.own, g.mkt) : { trend: 'stable', changePct: 0 };

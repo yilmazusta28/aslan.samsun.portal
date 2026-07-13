@@ -1767,9 +1767,12 @@ function renderMarketShareCard() {
     return;
   }
   const summary = window.MarketShareEngine.getOverallShareSummary(ttt);
-  const records = window.MarketShareEngine.analyzeMarketShare(ttt).filter(r => r.dataQuality === 'OK');
+  const allRecords = window.MarketShareEngine.analyzeMarketShare(ttt);
+  const records = allRecords.filter(r => r.dataQuality === 'OK');
+  const anomalyCount = allRecords.filter(r => r.dataQuality === 'ANOMALY_OWN_EXCEEDS_MARKET').length;
   if (!records.length) {
-    el.innerHTML = '<p style="color:var(--dim);font-size:12px;padding:12px">Pazar payı verisi bulunamadı (IMS\'te is_mkt:true satırları gerekli).</p>';
+    el.innerHTML = '<p style="color:var(--dim);font-size:12px;padding:12px">Pazar payı verisi bulunamadı (IMS\'te is_mkt:true satırları gerekli).</p>' +
+      (anomalyCount ? '<p style="color:#D97706;font-size:11px;padding:0 12px">⚠️ ' + anomalyCount + ' brick için veri tutarsızlığı tespit edildi (kendi satış, pazar toplamından büyük görünüyor) — tarayıcı konsolunu kontrol edin.</p>' : '');
     return;
   }
   const avgPay = summary.avgBizimPay != null ? summary.avgBizimPay.toFixed(1) + '%' : '—';
@@ -1800,6 +1803,7 @@ function renderMarketShareCard() {
           <span>${trendIcon}</span>
         </div>`;
       }).join('')}
+      ${anomalyCount ? '<div style="color:#D97706;font-size:10px;margin-top:8px">⚠️ ' + anomalyCount + ' brick veri tutarsızlığı nedeniyle listeden çıkarıldı (kendi satış > pazar toplamı) — konsolu kontrol edin.</div>' : ''}
     </div>`;
   const badge = document.getElementById('acc_market_share_badge');
   if (badge) { badge.textContent = 'Ort. ' + avgPay; }
