@@ -26,12 +26,20 @@
   var BAZ_MIGI    = 14000;
 
   // ── MI/GI ortalama bu TTT için ────────────────────────────
+  // BUG DÜZELTMESİ: r.ttt → r.person, r.gi → r.bi (bkz. prim-calc.js'deki
+  // aynı düzeltme notu — parseMiGiToplamCSV'nin gerçek şeması).
+  // 2. DÜZELTME: MIGI_TL_RAW bir kişi için birden fazla ayın satırını
+  // içerebilir — sadece EN GÜNCEL döneme ait satırlar kullanılıyor
+  // (bkz. prim-calc.js'deki detaylı açıklama).
+  var _migiDonemNum = function (d) { var p = String(d || '').split('/'); return p.length === 2 ? (+p[1] * 100 + +p[0]) : 0; };
   function _getMiGiAvg(ttt) {
-    var rows = (typeof MIGI_TL_RAW !== 'undefined' ? MIGI_TL_RAW : [])
-      .filter(function (r) { return r.ttt === ttt; });
+    var allRows = (typeof MIGI_TL_RAW !== 'undefined' ? MIGI_TL_RAW : [])
+      .filter(function (r) { return r.person === ttt; });
+    var latest = allRows.reduce(function (max, r) { return Math.max(max, _migiDonemNum(r.donem)); }, 0);
+    var rows = allRows.filter(function (r) { return _migiDonemNum(r.donem) === latest; });
     if (!rows.length) return { mi: 100, gi: 100 };
     var miSum = rows.reduce(function (s, r) { return s + (r.mi || 100); }, 0);
-    var giSum = rows.reduce(function (s, r) { return s + (r.gi || 100); }, 0);
+    var giSum = rows.reduce(function (s, r) { return s + (r.bi || 100); }, 0);
     return {
       mi: Math.round(miSum / rows.length),
       gi: Math.round(giSum / rows.length)

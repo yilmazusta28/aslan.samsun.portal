@@ -435,10 +435,15 @@ function buildPrimContext(ttt) {
         tlRealPrim  = Math.round(carpan * 55000);
         portfoyPrim = (primPuani >= 91) ? Math.round(0.20 * 55000 * carpan) : 0;
       }
-      var migiRows = (typeof MIGI_TL_RAW !== 'undefined' ? MIGI_TL_RAW : []).filter(function (r) { return r.ttt === ttt; });
+      // BUG DÜZELTMESİ: r.ttt → r.person, r.gi → r.bi + sadece EN GÜNCEL
+      // döneme ait satırlar kullanılıyor (bkz. prim-calc.js düzeltme notu).
+      var _migiDonemNum = function (d) { var p = String(d || '').split('/'); return p.length === 2 ? (+p[1] * 100 + +p[0]) : 0; };
+      var migiRowsAll = (typeof MIGI_TL_RAW !== 'undefined' ? MIGI_TL_RAW : []).filter(function (r) { return r.person === ttt; });
+      var migiLatest = migiRowsAll.reduce(function (max, r) { return Math.max(max, _migiDonemNum(r.donem)); }, 0);
+      var migiRows = migiRowsAll.filter(function (r) { return _migiDonemNum(r.donem) === migiLatest; });
       if (migiRows.length && typeof getMiGiKatsayi === 'function') {
         var miAvg = migiRows.reduce(function (s, r) { return s + (r.mi || 100); }, 0) / migiRows.length;
-        var giAvg = migiRows.reduce(function (s, r) { return s + (r.gi || 100); }, 0) / migiRows.length;
+        var giAvg = migiRows.reduce(function (s, r) { return s + (r.bi || 100); }, 0) / migiRows.length;
         migiPrim  = Math.round(getMiGiKatsayi(Math.round(miAvg), Math.round(giAvg)) * 14000);
       }
     } catch (pe) { /* silent */ }
