@@ -1655,6 +1655,37 @@ function goEczaneSubTab(idx) {
 //  Her biri lazy-load: accordion ilk açıldığında bir kez çalışır.
 // ══════════════════════════════════════════════════════════
 
+// FAZ 6.7 — Öncelik/Risk seviyesi (HIGH/MEDIUM/LOW) → Türkçe etiket
+function _levelLabel(level) {
+  const labels = { HIGH: 'YÜKSEK', MEDIUM: 'ORTA', LOW: 'DÜŞÜK' };
+  return labels[level] || level || '—';
+}
+
+// FAZ 4.0 — Ekip sıralaması kategorisi (STAR/STABLE/WATCHLIST/RISK) → Türkçe etiket
+function _teamCategoryLabel(category) {
+  const labels = {
+    STAR:       '⭐ Yıldız',
+    STABLE:     '✅ İstikrarlı',
+    WATCHLIST:  '👀 İzlemede',
+    RISK:       '⚠️ Risk'
+  };
+  return labels[category] || category || '—';
+}
+
+// FAZ 6.7 — Karar tipi (DecisionEngine enum) → Türkçe okunabilir etiket
+// (bkz. decision-engine.js dosya başı: type: 'BRICK_FOCUS'|'PRODUCT_PUSH'|
+// 'RESCUE'|'REACTIVATION'|'LAUNCH_PREP')
+function _decisionTypeLabel(type) {
+  const labels = {
+    BRICK_FOCUS:   '🎯 Brick Odaklanma',
+    PRODUCT_PUSH:  '📦 Ürün Odaklı Satış',
+    RESCUE:        '🚑 Kurtarma Aksiyonu',
+    REACTIVATION:  '🔄 Yeniden Aktifleştirme',
+    LAUNCH_PREP:   '🚀 Lansman Hazırlığı'
+  };
+  return labels[type] || type || '—';
+}
+
 // FAZ 6.7 — AI Karar Önerisi Kartı
 function renderAIDecisionCard() {
   const el = document.getElementById('aiDecisionCard');
@@ -1678,7 +1709,7 @@ function renderAIDecisionCard() {
   el.innerHTML = `
     <div style="padding:14px 16px">
       <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">
-        <div style="background:${prioClr}22;color:${prioClr};font-size:9px;font-weight:800;padding:3px 8px;border-radius:20px;border:1px solid ${prioClr}44;white-space:nowrap;margin-top:2px">${r.priority}</div>
+        <div style="background:${prioClr}22;color:${prioClr};font-size:9px;font-weight:800;padding:3px 8px;border-radius:20px;border:1px solid ${prioClr}44;white-space:nowrap;margin-top:2px">${_levelLabel(r.priority)}</div>
         <div>
           <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:3px">${r.action}</div>
           ${tcLine}
@@ -1690,7 +1721,7 @@ function renderAIDecisionCard() {
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
         <div style="background:var(--surf2);border-radius:8px;padding:8px 12px;flex:1;min-width:100px">
           <div style="font-size:9px;color:var(--dim);margin-bottom:2px">RİSK</div>
-          <div style="font-size:12px;font-weight:700;color:${riskClr}">${d.risk.level}</div>
+          <div style="font-size:12px;font-weight:700;color:${riskClr}">${_levelLabel(d.risk.level)}</div>
         </div>
         ${d.expectedTL ? `<div style="background:var(--surf2);border-radius:8px;padding:8px 12px;flex:1;min-width:100px">
           <div style="font-size:9px;color:var(--dim);margin-bottom:2px">TAHMİNİ ETKİ</div>
@@ -1698,13 +1729,21 @@ function renderAIDecisionCard() {
         </div>` : ''}
         <div style="background:var(--surf2);border-radius:8px;padding:8px 12px;flex:1;min-width:100px">
           <div style="font-size:9px;color:var(--dim);margin-bottom:2px">TİP</div>
-          <div style="font-size:12px;font-weight:700;color:var(--fg)">${r.type}</div>
+          <div style="font-size:12px;font-weight:700;color:var(--fg)">${_decisionTypeLabel(r.type)}</div>
         </div>
       </div>
       ${d.risk.topRisks && d.risk.topRisks.length ? `<div style="font-size:10px;color:var(--dim);margin-bottom:4px;font-weight:600">⚠️ Riskler:</div>
-      ${d.risk.topRisks.map(r => `<div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)">${r.description||r.type||JSON.stringify(r)}</div>`).join('')}` : ''}
+      ${d.risk.topRisks.map(rk => {
+        var sevClr = rk.severity === 'HIGH' ? '#DC2626' : rk.severity === 'MEDIUM' ? '#D97706' : '#059669';
+        var label = rk.title || rk.description || rk.type || '';
+        var detail = rk.detail || '';
+        return `<div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)">
+          ${label ? '<span style="font-weight:700;color:' + sevClr + '">' + label + '</span>' : ''}
+          ${detail ? '<div style="color:var(--dim);font-size:10px;margin-top:1px">' + detail + '</div>' : (!label ? JSON.stringify(rk) : '')}
+        </div>`;
+      }).join('')}` : ''}
       ${d.alternatives && d.alternatives.length > 1 ? `<div style="margin-top:10px;font-size:10px;color:var(--dim);font-weight:600">ALTERNATİFLER:</div>
-      ${d.alternatives.slice(1,4).map(a => `<div style="font-size:11px;padding:4px 0;color:var(--dim)">#${a.rank} ${a.target} — ${a.type} (skor: ${a.finalScore})</div>`).join('')}` : ''}
+      ${d.alternatives.slice(1,4).map(a => `<div style="font-size:11px;padding:4px 0;color:var(--dim)">#${a.rank} ${a.target} — ${_decisionTypeLabel(a.type)} (skor: ${a.finalScore})</div>`).join('')}` : ''}
       <div style="margin-top:10px;position:relative">
         ${typeof renderNedenButton === 'function' ? renderNedenButton(d.decisionBasis) : ''}
       </div>
@@ -1825,7 +1864,7 @@ function renderTeamLearningCard(forceTtt) {
       <div style="font-size:28px">🥇</div>
       <div>
         <div style="font-size:12px;font-weight:800;color:var(--fg)">${tp.ttt}</div>
-        <div style="font-size:10px;color:var(--dim)">Dönem lideri · ${tp.category} · Skor: ${tp.score}</div>
+        <div style="font-size:10px;color:var(--dim)">Dönem lideri · ${_teamCategoryLabel(tp.category)} · Skor: ${tp.score}</div>
       </div>
     </div>`;
   if (pkg.peerBenchmark.length) {
