@@ -175,7 +175,11 @@
         competitorShare: compShare,
         trend:           trendInfo.trend,
         changePct:       trendInfo.changePct,
-        dataQuality:     dataQuality
+        dataQuality:     dataQuality,
+        // TEŞHİS: ham sayılar — kullanıcı arayüzde doğrudan görebilsin diye
+        // (konsol açmaya gerek kalmadan). ownTotal/mktTotal kutu cinsinden.
+        ownTotal:        Math.round(ownTotal),
+        mktTotal:         Math.round(mktTotal)
       };
     });
 

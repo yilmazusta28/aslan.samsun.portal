@@ -1,6 +1,6 @@
 // ══════════════════════════════════════════════════════════════════════
 //  js/ai/autonomous-planning-engine.js — PHASE 5.7
-//  Autonomous Planning Engine — AI Saha Komutanı
+//  Autonomous Planning Engine — AI Saha Koçu
 //
 //  Sorumluluk:
 //    • generateDailyPlan(ttt)       → window.dailyMission

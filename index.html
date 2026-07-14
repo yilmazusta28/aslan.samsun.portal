@@ -525,9 +525,9 @@
 <script src="js/ai/core/learning-hub.js?v=20260705"></script>
 <!-- END FAZ 6.2 Learning Hub -->
 
-<!-- PHASE 5.7: Autonomous Planning Engine — AI Saha Komutanı
+<!-- PHASE 5.7: Autonomous Planning Engine — AI Saha Koçu
      AUDIT2 Bulgu 3 düzeltmesi ile artık BAĞLI: Sayfa 5 (AI Asistan)
-     altındaki "🎖️ AI Saha Komutanı" accordion'u (id="acc_autonomous_planning",
+     altındaki "🎖️ AI Saha Koçu" accordion'u (id="acc_autonomous_planning",
      ~satır 5884) açıldığında renderAutonomousDashboard() çağrılıyor.
      Rollback: o accordion bloğunu silmek yeterli, bu script tag'i tek
      başına zararsızdır (guard: window._APE_LOADED). -->
@@ -835,6 +835,19 @@ function renderAiAsistan() {
       `<button class="sp-btn${t===selAiTTT?' active':''}" onclick="setAiTTT('${t}')">${t==='ŞENOL YILMAZ'?'🏢 '+t:t}</button>`
     ).join('');
   }
+
+  // KULLANICI İSTEĞİ: "AI Saha Koçu — Günlük/Haftalık Görev Planı" artık
+  // tıklanmadan, bu sayfa açılır açılmaz kendiliğinden görünüyor. Veri
+  // henüz yüklenmemişse (ALL_TTTS boşsa) sessizce atla — data-loader.js
+  // senkronizasyon tamamlanınca sayfa zaten yeniden çiziliyor (bkz.
+  // js/data/data-loader.js curPage===5 dispatch'i), o noktada bu blok
+  // tekrar çalışıp gerçek veriyle dolduracak.
+  try {
+    const _apeTtt = (typeof selTTT !== 'undefined' && selTTT) ? selTTT : (allTTTs[0] || null);
+    if (_apeTtt && typeof renderAutonomousDashboard === 'function') {
+      renderAutonomousDashboard('autonomousPlanningCard', _apeTtt);
+    }
+  } catch (_apeErr) { console.warn('[AI Saha Koçu] otomatik render hatası:', _apeErr.message); }
 }
 
 // PHASE2-STUB: buildTTTContext → js/ai/ai-context.js
@@ -1796,9 +1809,10 @@ function renderMarketShareCard() {
       ${records.slice(0,8).map(r => {
         const trendIcon = r.trend === 'up' ? '📈' : r.trend === 'down' ? '📉' : '➡️';
         const payClr = r.ourShare >= 30 ? '#059669' : r.ourShare >= 15 ? '#D97706' : '#DC2626';
-        return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
+        return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)" title="Ham veri: kendi=${r.ownTotal} kutu / pazar toplamı=${r.mktTotal} kutu">
           <span style="font-size:11px;font-weight:600;min-width:50px">${r.brick}</span>
           <span style="font-size:10px;color:var(--dim);flex:1">${r.ilacGrubu}</span>
+          <span style="font-size:9px;color:var(--dim)">(${r.ownTotal}/${r.mktTotal})</span>
           <span style="font-size:11px;font-weight:700;color:${payClr}">${r.ourShare.toFixed(1)}%</span>
           <span>${trendIcon}</span>
         </div>`;
@@ -6251,7 +6265,7 @@ function _buildEczaneDrawerRefresh(){
        yapıştırmak yeterli — renderTeamLearningCard() ve teamLearningCard id'si
        değişmedi, sadece page7'de yeniden konumlandı. -->
 
-  <!-- PHASE 5.7: Autonomous Planning Engine — AI Saha Komutanı
+  <!-- PHASE 5.7: Autonomous Planning Engine — AI Saha Koçu
        AUDIT2 Bulgu 3 düzeltmesi: motor (js/ai/autonomous-planning-engine.js,
        1024 satır) script tag'i index.html:518'de yüklü olmasına rağmen
        hiçbir UI elemanı generateDailyPlan/generateWeeklyPlan/
@@ -6261,13 +6275,18 @@ function _buildEczaneDrawerRefresh(){
        (günlük/haftalık görev, aksiyon kartları, gap kapama, senaryo
        simülasyonu) — burada sadece diğer accordion'larla AYNI lazy-render
        desenine bağlanıyor. Rollback: bu accordion bloğunu silmek yeterli,
-       motor dosyasının kendisi ve script tag'i etkilenmez. -->
+       motor dosyasının kendisi ve script tag'i etkilenmez.
+       KULLANICI İSTEĞİ: panel artık tıklanmadan, sayfa açılır açılmaz
+       kendiliğinden görünüyor (render tetikleyicisi renderAiAsistan()
+       içine taşındı — bkz. index.html içindeki renderAiAsistan()). Tıklama
+       artık sadece aç/kapa yapıyor, ilk render'ı TETİKLEMİYOR (zaten
+       tetiklenmiş oluyor). -->
   <div class="card mb16" id="acc_autonomous_planning">
-    <div class="card-hd" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';if(!window._pvApeRendered){window._pvApeRendered=true;const _apeTtt=(typeof selTTT!=='undefined'&&selTTT)?selTTT:(typeof ALL_TTTS!=='undefined'&&ALL_TTTS[0])||null;if(typeof renderAutonomousDashboard==='function')renderAutonomousDashboard('autonomousPlanningCard',_apeTtt);}">
-      <span class="card-title">🎖️ AI Saha Komutanı — Günlük/Haftalık Görev Planı</span>
+    <div class="card-hd" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';">
+      <span class="card-title">🎖️ AI Saha Koçu — Günlük/Haftalık Görev Planı</span>
       <span class="card-badge" style="margin-left:auto;background:#EDE9FE;color:#5B21B6">Autonomous Planning</span>
     </div>
-    <div id="autonomousPlanningCard" style="display:none;padding:12px 16px"></div>
+    <div id="autonomousPlanningCard" style="display:block;padding:12px 16px"></div>
   </div>
   <!-- END PHASE 5.7 Autonomous Planning Engine -->
 
