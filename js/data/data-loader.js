@@ -426,6 +426,15 @@ async function syncData(forceFresh) {
     }
     // ── END FAZ — 6 Aylık Dönem Arşivleme ──────────────────────────
 
+    // FAZ 10: GitHub'daki arsiv/ klasöründen olası geçmiş dönemleri dene
+    // (kullanıcı exportPeriodAsFile() ile indirip commit ettiyse). Sadece
+    // sayfa başına BİR KEZ denenir (gereksiz tekrarlı ağ isteği olmasın) —
+    // hata toleranslı, syncData akışını asla bloklamaz/bozmaz.
+    if (window.PeriodArchiveManager && !window._pvArchiveHydrateTried) {
+      window._pvArchiveHydrateTried = true;
+      window.PeriodArchiveManager.hydrateFromRemote().catch(function () { /* sessiz */ });
+    }
+
     // IMS TL fiyatlarını güncelle
     Object.assign(IMS_TL_MAP, newImsTL);
 

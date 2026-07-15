@@ -617,6 +617,47 @@
     });
   }
 
+  // ── FAZ 10 — Dönem Arşivi Kartı (kullanıcı isteğiyle eklendi) ────────
+  function renderPeriodArchiveCard(containerId) {
+    var el = document.getElementById(containerId || 'mgrPeriodArchive');
+    if (!el) return;
+    if (!window.PeriodArchiveManager) {
+      el.innerHTML = '<p style="color:var(--dim);font-size:11px">Arşiv motoru yüklü değil.</p>';
+      return;
+    }
+    var summary = window.PeriodArchiveManager.getSummary();
+    var rows = [];
+    ['H1', 'H2'].forEach(function (hy) {
+      Object.keys(summary[hy] || {}).forEach(function (k) {
+        var p = summary[hy][k];
+        rows.push({ key: k, label: p.label, genelCount: p.genelCount, imsCount: p.imsCount, archivedAt: p.archivedAt });
+      });
+    });
+    if (!rows.length) {
+      el.innerHTML = '<p style="color:var(--dim);font-size:11px;padding:4px 0">' +
+        'Henüz arşivlenmiş bir dönem yok — bir dönem kapanıp yeni döneme geçildiğinde (GENEL_TABLO/IMS_TABLO sıfırlanınca) burada otomatik görünecek.</p>';
+      return;
+    }
+    el.innerHTML =
+      '<div style="font-size:10px;color:var(--dim);margin-bottom:8px;line-height:1.5">' +
+      'GENEL_TABLO.csv/IMS_TABLO.csv her dönem sonunda sıfırlanır. Aşağıdaki dönemler bu tarayıcıda otomatik arşivlendi ' +
+      '(sadece bu cihazda geçerli). <b>"📥 İndir"</b> ile GitHub reposundaki <code>arsiv/</code> klasörüne (dosya adını değiştirmeden) ' +
+      'commit ederseniz, o dönem TÜM cihaz/tarayıcılarda otomatik görünür hale gelir.</div>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:11px">' +
+      '<thead><tr style="text-align:left;color:var(--dim);font-size:9px">' +
+      '<th style="padding:4px 4px">Dönem</th><th style="padding:4px">Arşivlenme Tarihi</th><th style="padding:4px">GENEL/IMS Satır</th><th style="padding:4px"></th></tr></thead><tbody>' +
+      rows.map(function (r) {
+        return '<tr style="border-top:1px solid var(--border)">' +
+          '<td style="padding:5px 4px;font-weight:600">' + (r.label || r.key) + '</td>' +
+          '<td style="padding:5px 4px;color:var(--dim)">' + (r.archivedAt ? r.archivedAt.slice(0, 10) : '—') + '</td>' +
+          '<td style="padding:5px 4px;color:var(--dim)">' + r.genelCount + ' / ' + r.imsCount + '</td>' +
+          '<td style="padding:5px 4px"><button onclick="window.PeriodArchiveManager.exportPeriodAsFile(\'' + r.key + '\')" ' +
+          'style="font-size:9px;font-weight:600;padding:3px 8px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--fg);cursor:pointer">📥 İndir</button></td>' +
+          '</tr>';
+      }).join('') +
+      '</tbody></table>';
+  }
+
   function renderManagerExtra() {
     try {
       // FAZ 13.4-DÜZELTME: renderManagerRegionKpi() artık çağrılmıyor —
@@ -627,6 +668,7 @@
       renderManagerHaftaTlDokum('mgrHaftaTlDokumBody');
       renderManagerKutuAggregate('mgrKutuBody');
       renderTeamCriticalActions('mgrCriticalActions');
+      renderPeriodArchiveCard('mgrPeriodArchive');
       renderManagerRankingFull('mgrRankingBody');
       renderManagerTeamRoutePlans('mgrTeamRouteBody');
       _populateTttSelect('mgrTttSelect');
@@ -648,6 +690,7 @@
 
   // ── EXPORT ────────────────────────────────────────────────
   window.renderManagerRegionKpi     = renderManagerRegionKpi;
+  window.renderPeriodArchiveCard    = renderPeriodArchiveCard;
   window.renderManagerBolgeOzet     = renderManagerBolgeOzet;
   window.buildManagerUrunPerformans = buildManagerUrunPerformans;
   window.renderManagerUrunPerformans= renderManagerUrunPerformans;

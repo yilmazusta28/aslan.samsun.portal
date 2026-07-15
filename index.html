@@ -6848,6 +6848,21 @@ function _buildEczaneDrawerRefresh(){
       <div class="card-hd"><span class="card-title">🚨 Ekip Genelinde Kritik Aksiyon Listesi</span><span class="card-badge" style="font-size:9px">Tüm Temsilciler — Yüksek Risk</span></div>
       <div class="card-body" id="mgrCriticalActions"></div>
     </div>
+
+    <!-- ═══ FAZ 10 — Dönem Arşivi (kullanıcı isteğiyle eklendi) ═══
+         GENEL_TABLO.csv/IMS_TABLO.csv her dönem sonunda sıfırlanıyor.
+         period-archive-manager.js bir önceki dönemin son verisini
+         localStorage'a arşivliyor (tek tarayıcıya bağlı). Bu kart, o
+         arşivi GÖRÜNÜR kılar ve GitHub'a commit edilecek bir dosya
+         olarak indirmeyi sağlar — böylece TÜM cihazlar aynı geçmişi
+         paylaşabilir (bkz. period-archive-manager.js dosya başı notu). -->
+    <div class="card mb16" style="border:1.5px solid rgba(79,0,140,.15)">
+      <div class="card-hd">
+        <span class="card-title">🗄️ Dönem Arşivi</span>
+        <span class="card-badge" style="font-size:9px">GENEL/IMS geçmişi</span>
+      </div>
+      <div class="card-body" id="mgrPeriodArchive"></div>
+    </div>
   </div>
 </div>
 

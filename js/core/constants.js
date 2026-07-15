@@ -25,6 +25,12 @@ const GS_RAKIP_URL = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsu
 // Eski ECZANE.csv → geriye dönük uyumluluk için korundu
 const GS_ECZANE_DIR = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/ECZANE/';
 
+// FAZ 10 — Dönem arşivi paylaşım klasörü (bkz. period-archive-manager.js
+// exportPeriodAsFile/fetchRemoteArchive). localStorage'daki dönem arşivi
+// tek tarayıcıya bağlıydı — kullanıcı isteğiyle eklendi: bu klasöre commit
+// edilen dosyalar TÜM cihazlardan/tarayıcılardan otomatik okunur.
+const GS_ARSIV_DIR = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/arsiv/';
+
 // ── Medya & Asset URL'leri ───────────────────────────────────
 const GITHUB_IMG_BASE = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/images/';
 
