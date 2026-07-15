@@ -459,15 +459,17 @@
     // Davranış profili
     if (twin && twin.behaviorType) {
       var typeMap = {
-        REGULAR_BUYER:   'düzenli alıcı',
-        GROWING:         'büyüyen eczane',
-        AT_RISK:         'risk altında',
-        REACTIVATION:    'yeniden kazanım hedefi',
-        CAMPAIGN_BUYER:  'kampanya odaklı',
-        STOCK_BUILDER:   'stok kuran',
-        COMPETITIVE_RISK:'rakip tehdidi altında',
-        SEASONAL_BUYER:  'mevsimsel alıcı',
-        NEW_ACCOUNT:     'yeni müşteri'
+        RUTIN_SIPARIS:        'düzenli alıcı',
+        KAMPANYA_ODAKLI:      'kampanya odaklı',
+        STOKCU:               'stok kuran',
+        FIRSATCI:             'fırsatçı',
+        MEVSIMSEL:            'mevsimsel alıcı',
+        YENI_MUSTERI:         'yeni müşteri',
+        DUSUK_HACIMLI:        'düşük hacimli',
+        TEMSILCI_BAGIMLI:     'temsilciye bağımlı',
+        TEMSILCISIZ_DUZENLI:  'temsilcisiz düzenli',
+        BELIRSIZ:             'belirsiz profil',
+        VERI_YETERSIZ:        'yetersiz veri'
       };
       var typeLabel = typeMap[twin.behaviorType] || twin.behaviorType;
       parts.push('Profil: ' + typeLabel + '.');

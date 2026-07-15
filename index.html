@@ -2140,9 +2140,19 @@ function renderEczaneTable(data) {
             : '—');
     // FAZ 12.1 — AI profil (PharmacyBehaviorEngine sync cache)
     const _beh = _faz121Cache.behaviorMap[e.ad] || _faz121Cache.behaviorMap[e.gln] || null;
-    const _behTypeMap = { REGULAR_BUYER:'Düzenli',GROWING:'Büyüyen',AT_RISK:'Risk',
-      REACTIVATION:'Kazanım',CAMPAIGN_BUYER:'Kampanya',STOCK_BUILDER:'Stok',
-      COMPETITIVE_RISK:'Rakip Riski',SEASONAL_BUYER:'Mevsimsel',NEW_ACCOUNT:'Yeni' };
+    const _behTypeMap = {
+      RUTIN_SIPARIS:        'Düzenli',
+      KAMPANYA_ODAKLI:      'Kampanya Odaklı',
+      STOKCU:               'Stokçu',
+      FIRSATCI:             'Fırsatçı',
+      MEVSIMSEL:            'Mevsimsel',
+      YENI_MUSTERI:         'Yeni Müşteri',
+      DUSUK_HACIMLI:        'Düşük Hacimli',
+      TEMSILCI_BAGIMLI:     'Temsilciye Bağımlı',
+      TEMSILCISIZ_DUZENLI:  'Temsilcisiz Düzenli',
+      BELIRSIZ:             'Belirsiz',
+      VERI_YETERSIZ:        'Veri Yetersiz'
+    };
     const _behHtml = _beh
       ? `<span style="font-size:9px;font-weight:700;background:rgba(79,0,140,.08);color:var(--c1);border-radius:4px;padding:1px 5px">${_behTypeMap[_beh.behaviorType]||_beh.behaviorType||'—'}</span>`
       : '<span style="font-size:9px;color:var(--dim)">—</span>';
