@@ -3292,15 +3292,37 @@ function renderAnaInsight(){
   document.getElementById('anaInsightBody').innerHTML=bodyHtml;
 }
 
+// BUG DÜZELTMESİ: dönemin kaçıncı haftasında olduğumuzu hesapla (IMS
+// h1..h9 kolonlarının aynı "dönem içi hafta" mantığı — bkz. date-utils.js
+// PERIODS). Veri yaklaşık 1 hafta gecikmeli geldiği için (bkz. proje iş
+// kuralı notu) son dolu hafta ile "bugünün haftası" arasında fark normal.
+function _currentWeekNumInPeriod() {
+  try {
+    var todayStr = new Date().toISOString().slice(0, 10);
+    var period = (typeof PERIODS !== 'undefined' ? PERIODS : []).find(function (p) { return todayStr >= p.start && todayStr <= p.end; });
+    if (!period || typeof workDays !== 'function') return 9; // dönem/fonksiyon yoksa güvenli tarafta kal — hepsini göster
+    var totalDays = workDays(period.start, period.end);
+    var elapsedDays = workDays(period.start, todayStr);
+    if (totalDays <= 0) return 9;
+    return Math.max(1, Math.min(9, Math.ceil(elapsedDays / totalDays * 9)));
+  } catch (e) { return 9; }
+}
+
 function buildCompetitionAlerts(ttt){
   // SADECE İADE UYARISI — rakip uyarıları kaldırıldı
   const tttList=ttt==='ŞENOL YILMAZ'?ALL_TTTS:[ttt];
   const alerts=[];
+  // BUG DÜZELTMESİ: eskiden TÜM haftalar (h1..h9) taranıyordu — dönemin
+  // 1. haftasındaki bir iade, 7-8. haftada bile "güncel uyarı" gibi
+  // görünmeye devam ediyordu. Artık sadece SON 2 haftaya (bugünün haftası
+  // + bir önceki — veri gecikmesi payı) ait iadeler gösteriliyor.
+  const curWeek = _currentWeekNumInPeriod();
+  const recentWeekNums = [curWeek - 1, curWeek].filter(function (n) { return n >= 1; });
   tttList.forEach(t=>{
     ALL_GROUPS.forEach(grp=>{
       const ownIlac=OWN_IMS[grp];
       const ownRows=IMS.filter(r=>r.ttt===t&&r.ilac_grubu===grp&&r.ilac===ownIlac);
-      const wk=['h1','h2','h3','h4','h5','h6','h7','h8','h9'];
+      const wk=recentWeekNums.map(function (n) { return 'h' + n; });
       ownRows.forEach(r=>{
         const iadeHft=wk.filter(w=>r[w]<0);
         if(iadeHft.length){
