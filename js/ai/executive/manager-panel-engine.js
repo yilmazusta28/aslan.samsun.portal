@@ -412,7 +412,10 @@
       };
     });
 
-    rows.sort(function (a, b) { return a.sira - b.sira; });
+    // Sıralama: ARTIK ALFABETİK (brick adına göre) — kullanıcı talebi.
+    // `sira` (MIGI önceliği) alanı satırda hâlâ gösteriliyor, sadece
+    // liste sırası artık brick ismine göre (TR locale).
+    rows.sort(function (a, b) { return a.brick.localeCompare(b.brick, 'tr'); });
     return rows;
   }
 
@@ -427,12 +430,24 @@
     body.innerHTML = rows.map(function (r) {
       var top333 = r.sira <= 333;
       var ppColor = r.pp == null ? 'var(--dim)' : (r.pp >= 50 ? '#16A34A' : r.pp >= 30 ? '#D97706' : '#DC2626');
+      // NOT (0₺ vs "veri yok"): hedef/satış, o brickteki KENDİ ÜRÜN kutu
+      // hacminin (bu dönem, IMS toplam alanı) TTT toplamı içindeki payına
+      // göre TAHMİN ediliyor (bkz. dosya başı NOT). PP değeri ayrı bir
+      // alandan (toplam_ppi) geliyor ve hacim sıfır olsa bile dolu
+      // gelebilir — yani "PP var ama hedef/satış 0" görünen brickler BUG
+      // DEĞİL: o brickte bu dönem kayıtlı KENDİ ürün kutu satışı
+      // (IMS 'toplam' alanı) sıfır demektir. Yanıltıcı "0₺" yerine bunu
+      // açıkça belirtiyoruz.
+      var noVolume = (r.hedefTL === 0 && r.satisTL === 0 && r.pp != null);
+      var hedefCell = noVolume ? '<span style="color:var(--dim);font-style:italic;font-size:10px">bu dönem hacim yok</span>' : fTL(r.hedefTL);
+      var satisCell = noVolume ? '<span style="color:var(--dim);font-style:italic;font-size:10px">bu dönem hacim yok</span>' : fTL(r.satisTL);
+      var kalanCell = noVolume ? '—' : fTL(r.kalanTL);
       return '<tr>' +
         '<td class="mono" style="' + (top333 ? 'font-weight:700;color:var(--c1)' : 'color:var(--dim)') + '">' + (r.sira >= 9999 ? '—' : r.sira) + '</td>' +
         '<td style="font-weight:600">' + r.brick + '</td>' +
-        '<td class="mono">' + fTL(r.hedefTL) + '</td>' +
-        '<td class="mono">' + fTL(r.satisTL) + '</td>' +
-        '<td class="mono" style="color:var(--c2);font-weight:700">' + fTL(r.kalanTL) + '</td>' +
+        '<td class="mono">' + hedefCell + '</td>' +
+        '<td class="mono">' + satisCell + '</td>' +
+        '<td class="mono" style="color:var(--c2);font-weight:700">' + kalanCell + '</td>' +
         '<td class="mono" style="color:' + ppColor + ';font-weight:700">' + (r.pp == null ? '—' : '%' + r.pp.toFixed(1)) + '</td>' +
         '</tr>';
     }).join('');
@@ -496,8 +511,12 @@
     html += '</div>';
 
     // İlk 333 içindeki en kritik bricklere ayrıntılı satış anlatımı
-    var focusBricks = rows.filter(function (r) { return r.sira <= 333; }).slice(0, 6);
-    if (!focusBricks.length) focusBricks = rows.slice(0, 6);
+    // NOT: `rows` artık ALFABETİK sıralı (tablo görünümü için) — burada
+    // "öne çıkan" seçimi öncelik sırasına (sira) göre olmalı, bu yüzden
+    // ayrı bir kopya üzerinde sira'ya göre sıralıyoruz.
+    var bySira = rows.slice().sort(function (a, b) { return a.sira - b.sira; });
+    var focusBricks = bySira.filter(function (r) { return r.sira <= 333; }).slice(0, 6);
+    if (!focusBricks.length) focusBricks = bySira.slice(0, 6);
 
     if (focusBricks.length) {
       html += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim);margin:10px 0 6px">İlk 333 Önceliğinde Öne Çıkan Brickler</div>';
