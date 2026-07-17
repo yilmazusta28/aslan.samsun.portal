@@ -50,48 +50,12 @@
       ? Math.round((behaviorProfile.avgMonthlyBoxes || 0) / 30 * 10) / 10
       : 0;
 
-    // Öncelik 1: StockEntryAdapter sayısal giriş — GÜVENLİ EKLEME (FAZ 9.4):
-    // StockEntryAdapter artık IndexedDB'den arka planda doldurulan senkron
-    // bir önbellek sunuyor (getLatestStockEntrySync). getDigitalTwin()
-    // senkron kalmaya devam ediyor — 4 çağıran dosyaya (decision-engine,
-    // coach-engine, ai-engine, ai-context-builder) DOKUNULMADI. Önbellek
-    // henüz dolmamışsa (sayfa yeni açıldıysa) sync fonksiyon güvenle null
-    // döner ve aşağıdaki öncelik seviyelerine düşülür — eskisinden daha
-    // kötü bir durum yok, sadece artık veri VARSA kullanılabiliyor.
-    var stockEntry = _safe(function () {
-      if (!window.StockEntryAdapter || typeof window.StockEntryAdapter.getLatestStockEntrySync !== 'function') return null;
-      return window.StockEntryAdapter.getLatestStockEntrySync(eczane);
+    // Öncelik 1: StockEntryAdapter sayısal giriş (asenkron — sync fallback)
+    var stockEntrySync = _safe(function () {
+      if (!window.StockEntryAdapter) return null;
+      // Sync fallback: _fallback içine bak (PharmaDB olmadan girilmişse)
+      return null;
     }, null);
-
-    if (stockEntry && stockEntry.products && stockEntry.products.length) {
-      var totalStock = stockEntry.products.reduce(function (s, p) { return s + (p.stock || 0); }, 0);
-
-      // Giriş tarihinden bugüne kaç GÜN geçmiş (iş günü değil — stok her
-      // takvim günü tükenir, hafta sonu dahil).
-      var entryDate = _safe(function () { return new Date(stockEntry.date + 'T00:00:00'); }, null);
-      var daysSinceEntry = (entryDate && !isNaN(entryDate.getTime()))
-        ? Math.max(0, Math.floor((new Date() - entryDate) / 86400000))
-        : 0;
-
-      var consumedSinceEntry = avgDaily * daysSinceEntry;
-      var estimatedRemaining = Math.max(0, Math.round((totalStock - consumedSinceEntry) * 10) / 10);
-
-      var estimatedDepletionDate = null;
-      if (avgDaily > 0 && entryDate && !isNaN(entryDate.getTime())) {
-        var runwayDays = Math.round(totalStock / avgDaily);
-        var depletion = new Date(entryDate.getTime() + runwayDays * 86400000);
-        estimatedDepletionDate = depletion.toISOString().slice(0, 10);
-      }
-
-      return {
-        lastKnownStock:         totalStock,
-        estimatedRemaining:     estimatedRemaining,
-        estimatedDepletionDate: estimatedDepletionDate,
-        confidenceLevel:        'yuksek', // sahada elle girilmiş sayısal veri — en güvenilir kaynak
-        avgDailyConsumption:    avgDaily,
-        stockEntryDate:         stockEntry.date
-      };
-    }
 
     // Öncelik 2: stok-adapter.js nitel (KRİTİK/NORMAL/YETERLİ)
     var nitelSignal = _safe(function () {

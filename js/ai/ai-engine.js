@@ -35,21 +35,7 @@ function renderEngine() {
   // Temsilci bar oluştur
   const bar = document.getElementById('engineTttBar');
   if (!bar) return;
-  // FAZ 13.1 — ŞENOL YILMAZ (Bölge Müdürü) artık kendi "Yönetici" sayfasından
-  // (page7 → "🚀 Bölge Geneli AI Görev Motorunu Aç") bu motoru bölge-geneli
-  // modda açıyor; bu yüzden AI & Görev Motoru sayfasındaki temsilci seçim
-  // çubuğunda SADECE saha temsilcileri listelenir. Not: openBolgeGeneliMotoru()
-  // hâlâ setAiTTT('ŞENOL YILMAZ') ile engineSelTTT'yi bölge geneline
-  // ayarlayabilir — bar'da buton görünmez ama motor normal çalışır.
-  // FAZ 13.2 SAĞLAMLAŞTIRMA: ALL_TTTS normalde Şenol'u içermiyor (bkz.
-  // data-loader.js), ama CSV'den gelen ham ad beklenmedik bir yazımla
-  // (boşluk/varyant) normalizasyon haritasını atlarsa yine de listede
-  // görünebilir. Bu yüzden burada ekstra bir stripTR() tabanlı güvenlik
-  // filtresi var — hangi yazım varyantı gelirse gelsin Şenol Yılmaz asla
-  // bu çubukta görünmez.
-  const allT = (ALL_TTTS || []).filter(function (t) {
-    return (typeof stripTR === 'function' ? stripTR(t) : t).toUpperCase().trim() !== 'SENOL YILMAZ';
-  });
+  const allT = ['ŞENOL YILMAZ', ...ALL_TTTS];
   if (!engineSelTTT && ALL_TTTS.length) engineSelTTT = _autoSelTTT(ALL_TTTS[0]);
 
   bar.innerHTML = allT.map(t => {
@@ -67,7 +53,7 @@ function renderEngine() {
 
   // Hero meta güncelle
   const today = new Date().toISOString().slice(0,10);
-  const cur = (typeof getEffectivePeriod === 'function') ? getEffectivePeriod(today) : PERIODS.find(p=>today>=p.start&&today<=p.end);
+  const cur = PERIODS.find(p=>today>=p.start&&today<=p.end);
   const rem = cur ? workDays(today, cur.end) : '—';
 
   const gt = GENEL.find(r=>r.ttt===engineSelTTT&&r.urun==='GENEL TOPLAM');
@@ -135,31 +121,21 @@ function _runEngineCore() {
   const todayDisplay = today.toLocaleDateString('tr-TR',{weekday:'long',day:'numeric',month:'long'});
 
   // ── Veri topla ──────────────────────────────────────────
-  const cur     = (typeof getEffectivePeriod === 'function') ? getEffectivePeriod(todayStr) : PERIODS.find(p=>todayStr>=p.start&&todayStr<=p.end);
+  const cur     = PERIODS.find(p=>todayStr>=p.start&&todayStr<=p.end);
   const remDays = cur ? workDays(todayStr, cur.end) : 0;
   const gt      = GENEL.find(r=>r.ttt===ttt&&r.urun==='GENEL TOPLAM');
   const _urunOrderRef = (typeof URUN_ORDER !== 'undefined') ? URUN_ORDER : ['PANOCER','ACİDPASS','GRİPORT COLD','MOKSEFEN','FAMTREC'];
   const urunRows= GENEL.filter(r=>r.ttt===ttt&&r.urun!=='GENEL TOPLAM')
     .sort((a,b)=>{ const oi=_urunOrderRef.indexOf(a.urun), oj=_urunOrderRef.indexOf(b.urun); return (oi<0?99:oi)-(oj<0?99:oj); });
-  // MI&GI: MIGI_BRICK_TL_RAW'dan bu temsilcinin EN GÜNCEL döneme ait brick bazlı verisi
-  // BUG DÜZELTMESİ: eski kod "en son döneme ait" diye yorum yazıyordu ama
-  // fiilen TÜM ayları (bazıları eski/güncel olmayan) filtresiz karıştırıyordu.
-  // Artık gerçekten sadece o kişi+brick için mevcut EN GÜNCEL döneme ait
-  // satırlar kullanılıyor (bkz. prim-calc.js'deki aynı düzeltme notu).
-  const _migiDonemNum = d => { const p = String(d||'').split('/'); return p.length===2 ? (+p[1]*100+ +p[0]) : 0; };
-  const _migiSrcAll = (MIGI_BRICK_TL_RAW||[]).filter(r=>r.person===ttt);
-  const _migiByBrick = {};
-  _migiSrcAll.forEach(r=>{ if(!_migiByBrick[r.brick]) _migiByBrick[r.brick]=[]; _migiByBrick[r.brick].push(r); });
+  // MI&GI: MIGI_BRICK_TL_RAW'dan bu temsilcinin en son döneme ait brick bazlı verisi
+  const _migiSrc = (MIGI_BRICK_TL_RAW||[]).filter(r=>r.person===ttt);
+  // Brick başına mevcut dönemdeki ortalama mi/gi değerlerini hesapla
   const _brickMap = {};
-  Object.keys(_migiByBrick).forEach(k=>{
-    const rows = _migiByBrick[k];
-    const latest = rows.reduce((max,r)=>Math.max(max,_migiDonemNum(r.donem)),0);
-    const latestRows = rows.filter(r=>_migiDonemNum(r.donem)===latest);
-    _brickMap[k] = { brick:k, sira: latestRows[0] ? latestRows[0].sira : null, miVals: [], bVals: [], person: ttt };
-    latestRows.forEach(r=>{
-      if(r.mi!=null) _brickMap[k].miVals.push(r.mi);
-      if(r.bi!=null) _brickMap[k].bVals.push(r.bi);
-    });
+  _migiSrc.forEach(r=>{
+    const k = r.brick;
+    if(!_brickMap[k]) _brickMap[k]={brick:k,sira:r.sira,miVals:[],bVals:[],person:r.person};
+    if(r.mi!=null) _brickMap[k].miVals.push(r.mi);
+    if(r.bi!=null) _brickMap[k].bVals.push(r.bi);
   });
   const migiRows = Object.values(_brickMap).map(b=>({
     brick:b.brick, sira:b.sira, person:b.person, ttt:ttt,
@@ -462,8 +438,23 @@ function _runEngineCore() {
   document.getElementById('engineAiChatArea').innerHTML = '';
 
   // ── FAZ 6.9: Headless motorları görünür kartlara bağla ──────────────
-  // Territory: renderTerritorySummary (territory-engine.js Phase 3.3)
-  // Mevcut render fonksiyonu container yoksa sessizce çıkıyor — güvenli çağrı.
+  // AUDIT7 devamı — üç çağrının ÜÇÜ de "container yoksa sessizce çık"
+  // deseniyle güvenliydi (çökme yoktu), ama bu şu anlama geliyordu:
+  //   • Territory (Bölge Özeti): container HİÇ YOKTU → özellik tamamen
+  //     görünmezdi, motor hesaplıyordu ama hiçbir yere yazamıyordu.
+  //     HTML'e gerçek kart eklendi (aşağıda #territorySummaryCard) — DÜZELTİLDİ.
+  //   • Autonomous (AI Saha Komutanı): container HİÇ YOKTU. Bu motora daha
+  //     önce ayrı bir accordion ile erişim eklenmiştim (manuel tıklama
+  //     gerektiriyordu); şimdi HTML'e gerçek kart eklenerek "Motoru Çalıştır"
+  //     her tıklandığında OTOMATİK de görünür hale geldi — DÜZELTİLDİ.
+  //   • Executive (Yönetici Özeti): container ('executiveDashboardContainer')
+  //     ASLINDA VARDI ama sadece Sayfa 7'de (Yönetici'ye özel, role-visibility
+  //     ile gizli) — buradan (her temsilcinin çalıştırdığı Motor sekmesinden)
+  //     çağrılması, TÜM EKİBİN karşılaştırmalı performans verisini ("Lider
+  //     Temsilci", "En Büyük Risk" gibi meslektaş kıyaslamaları) her sıradan
+  //     temsilcinin kendi Motor çıktısına gereksiz yere render etmeye
+  //     çalışıyordu. Sayfa 7 zaten kendi başına doğru çalışıyor — bu tekrar
+  //     eden/gereksiz çağrı KALDIRILDI.
   if (typeof renderTerritorySummary === 'function') {
     try {
       renderTerritorySummary(ttt, 'territorySummaryContainer');
@@ -474,20 +465,6 @@ function _runEngineCore() {
     }
   }
 
-  // Executive: renderExecutiveDashboard (executive-engine.js Phase 4.0)
-  // ALL_TTTS ile tüm ekip verisi — ttt bağımsız.
-  if (typeof renderExecutiveDashboard === 'function') {
-    try {
-      renderExecutiveDashboard('executiveDashboardContainer');
-      var _execCard = document.getElementById('executiveDashboardCard');
-      if (_execCard) _execCard.style.display = 'block';
-    } catch(e) {
-      console.warn('[FAZ6.9] renderExecutiveDashboard hata:', e.message);
-    }
-  }
-
-  // Autonomous Planning: renderAutonomousDashboard (autonomous-planning-engine.js Phase 5.7)
-  // setTimeout kendi içinde var, doğrudan çağrılır.
   if (typeof renderAutonomousDashboard === 'function') {
     try {
       renderAutonomousDashboard('autonomousDashboardContainer', ttt);
@@ -618,7 +595,7 @@ async function engineAiAnalysis(type) {
     ctx = buildTTTContext(engineSelTTT);
   }
   const today = new Date();
-  const cur = (typeof getEffectivePeriod === 'function') ? getEffectivePeriod(today.toISOString().slice(0,10)) : PERIODS.find(p=>{const t=today.toISOString().slice(0,10);return t>=p.start&&t<=p.end;});
+  const cur = PERIODS.find(p=>{const t=today.toISOString().slice(0,10);return t>=p.start&&t<=p.end;});
   const remDays = cur ? workDays(today.toISOString().slice(0,10), cur.end) : 0;
 
   const prompts = {
@@ -688,26 +665,6 @@ Bu gap'i eczane bazında nasıl dağıt?
 4. Kampanya alımı yapıp uzun süre almayacak eczaneleri işaretle
 5. Brick bazında eczane yoğunlaşma analizi — hangi brickte potansiyel var
 
-Analizde şu somut kuralları uygula:
-- Her eczane için aylık tüketim ortalaması hesapla. Örnek: Oca=30, Mar=25 ise (Şub atlayan) ortalama=(30+25)/2=27.5 kutu/ay.
-- Büyük tek alışları tespit et (kampanya). Bir ayda normal tüketimin 3x+ üzerinde alış varsa kampanya olarak işaretle; bir sonraki sipariş 3-6 ay veya daha uzun süre gecikebilir.
-- Satış şartları: ACİDPASS:10+1,20+3,50+15,100+35 | PANOCER:10+3,30+12,50+25,100+60,165+135 | GRİPORT COLD:5+1,12+3,20+4,50+20,80+40 | MOKSEFEN:5+1,10+3,30+15
-- Her aktif eczane için: tahmini aylık tüketim, kalan stok tahmini, önerilen sipariş paketi (en uygun satış şartı kombinasyonu), beklenen sipariş zamanı.
-- Risk: Büyük alış yapıp uzun süre almayacak eczaneleri listele. Fırsat: Düzenli küçük alış yapan ve sipariş zamanı yaklaşan eczaneleri öne çıkar.
-
-${ctx}`,
-
-    rakip: `Görev Motoru — Rakip Analizi
-
-Temsilci: ${engineSelTTT} | Kalan: ${remDays} iş günü
-
-IMS verilerini kullanarak rakip analizi yap:
-1. Her ilaç grubu için rakip ürünlerin brick bazında pazar paylarını karşılaştır.
-2. Rakibin en güçlü olduğu brickler (bizim payımız <%15, rakip payı >%30) ve orada ne yapılabileceğini öner.
-3. Rakibin zayıf olduğu brickler (rakip payı <%20) ve büyüme fırsatlarını listele.
-4. Son 3 hafta trendine göre rakip büyüyen bricklerde savunma, rakip gerileyen bricklerde saldırı stratejisi öner.
-5. Brick bazında en kritik 5 öncelikli hedefi somut ziyaret planıyla açıkla, kalan ${remDays} iş gününe göre önceliklendir.
-
 ${ctx}`
   };
 
@@ -715,7 +672,6 @@ ${ctx}`
 Net, somut, uygulanabilir Türkçe yanıtlar ver. Her öneri için sayısal hedef belirt.
 Brick ve eczane isimlerini mutlaka kullan.
 Format: başlıklar bold (**Başlık**), maddeler net ve kısa.
-Bölge/ekip adı geçirme: yalnızca "PHARMA VISION" veya "bölge" de — "2D" gibi iç kod isimleri KULLANMA, bunlar kullanıcıya yönelik değildir.
 
 ZAMAN DUYARLI DEĞERLENDİRME — MUTLAKA UYGULA:
 - Hedefler 2 aylık dönemde değerlendirilir. Anlık realizasyon tek başına yorum yapılamaz.
@@ -733,8 +689,8 @@ ZAMAN DUYARLI DEĞERLENDİRME — MUTLAKA UYGULA:
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
-        model: 'claude-sonnet-5',
-        max_tokens: 4096,
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1500,
         system: systemPrompt,
         messages: [{ role: 'user', content: prompts[type] || prompts.full }]
       })
@@ -745,25 +701,8 @@ ZAMAN DUYARLI DEĞERLENDİRME — MUTLAKA UYGULA:
       throw new Error(`Sunucu hatası: HTTP ${response.status} ${response.statusText}`);
     }
 
-    const data = await response.json();
-
-    // ── DÜZELTME: content[0] her zaman metin bloğu OLMAYABİLİR.
-    // Genişletilmiş düşünme (extended thinking) açıksa API şu şekilde
-    // birden fazla blok döndürür: [{type:"thinking",...}, {type:"text",text:"..."}].
-    // Eskiden content[0].text sabit okunuyordu — thinking bloğunda "text"
-    // alanı olmadığı için bu her zaman boş dönüyor ve "Yanıt alınamadı"
-    // hatası veriyordu. Artık dizide type==="text" olan bloğu buluyoruz.
-    const textBlock = Array.isArray(data.content)
-      ? data.content.find(function (b) { return b && b.type === 'text' && b.text; })
-      : null;
-    let reply = textBlock ? textBlock.text : null;
-    if (!reply) {
-      const apiErr = data.error?.message || data.message || (typeof data === 'string' ? data : null);
-      const stopInfo = data.stop_reason ? (' (stop_reason: ' + data.stop_reason + ')') : '';
-      throw new Error(apiErr
-        ? 'Proxy/API hatası: ' + apiErr
-        : 'Yanıt alınamadı — metin bloğu üretilemedi' + stopInfo + '. Ham içerik: ' + JSON.stringify(data).slice(0, 300));
-    }
+    const data   = await response.json();
+    const reply  = data.content?.[0]?.text || 'Yanıt alınamadı.';
 
     // ── B-02-5: Stale response koruması — fetch sırasında TTT değiştiyse yoksay ──
     if (engineSelTTT !== _reqEngTTT) {

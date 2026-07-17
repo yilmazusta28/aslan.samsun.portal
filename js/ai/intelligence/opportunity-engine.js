@@ -106,22 +106,12 @@
       }
 
       // ── O3: MI&GI — ilk 333 yüksek potansiyel brickler ──
-      // BUG DÜZELTMESİ: eskiden tüm ayların mi/bi/sira'sı filtresiz
-      // karıştırılıyordu — bkz. prim-calc.js'deki aynı düzeltme notu.
       if (migiRows.length) {
-        var _migiDonemNum = function (d) { var p = String(d || '').split('/'); return p.length === 2 ? (+p[1] * 100 + +p[0]) : 0; };
-        var _rowsByBrick = {};
-        migiRows.forEach(function(r) { if (!_rowsByBrick[r.brick]) _rowsByBrick[r.brick] = []; _rowsByBrick[r.brick].push(r); });
         var mgBrickMap = {};
-        Object.keys(_rowsByBrick).forEach(function (brick) {
-          var rows = _rowsByBrick[brick];
-          var latest = rows.reduce(function (max, r) { return Math.max(max, _migiDonemNum(r.donem)); }, 0);
-          var latestRows = rows.filter(function (r) { return _migiDonemNum(r.donem) === latest; });
-          mgBrickMap[brick] = { mi: [], bi: [], sira: latestRows[0] ? latestRows[0].sira : null };
-          latestRows.forEach(function (r) {
-            if (r.mi != null) mgBrickMap[brick].mi.push(r.mi);
-            if (r.bi != null) mgBrickMap[brick].bi.push(r.bi);
-          });
+        migiRows.forEach(function(r) {
+          if (!mgBrickMap[r.brick]) mgBrickMap[r.brick] = { mi: [], bi: [], sira: r.sira };
+          if (r.mi != null) mgBrickMap[r.brick].mi.push(r.mi);
+          if (r.bi != null) mgBrickMap[r.brick].bi.push(r.bi);
         });
 
         // İlk 333 + MI yüksek + GI yüksek → reçete büyümesi potansiyeli

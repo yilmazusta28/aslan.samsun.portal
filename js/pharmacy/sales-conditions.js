@@ -801,21 +801,11 @@
     // Her eczane için sıralanabilir "toplam öngörülen sipariş" alanı ekle
     // (ürün bazlı hücrelerin toplamı) — ana listedeki "Toplam" sütunuyla
     // aynı mantık: en öncelikli eczaneleri üste getirebilmek için.
-    //
-    // BUG DÜZELTMESİ: burada yanlışlıkla u.ongorilenSiparis toplanıyordu —
-    // ama o alan bir SAYI değil, "bir sonraki sipariş ayı" etiketidir
-    // (örn. "Ağustos 2026", bkz. _nextOrderMonth()). typeof === 'number'
-    // kontrolü bu yüzden hiçbir zaman geçmiyordu ve toplam HER ZAMAN 0
-    // çıkıyordu. Gerçek öngörülen sipariş MİKTARI (kutu, bonus dahil)
-    // u.siparisOnerisi.toplam alanındadır — zaten her ürün hücresinde
-    // aynı sayı gösteriliyor (bkz. aşağıdaki oneriText).
     analiz.forEach(function (e) {
       var toplamOngoru = 0;
       PRODUCTS.forEach(function (urun) {
         var u = e.urunAnaliz[urun];
-        if (u && u.siparisOnerisi && typeof u.siparisOnerisi.toplam === 'number') {
-          toplamOngoru += u.siparisOnerisi.toplam;
-        }
+        if (u && typeof u.ongorilenSiparis === 'number') toplamOngoru += u.ongorilenSiparis;
       });
       e._toplamOngoru = toplamOngoru;
     });

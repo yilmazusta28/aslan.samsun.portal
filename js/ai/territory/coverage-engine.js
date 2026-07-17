@@ -50,23 +50,13 @@
         imsBricks[key].n++;
       });
 
-      // ── MIGI bricklerini ekle (sira bilgisi, EN GÜNCEL döneme göre) ──
-      // BUG DÜZELTMESİ: eskiden tüm ayların en iyisi/en düşüğü alınıyordu
-      // — bkz. prim-calc.js'deki aynı düzeltme notu.
-      var _migiDonemNum = function (d) { var p = String(d || '').split('/'); return p.length === 2 ? (+p[1] * 100 + +p[0]) : 0; };
-      var _migiRowsByBrick = {};
+      // ── MIGI bricklerini ekle (sira bilgisi) ─────────────
+      var migiBricks = {};
       (MIGI_BRICK_TL_RAW || []).filter(function (r) { return r.person === ttt; }).forEach(function (r) {
         var key = (r.brick || '').toUpperCase();
         if (!key) return;
-        if (!_migiRowsByBrick[key]) _migiRowsByBrick[key] = [];
-        _migiRowsByBrick[key].push(r);
-      });
-      var migiBricks = {};
-      Object.keys(_migiRowsByBrick).forEach(function (key) {
-        var rows = _migiRowsByBrick[key];
-        var latest = rows.reduce(function (max, r) { return Math.max(max, _migiDonemNum(r.donem)); }, 0);
-        var latestRow = rows.filter(function (r) { return _migiDonemNum(r.donem) === latest; })[0];
-        migiBricks[key] = { sira: (latestRow && latestRow.sira) || 999 };
+        if (!migiBricks[key]) migiBricks[key] = { sira: r.sira || 999 };
+        else if (r.sira && r.sira < migiBricks[key].sira) migiBricks[key].sira = r.sira;
       });
 
       // ── ECZANE verisi ─────────────────────────────────────

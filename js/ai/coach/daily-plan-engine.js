@@ -44,19 +44,18 @@
            urgency === 'IMPORTANT' ? '🟡' : '🟢';
   }
 
-  // ── generateCoachDailyPlan ─────────────────────────────────
-  // BUG DÜZELTMESİ: eskiden bu fonksiyon `generateDailyPlan` adını
-  // taşıyordu — ama js/ai/autonomous-planning-engine.js İÇİNDE de AYNI
-  // isimde, TAMAMEN FARKLI bir fonksiyon var (mission objesi döndürür:
-  // {targetTL, visits[], warnings[]...}), o dosya DAHA SONRA yüklendiği
-  // için `window.generateDailyPlan`'ı kendi versiyonuyla eziyordu.
-  // coach-engine.js bu fonksiyonu çağırdığında yanlışlıkla otonom motorun
-  // objesini alıyordu (.morning alanı YOK) → _buildCoachingNarrative()
-  // içinde "Cannot read properties of undefined (reading 'filter')" hatası.
-  // Çözüm: bu fonksiyon benzersiz bir isimle dışa açılıyor, otonom motora
-  // dokunulmadı (onun kendi iç çağrıları zaten kendi local scope'undaki
-  // fonksiyonu kullanıyor, isim çakışmasından etkilenmiyordu).
-  function generateCoachDailyPlan(ttt) {
+  // ── generateDailyPlan ─────────────────────────────────────
+  // @param {string} ttt
+  // @returns {{
+  //   date:        string,
+  //   morning:     Array<{action, detail, urgency, category}>,
+  //   midday:      Array<{action, detail, urgency, category}>,
+  //   afternoon:   Array<{action, detail, urgency, category}>,
+  //   thisWeek:    Array<{action, detail, urgency, category}>,
+  //   endOfPeriod: Array<{action, detail, urgency, category}>,
+  //   summary:     string
+  // }}
+  function generateDailyPlan(ttt) {
     var result = {
       date:        _todayLabel(),
       morning:     [],
@@ -280,14 +279,14 @@
         : 'Düzenli ziyaret günü. Tempoyu koru ve kilit eczaneleri ziyaret et.';
 
     } catch (e) {
-      console.warn('[daily-plan-engine] generateCoachDailyPlan hata:', e.message);
+      console.warn('[daily-plan-engine] generateDailyPlan hata:', e.message);
     }
 
     return result;
   }
 
   // ── EXPORT ────────────────────────────────────────────────
-  window.generateCoachDailyPlan = generateCoachDailyPlan;
+  window.generateDailyPlan = generateDailyPlan;
   console.debug('[daily-plan-engine] Phase 3.4 yüklendi.');
 
 })();

@@ -43,46 +43,6 @@
 
   var _fallback = {}; // pharmacy → StockEntry[] (IndexedDB yoksa)
 
-  // ── Senkron bellek-içi önbellek (GÜVENLİ EKLEME — mevcut asenkron API'ye
-  //    dokunulmadı) ─────────────────────────────────────────────────────
-  //  Amaç: digital-twin-builder.js gibi SENKRON çalışan tüketiciler,
-  //  IndexedDB'yi (doğası gereği asenkron) doğrudan await edemiyor. Bu
-  //  önbellek, sayfa yüklendiğinde arka planda BİR KEZ IndexedDB'den
-  //  okunup doldurulur (discover() üzerinden — zaten var olan API) ve her
-  //  yeni kayıtta güncellenir. Tüketiciler getLatestStockEntrySync() ile
-  //  "şu an bilinen en son değeri" senkron okuyabilir; önbellek henüz
-  //  dolmamışsa (sayfa yeni açıldıysa) null döner — hata fırlatmaz.
-  var _memCache      = {};   // pharmacy → en son StockEntry
-  var _memCacheReady = false;
-
-  function _latestByPharmacy(entries) {
-    var byPharmacy = {};
-    (entries || []).forEach(function (e) {
-      var cur = byPharmacy[e.pharmacy];
-      if (!cur || (e.enteredAt || '').localeCompare(cur.enteredAt || '') > 0) {
-        byPharmacy[e.pharmacy] = e;
-      }
-    });
-    return byPharmacy;
-  }
-
-  function _rebuildMemCache() {
-    return discover().then(function (result) {
-      _memCache = _latestByPharmacy(result && result.stockEntries);
-      _memCacheReady = true;
-    }).catch(function (err) {
-      console.warn('[stock-entry-adapter] _rebuildMemCache hata:', err && err.message);
-      _memCacheReady = true; // hata da olsa "denedik" işaretle — sonsuz null bekleme olmasın
-    });
-  }
-
-  // Senkron okuma — önbellek henüz dolmadıysa null (asla throw etmez)
-  function getLatestStockEntrySync(pharmacy) {
-    return _memCache[pharmacy] || null;
-  }
-
-  function isMemCacheReady() { return _memCacheReady; }
-
   // ── recordStockEntry ───────────────────────────────────────────────────
   function recordStockEntry(pharmacy, date, products) {
     var entry = {
@@ -92,15 +52,9 @@
       enteredAt:  new Date().toISOString()
     };
 
-    function _updateMemCache() {
-      // Yeni kayıt her zaman "en son" olur (enteredAt = şimdi) — direkt yaz.
-      _memCache[pharmacy] = entry;
-    }
-
     if (!window.PharmaDB) {
       if (!_fallback[pharmacy]) _fallback[pharmacy] = [];
       _fallback[pharmacy].push(entry);
-      _updateMemCache();
       return Promise.resolve();
     }
 
@@ -108,12 +62,11 @@
       if (!store) {
         if (!_fallback[pharmacy]) _fallback[pharmacy] = [];
         _fallback[pharmacy].push(entry);
-        _updateMemCache();
         return Promise.resolve();
       }
       return new Promise(function (resolve, reject) {
         var req = store.add(entry);
-        req.onsuccess = function () { _updateMemCache(); resolve(); };
+        req.onsuccess = function () { resolve(); };
         req.onerror   = function (e) { reject(e.target.error); };
       });
     });
@@ -193,14 +146,12 @@
   }
 
   window.StockEntryAdapter = {
-    recordStockEntry:        recordStockEntry,
-    getLatestStockEntry:     getLatestStockEntry,
-    getStockHistory:         getStockHistory,
-    discover:                discover,
-    getLatestStockEntrySync: getLatestStockEntrySync,
-    isMemCacheReady:         isMemCacheReady,
-    contextHook:             'stockEntries',
-    version:                 '9.4'
+    recordStockEntry:    recordStockEntry,
+    getLatestStockEntry: getLatestStockEntry,
+    getStockHistory:     getStockHistory,
+    discover:            discover,
+    contextHook:         'stockEntries',
+    version:             '9.3'
   };
 
   // SourceAdapterRegistry'ye kendini kayıt et (varsa)
@@ -208,12 +159,6 @@
     window.SourceAdapterRegistry.register({ name: 'stockEntries', contextHook: 'stockEntries', adapter: window.StockEntryAdapter });
   }
 
-  // Senkron önbelleği arka planda BİR KEZ doldur (sayfa yüklenirken).
-  // Bilerek "fire and forget" — hiçbir çağıranı bloklamaz, sadece
-  // getLatestStockEntrySync()'in mümkün olan en kısa sürede gerçek veri
-  // dönmesini sağlar.
-  _rebuildMemCache();
-
-  console.debug('[stock-entry-adapter] FAZ 9.4 yüklendi. contextHook: stockEntries (senkron önbellek eklendi)');
+  console.debug('[stock-entry-adapter] FAZ 9.3 yüklendi. contextHook: stockEntries');
 
 })();

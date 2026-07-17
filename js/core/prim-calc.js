@@ -62,26 +62,10 @@ function calcPrimForTTT(ttt) {
   const urunReals = Object.fromEntries(urunRows.map(r => [r.urun, r.tl_pct]));
   const primPuani = rGenel.prim_pct || calcPrimPuani(urunReals, ttt);
   const carpan    = effReal >= 91 ? getCarpan(effReal) : 0;
-  // MI/GI: MIGI_TL_RAW'dan bu TTT'nin EN GÜNCEL dönemine ait ortalamasını al
-  // BUG DÜZELTMESİ: gerçek alan adı 'person'dır ('ttt' değil) ve "GI"
-  // değeri 'bi' alanında tutulur ('gi' değil) — bkz. data-loader.js
-  // parseMiGiToplamCSV(). Eski filtre HER ZAMAN boş dönüyordu.
-  // 2. DÜZELTME: MIGI_TL_RAW bir kişi için BİRDEN FAZLA AYIN satırını
-  // aynı anda içerebilir (CSV'deki her satır kendi ayını taşır, dosya
-  // tek bir ay ile sınırlı değildir). Kişiye göre filtrelemek tek başına
-  // yetmez — farklı ayların (bazıları eski/güncel olmayan) satırlarını
-  // birbirine karıştırıp ortalamak yanlış olur. Bu yüzden önce o kişi
-  // için mevcut EN GÜNCEL (en yüksek yıl/ay) döneme ait satırlar seçilir.
-  // Not: bu veri kaynağı doğası gereği gecikmeli olabilir (MI&GI raporu
-  // güncel satış dönemiyle birebir aynı ayı yansıtmayabilir) — burada
-  // sadece elde mevcut EN GÜNCEL veriyi kullanıyoruz, "bu tam olarak
-  // şu anki dönem" garantisi vermiyoruz.
-  const _migiDonemNum = d => { const p = String(d || '').split('/'); return p.length === 2 ? (+p[1] * 100 + +p[0]) : 0; };
-  const migiRowsAll   = (typeof MIGI_TL_RAW !== 'undefined' ? MIGI_TL_RAW : []).filter(r => r.person === ttt);
-  const _migiLatest    = migiRowsAll.reduce((max, r) => Math.max(max, _migiDonemNum(r.donem)), 0);
-  const migiRows       = migiRowsAll.filter(r => _migiDonemNum(r.donem) === _migiLatest);
+  // MI/GI: MIGI_TL_RAW'dan bu TTT'nin ortalamasını al
+  const migiRows  = (typeof MIGI_TL_RAW !== 'undefined' ? MIGI_TL_RAW : []).filter(r => r.ttt === ttt);
   const miAvg     = migiRows.length ? migiRows.reduce((s, r) => s + (r.mi || 100), 0) / migiRows.length : 100;
-  const giAvg     = migiRows.length ? migiRows.reduce((s, r) => s + (r.bi || 100), 0) / migiRows.length : 100;
+  const giAvg     = migiRows.length ? migiRows.reduce((s, r) => s + (r.gi || 100), 0) / migiRows.length : 100;
   const migiKatsayi = effReal >= 70 ? getMiGiKatsayi(Math.round(miAvg), Math.round(giAvg)) : 0;
   const BAZ_TL_REAL = 55000;
   const BAZ_MIGI    = 14000;

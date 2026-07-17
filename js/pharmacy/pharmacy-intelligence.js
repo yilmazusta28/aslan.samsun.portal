@@ -54,29 +54,7 @@
     return fb[urun] || 100;
   }
 
-  var AVG_BOX_PRICE = 109; // genel ağırlıklı ortalama (sabit) — sadece fallback
-
-  // BUG DÜZELTMESİ: _boxPrice(urun) (gerçek IMS_TL_MAP birim fiyatı) daha
-  // önce hiçbir yerde ÇAĞRILMIYORDU — expectedOrderValue ve opportunityScore
-  // her eczane için, o eczanenin gerçek ürün karmasına bakılmaksızın hep aynı
-  // düz AVG_BOX_PRICE=109 ile hesaplanıyordu. Halbuki her eczanenin hangi
-  // üründen ne kadar aldığı zaten urunAyMap'te toplanıyor (productAffinityScore
-  // için kullanılıyor) — sadece fiyat hesabına hiç bağlanmamıştı. Örneğin
-  // ağırlıklı olarak MOKSEFEN (₺149/kutu) satan bir eczane ile GRİPORT COLD
-  // (₺84/kutu) satan bir eczane aynı kutu adedi için aynı TL göstermemeli.
-  // Bu fonksiyon eczanenin GERÇEK geçmiş ürün karmasına göre ağırlıklı
-  // ortalama kutu fiyatı hesaplar; ürün kırılımı yoksa (nadiren) düz
-  // AVG_BOX_PRICE'a geri düşer.
-  function _weightedBoxPrice(urunAyMap) {
-    var totalBoxes = 0, totalValue = 0;
-    Object.keys(urunAyMap || {}).forEach(function (urun) {
-      var ayMap = urunAyMap[urun] || {};
-      var urunBoxes = Object.keys(ayMap).reduce(function (s, ay) { return s + (ayMap[ay] || 0); }, 0);
-      totalBoxes += urunBoxes;
-      totalValue += urunBoxes * _boxPrice(urun);
-    });
-    return totalBoxes > 0 ? (totalValue / totalBoxes) : AVG_BOX_PRICE;
-  }
+  var AVG_BOX_PRICE = 109; // genel ağırlıklı ortalama (sabit)
 
   // ── Global State ─────────────────────────────────────────────────────
   window.PHARMACY_INTELLIGENCE = {
@@ -341,8 +319,8 @@
 
   // opportunityScore = reorderProbability × expectedOrderBoxes × avgBoxPrice → normalize 0-100
   // normalize için maxOpportunity gerekli (dışarıdan verilir)
-  function _opportunityRaw(reorderProb, expectedBoxes, boxPrice) {
-    return (reorderProb / 100) * expectedBoxes * (boxPrice || AVG_BOX_PRICE);
+  function _opportunityRaw(reorderProb, expectedBoxes) {
+    return (reorderProb / 100) * expectedBoxes * AVG_BOX_PRICE;
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -616,8 +594,7 @@
 
         // Forecast + limiter
         var expectedOrderBoxes = _forecast(sales, historicalMax);
-        var weightedBoxPrice = _weightedBoxPrice(e.urunAyMap);
-        var expectedOrderValue = Math.round(expectedOrderBoxes * weightedBoxPrice);
+        var expectedOrderValue = Math.round(expectedOrderBoxes * AVG_BOX_PRICE);
 
         // Sipariş tarihi metrikleri
         var lastAy         = allMonths[allMonths.length - 1];
@@ -671,7 +648,7 @@
           daysToNextOrder:       daysToNextOrder,
           expectedOrderDate:     expectedOrderDate,
           // iç kullanım için ham değer
-          _opportunityRaw:       _opportunityRaw(reorderProbability, expectedOrderBoxes, weightedBoxPrice)
+          _opportunityRaw:       _opportunityRaw(reorderProbability, expectedOrderBoxes)
         });
       } catch (_err) { /* null-safe */ }
     });

@@ -360,17 +360,9 @@
     var enriched = _enrichProfiles(profiles);
 
     // Bugünün günü
-    // BUG DÜZELTMESİ: Cumartesi/Pazar günü eskiden dayOffset sabit 1'e
-    // ayarlanıyordu — bu "Salı" (DAY_NAMES[1]) etiketini gösteriyordu ama
-    // aslında hâlâ BUGÜN için bir ziyaret listesi üretip gösteriyordu.
-    // Hafta sonu iş günü olmadığından "bugüne eczane önerilmemeli" —
-    // artık hafta sonuysa bir sonraki iş gününün (Pazartesi) planı
-    // üretiliyor ve `isWeekend` bayrağıyla işaretleniyor, render fonksiyonu
-    // bunu "bugün" yerine "Pazartesi için" diye göstermeli.
-    var today      = new Date().getDay();
-    var isWeekend  = (today === 0 || today === 6);
-    var dayOffset  = isWeekend ? 0 : today - 1; // hafta sonu → Pazartesi (index 0)
-    var dayName    = DAY_NAMES[Math.min(dayOffset, 4)];
+    var today     = new Date().getDay();
+    var dayOffset = (today === 0 || today === 6) ? 1 : today - 1;
+    var dayName   = DAY_NAMES[Math.min(dayOffset, 4)];
 
     // FAZ 10.3: 5-kademe sıralama
     var used = {};
@@ -408,9 +400,7 @@
 
     // _buildDayRoute için sahte tek-cluster yapısı
     var fakeCluster = [{ name: dayName, pharmacies: result }];
-    var built = _buildDayRoute(dayName, fakeCluster, 0, MAX_DAILY);
-    if (built) built.isWeekend = isWeekend;
-    return built;
+    return _buildDayRoute(dayName, fakeCluster, 0, MAX_DAILY);
   }
 
   function buildWeeklyRoutes(tttFilter) {
@@ -435,45 +425,11 @@
 
     var usedPharmacies = new Set();
 
-    // BUG DÜZELTMESİ: Temsilcinin route-plan-input.js (FAZ 10.2/10.3) ile
-    // GİRDİĞİ haftalık brick planı bu fonksiyon tarafından hiç okunmuyordu
-    // — "Haftalık Rota" her zaman salt algoritmik dağılım gösteriyordu,
-    // temsilci Pazartesi-Cuma için brick seçip kaydetse bile hiçbir şey
-    // değişmiyordu. buildTodayRoute()'daki Kademe-1 mantığıyla TUTARLI
-    // olacak şekilde: o gün için manuel plan VARSA önce o brick'lerdeki
-    // eczaneler kullanılır, kalan kapasite eskisi gibi (urgent + brick
-    // kümeleri) doldurulur. Manuel plan yoksa davranış hiç değişmez.
-    var manualWeekPlan = null;
-    try {
-      if (window.RoutePlanInput && typeof window.RoutePlanInput.getWeekPlanSync === 'function') {
-        manualWeekPlan = window.RoutePlanInput.getWeekPlanSync(tttFilter);
-      }
-    } catch (_e) {}
-
     for (var d = 0; d < 5; d++) {
       var dayPharmacies = [];
       var dayBoxes      = 0;
       var dayValue      = 0;
       var dayBricks     = {};
-
-      // Kademe-1: bu gün için temsilcinin manuel planı (varsa) önce eklenir
-      var weekday = d + 1; // route-plan-input.js: 1=Pazartesi...5=Cuma
-      var plannedBricks = (manualWeekPlan && manualWeekPlan[weekday] && manualWeekPlan[weekday].length)
-        ? manualWeekPlan[weekday].map(function (b) { return b.toUpperCase(); })
-        : null;
-
-      if (plannedBricks) {
-        enriched
-          .filter(function (p) { return plannedBricks.indexOf((p.brick || '').toUpperCase()) >= 0; })
-          .sort(function (a, b) { return b.visitScore - a.visitScore; })
-          .forEach(function (p) {
-            var pKey = p.gln || p.eczane;
-            if (dayPharmacies.length < maxVisits && !usedPharmacies.has(pKey)) {
-              dayPharmacies.push(p);
-              usedPharmacies.add(pKey);
-            }
-          });
-      }
 
       // Önce URGENT'ları ekle (her gün paylaştırılır)
       urgents.forEach(function (p) {
@@ -712,16 +668,6 @@
 
     var t = ro.todayRoute;
 
-    // FAZ 14.2 — Hafta sonu bildirimi: Cumartesi/Pazar iş günü değil,
-    // bu yüzden "bugün" için değil bir sonraki iş günü (Pazartesi) için
-    // öneri gösteriliyor — kullanıcıyı yanıltmamak için açıkça belirtiyoruz.
-    var weekendNotice = t.isWeekend
-      ? '<div style="padding:10px 14px;margin-bottom:10px;background:rgba(217,119,6,.08);' +
-        'border:1px solid rgba(217,119,6,.25);border-radius:10px;font-size:11px;color:#92400E;font-weight:600">' +
-        '📅 Bugün hafta sonu — aşağıda <b>Pazartesi</b> için önerilen ziyaret planı gösteriliyor.' +
-        '</div>'
-      : '';
-
     // Yardımcılar
     var _prioBadge = function (priority) {
       var m = {
@@ -799,7 +745,6 @@
     }).join('');
 
     container.innerHTML =
-      weekendNotice +
       '<div class="card">' +
         '<div class="card-hd" style="flex-wrap:wrap;gap:6px">' +
           '<span class="card-badge">' + t.pharmacyCount + ' ziyaret</span>' +

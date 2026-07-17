@@ -56,33 +56,3 @@ function workDays(s,e){
     if(dw>0&&dw<6&&!HOLIDAYS.has(ds))cnt++;d.setDate(d.getDate()+1);}
   return cnt;
 }
-
-// ── Etkin Dönem (Effective Period) ──────────────────────────
-// BUG DÜZELTMESİ (kullanıcı bildirimi): GENEL_TABLO.csv/IMS_TABLO.csv
-// bir dönem takvimde bittiğinde HEMEN değil, birkaç gün SONRA
-// güncelleniyor (örn. Haziran'ın son IMS verisi 7 Temmuz'da girilir).
-// Saf takvim tarihine göre dönem seçen eski mantık (PERIODS.find),
-// 1-7 Temmuz arasında zaten "4.Dönem" (Temmuz-Ağustos) seçiyordu —
-// ama sistemdeki veri hâlâ bir önceki dönemin (1.Kompanzasyon) verisiydi.
-// Sonuç: "kalan iş günü" yeni döneme göre hesaplanıyor, gerçekte daha
-// başlamamış bir dönem için çok fazla gün varmış gibi görünüyordu.
-// Çözüm: yeni dönemin takvim başlangıcından itibaren PERIOD_GRACE_DAYS
-// (takvim günü) boyunca hesaplamalar hâlâ BİR ÖNCEKİ dönem üzerinden
-// yapılır. Bu süre geçince normal şekilde yeni döneme geçilir.
-const PERIOD_GRACE_DAYS = 7;
-
-function _calendarDaysBetween(startStr, endStr) {
-  return Math.round((new Date(endStr) - new Date(startStr)) / 86400000);
-}
-
-function getEffectivePeriod(dateStr) {
-  dateStr = dateStr || new Date().toISOString().slice(0, 10);
-  const idx = PERIODS.findIndex(p => dateStr >= p.start && dateStr <= p.end);
-  if (idx < 0) return null;
-  const cur = PERIODS[idx];
-  const daysIntoPeriod = _calendarDaysBetween(cur.start, dateStr);
-  if (daysIntoPeriod < PERIOD_GRACE_DAYS && idx > 0) {
-    return PERIODS[idx - 1];
-  }
-  return cur;
-}

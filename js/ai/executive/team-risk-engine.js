@@ -84,16 +84,11 @@
       }
 
       // MI/GI riski
-      // BUG DÜZELTMESİ: r.ttt → r.person, r.gi → r.bi + sadece EN GÜNCEL
-      // döneme ait satırlar kullanılıyor (bkz. prim-calc.js düzeltme notu).
-      var _migiDonemNum = function (d) { var p = String(d || '').split('/'); return p.length === 2 ? (+p[1] * 100 + +p[0]) : 0; };
-      var migiRowsAll = (typeof MIGI_TL_RAW !== 'undefined' ? MIGI_TL_RAW : [])
-        .filter(function (r) { return r.person === ttt; });
-      var migiLatest = migiRowsAll.reduce(function (max, r) { return Math.max(max, _migiDonemNum(r.donem)); }, 0);
-      var migiRows = migiRowsAll.filter(function (r) { return _migiDonemNum(r.donem) === migiLatest; });
+      var migiRows = (typeof MIGI_TL_RAW !== 'undefined' ? MIGI_TL_RAW : [])
+        .filter(function (r) { return r.ttt === ttt; });
       if (migiRows.length) {
         var miAvg = migiRows.reduce(function (s, r) { return s + (r.mi || 100); }, 0) / migiRows.length;
-        var giAvg = migiRows.reduce(function (s, r) { return s + (r.bi || 100); }, 0) / migiRows.length;
+        var giAvg = migiRows.reduce(function (s, r) { return s + (r.gi || 100); }, 0) / migiRows.length;
         if (miAvg < 85 || giAvg < 85) {
           reasons.push('MI/GI düşük: MI=' + Math.round(miAvg) + ' GI=' + Math.round(giAvg));
           riskScore += 10;

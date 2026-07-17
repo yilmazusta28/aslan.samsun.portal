@@ -175,13 +175,7 @@
   function _buildEvidence(ttt, shareRecord, ay) {
     var kampanyaDetay = _findKampanya(shareRecord.ilacGrubu, ay);
     var rakipKampanyaVarMi = !!kampanyaDetay;
-    // BUG DÜZELTMESİ: MarketShareResult'ta alan adı "trend"/"changePct"'tir
-    // (bkz. market-share-engine.js MarketShareResult şeması) — "shareTrend"/
-    // "shareChangePct" sadece dışa açılan FONKSİYON adlarıdır, kayıt
-    // alanı değil. Eskiden bu satır hep undefined okuyordu → payDusuyor
-    // hep false kalıyordu → zamansalCakisma (bu motorun tüm amacı) hiçbir
-    // zaman true olamıyordu.
-    var bizimPayTrend = shareRecord.trend;
+    var bizimPayTrend = shareRecord.shareTrend;
     var payDusuyor = bizimPayTrend === 'down';
 
     var zamansalCakisma = rakipKampanyaVarMi && payDusuyor;
@@ -191,7 +185,7 @@
     // (ne kadar dik düşüyor) + kampanyanın kendi agresifliği (indirimPct).
     var guvenSkoru = 0;
     if (zamansalCakisma) {
-      var dususSiddeti = Math.min(30, Math.abs(shareRecord.changePct || 0) * 0.6);
+      var dususSiddeti = Math.min(30, Math.abs(shareRecord.shareChangePct || 0) * 0.6);
       var kampanyaSiddeti = Math.min(20, (kampanyaDetay.indirimPct || 0) * 0.4);
       guvenSkoru = Math.round(15 + dususSiddeti + kampanyaSiddeti); // taban 15 + iki bileşen
       guvenSkoru = Math.min(_GUVEN_TAVANI, guvenSkoru);
@@ -202,7 +196,7 @@
     var aciklama;
     if (zamansalCakisma) {
       aciklama = shareRecord.brick + ' brick\'inde ' + shareRecord.ilacGrubu + ' payımız düşüyor (' +
-        (shareRecord.changePct > 0 ? '+' : '') + shareRecord.changePct + '%), ' +
+        (shareRecord.shareChangePct > 0 ? '+' : '') + shareRecord.shareChangePct + '%), ' +
         'aynı dönemde ' + kampanyaDetay.firma + ' (' + kampanyaDetay.urun + ') %' + kampanyaDetay.indirimPct +
         ' indirimli kampanya yürütmüş. Zamansal çakışma var ama KESİN NEDEN-SONUÇ İLİŞKİSİ İDDİA EDİLEMEZ ' +
         '(brick-seviyesi kampanya verisi yok, başka nedenler de olabilir). Güven: %' + guvenSkoru + ' (düşük-orta).';
@@ -223,7 +217,7 @@
       rakipKampanyaVarMi: rakipKampanyaVarMi,
       kampanyaDetay: kampanyaDetay,
       bizimPayTrend: bizimPayTrend,
-      bizimPayDegisimPct: shareRecord.changePct,
+      bizimPayDegisimPct: shareRecord.shareChangePct,
       zamansalCakisma: zamansalCakisma,
       guvenSkoru: guvenSkoru,
       aciklama: aciklama

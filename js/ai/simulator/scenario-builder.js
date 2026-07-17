@@ -88,18 +88,10 @@
         dailyRate = maxReasonableDaily;
       }
 
-      // Tahmini kutu: KUTU verisinden (h1..h9 haftalık kutu kolonları toplamı)
-      // BUG DÜZELTMESİ: KUTU dizisinin gerçek alanları ttt/urun/h1..h9'dur
-      // (bkz. data-loader.js rebuildKutuFromIMS) — 'cikan_kutu' diye bir
-      // alan hiç yok. currentBox bu yüzden HER ZAMAN 0 çıkıyor, tlPerBox
-      // hep düz ₺100/kutu varsayımına düşüyor ve projectedBox tahminleri
-      // gerçek kutu adedinden kopuk oluyordu.
-      var _weekKeysKutu = ['h1','h2','h3','h4','h5','h6','h7','h8','h9'];
+      // Tahmini kutu: KUTU verisinden
       var currentBox = (typeof KUTU !== 'undefined' ? KUTU : [])
         .filter(function (r) { return r.ttt === ttt; })
-        .reduce(function (s, r) {
-          return s + _weekKeysKutu.reduce(function (ws, k) { return ws + (r[k] || 0); }, 0);
-        }, 0);
+        .reduce(function (s, r) { return s + (r.cikan_kutu || 0); }, 0);
       var tlPerBox   = currentTL > 0 && currentBox > 0 ? currentTL / currentBox : 100;
 
       // 3 hız senaryosu (±%20 — mevcut hız üzerinden)
@@ -288,17 +280,10 @@
       });
 
       // MIGI sıra haritası (ilk 333 bonusu)
-      var _migiDonemNum = function (d) { var p = String(d || '').split('/'); return p.length === 2 ? (+p[1] * 100 + +p[0]) : 0; };
       var migiSira = {};
-      var migiSiraDonem = {}; // brick → o brick için şu ana kadar seçilen sıranın dönemi
       migiRows.forEach(function (r) {
-        var dn = _migiDonemNum(r.donem);
-        // Bu brick için ya hiç kayıt yok, ya da bu satır daha GÜNCEL bir
-        // döneme ait — sadece bu durumda güncelle (en iyi/en düşük değeri
-        // değil, en GÜNCEL değeri almak istiyoruz).
-        if (migiSiraDonem[r.brick] === undefined || dn > migiSiraDonem[r.brick]) {
+        if (!migiSira[r.brick] || r.sira < migiSira[r.brick]) {
           migiSira[r.brick] = r.sira;
-          migiSiraDonem[r.brick] = dn;
         }
       });
 

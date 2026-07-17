@@ -258,15 +258,6 @@ async function syncData(forceFresh) {
         else if (curPage === 4) buildPrimInputs();
         else if (curPage === 5) renderAiAsistan();
         else if (curPage === 6) renderEczane();
-        // FAZ 13.4-DÜZELTME: page7 (Yönetici) burada da eksikti — banner
-        // (mgrHeroBanner) ilk açılışta cache'ten anında dolması gerekirken
-        // hiç render edilmiyordu; kullanıcı başka sayfaya gezinip page7'ye
-        // dönünce goPage(7) tekrar çağrıldığı için "düzeliyormuş" gibi
-        // görünüyordu. Artık cache anında geldiğinde de dolduruluyor.
-        else if (curPage === 7) {
-          if (typeof renderManagerHeroBanner === 'function') renderManagerHeroBanner();
-          if (typeof renderManagerExtra === 'function') renderManagerExtra();
-        }
         const _loadingEl = document.getElementById('loading');
         if (_loadingEl) _loadingEl.style.display = 'none';
       }
@@ -426,15 +417,6 @@ async function syncData(forceFresh) {
     }
     // ── END FAZ — 6 Aylık Dönem Arşivleme ──────────────────────────
 
-    // FAZ 10: GitHub'daki arsiv/ klasöründen olası geçmiş dönemleri dene
-    // (kullanıcı exportPeriodAsFile() ile indirip commit ettiyse). Sadece
-    // sayfa başına BİR KEZ denenir (gereksiz tekrarlı ağ isteği olmasın) —
-    // hata toleranslı, syncData akışını asla bloklamaz/bozmaz.
-    if (window.PeriodArchiveManager && !window._pvArchiveHydrateTried) {
-      window._pvArchiveHydrateTried = true;
-      window.PeriodArchiveManager.hydrateFromRemote().catch(function () { /* sessiz */ });
-    }
-
     // IMS TL fiyatlarını güncelle
     Object.assign(IMS_TL_MAP, newImsTL);
 
@@ -492,25 +474,6 @@ async function syncData(forceFresh) {
     else if (curPage === 4) buildPrimInputs();
     else if (curPage === 5) renderAiAsistan();
     else if (curPage === 6) renderEczane();
-    // FAZ 13.1 DÜZELTMESİ: bu dispatch'te page7 (Yönetici) eksikti — Şenol
-    // Yılmaz girişinde artık varsayılan sayfa page7 olduğundan (bkz.
-    // index.html doLogin()), veri senkronize OLDUKTAN SONRA panel
-    // yenilenmiyordu (goPage(7) veri gelmeden önce çağrıldığı için ilk
-    // render'da "veri yüklenmemiş" görünüyordu ve syncData bitince asla
-    // güncellenmiyordu). Diğer sayfalar zaten burada yenileniyordu, page7
-    // unutulmuştu.
-    // FAZ 13.4-DÜZELTME: renderExecutiveDashboard('executiveDashboardContainer')
-    // artık YOK — "📊 Genel Bakış" bölümü kaldırıldığından bu çağrı hiçbir şey
-    // yapmıyordu (fonksiyon/konteyner yok). Asıl eksik olan ve banner'ın ("Bölge
-    // Geneli — ŞENOL YILMAZ" mor kutusu) ilk açılışta boş kalmasına yol açan
-    // çağrı buydu: renderManagerHeroBanner() burada hiç çağrılmıyordu. goPage(7)
-    // veri gelmeden önce (giriş anında) çalıştığı için banner boş doluyordu;
-    // kullanıcı başka sayfaya gezip page7'ye dönünce goPage(7) TEKRAR çalıştığı
-    // (ve bu sefer veri hazır olduğu) için "düzeliyormuş" gibi görünüyordu.
-    else if (curPage === 7) {
-      if (typeof renderManagerHeroBanner === 'function') renderManagerHeroBanner();
-      if (typeof renderManagerExtra === 'function') renderManagerExtra();
-    }
 
     const now = new Date();
     statusEl.textContent = '✅ ' + now.toLocaleTimeString('tr-TR');

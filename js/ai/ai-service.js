@@ -59,17 +59,8 @@ async function fetchAI(payload) {
     throw new Error('Sunucu hatası: HTTP ' + response.status + ' ' + response.statusText);
   }
   var data = await response.json();
-  // DÜZELTME: content[0] her zaman metin bloğu olmayabilir (extended
-  // thinking açıksa önce {type:"thinking"} bloğu gelir) — bkz. ai-engine.js'deki aynı düzeltme.
-  var textBlock = Array.isArray(data.content)
-    ? data.content.filter(function (b) { return b && b.type === 'text' && b.text; })[0]
-    : null;
-  var text = textBlock ? textBlock.text : null;
-  if (!text) {
-    var apiErr = (data.error && data.error.message) || data.message || null;
-    var stopInfo = data.stop_reason ? (' (stop_reason: ' + data.stop_reason + ')') : '';
-    throw new Error(apiErr ? 'Proxy/API hatası: ' + apiErr : 'Yanıt alınamadı — metin bloğu üretilemedi' + stopInfo + '.');
-  }
+  var text = data.content && data.content[0] && data.content[0].text;
+  if (!text) throw new Error('Yanıt alınamadı (içerik boş).');
   return text;
 }
 
@@ -203,8 +194,8 @@ async function sendAiMsgWithText(text) {
 
   try {
     var reply = await fetchAI({
-      model: 'claude-sonnet-5',
-      max_tokens: 4096,
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
       system: systemPrompt,
       messages: aiChatHistory.slice(-6)
     });

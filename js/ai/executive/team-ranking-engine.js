@@ -43,36 +43,21 @@
   }
 
   // ── _growthScore ──────────────────────────────────────────
-  // Son haftaların trendine göre büyüme puanı (0-100)
-  // BUG DÜZELTMESİ: eski kod r.hafta / r.own_tl alanlarını okuyordu ama
-  // IMS satırlarında bu alanlar hiç yok (bkz. js/data/csv-parser.js
-  // parseIMSCSV → alanlar: h1..h9, toplam, toplam_ppi, is_mkt). Bu yüzden
-  // wMap hep boş kalıyor, wVals.length her zaman 0 oluyor ve fonksiyon
-  // sessizce herkese aynı nötr "50" puanını veriyordu — ekrandaki
-  // "Büyüme" sütununun herkeste aynı görünmesinin kök nedeni buydu.
-  // Düzeltme: kendi ürünlerine ait (is_mkt:false) haftalık h1..h9 KUTU
-  // kolonları toplanarak gerçek haftalık trend hesaplanıyor. (Not: IMS
-  // satırlarında gerçek bir TL alanı yoktur, sadece kutu hacmi vardır —
-  // bkz. docs/AI_MIMARI_STABILIZASYON_RAPORU.md. Hesaplama zaten baştan
-  // beri birim-tutarlıydı çünkü sadece IMS'in kendi kutu kolonlarını
-  // birbiriyle kıyaslıyor; bu sadece bir yorum/etiket düzeltmesidir.)
+  // Son 3 haftanın doğrusal eğimine göre büyüme puanı (0-100)
   function _growthScore(ttt) {
-    var imsRows = (IMS || []).filter(function (r) { return r.ttt === ttt && !r.is_mkt; });
+    var imsRows = (IMS || []).filter(function (r) { return r.ttt === ttt; });
     if (!imsRows.length) return 50; // veri yoksa nötr
 
-    var weekKeys = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'h7', 'h8', 'h9'];
-    var weekSums = weekKeys.map(function (k) {
-      return imsRows.reduce(function (s, r) { return s + (r[k] || 0); }, 0);
+    var wMap = {};
+    imsRows.forEach(function (r) {
+      var w = r.hafta || 0; if (!w) return;
+      if (!wMap[w]) wMap[w] = 0;
+      wMap[w] += (r.own_tl || 0);
     });
+    var wVals = Object.keys(wMap).map(Number).sort(function (a, b) { return a - b; })
+      .map(function (w) { return wMap[w]; });
+    if (wVals.length < 2) return 50;
 
-    // En son dolu (>0) haftayı bul, ondan öncesini kullan
-    var lastFilled = 0;
-    for (var i = weekSums.length - 1; i >= 0; i--) {
-      if (weekSums[i] > 0) { lastFilled = i + 1; break; }
-    }
-    if (lastFilled < 2) return 50; // en az 2 hafta veri yoksa nötr
-
-    var wVals = weekSums.slice(0, lastFilled);
     var last3 = wVals.slice(-3);
     var prev3 = wVals.slice(-6, -3);
     if (!prev3.length) return 50;
@@ -87,26 +72,21 @@
   }
 
   // ── _marketShareScore ─────────────────────────────────────
-  // BUG DÜZELTMESİ: eski kod ownTot (is_mkt:false satırların "toplam"ı)
-  // ile mktTot (is_mkt:true satırların "toplam"ı) değerlerini FARKLI
-  // ürün/molekülleri karıştırarak topluyordu (kutu adedi + TL karışık,
-  // farklı moleküllerin pazar büyüklükleri çok farklı ölçeklerde). Bu,
-  // her temsilci için PPI'yi aynı büyük moleküle doğru sıkıştırıp
-  // "Pazar Payı" sütununun herkeste birbirine çok yakın/aynı görünmesine
-  // yol açıyordu. Doğru yöntem — manager-panel-engine.js'de zaten
-  // kullanılan yöntemle aynı — IMS_TABLO'nun her satırında HAZIR gelen
-  // "TOPLAM PPI%" (toplam_ppi) kolonunu (kendi ürünleri, is_mkt:false)
-  // ortalamaktır; bu alan zaten doğru brick/ürün bazlı pazar payı %'sini
-  // içeriyor, ham TL/kutu toplamlarından yeniden hesaplamaya gerek yok.
   function _marketShareScore(ttt) {
-    var imsRows = (IMS || []).filter(function (r) {
-      return r.ttt === ttt && !r.is_mkt && r.toplam_ppi != null && !isNaN(r.toplam_ppi);
-    });
+    var imsRows = (IMS || []).filter(function (r) { return r.ttt === ttt; });
     if (!imsRows.length) return 50;
 
-    var avgPpi = imsRows.reduce(function (s, r) { return s + (r.toplam_ppi || 0); }, 0) / imsRows.length;
+    var ownTot = 0, mktTot = 0;
+    imsRows.forEach(function (r) {
+      if (r.is_mkt)      mktTot += (r.toplam || 0);
+      else               ownTot += (r.toplam || 0);
+    });
+    var totalAll = ownTot + mktTot;
+    if (totalAll === 0) return 50;
+
+    var ppi = (ownTot / totalAll) * 100;
     // Map 0–50% pazar payı → 0–100 skor
-    return Math.round(Math.min(100, Math.max(0, avgPpi * 2)));
+    return Math.round(Math.min(100, ppi * 2));
   }
 
   // ── _riskAdjustment ───────────────────────────────────────
