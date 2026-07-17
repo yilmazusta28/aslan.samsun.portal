@@ -221,20 +221,63 @@
     return all;
   }
 
+  // DÜZELTME (kullanıcı talebi): liste tüm ekip için uzayınca sayfayı aşağı
+  // itiyordu. Çözüm: (1) sabit yükseklikli/scroll'lu kutu, (2) temsilci
+  // filtre dropdown'u. Filtre seçimi modül içinde (_criticalActionsFilterTTT)
+  // tutulur; dropdown değişince aynı fonksiyon yeniden çağrılır.
+  var _criticalActionsFilterTTT = '';
+  window._setMgrCriticalActionsFilter = function (val) {
+    _criticalActionsFilterTTT = val || '';
+    renderTeamCriticalActions('mgrCriticalActions');
+  };
+
   function renderTeamCriticalActions(containerId) {
     var el = document.getElementById(containerId || 'mgrCriticalActions');
     if (!el) return;
-    var actions = buildTeamCriticalActions();
-    if (!actions.length) {
+    var allActions = buildTeamCriticalActions();
+    if (!allActions.length) {
       el.innerHTML = '<div style="font-size:11px;color:#16A34A;padding:6px 0">✓ Ekipte kritik (yüksek risk) durum tespit edilmedi.</div>';
       return;
     }
-    el.innerHTML = actions.map(function (a) {
-      return '<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-top:1px solid var(--brd,#f3f4f6)">' +
-        '<span style="flex-shrink:0;background:#DC262622;color:#DC2626;border-radius:4px;padding:1px 6px;font-size:9px;font-weight:700;margin-top:2px">' + a.ttt.split(' ')[0] + '</span>' +
-        '<div style="font-size:11px;line-height:1.5"><strong>' + a.title + '</strong><br>' + a.detail + '</div>' +
-        '</div>';
-    }).join('');
+
+    // Aksiyonu olan temsilciler (alfabetik) — dropdown seçenekleri
+    var ttts = [];
+    allActions.forEach(function (a) { if (ttts.indexOf(a.ttt) === -1) ttts.push(a.ttt); });
+    ttts.sort(function (a, b) { return a.localeCompare(b, 'tr'); });
+
+    // Seçili filtre artık listede yoksa (veri değiştiyse) sıfırla
+    if (_criticalActionsFilterTTT && ttts.indexOf(_criticalActionsFilterTTT) === -1) {
+      _criticalActionsFilterTTT = '';
+    }
+    var actions = _criticalActionsFilterTTT
+      ? allActions.filter(function (a) { return a.ttt === _criticalActionsFilterTTT; })
+      : allActions;
+
+    var html = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap">';
+    html += '<div style="font-size:10px;color:var(--dim)">' + actions.length + ' / ' + allActions.length + ' kritik aksiyon</div>';
+    html += '<select onchange="window._setMgrCriticalActionsFilter(this.value)" style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surf);color:var(--fg)">';
+    html += '<option value="">Tüm Temsilciler (' + allActions.length + ')</option>';
+    ttts.forEach(function (t) {
+      var count = allActions.filter(function (a) { return a.ttt === t; }).length;
+      html += '<option value="' + t + '"' + (_criticalActionsFilterTTT === t ? ' selected' : '') + '>' + t + ' (' + count + ')</option>';
+    });
+    html += '</select></div>';
+
+    // Sabit yükseklikli/scroll'lu kutu — liste artık sayfayı aşağı itmiyor
+    html += '<div style="max-height:320px;overflow-y:auto;padding-right:2px">';
+    if (!actions.length) {
+      html += '<div style="font-size:11px;color:var(--dim);padding:6px 0">Bu temsilci için kritik aksiyon yok.</div>';
+    } else {
+      html += actions.map(function (a) {
+        return '<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-top:1px solid var(--brd,#f3f4f6)">' +
+          '<span style="flex-shrink:0;background:#DC262622;color:#DC2626;border-radius:4px;padding:1px 6px;font-size:9px;font-weight:700;margin-top:2px">' + a.ttt.split(' ')[0] + '</span>' +
+          '<div style="font-size:11px;line-height:1.5"><strong>' + a.title + '</strong><br>' + a.detail + '</div>' +
+          '</div>';
+      }).join('');
+    }
+    html += '</div>';
+
+    el.innerHTML = html;
   }
 
   // ── 1) EKİP TOPLAMI — IMS TL KUTU HEDEF & KALAN ──────────────────────
