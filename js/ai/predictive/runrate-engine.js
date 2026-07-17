@@ -89,6 +89,128 @@
     return Math.min(82, Math.max(5, base));
   }
 
+  // ── _lastFilledWeek ───────────────────────────────────────
+  // GENEL TOPLAM satırındaki h1..h9 haftalık TL kolonlarından en son
+  // (en yüksek indexli) DOLU olan haftayı döndürür. 0 = hiç veri yok.
+  function _lastFilledWeek(gt) {
+    if (!gt) return 0;
+    var weeks = [gt.h9, gt.h8, gt.h7, gt.h6, gt.h5, gt.h4, gt.h3, gt.h2, gt.h1];
+    for (var i = 0; i < weeks.length; i++) {
+      if (weeks[i] && weeks[i] > 0) return 9 - i;
+    }
+    return 0;
+  }
+
+  // ── _resolveDataPeriod ─────────────────────────────────────
+  // FIX-RR-03 (KÖK NEDEN DÜZELTMESİ) — kullanıcı geri bildirimiyle tespit edildi:
+  //
+  // Sorun: _currentPeriod() SADECE takvim tarihine bakıyor. Ama gerçek hayatta
+  // veri girişi takvimden ~1 hafta geriden gidiyor: takvim "4.Dönem
+  // (Temmuz–Ağustos) başladı, 3 iş günü geçti" dese de, GENEL_TABLO'ya henüz
+  // 4.Dönem'in hedefleri/verisi YÜKLENMEMİŞ olabilir — sistemde hâlâ ÖNCEKİ
+  // dönemin (örn. 1.Kompanzasyon, Mayıs–Haziran) neredeyse tamamlanmış verisi
+  // (h8/h9 haftaları dolu, satis_tl hedefin ~%90'ı gibi) durmaktadır.
+  //
+  // Bu durumda calculateRunRate "3 iş günü içinde neredeyse tam bir dönemlik
+  // satış yapılmış" sanıp günlük hızı inanılmaz şişiriyor ve 40+ kalan güne
+  // yayınca projeksiyon %1000+ gibi anlamsız seviyelere çıkıyor.
+  //
+  // Tespit yöntemi: haftalık kolonlardaki (h1..h9) EN SON DOLU hafta, takvim
+  // dönemine göre "olması gereken" haftadan çok ileride ise (örn. takvimde
+  // 1. haftadayız ama veri 8. haftayı gösteriyor), bu verinin hâlâ ÖNCEKİ
+  // döneme ait olduğu anlaşılır. Bu durumda:
+  //   • Gün hesabı (elapsedDays/totalDays/remainingDays) ÖNCEKİ dönem baz
+  //     alınarak yapılır,
+  //   • O dönem veri bazında "kapanmış" sayılır (remainingDays sıfırlanır) —
+  //     yani ileri projeksiyon YAPILMAZ, sadece mevcut gerçekleşme raporlanır.
+  //     (4.Dönem'in hedefleri sisteme girilmeden 4.Dönem için projeksiyon
+  //     üretmek zaten anlamsız.)
+  //
+  // Yeni dönemin gerçek verisi gelmeye başladığında (h1 dolu, ileri haftalar
+  // boş) bu fonksiyon otomatik olarak takvim dönemine geri döner.
+  function _resolveDataPeriod(calPeriod, genelTotal) {
+    var periods = (typeof PERIODS !== 'undefined') ? PERIODS : [];
+    var calIdx = -1;
+    for (var i = 0; i < periods.length; i++) {
+      if (periods[i] === calPeriod || periods[i].key === calPeriod.key) { calIdx = i; break; }
+    }
+    if (calIdx <= 0 || !genelTotal) return { period: calPeriod, dataStale: false };
+
+    try {
+      var totalDaysCal = _safeWorkDays(calPeriod.start, calPeriod.end);
+      var todayStr2    = new Date().toISOString().slice(0, 10);
+      var elapsedCal   = _safeWorkDays(calPeriod.start,
+        todayStr2 < calPeriod.start ? calPeriod.start :
+        todayStr2 > calPeriod.end   ? calPeriod.end   : todayStr2);
+
+      // Takvim ilerlemesine göre "olması gereken" hafta (9 haftalık bölümleme, kabaca)
+      var expectedWeek = Math.max(1, Math.ceil((elapsedCal / Math.max(1, totalDaysCal)) * 9));
+      var lastFilled   = _lastFilledWeek(genelTotal);
+
+      // Veri, beklenenden 3+ hafta ileride ise → hâlâ önceki döneme ait.
+      if (lastFilled - expectedWeek >= 3) {
+        return { period: periods[calIdx - 1], dataStale: true };
+      }
+    } catch (e) { /* silent — belirsizlikte takvim dönemine güven */ }
+
+    return { period: calPeriod, dataStale: false };
+  }
+
+  // ── _lastFilledWeekIdx ────────────────────────────────────
+  // weekSums dizisinde en son (en yüksek indexli) >0 olan haftanın
+  // 1-index'ini döndürür. 0 = hiç veri yok.
+  function _lastFilledWeekIdx(weekSums) {
+    for (var i = weekSums.length - 1; i >= 0; i--) {
+      if (weekSums[i] > 0) return i + 1;
+    }
+    return 0;
+  }
+
+  // ── _weeklyAvgDailyRate ───────────────────────────────────
+  // KULLANICI İSTEĞİ — YENİ YÖNTEM: "haftalık satış ortalamalarını iş
+  // gününe bölüp gelecek IMS'i tahmin et".
+  //
+  // Eski yöntem tek başına currentTL/elapsedDays (dönem başından bugüne
+  // KÜMÜLATİF ortalama) kullanıyordu. Sorun: dönemin ilk haftasındaki bir
+  // "sell-in" (kutu yükleme) sıçraması TÜM dönem boyunca günlük hızı kalıcı
+  // olarak şişirir çünkü kümülatif ortalamaya karışır ve hiç "unutulmaz".
+  //
+  // Bu fonksiyon bunun yerine SADECE SON birkaç TAMAMLANMIŞ IMS haftasının
+  // (h1..h9 kolonları) ortalamasını alıp haftadaki iş günü sayısına böler.
+  // Böylece:
+  //   1) Güncel gidişatı (son haftalar) kümülatif geçmişten çok daha
+  //      doğru yansıtır — tek seferlik bir sıçrama birkaç hafta sonra
+  //      pencereden düşer ve etkisi kaybolur.
+  //   2) "İş günü" bazlı olduğu için hafta sonu/tatil farklarından
+  //      etkilenmez (workDays() ile hesaplanan gerçek iş günü kullanılır).
+  //
+  // @param {Object} gt          GENEL TOPLAM satırı (h1..h9 TL kolonları)
+  // @param {number} totalDays   dönemin toplam iş günü sayısı
+  // @returns {number|null}      günlük TL hızı, yetersiz veri varsa null
+  function _weeklyAvgDailyRate(gt, totalDays) {
+    if (!gt || !totalDays) return null;
+    var weekKeys  = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'h7', 'h8', 'h9'];
+    var weekSums  = weekKeys.map(function (k) { return gt[k] || 0; });
+    var lastFilled = _lastFilledWeekIdx(weekSums);
+    if (lastFilled < 1) return null;
+
+    // Son en fazla 3 TAMAMLANMIŞ haftayı al (dönemin son haftası genelde
+    // yarım/devam ediyor olabileceğinden onu "tamamlanmış" saymıyoruz —
+    // ama veri her zaman geriden geldiği için pratikte lastFilled zaten
+    // genelde tamamlanmış haftalardır).
+    var recentWeeks = weekSums.slice(0, lastFilled).slice(-3);
+    if (!recentWeeks.length) return null;
+
+    var avgWeekTL = recentWeeks.reduce(function (s, v) { return s + v; }, 0) / recentWeeks.length;
+
+    // Bir IMS haftası dönemin 1/9'u kadar sürer → o haftaya denk gelen
+    // gerçek iş günü sayısı (tatil/hafta sonu dahil edilmiş).
+    var workDaysPerWeek = totalDays / 9;
+    if (workDaysPerWeek <= 0) return null;
+
+    return avgWeekTL / workDaysPerWeek;
+  }
+
   // ── calculateRunRate ──────────────────────────────────────
   // @param {string} ttt
   // @returns {{
@@ -113,22 +235,37 @@
       periodLabel:           '—',
       confidence:            0,
       note:                  'Veri yetersiz.',
+      dataStale:             false, // FIX-RR-03: veri hâlâ önceki döneme aitse true
       historicalContext:     null   // 6 Aylık Arşiv — bkz. period-archive-adapter.js
     };
 
     try {
-      // ── Aktif dönem ──────────────────────────────────────
-      var period = _currentPeriod();
-      if (!period) { result.note = 'Aktif dönem bulunamadı.'; return result; }
+      // ── Takvime göre dönem ────────────────────────────────
+      var calPeriod = _currentPeriod();
+      if (!calPeriod) { result.note = 'Aktif dönem bulunamadı.'; return result; }
+
+      // ── Mevcut satış (GENEL TOPLAM) — dönem çözümlemesi için önce alınır ──
+      var genelTotal = (typeof GENEL !== 'undefined' ? GENEL : [])
+        .find(function (r) { return r.ttt === ttt && r.urun === 'GENEL TOPLAM'; });
+
+      // ── FIX-RR-03: takvim dönemi ile GERÇEK veri hangi döneme aitse onu kullan ──
+      var resolved = _resolveDataPeriod(calPeriod, genelTotal);
+      var period   = resolved.period;
+      result.dataStale = resolved.dataStale;
 
       var todayStr   = new Date().toISOString().slice(0, 10);
       var totalDays  = _safeWorkDays(period.start, period.end);
-      var elapsedDays = _safeWorkDays(period.start,
-        todayStr < period.start ? period.start :
-        todayStr > period.end   ? period.end   : todayStr);
+      // Veri hâlâ önceki döneme aitse (dataStale), o dönem veri bazında
+      // "kapanmış" sayılır: elapsed=total, remaining=0 → ileri projeksiyon
+      // yapılmaz, sadece mevcut gerçekleşme raporlanır.
+      var elapsedDays = resolved.dataStale
+        ? totalDays
+        : _safeWorkDays(period.start,
+            todayStr < period.start ? period.start :
+            todayStr > period.end   ? period.end   : todayStr);
       var remainingDays = Math.max(0, totalDays - elapsedDays);
 
-      result.periodLabel  = period.label;
+      result.periodLabel  = period.label + (resolved.dataStale ? ' (veri — takvim henüz ' + calPeriod.label + ')' : '');
       result.totalDays    = totalDays;
       result.elapsedDays  = elapsedDays;
       result.remainingDays = remainingDays;
@@ -138,10 +275,6 @@
         result.confidence = 15;
         return result;
       }
-
-      // ── Mevcut satış (GENEL TOPLAM) ──────────────────────
-      var genelTotal = (typeof GENEL !== 'undefined' ? GENEL : [])
-        .find(function (r) { return r.ttt === ttt && r.urun === 'GENEL TOPLAM'; });
 
       var currentTL = genelTotal ? (genelTotal.satis_tl || 0) : 0;
       var _hedefRaw = genelTotal ? (genelTotal.hedef_tl || 0) : 0;
@@ -155,11 +288,43 @@
         .filter(function (r) { return r.ttt === ttt; });
       var hasWeeklyData = imsRows.length > 0;
 
-      // ── Günlük run rate ───────────────────────────────────
+      // ── Günlük run rate (ham gözlem — diğer motorlar bunu kullanıyor,
+      //    dokunulmadı) ──────────────────────────────────────
       var dailyRate = elapsedDays > 0 ? currentTL / elapsedDays : 0;
 
-      // ── Projeksiyon: mevcut + kalan günler × günlük hız ──
-      var projected = currentTL + (dailyRate * remainingDays);
+      // ── FIX-RR-02 (BUG DÜZELTMESİ) ─────────────────────────────────
+      // Sorun: Dönemin ilk günlerinde (örn. yeni dönemin 1-5. iş günü)
+      // "kutu yüklemesi" (sell-in) nedeniyle satış geçici olarak çok
+      // yüksek görünebilir. Bu ham günlük hız hiç yumuşatılmadan kalan
+      // TÜM güne (örn. 40+ iş günü) sabit kabul edilip lineer çarpılınca
+      // projeksiyon gerçekçi olmayan seviyelere sıçrıyor (gözlenen örnek:
+      // ekip forecast %1377). 3 günlük bir örneklemle 40+ günlük bir
+      // projeksiyon yapmak istatistiksel olarak güvenilir değil — ve bu
+      // tek temsilcinin sapması ekip ortalamasını da bozabiliyor.
+      //
+      // Düzeltme: Projeksiyonda kullanılan hız, gözlem miktarına göre
+      // ağırlıklandırılıyor. Az gün geçtiyse (RELIABLE_DAYS eşiğinin
+      // altında) ham hıza tam güvenmek yerine "hedefe zamanında ulaşmak
+      // için gereken günlük hız" (hedefTL / totalDays) ile harmanlanıyor;
+      // gözlem arttıkça (RELIABLE_DAYS'e ulaşınca tam güven) ham hıza
+      // kayıyor. NOT: dailyRunRate alanı hâlâ HAM gözlemi döndürüyor —
+      // diğer motorlar (coach/simulator) "şu an günde ne kadar satıyorsun"
+      // bilgisini ham olarak kullanmaya devam ediyor; sadece dönem sonu
+      // PROJEKSİYONU yumuşatılıyor.
+      var RELIABLE_DAYS   = 10; // ~2 hafta iş günü — bu noktadan sonra ham hıza tam güven
+      var obsWeight        = Math.min(1, elapsedDays / RELIABLE_DAYS);
+      var targetPaceRate    = hedefTL > 0 ? (hedefTL / totalDays) : dailyRate;
+
+      // KULLANICI İSTEĞİ: haftalık ortalama bazlı hız — mevcut olduğunda
+      // kümülatif "dailyRate" yerine tahmin/pace sinyali olarak bunu
+      // kullan (bkz. _weeklyAvgDailyRate yorumu). Yoksa (haftalık kolon
+      // verisi hiç girilmemişse) eski kümülatif hıza geri düş.
+      var weeklyRate     = _weeklyAvgDailyRate(genelTotal, totalDays);
+      var paceRate        = (weeklyRate != null && weeklyRate > 0) ? weeklyRate : dailyRate;
+      var effectiveDailyRate = (paceRate * obsWeight) + (targetPaceRate * (1 - obsWeight));
+
+      // ── Projeksiyon: mevcut + kalan günler × yumuşatılmış (efektif) hız ──
+      var projected = currentTL + (effectiveDailyRate * remainingDays);
 
       // ── Realizasyon tahmini ──────────────────────────────
       var projReal    = hedefTL > 0 ? (projected / hedefTL) * 100 : 0;
@@ -172,7 +337,10 @@
       result.confidence            = _confidence(elapsedDays, totalDays, hasWeeklyData, projReal, currentReal);
 
       result.note = 'Günlük run rate: ₺' + Math.round(dailyRate).toLocaleString('tr-TR') +
-        ' | ' + elapsedDays + '/' + totalDays + ' iş günü geçti.';
+        ' | ' + elapsedDays + '/' + totalDays + ' iş günü geçti.' +
+        (weeklyRate != null && weeklyRate > 0
+          ? ' | Projeksiyon son haftaların ortalamasına (₺' + Math.round(weeklyRate).toLocaleString('tr-TR') + '/gün) göre.'
+          : '');
 
       // ── 6 Aylık Arşiv — Önceki Dönem Bağlamı (YENİ) ─────────────
       // Mevcut confidence FORMÜLÜNE dokunulmadı (kasıtlı — bkz. FIX-CONF-01

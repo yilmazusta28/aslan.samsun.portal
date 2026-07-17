@@ -108,13 +108,18 @@
         hedefTL = Math.round(satisTL / (tlReal / 100));
       }
 
-      // MI / GI (son kayıttan ortalama)
-      var migiRows = (typeof MIGI_TL_RAW !== 'undefined' ? MIGI_TL_RAW : [])
-        .filter(function (r) { return r.ttt === ttt; });
+      // MI / GI (en güncel döneme ait kayıtlardan ortalama)
+      // BUG DÜZELTMESİ: r.ttt → r.person, r.gi → r.bi + sadece EN GÜNCEL
+      // döneme ait satırlar kullanılıyor (bkz. prim-calc.js düzeltme notu).
+      var _migiDonemNum = function (d) { var p = String(d || '').split('/'); return p.length === 2 ? (+p[1] * 100 + +p[0]) : 0; };
+      var migiRowsAll = (typeof MIGI_TL_RAW !== 'undefined' ? MIGI_TL_RAW : [])
+        .filter(function (r) { return r.person === ttt; });
+      var migiLatest = migiRowsAll.reduce(function (max, r) { return Math.max(max, _migiDonemNum(r.donem)); }, 0);
+      var migiRows = migiRowsAll.filter(function (r) { return _migiDonemNum(r.donem) === migiLatest; });
       var mi = 100, gi = 100;
       if (migiRows.length) {
         mi = Math.round(migiRows.reduce(function (s, r) { return s + (r.mi || 100); }, 0) / migiRows.length);
-        gi = Math.round(migiRows.reduce(function (s, r) { return s + (r.gi || 100); }, 0) / migiRows.length);
+        gi = Math.round(migiRows.reduce(function (s, r) { return s + (r.bi || 100); }, 0) / migiRows.length);
       }
 
       // Prim tahmini

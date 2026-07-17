@@ -27,9 +27,21 @@ function buildTTTContext(ttt) {
   const genelRows = GENEL.filter(r=>r.ttt===ttt&&r.urun!=='GENEL TOPLAM');
   const genelTotal = GENEL.find(r=>r.ttt===ttt&&r.urun==='GENEL TOPLAM');
   // MI&GI brick verisini MIGI_BRICK_TL_RAW'dan derle
+  // BUG DÜZELTMESİ: eskiden bu kişinin TÜM aylarındaki mi/gi/sira filtresiz
+  // karıştırılıyordu (bkz. prim-calc.js'deki aynı düzeltme notu) — artık
+  // sadece o kişi+brick için mevcut EN GÜNCEL döneme ait satırlar kullanılıyor.
+  const _migiDonemNum2 = d => { const p = String(d||'').split('/'); return p.length===2 ? (+p[1]*100+ +p[0]) : 0; };
   const _mgSrc2 = (MIGI_BRICK_TL_RAW||[]).filter(r=>r.person===ttt);
+  const _mgRowsByBrick2 = {};
+  _mgSrc2.forEach(r=>{ if(!_mgRowsByBrick2[r.brick]) _mgRowsByBrick2[r.brick]=[]; _mgRowsByBrick2[r.brick].push(r); });
   const _mgMap2 = {};
-  _mgSrc2.forEach(r=>{ const k=r.brick; if(!_mgMap2[k]) _mgMap2[k]={brick:k,sira:r.sira,mi:[],gi:[]}; if(r.mi!=null) _mgMap2[k].mi.push(r.mi); if(r.bi!=null) _mgMap2[k].gi.push(r.bi); });
+  Object.keys(_mgRowsByBrick2).forEach(k=>{
+    const rows = _mgRowsByBrick2[k];
+    const latest = rows.reduce((max,r)=>Math.max(max,_migiDonemNum2(r.donem)),0);
+    const latestRows = rows.filter(r=>_migiDonemNum2(r.donem)===latest);
+    _mgMap2[k] = { brick:k, sira: latestRows[0] ? latestRows[0].sira : null, mi:[], gi:[] };
+    latestRows.forEach(r=>{ if(r.mi!=null) _mgMap2[k].mi.push(r.mi); if(r.bi!=null) _mgMap2[k].gi.push(r.bi); });
+  });
   const migiRows = Object.values(_mgMap2).map(b=>({brick:b.brick,sira:b.sira,ttt,mi:b.mi.length?b.mi.reduce((s,v)=>s+v,0)/b.mi.length:null,gi:b.gi.length?b.gi.reduce((s,v)=>s+v,0)/b.gi.length:null,panocer_mi:b.mi.length?b.mi[b.mi.length-1]:0})).filter(b=>b.sira);
   const top333 = migiRows.filter(r=>r.sira<=333);
   const trSira = TR_SIRA_MAP[ttt] || '?';
@@ -38,16 +50,30 @@ function buildTTTContext(ttt) {
   const _now2 = new Date();
   const _pad2 = n => String(n).padStart(2,'0');
   const _todayStr2 = `${_now2.getFullYear()}-${_pad2(_now2.getMonth()+1)}-${_pad2(_now2.getDate())}`;
-  const _curPeriod = PERIODS.find(p => _todayStr2 >= p.start && _todayStr2 <= p.end);
-  const _remDays2  = _curPeriod ? workDays(_todayStr2, _curPeriod.end) : 0;
-  const _totDays   = _curPeriod ? workDays(_curPeriod.start, _curPeriod.end) : 0;
-  const _passedDays = Math.max(1, _totDays - _remDays2);
+  const _curPeriod = (typeof getEffectivePeriod === 'function')
+    ? getEffectivePeriod(_todayStr2)
+    : PERIODS.find(p => _todayStr2 >= p.start && _todayStr2 <= p.end);
+
+  // Gün sayıları + projeksiyon — TUTARLILIK DÜZELTMESİ: eskiden burada
+  // ayrı, kaba bir kümülatif run-rate hesabı (satisNow/passedDays)
+  // yapılıyordu — bu, runrate-engine.js'de bu oturumda düzeltilen TAM
+  // SORUNU (tek seferlik sell-in sıçramasının günlük hızı kalıcı
+  // şişirmesi) yeniden üretiyordu. Artık zaten düzeltilmiş, haftalık-
+  // ortalama tabanlı calculateRunRate()'e devrediliyor — AI'nın gördüğü
+  // metin artık Route Optimizer/AI Satış Koçu ile AYNI, tutarlı
+  // projeksiyonu kullanıyor. Fonksiyon yoksa/veri yoksa eski yönteme
+  // güvenle düşülüyor.
+  const _rr2 = (typeof calculateRunRate === 'function') ? calculateRunRate(ttt) : null;
+  const _hasRR2 = _rr2 && _rr2.totalDays > 0;
+  const _remDays2   = _hasRR2 ? _rr2.remainingDays : (_curPeriod ? workDays(_todayStr2, _curPeriod.end) : 0);
+  const _totDays    = _hasRR2 ? _rr2.totalDays      : (_curPeriod ? workDays(_curPeriod.start, _curPeriod.end) : 0);
+  const _passedDays = _hasRR2 ? _rr2.elapsedDays    : Math.max(1, _totDays - _remDays2);
 
   // Projeksiyon hesabı — günlük run-rate × toplam dönem günü
   const _satisNow   = genelTotal?.satis_tl || 0;
   const _hedefTL    = genelTotal?.hedef_tl  || 0;
-  const _runRateGunluk = _passedDays > 0 ? _satisNow / _passedDays : 0;
-  const _projEOD    = Math.round(_runRateGunluk * _totDays); // dönem sonu tahmini (mevcut ivmeyle)
+  const _runRateGunluk = _hasRR2 ? _rr2.dailyRunRate : (_passedDays > 0 ? _satisNow / _passedDays : 0);
+  const _projEOD    = _hasRR2 ? Math.round(_rr2.projectedMonthEnd) : Math.round(_runRateGunluk * _totDays);
   const _projPct    = _hedefTL > 0 ? (_projEOD / _hedefTL * 100).toFixed(1) : '—';
   const _gunlukIhtiyac = _remDays2 > 0 ? Math.round((Math.max(0, _hedefTL * 0.91 - _satisNow)) / _remDays2) : 0;
   const _kalanGap91  = Math.max(0, _hedefTL * 0.91 - _satisNow);
@@ -61,7 +87,7 @@ function buildTTTContext(ttt) {
   const _senOrtaPct  = _hedefTL > 0 ? (_senOrta /_hedefTL*100).toFixed(1) : '—';
   const _senKotuPct  = _hedefTL > 0 ? (_senKotu /_hedefTL*100).toFixed(1) : '—';
 
-  let ctx = `=== SAMSUN 2D SATIŞ VERİLERİ ===
+  let ctx = `=== BÖLGE SATIŞ VERİLERİ ===
 Temsilci: ${ttt} | TR Sırası: #${trSira}
 Dönem: ${_curPeriod ? _curPeriod.label + ' (' + _curPeriod.months + ')' : '2026 Dönemi'}
 Dönem aralığı: ${_curPeriod ? _curPeriod.start + ' → ' + _curPeriod.end : '—'}
@@ -433,10 +459,15 @@ function buildPrimContext(ttt) {
         tlRealPrim  = Math.round(carpan * 55000);
         portfoyPrim = (primPuani >= 91) ? Math.round(0.20 * 55000 * carpan) : 0;
       }
-      var migiRows = (typeof MIGI_TL_RAW !== 'undefined' ? MIGI_TL_RAW : []).filter(function (r) { return r.ttt === ttt; });
+      // BUG DÜZELTMESİ: r.ttt → r.person, r.gi → r.bi + sadece EN GÜNCEL
+      // döneme ait satırlar kullanılıyor (bkz. prim-calc.js düzeltme notu).
+      var _migiDonemNum = function (d) { var p = String(d || '').split('/'); return p.length === 2 ? (+p[1] * 100 + +p[0]) : 0; };
+      var migiRowsAll = (typeof MIGI_TL_RAW !== 'undefined' ? MIGI_TL_RAW : []).filter(function (r) { return r.person === ttt; });
+      var migiLatest = migiRowsAll.reduce(function (max, r) { return Math.max(max, _migiDonemNum(r.donem)); }, 0);
+      var migiRows = migiRowsAll.filter(function (r) { return _migiDonemNum(r.donem) === migiLatest; });
       if (migiRows.length && typeof getMiGiKatsayi === 'function') {
         var miAvg = migiRows.reduce(function (s, r) { return s + (r.mi || 100); }, 0) / migiRows.length;
-        var giAvg = migiRows.reduce(function (s, r) { return s + (r.gi || 100); }, 0) / migiRows.length;
+        var giAvg = migiRows.reduce(function (s, r) { return s + (r.bi || 100); }, 0) / migiRows.length;
         migiPrim  = Math.round(getMiGiKatsayi(Math.round(miAvg), Math.round(giAvg)) * 14000);
       }
     } catch (pe) { /* silent */ }

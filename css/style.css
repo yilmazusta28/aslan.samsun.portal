@@ -638,6 +638,27 @@ body{
 [data-theme="dark"] .eczane-acc-hd{background:var(--surf)!important}
 [data-theme="dark"] .eczane-acc-hd.open{background:var(--surf2)!important}
 
+/* ══════════════════════════════════════════════════════════════
+   FAZ 13.x — Eczane Sayfası Alt Sekmeleri (sub-tabs)
+   Masaüstünde yatay sekme çubuğu, mobilde (≤768px) açılır seçici.
+   ══════════════════════════════════════════════════════════════ */
+.eczsub-bar{display:flex;flex-wrap:wrap;gap:2px;margin-bottom:16px;border-bottom:2px solid var(--border);overflow-x:auto}
+.eczsub-tab{display:flex;align-items:center;gap:6px;padding:10px 14px;border:none;border-bottom:3px solid transparent;background:transparent;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;color:var(--dim);cursor:pointer;transition:all .14s;white-space:nowrap;border-radius:8px 8px 0 0}
+.eczsub-tab:hover{color:var(--c1);background:rgba(79,0,140,.04)}
+.eczsub-tab.active{color:var(--c1);border-bottom-color:var(--c1);background:rgba(79,0,140,.05)}
+[data-theme="dark"] .eczsub-tab{color:var(--dim)!important}
+[data-theme="dark"] .eczsub-tab:hover{color:var(--c2)!important;background:rgba(139,92,246,.08)!important}
+[data-theme="dark"] .eczsub-tab.active{color:var(--c2)!important;border-bottom-color:var(--c2)!important;background:rgba(139,92,246,.1)!important}
+
+.eczsub-select-wrap{display:none;margin-bottom:16px}
+.eczsub-select{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surf);color:var(--text);font-family:'Poppins',sans-serif;font-size:13px;font-weight:600;-webkit-appearance:none;appearance:none}
+[data-theme="dark"] .eczsub-select{background:var(--surf2)!important;border-color:var(--border)!important;color:var(--text)!important}
+
+@media(max-width:768px){
+  .eczsub-bar{display:none}
+  .eczsub-select-wrap{display:block}
+}
+
 /* ── LOADING ── */
 #loading{position:fixed;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:14px}
 .spinner{width:38px;height:38px;border:3px solid #EDF2F7;border-top-color:var(--c1);border-radius:50%;animation:spin .7s linear infinite}

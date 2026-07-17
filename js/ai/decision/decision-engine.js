@@ -279,6 +279,13 @@
         type = 'WAIT';
       }
       var score8 = t.confidenceScore || 50;
+      var _behLabel = {
+        RUTIN_SIPARIS: 'düzenli sipariş', KAMPANYA_ODAKLI: 'kampanya odaklı',
+        STOKCU: 'stokçu', FIRSATCI: 'fırsatçı', MEVSIMSEL: 'mevsimsel',
+        YENI_MUSTERI: 'yeni müşteri', DUSUK_HACIMLI: 'düşük hacimli',
+        TEMSILCI_BAGIMLI: 'temsilciye bağımlı', TEMSILCISIZ_DUZENLI: 'temsilcisiz düzenli',
+        BELIRSIZ: 'belirsiz', VERI_YETERSIZ: 'yetersiz veri'
+      }[t.behaviorType] || t.behaviorType;
       return {
         type:     type,
         target:   t.eczane || t.gln || ('Eczane-' + i),
@@ -286,7 +293,7 @@
         score5:   null,
         classification: t.behaviorType || null,
         reason:   _pharmacyReason(t, type),
-        detail:   t.behaviorType ? ('Davranış: ' + t.behaviorType) : '',
+        detail:   t.behaviorType ? ('Davranış: ' + _behLabel) : '',
         scores:   null,
         orderCycleSignal: t.estimatedOrderDate || null,
         _rank:    i + 1,
