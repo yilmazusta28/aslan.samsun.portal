@@ -27,7 +27,7 @@
 //            bulunamazsa o bloğu boş bırakır).
 // ══════════════════════════════════════════════════════════════════════
 /* global GENEL, IMS, MIGI_BRICK_TL_RAW, ALL_TTTS, URUN_ORDER, URUN_CLR,
-          IMS_TL_MAP, fK, fTL, buildTeamRanking, detectRisks */
+          IMS_TL_MAP, OWN_DRUG_BY_GRP, fK, fTL, buildTeamRanking, detectRisks */
 
 (function () {
   'use strict';
@@ -334,6 +334,23 @@
   }
 
   // ── 3) BRICK BAZLI DETAY (seçilen temsilci) ──────────────────────────
+  // BUG DÜZELTMESİ: r.ilac ham IMS metnidir ("PANOCER TOPLAM",
+  // "ACIDPASS TOPLAM" gibi — bkz. csv-parser.js isMktRow yorumu) ve
+  // IMS_TL_MAP anahtarları ("PANOCER","ACİDPASS",...) bu ham metinle
+  // ASLA birebir eşleşmiyordu → o iki ürün için price=0 → sadece
+  // Panocer/Acidpass satan bricklerde estTL=0 → weight=0 → hedef/satış
+  // TL 0 görünüyordu ("bazı bricklerde hedef ve satış görünmüyor").
+  // Doğru eşleme: r.ilac_grubu → OWN_DRUG_BY_GRP[...].urun → IMS_TL_MAP.
+  function _brickDetailUnitPrice(r) {
+    if (typeof OWN_DRUG_BY_GRP !== 'undefined' && OWN_DRUG_BY_GRP[r.ilac_grubu]) {
+      var urun = OWN_DRUG_BY_GRP[r.ilac_grubu].urun;
+      var p = (IMS_TL_MAP && IMS_TL_MAP[urun]) || 0;
+      if (p) return p;
+    }
+    // Fallback: eski davranış (bazı özel/eşleşmeyen ilaç adları için)
+    return (IMS_TL_MAP && IMS_TL_MAP[r.ilac]) || 0;
+  }
+
   // @returns [{ brick, sira, hedefTL, satisTL, kalanTL, pp }] — sira artan
   function buildManagerBrickDetail(ttt) {
     if (!ttt) return [];
@@ -344,7 +361,7 @@
       var key = (r.brick || '').trim().toUpperCase();
       if (!key) return;
       if (!brickMap[key]) brickMap[key] = { estTL: 0, ppiVals: [] };
-      var price = (IMS_TL_MAP && IMS_TL_MAP[r.ilac]) || 0;
+      var price = _brickDetailUnitPrice(r);
       brickMap[key].estTL += (r.toplam || 0) * price;
       if (r.toplam_ppi != null && !isNaN(r.toplam_ppi)) brickMap[key].ppiVals.push(r.toplam_ppi);
     });
