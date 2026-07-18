@@ -1,6 +1,10 @@
 {
   "plans": {
     "YILMAZ USTA": {
+      "3": [
+        "GIRESUN BULANCAK+PIRAZIZ",
+        "ORDU FATSA"
+      ],
       "5": [
         "GIRESUN BULANCAK+PIRAZIZ",
         "GIRESUN MERKEZ -1",
@@ -8,5 +12,5 @@
       ]
     }
   },
-  "updatedAt": "2026-07-18T14:05:11.601Z"
+  "updatedAt": "2026-07-18T14:05:12.666Z"
 }
