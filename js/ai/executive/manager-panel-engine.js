@@ -644,6 +644,14 @@
   // girdiği haftalık brick planını (Pzt-Cum) tek tabloda gösterir.
   // Salt-okunur özet — kayıt/silme işlemleri temsilcinin kendi ekranında
   // (Eczane sayfası > "Haftalık Rota Planım") kalır, burada DEĞİŞTİRİLMEZ.
+  //
+  // FAZ 14.0 GÜNCELLEMESİ: Önceden bu fonksiyon SADECE bölge müdürünün
+  // kendi tarayıcısının IndexedDB'sini okuyordu — temsilciler kendi
+  // cihazlarında plan girdiğinde bu tablo BOŞ görünüyordu (veri hiç bu
+  // cihaza ulaşmıyordu). Artık önce window.RoutePlanInput.fetchTeamPlans()
+  // ile worker'dan (GitHub'a senkron data/rota_planlari.json) EKİP GENELİ
+  // veri deneniyor; worker'da olmayan/hatalı reps için TEK TEK yerel
+  // IndexedDB'ye (eski davranış) fallback yapılıyor.
   function renderManagerTeamRoutePlans(containerId) {
     var el = document.getElementById(containerId || 'mgrTeamRouteBody');
     if (!el) return;
@@ -655,9 +663,27 @@
     var DAYS = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'];
     el.innerHTML = '<div style="font-size:11px;color:var(--dim)">Yükleniyor…</div>';
 
-    Promise.all(list.map(function (rep) {
-      return window.RoutePlanInput.getWeekPlan(rep).catch(function () { return []; });
-    })).then(function (allPlans) {
+    var workerPlansPromise = (typeof window.RoutePlanInput.fetchTeamPlans === 'function')
+      ? window.RoutePlanInput.fetchTeamPlans()
+      : Promise.resolve(null);
+
+    workerPlansPromise.then(function (workerPlans) {
+      return Promise.all(list.map(function (rep) {
+        if (workerPlans && workerPlans[rep]) {
+          var byDayRaw = workerPlans[rep];
+          var arr = [];
+          Object.keys(byDayRaw).forEach(function (wd) {
+            arr.push({ weekday: parseInt(wd, 10), bricks: byDayRaw[wd] || [] });
+          });
+          return arr;
+        }
+        // Worker'da bu temsilci yok/worker tanımsız → yerel IndexedDB'ye düş.
+        return window.RoutePlanInput.getWeekPlan(rep).catch(function () { return []; });
+      })).then(function (allPlans) {
+        return { allPlans: allPlans, fromWorker: !!workerPlans };
+      });
+    }).then(function (result) {
+      var allPlans = result.allPlans;
       var html = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">';
       html += '<thead><tr style="text-align:left;border-bottom:2px solid var(--border,#e5e7eb)">';
       html += '<th style="padding:6px 8px;white-space:nowrap">Temsilci</th>';
@@ -688,7 +714,9 @@
         return (allPlans[i] || []).some(function (p) { return (p.bricks || []).length; });
       }).length;
       html += '<div style="font-size:10px;color:var(--dim);margin-top:8px">' +
-        girenSayisi + ' / ' + list.length + ' temsilci bu hafta için manuel plan girdi. Plan girmeyenler için AI\'nın otomatik önerdiği rota (Bugünkü Akıllı Rota kartı) esas alınır.</div>';
+        girenSayisi + ' / ' + list.length + ' temsilci bu hafta için manuel plan girdi. Plan girmeyenler için AI\'nın otomatik önerdiği rota (Bugünkü Akıllı Rota kartı) esas alınır. ' +
+        (result.fromWorker ? '<span style="color:#059669">● Ekip geneli (çoklu cihaz senkron)</span>' : '<span style="color:#d97706">● Yalnızca bu cihaz — worker senkronu pasif/erişilemedi</span>') +
+        '</div>';
 
       el.innerHTML = html;
     }).catch(function (e) {

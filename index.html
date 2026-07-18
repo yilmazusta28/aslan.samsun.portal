@@ -405,6 +405,12 @@
 <script src="js/ai/core/coverage-selection.js?v=20260705"></script>
 <script src="js/ai/core/stock-entry-adapter.js?v=20260705"></script>
 <script src="js/ai/core/digital-twin-builder.js?v=20260705"></script>
+<!-- FAZ 14.0: Rota planı GitHub senkron Worker adresi.
+     route-plan-input.js YÜKLENMEDEN ÖNCE tanımlı olmalı — setDayPlan()
+     çağrıldığında bu URL'e (varsa) fire-and-forget POST atılır.
+     Rollback: bu satırı sil — route-plan-input.js tanımsız bulursa
+     sessizce eski (yalnızca IndexedDB) davranışa döner. -->
+<script>window.ROTA_SYNC_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/rota-sync';</script>
 <!-- FAZ 10.2: Haftalık Rota Planı (Manuel Giriş)
      Temsilcinin kendi brick planını girdiği AYRI veri modeli.
      route-optimizer.js::buildWeeklyRoutes() (AI önerisi) DEĞİŞTİRİLMEDİ.

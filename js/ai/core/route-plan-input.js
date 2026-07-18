@@ -29,6 +29,18 @@
 //    getWeekPlan(representative?)                   → Promise<RoutePlan[]>
 //    getTodayPlan(representative?)                  → Promise<RoutePlan|null>
 //    clearWeekPlan(representative?)                 → Promise<void>
+//    fetchTeamPlans()                               → Promise<{TTT:{gün:bricks[]}}|null>
+//
+//  FAZ 14.0 — Worker Senkronu (opsiyonel, worker.js kaynağına göre):
+//    window.ROTA_SYNC_WORKER_URL tanımlıysa, setDayPlan() sonrası SADECE
+//    değişen gün { representative, weekday, bricks } formatında worker'a
+//    POST edilir (fire-and-forget) — worker.js GET desteklemediği ve
+//    sadece tek-gün body kabul ettiği için "tüm hafta" gönderilmez.
+//    Worker bunu GitHub'daki data/rota_planlari.json'a yazar. fetchTeamPlans()
+//    ise o dosyayı raw.githubusercontent.com üzerinden DOĞRUDAN okur (worker
+//    üzerinden değil) — manager-panel-engine.js bunu ekip-geneli (çoklu
+//    cihaz) görünüm için kullanır, okuma başarısızsa sessizce yerel
+//    IndexedDB'ye (per-rep) döner.
 //
 //  UI Yardımcıları:
 //    renderRoutePlanForm(containerId, options?)
@@ -70,6 +82,54 @@
     return d; // 1-5
   }
 
+  // ── FAZ 14.0 — Worker Senkronu (DÜZELTME: worker.js kaynağına göre) ────
+  // worker.js'in /rota-sync endpoint'i SADECE POST kabul ediyor ve body'de
+  // TEK GÜN bekliyor: { representative, weekday, bricks } — "tüm hafta"
+  // gönderimi worker'ın `representative, weekday, bricks zorunlu` doğrulamasını
+  // geçemez. Worker'da GET handler'ı da YOK (405 döner) — bu yüzden ekip
+  // verisi worker'dan değil, worker'ın GitHub'a yazdığı dosyadan doğrudan
+  // (raw.githubusercontent.com) okunuyor (bkz. fetchTeamPlans).
+  // window.ROTA_SYNC_WORKER_URL tanımlıysa, her setDayPlan() sonrası SADECE
+  // o gün worker'a POST edilir (fire-and-forget): ağ hatası/timeout olsa da
+  // setDayPlan'in kendi Promise'ini REDDETMEZ — sadece console.warn ile
+  // sessizce loglanır, IndexedDB'ye yazım (asıl kayıt) her zaman kesin kalır.
+  function _syncDayToWorker(rep, weekday, bricks) {
+    if (!window.ROTA_SYNC_WORKER_URL || !rep) return;
+    var payload = { representative: rep, weekday: weekday, bricks: bricks || [] };
+    fetch(window.ROTA_SYNC_WORKER_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload)
+    }).then(function (res) {
+      if (res && !res.ok) {
+        console.warn('[route-plan-input] worker senkron HTTP hatası:', res.status);
+      }
+    }).catch(function (e) {
+      console.warn('[route-plan-input] worker senkron hatası (yoksayıldı, yerel kayıt geçerli):', e && e.message);
+    });
+  }
+
+  // ── fetchTeamPlans — GitHub'daki data/rota_planlari.json'ı doğrudan oku ─
+  // worker.js'te /rota-sync GET desteklemediği için (405), ekip-geneli veri
+  // worker'ın YAZDIĞI dosyadan raw.githubusercontent.com üzerinden okunur
+  // (worker.js içindeki OWNER/REPO/BRANCH/PATH sabitleriyle birebir aynı).
+  // Dönen format: { "TTT_KODU": { "1": ["brick",...], "2": [...] }, ... }
+  // Ağ hatası/404'te null döner — çağıran (manager-panel-engine.js) bu
+  // durumda yerel IndexedDB'ye (per-rep) fallback yapar.
+  var _ROTA_RAW_URL = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/data/rota_planlari.json';
+  function fetchTeamPlans() {
+    return fetch(_ROTA_RAW_URL + '?_=' + Date.now(), { cache: 'no-store' })
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function (data) { return (data && data.plans) ? data.plans : null; })
+      .catch(function (e) {
+        console.warn('[route-plan-input] GitHub\'dan ekip planı okunamadı (yerel fallback kullanılacak):', e && e.message);
+        return null;
+      });
+  }
+
   // ── setDayPlan ────────────────────────────────────────────────────────
   function setDayPlan(weekday, bricks, representative) {
     var rep = representative || _currentRep();
@@ -85,19 +145,28 @@
     if (!_syncCache[rep]) _syncCache[rep] = {};
     _syncCache[rep][weekday] = bricks || [];
 
+    var writePromise;
     if (!window.PharmaDB) {
       _fallback[plan.id] = plan;
-      return Promise.resolve();
+      writePromise = Promise.resolve();
+    } else {
+      writePromise = window.PharmaDB.withStore(STORE, 'readwrite', function (store) {
+        if (!store) { _fallback[plan.id] = plan; return Promise.resolve(); }
+        return new Promise(function (resolve, reject) {
+          var req = store.put(plan);
+          req.onsuccess = function () { resolve(); };
+          req.onerror   = function (e) { reject(e.target.error); };
+        });
+      });
     }
 
-    return window.PharmaDB.withStore(STORE, 'readwrite', function (store) {
-      if (!store) { _fallback[plan.id] = plan; return Promise.resolve(); }
-      return new Promise(function (resolve, reject) {
-        var req = store.put(plan);
-        req.onsuccess = function () { resolve(); };
-        req.onerror   = function (e) { reject(e.target.error); };
-      });
-    });
+    // IndexedDB yazımı KESİNLEŞTİKTEN sonra worker'a gönder — worker sadece
+    // TEK GÜN kabul ediyor (representative, weekday, bricks), bu yüzden
+    // tüm haftayı yeniden okumaya gerek yok, elimizdeki weekday/bricks
+    // doğrudan gönderilir. Çağırana dönen Promise'i bekletmez/etkilemez.
+    writePromise.then(function () { _syncDayToWorker(rep, weekday, bricks); }).catch(function () {});
+
+    return writePromise;
   }
 
   // ── getDayPlan ────────────────────────────────────────────────────────
@@ -365,7 +434,8 @@
     getTodayPlanSync:    getTodayPlanSync,
     clearWeekPlan:       clearWeekPlan,
     renderRoutePlanForm: renderRoutePlanForm,
-    version:             '10.3'
+    fetchTeamPlans:      fetchTeamPlans,
+    version:             '14.0'
   };
 
   // BUG DÜZELTMESİ: bkz. _hydrateSyncCache() yorumu — sayfa açılışında
@@ -374,6 +444,6 @@
   // burada ekstra bir gecikmeye gerek yok.
   _hydrateSyncCache();
 
-  console.debug('[route-plan-input] FAZ 10.3 yüklendi.');
+  console.debug('[route-plan-input] FAZ 14.0 yüklendi (worker senkron: ' + (window.ROTA_SYNC_WORKER_URL ? 'aktif' : 'pasif') + ').');
 
 })();
