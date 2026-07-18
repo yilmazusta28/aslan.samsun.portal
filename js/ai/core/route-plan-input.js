@@ -90,22 +90,41 @@
   // verisi worker'dan değil, worker'ın GitHub'a yazdığı dosyadan doğrudan
   // (raw.githubusercontent.com) okunuyor (bkz. fetchTeamPlans).
   // window.ROTA_SYNC_WORKER_URL tanımlıysa, her setDayPlan() sonrası SADECE
-  // o gün worker'a POST edilir (fire-and-forget): ağ hatası/timeout olsa da
-  // setDayPlan'in kendi Promise'ini REDDETMEZ — sadece console.warn ile
-  // sessizce loglanır, IndexedDB'ye yazım (asıl kayıt) her zaman kesin kalır.
+  // o gün worker'a POST edilir: ağ hatası/timeout olsa da setDayPlan'in
+  // kendi Promise'ini REDDETMEZ — sadece console.warn ile sessizce loglanır,
+  // IndexedDB'ye yazım (asıl kayıt) her zaman kesin kalır.
+  //
+  // FAZ 14.1 BUG DÜZELTMESİ — VERİ KAYBI: "Haftalık Rota Planı" formunda
+  // Kaydet butonu 5 günü Promise.all ile PARALEL kaydediyor
+  // (renderRoutePlanForm aşağıda). Her gün ayrı ayrı worker'a POST atılınca,
+  // worker'ın GitHub Contents API yazma döngüsü (önce dosyayı OKU/SHA al →
+  // o günü ekle → geri YAZ) YARIŞ DURUMUNA giriyordu: 5 istek nerdeyse aynı
+  // anda dosyanın AYNI ESKİ halini okuyor, geç biten istekler önceki
+  // günlerin güncellemesini GÖRMEDEN üstüne yazıp SİLİYORDU (worker'daki
+  // 409-çakışma tekrar deneme mantığı tek seferlik, >2 eşzamanlı isteği
+  // kurtaramıyor). Sonuç: sadece son biten 1-2 gün GitHub'a gerçekten
+  // yazılıyor, diğerleri kayboluyordu (yerelde/IndexedDB'de hâlâ duruyor,
+  // sadece GitHub/worker senkronundan düşüyordu).
+  // Çözüm: worker'a giden istekleri BU SEKME içinde SIRAYA sokuyoruz —
+  // bir istek bitmeden (GitHub'a yazılmadan) bir sonraki başlamıyor, böylece
+  // her istek bir öncekinin yazdığı GÜNCEL hal üzerine ekleme yapıyor.
+  var _workerSyncQueue = Promise.resolve();
+
   function _syncDayToWorker(rep, weekday, bricks) {
     if (!window.ROTA_SYNC_WORKER_URL || !rep) return;
     var payload = { representative: rep, weekday: weekday, bricks: bricks || [] };
-    fetch(window.ROTA_SYNC_WORKER_URL, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(payload)
-    }).then(function (res) {
-      if (res && !res.ok) {
-        console.warn('[route-plan-input] worker senkron HTTP hatası:', res.status);
-      }
-    }).catch(function (e) {
-      console.warn('[route-plan-input] worker senkron hatası (yoksayıldı, yerel kayıt geçerli):', e && e.message);
+    _workerSyncQueue = _workerSyncQueue.then(function () {
+      return fetch(window.ROTA_SYNC_WORKER_URL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload)
+      }).then(function (res) {
+        if (res && !res.ok) {
+          console.warn('[route-plan-input] worker senkron HTTP hatası (gün ' + weekday + '):', res.status);
+        }
+      }).catch(function (e) {
+        console.warn('[route-plan-input] worker senkron hatası (gün ' + weekday + ', yoksayıldı, yerel kayıt geçerli):', e && e.message);
+      });
     });
   }
 
