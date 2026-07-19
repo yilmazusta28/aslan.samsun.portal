@@ -3,7 +3,10 @@
     "YILMAZ USTA": {
       "1": [
         "GIRESUN MERKEZ -1",
-        "GIRESUN MERKEZ -2"
+        [
+          "GIRESUN MERKEZ -1",
+          "GIRESUN MERKEZ -2"
+        ]
       ],
       "2": [
         "ORDU MERKEZ -1",
@@ -26,5 +29,5 @@
       ]
     }
   },
-  "updatedAt": "2026-07-18T14:16:50.188Z"
+  "updatedAt": "2026-07-19T18:35:19.011Z"
 }
