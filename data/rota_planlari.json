@@ -59,7 +59,15 @@
         "GIRESUN MERKEZ -1",
         "GIRESUN MERKEZ -2"
       ]
+    },
+    "AYKUT DİNLER": {
+      "1": {
+        "1": [
+          "AMASYA MERKEZ -1",
+          "AMASYA MERKEZ -2"
+        ]
+      }
     }
   },
-  "updatedAt": "2026-07-19T18:40:10.187Z"
+  "updatedAt": "2026-07-19T23:09:06.618Z"
 }
