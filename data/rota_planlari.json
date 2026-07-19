@@ -3,12 +3,47 @@
     "YILMAZ USTA": {
       "1": [
         "GIRESUN MERKEZ -1",
-        "GIRESUN MERKEZ -2"
+        [
+          "GIRESUN MERKEZ -1",
+          "GIRESUN MERKEZ -2"
+        ],
+        [
+          "ORDU MERKEZ -1",
+          "ORDU MERKEZ -2",
+          "ORDU MERKEZ -3"
+        ],
+        [
+          "GIRESUN BULANCAK+PIRAZIZ",
+          "ORDU FATSA"
+        ],
+        [
+          "ORDU BATI ILCELER",
+          "ORDU GUNEY ILCELER -1"
+        ],
+        [
+          "GIRESUN BULANCAK+PIRAZIZ"
+        ]
       ],
       "2": [
         "ORDU MERKEZ -1",
-        "ORDU MERKEZ -2",
-        "ORDU MERKEZ -3"
+        [
+          "GIRESUN MERKEZ -1",
+          "GIRESUN MERKEZ -2"
+        ],
+        [
+          "ORDU MERKEZ -1",
+          "ORDU MERKEZ -2",
+          "ORDU MERKEZ -3"
+        ],
+        [
+          "ORDU FATSA"
+        ],
+        [
+          "ORDU DOGU ILCELER"
+        ],
+        [
+          "GIRESUN BULANCAK+PIRAZIZ"
+        ]
       ],
       "3": [
         "GIRESUN BULANCAK+PIRAZIZ",
@@ -26,5 +61,5 @@
       ]
     }
   },
-  "updatedAt": "2026-07-18T14:16:50.188Z"
+  "updatedAt": "2026-07-19T18:40:10.187Z"
 }
