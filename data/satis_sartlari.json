@@ -1,0 +1,108 @@
+{
+  "sartlar": {
+    "ACİDPASS": {
+      "standart": [
+        {
+          "min": 10,
+          "bonus": 1
+        },
+        {
+          "min": 20,
+          "bonus": 3
+        },
+        {
+          "min": 50,
+          "bonus": 10
+        }
+      ],
+      "kampanya": [
+        {
+          "min": 50,
+          "bonus": 15
+        },
+        {
+          "min": 100,
+          "bonus": 35
+        },
+        {
+          "min": 150,
+          "bonus": 60
+        }
+      ]
+    },
+    "PANOCER": {
+      "standart": [
+        {
+          "min": 10,
+          "bonus": 3
+        },
+        {
+          "min": 30,
+          "bonus": 12
+        },
+        {
+          "min": 50,
+          "bonus": 25
+        },
+        {
+          "min": 100,
+          "bonus": 60
+        }
+      ],
+      "kampanya": [
+        {
+          "min": 165,
+          "bonus": 135
+        }
+      ]
+    },
+    "GRİPORT COLD": {
+      "standart": [
+        {
+          "min": 6,
+          "bonus": 1
+        },
+        {
+          "min": 12,
+          "bonus": 4
+        },
+        {
+          "min": 30,
+          "bonus": 15
+        }
+      ],
+      "kampanya": [
+        {
+          "min": 60,
+          "bonus": 40
+        }
+      ]
+    },
+    "MOKSEFEN": {
+      "standart": [
+        {
+          "min": 5,
+          "bonus": 1
+        },
+        {
+          "min": 10,
+          "bonus": 3
+        }
+      ],
+      "kampanya": [
+        {
+          "min": 20,
+          "bonus": 10
+        }
+      ]
+    },
+    "FAMTREC": {
+      "standart": [],
+      "kampanya": []
+    }
+  },
+  "kampanyaModes": {
+    "PANOCER": true
+  },
+  "updatedAt": "2026-07-19T18:12:58.357Z"
+}
