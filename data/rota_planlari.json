@@ -21,9 +21,7 @@
           "ORDU GUNEY ILCELER -1"
         ],
         [
-          "GIRESUN BULANCAK+PIRAZIZ",
-          "GIRESUN MERKEZ -1",
-          "GIRESUN MERKEZ -2"
+          "GIRESUN BULANCAK+PIRAZIZ"
         ]
       ],
       "2": [
@@ -63,5 +61,5 @@
       ]
     }
   },
-  "updatedAt": "2026-07-19T18:39:58.522Z"
+  "updatedAt": "2026-07-19T18:40:00.000Z"
 }
