@@ -640,27 +640,33 @@
   window.onManagerTttChange = onManagerTttChange;
 
   // ── FAZ 13.5 — EKİP HAFTALIK ROTA PLANLARI (Bölge Müdürü Görünümü) ──────
-  // Her temsilcinin route-plan-input.js (FAZ 10.2) üzerinden KENDİSİNİN
-  // girdiği haftalık brick planını (Pzt-Cum) tek tabloda gösterir.
-  // Salt-okunur özet — kayıt/silme işlemleri temsilcinin kendi ekranında
-  // (Eczane sayfası > "Haftalık Rota Planım") kalır, burada DEĞİŞTİRİLMEZ.
+  // Her temsilcinin route-plan-input.js üzerinden KENDİSİNİN girdiği
+  // haftalık brick planını (Pzt-Cum) gösterir. Salt-okunur özet —
+  // kayıt/silme işlemleri temsilcinin kendi ekranında kalır, burada
+  // DEĞİŞTİRİLMEZ.
   //
-  // FAZ 14.0 GÜNCELLEMESİ: Önceden bu fonksiyon SADECE bölge müdürünün
-  // kendi tarayıcısının IndexedDB'sini okuyordu — temsilciler kendi
-  // cihazlarında plan girdiğinde bu tablo BOŞ görünüyordu (veri hiç bu
-  // cihaza ulaşmıyordu). Artık önce window.RoutePlanInput.fetchTeamPlans()
-  // ile worker'dan (GitHub'a senkron data/rota_planlari.json) EKİP GENELİ
-  // veri deneniyor; worker'da olmayan/hatalı reps için TEK TEK yerel
-  // IndexedDB'ye (eski davranış) fallback yapılıyor.
+  // FAZ 14.0: worker'dan (GitHub'a senkron data/rota_planlari.json) EKİP
+  // GENELİ veri deneniyor; worker'da olmayan/hatalı reps için yerel
+  // IndexedDB'ye (getBothWeeksPlan) fallback yapılıyor.
+  //
+  // FAZ 15.0 GÜNCELLEMESİ: route-plan-input.js artık TEK hafta değil,
+  // 2 HAFTALIK DÖNÜŞÜMLÜ (A/B) model kullanıyor — worker'dan gelen veri
+  // de nested {rep: {weekGroup: {gün: bricks[]}}} formatına geçti. Bu
+  // fonksiyon artık İKİ AYRI tablo basıyor (A Haftası, B Haftası), o anki
+  // aktif hafta (getCurrentWeekGroup) üstte ve "— şu an aktif" etiketiyle
+  // vurgulanıyor.
   function renderManagerTeamRoutePlans(containerId) {
     var el = document.getElementById(containerId || 'mgrTeamRouteBody');
     if (!el) return;
-    if (!window.RoutePlanInput || typeof window.RoutePlanInput.getWeekPlan !== 'function') {
-      el.innerHTML = '<div style="font-size:11px;color:var(--dim)">Rota planlama modülü (route-plan-input.js) yüklenemedi.</div>';
+    if (!window.RoutePlanInput || typeof window.RoutePlanInput.getBothWeeksPlan !== 'function') {
+      el.innerHTML = '<div style="font-size:11px;color:var(--dim)">Rota planlama modülü (route-plan-input.js) yüklenemedi veya eski sürüm (2 haftalık A/B desteği yok).</div>';
       return;
     }
     var list = (typeof ALL_TTTS !== 'undefined') ? ALL_TTTS : [];
     var DAYS = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'];
+    var currentGroup = (typeof window.RoutePlanInput.getCurrentWeekGroup === 'function')
+      ? window.RoutePlanInput.getCurrentWeekGroup() : 1;
+    var GROUP_LABELS = { 1: 'A Haftası', 2: 'B Haftası' };
     el.innerHTML = '<div style="font-size:11px;color:var(--dim)">Yükleniyor…</div>';
 
     var workerPlansPromise = (typeof window.RoutePlanInput.fetchTeamPlans === 'function')
@@ -668,53 +674,71 @@
       : Promise.resolve(null);
 
     workerPlansPromise.then(function (workerPlans) {
+      // Her temsilci için HER İKİ hafta grubunu (A ve B) getir — worker'da
+      // varsa oradan (nested {weekGroup: {gün: bricks[]}}), yoksa yerel
+      // IndexedDB'den (getBothWeeksPlan).
       return Promise.all(list.map(function (rep) {
         if (workerPlans && workerPlans[rep]) {
-          var byDayRaw = workerPlans[rep];
-          var arr = [];
-          Object.keys(byDayRaw).forEach(function (wd) {
-            arr.push({ weekday: parseInt(wd, 10), bricks: byDayRaw[wd] || [] });
+          var wgData = workerPlans[rep]; // {"1": {gün: bricks[]}, "2": {...}}
+          var out = {};
+          [1, 2].forEach(function (g) {
+            var byDayRaw = wgData[String(g)] || {};
+            var arr = [];
+            Object.keys(byDayRaw).forEach(function (wd) {
+              arr.push({ weekday: parseInt(wd, 10), bricks: byDayRaw[wd] || [] });
+            });
+            out[g] = arr;
           });
-          return arr;
+          return out;
         }
         // Worker'da bu temsilci yok/worker tanımsız → yerel IndexedDB'ye düş.
-        return window.RoutePlanInput.getWeekPlan(rep).catch(function () { return []; });
-      })).then(function (allPlans) {
-        return { allPlans: allPlans, fromWorker: !!workerPlans };
+        return window.RoutePlanInput.getBothWeeksPlan(rep).catch(function () { return { 1: [], 2: [] }; });
+      })).then(function (allBoth) {
+        return { allBoth: allBoth, fromWorker: !!workerPlans };
       });
     }).then(function (result) {
-      var allPlans = result.allPlans;
-      var html = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">';
-      html += '<thead><tr style="text-align:left;border-bottom:2px solid var(--border,#e5e7eb)">';
-      html += '<th style="padding:6px 8px;white-space:nowrap">Temsilci</th>';
-      DAYS.forEach(function (d) { html += '<th style="padding:6px 8px;white-space:nowrap">' + d + '</th>'; });
-      html += '</tr></thead><tbody>';
+      var allBoth = result.allBoth;
 
-      list.forEach(function (rep, i) {
-        var plans = allPlans[i] || [];
-        var byDay = {};
-        plans.forEach(function (p) { byDay[p.weekday] = p.bricks || []; });
-        var hasAny = Object.keys(byDay).some(function (k) { return (byDay[k] || []).length; });
+      function buildTable(g) {
+        var isCurrent = (g === currentGroup);
+        var label = GROUP_LABELS[g] + (isCurrent ? ' — şu an aktif' : '');
+        var html = '<div style="font-size:12px;font-weight:700;margin:12px 0 4px;color:' +
+          (isCurrent ? '#1976d2' : 'var(--fg,#111)') + '">' + label + '</div>';
+        html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">';
+        html += '<thead><tr style="text-align:left;border-bottom:2px solid var(--border,#e5e7eb)">';
+        html += '<th style="padding:6px 8px;white-space:nowrap">Temsilci</th>';
+        DAYS.forEach(function (d) { html += '<th style="padding:6px 8px;white-space:nowrap">' + d + '</th>'; });
+        html += '</tr></thead><tbody>';
 
-        html += '<tr style="border-bottom:1px solid var(--border,#f3f4f6)">';
-        html += '<td style="padding:6px 8px;font-weight:700;white-space:nowrap">' + rep + '</td>';
-        for (var d = 1; d <= 5; d++) {
-          var bricks = byDay[d] || [];
-          html += '<td style="padding:6px 8px;color:' + (bricks.length ? 'var(--fg,#111)' : 'var(--dim,#9ca3af)') + '">' +
-            (bricks.length ? bricks.join(', ') : '—') + '</td>';
-        }
-        html += '</tr>';
-        if (!hasAny) {
-          // Sessizce işaretle — ayrı bir satır değil, sadece stil ile belirtildi.
-        }
-      });
-      html += '</tbody></table></div>';
+        list.forEach(function (rep, i) {
+          var plans = (allBoth[i] && allBoth[i][g]) || [];
+          var byDay = {};
+          plans.forEach(function (p) { byDay[p.weekday] = p.bricks || []; });
+
+          html += '<tr style="border-bottom:1px solid var(--border,#f3f4f6)">';
+          html += '<td style="padding:6px 8px;font-weight:700;white-space:nowrap">' + rep + '</td>';
+          for (var d = 1; d <= 5; d++) {
+            var bricks = byDay[d] || [];
+            html += '<td style="padding:6px 8px;color:' + (bricks.length ? 'var(--fg,#111)' : 'var(--dim,#9ca3af)') + '">' +
+              (bricks.length ? bricks.join(', ') : '—') + '</td>';
+          }
+          html += '</tr>';
+        });
+        html += '</tbody></table></div>';
+        return html;
+      }
+
+      // O anki aktif hafta üstte gösterilir.
+      var otherGroup = (currentGroup === 1) ? 2 : 1;
+      var html = buildTable(currentGroup) + buildTable(otherGroup);
 
       var girenSayisi = list.filter(function (rep, i) {
-        return (allPlans[i] || []).some(function (p) { return (p.bricks || []).length; });
+        var b = allBoth[i] || {};
+        return ((b[1] || []).some(function (p) { return (p.bricks || []).length; })) ||
+               ((b[2] || []).some(function (p) { return (p.bricks || []).length; }));
       }).length;
       html += '<div style="font-size:10px;color:var(--dim);margin-top:8px">' +
-        girenSayisi + ' / ' + list.length + ' temsilci bu hafta için manuel plan girdi. Plan girmeyenler için AI\'nın otomatik önerdiği rota (Bugünkü Akıllı Rota kartı) esas alınır. ' +
+        girenSayisi + ' / ' + list.length + ' temsilci en az bir hafta (A ve/veya B) için manuel plan girdi. Plan girmeyenler için AI\'nın otomatik önerdiği rota (Bugünkü Akıllı Rota kartı) esas alınır. ' +
         (result.fromWorker ? '<span style="color:#059669">● Ekip geneli (çoklu cihaz senkron)</span>' : '<span style="color:#d97706">● Yalnızca bu cihaz — worker senkronu pasif/erişilemedi</span>') +
         '</div>';
 
@@ -723,6 +747,7 @@
       el.innerHTML = '<div style="font-size:11px;color:var(--dim)">Yüklenemedi: ' + e.message + '</div>';
     });
   }
+
 
   // ── FAZ 10 — Dönem Arşivi Kartı (kullanıcı isteğiyle eklendi) ────────
   function renderPeriodArchiveCard(containerId) {
