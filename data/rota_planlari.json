@@ -11,6 +11,10 @@
           "ORDU MERKEZ -1",
           "ORDU MERKEZ -2",
           "ORDU MERKEZ -3"
+        ],
+        [
+          "GIRESUN BULANCAK+PIRAZIZ",
+          "ORDU FATSA"
         ]
       ],
       "2": [
@@ -34,5 +38,5 @@
       ]
     }
   },
-  "updatedAt": "2026-07-19T18:35:23.361Z"
+  "updatedAt": "2026-07-19T18:35:25.874Z"
 }
