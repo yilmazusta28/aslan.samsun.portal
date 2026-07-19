@@ -25,6 +25,19 @@
 //    karşılaştırması" yöntemiyle haftalık own/market oranından hesaplanır
 //    (hem kendi hem pazar toplamı satırlarında h1..h9 kolonları mevcut).
 //
+//  FAZ 8.3 — İKİNCİ BUG DÜZELTMESİ (canlı ortamda tespit edildi, FAZ 8.1'in
+//    ÇÖZMEDİĞİ farklı bir sorun): own/mkt gruplama mantığı is_mkt:false
+//    olan HER satırı "kendi ürünümüz" sanıyordu — ama is_mkt:false sadece
+//    "pazar toplamı özeti değil" demek, RAKİP markaların kalem satırları
+//    da is_mkt:false'dur. Sonuç: own = kendi + TÜM rakipler = mktTotal ile
+//    birebir aynı sayı → ourShare yine HER ZAMAN %100 çıkıyordu (örn.
+//    PANOCER=5 kutu iken own toplamı yanlışlıkla 300 kutu hesaplanıyordu,
+//    çünkü PANTO/PANTACTIVE/PULCET gibi rakip kalemler de own'a giriyordu).
+//    Düzeltme: artık own satırı SADECE constants.js'teki OWN_IMS
+//    haritasındaki (ilac_grubu → bizim gerçek ilaç adımız) isimle birebir
+//    eşleşen satırdır; diğer is_mkt:false (rakip) satırlar hiçbir gruba
+//    eklenmez. bkz. analyzeMarketShare() içindeki gruplama bloğu.
+//
 //  Sorumluluk: IMS verisinden brick/temsilci bazında pazar payı hesaplar.
 //  competitive-impact-engine.js tarafından tüketilir (opsiyonel — yoksa
 //  boş döner).
@@ -44,7 +57,7 @@
 //  Bağımlılık: js/data/data-state.js (IMS)
 //  GitHub Pages compatible: classic script, no ES modules
 // ══════════════════════════════════════════════════════════════════════
-/* global IMS */
+/* global IMS, OWN_IMS */
 
 (function () {
   'use strict';
@@ -132,12 +145,35 @@
     // "X PAZARI TOPLAM" satırı o brick'teki o molekülün TÜM pazarını
     // (bizim dahil) temsil eder; kendi ürün satırları aynı brick+grup
     // altında ayrı satırlar olarak durur.
+    //
+    // FAZ 8.3 BUG DÜZELTMESİ (canlı ortamda tespit edildi — konsol
+    // kanıtı: GIRESUN BULANCAK+PIRAZIZ / PANTAPROZOL PAZARI için
+    // PANOCER(own)=5, PANTO/PANTACTIVE/DİĞER PANTAPROZOLE/PULCET
+    // (RAKİP markalar)=78+18+126+73, PAZARI TOPLAM(is_mkt:true)=300):
+    //   is_mkt:false SADECE "bu satır bir pazar-toplamı özeti değil"
+    //   anlamına gelir — RAKİP markaların kendi satır kalemleri de
+    //   is_mkt:false'dur. Eski kod is_mkt:false olan HER satırı "own"a
+    //   topluyordu (own = kendi + tüm rakipler = mktTotal ile TAM
+    //   AYNI sayı → ourShare HER ZAMAN %100 çıkıyordu, 5/300 yerine
+    //   300/300). constants.js'teki OWN_IMS haritası (ilac_grubu →
+    //   bizim GERÇEK ilaç adımız, örn. "PANTAPROZOL PAZARI" →
+    //   "PANOCER TOPLAM") zaten bunun için vardı ama hiç kullanılmıyordu
+    //   — artık own satırı SADECE bu isimle birebir eşleşen satırdır;
+    //   diğer is_mkt:false satırlar (rakip kalemleri) HİÇBİR gruba
+    //   eklenmez (mktTotal zaten is_mkt:true satırından geliyor, rakip
+    //   kalemlerini ayrıca toplamaya gerek yok).
     var groups = {};
     rows.forEach(function (r) {
       if (brickFilter && r.brick !== brickFilter) return;
       var key = (r.brick || '') + '|' + (r.ilac_grubu || '');
       if (!groups[key]) groups[key] = { brick: r.brick, ilacGrubu: r.ilac_grubu, own: [], mkt: [] };
-      (r.is_mkt ? groups[key].mkt : groups[key].own).push(r);
+      if (r.is_mkt) {
+        groups[key].mkt.push(r);
+      } else {
+        var ownIlac = (typeof OWN_IMS !== 'undefined') ? OWN_IMS[r.ilac_grubu] : null;
+        if (ownIlac && r.ilac === ownIlac) groups[key].own.push(r);
+        // else: rakip markanın kalem satırı — bilerek atlanıyor.
+      }
     });
 
     var results = Object.keys(groups).map(function (k) {
@@ -224,9 +260,9 @@
     shareTrend:             shareTrend,
     shareChangePct:         shareChangePct,
     clearCache:             clearCache,
-    version: '8.2-fixed'
+    version: '8.3-fixed'
   };
 
-  console.debug('[market-share-engine] FAZ 8.1 yüklendi (bug düzeltmesi ile).');
+  console.debug('[market-share-engine] FAZ 8.3 yüklendi (OWN_IMS bug düzeltmesi ile).');
 
 })();
