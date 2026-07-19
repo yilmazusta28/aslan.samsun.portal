@@ -60,14 +60,23 @@
         "GIRESUN MERKEZ -2"
       ]
     },
-    "AYKUT DİNLER": {
+    "AYKUT DÄ°NLER": {
       "1": {
         "1": [
           "AMASYA MERKEZ -1",
           "AMASYA MERKEZ -2"
         ]
       }
+    },
+    "AYKUT DİNLER": {
+      "1": {
+        "2": [
+          "CORUM GUNEYBATI ILCELER",
+          "CORUM GUNEYDOGU ILCELER",
+          "CORUM KARGI+OSMANCIK"
+        ]
+      }
     }
   },
-  "updatedAt": "2026-07-19T23:09:06.618Z"
+  "updatedAt": "2026-07-19T23:09:07.661Z"
 }
