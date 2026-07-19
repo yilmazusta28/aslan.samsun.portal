@@ -28,7 +28,10 @@
       ],
       "2": [
         "ORDU MERKEZ -1",
-        [],
+        [
+          "GIRESUN MERKEZ -1",
+          "GIRESUN MERKEZ -2"
+        ],
         [],
         [],
         [],
@@ -50,5 +53,5 @@
       ]
     }
   },
-  "updatedAt": "2026-07-19T18:38:52.047Z"
+  "updatedAt": "2026-07-19T18:39:24.250Z"
 }
