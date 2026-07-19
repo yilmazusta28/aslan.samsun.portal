@@ -400,9 +400,19 @@
      Rollback: bu 5 satırı sil — hiçbir mevcut motor buna bağımlı
      değil (DigitalTwinBuilder lazy, CoverageSelection IndexedDB). -->
 <script src="js/ai/core/pharma-db.js?v=20260705"></script>
+<!-- FAZ 17.0: Saha gözlemi GitHub senkron Worker adresi.
+     saha-gozlem-store.js YÜKLENMEDEN ÖNCE tanımlı olmalı.
+     Rollback: bu satırı sil — sessizce eski (yalnızca IndexedDB) davranışa döner. -->
+<script>window.GOZLEM_SYNC_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/gozlem-sync';</script>
 <script src="js/ai/core/saha-gozlem-store.js?v=20260705"></script>
 <script src="js/ai/core/sales-memory-engine.js?v=20260705"></script>
 <script src="js/ai/core/coverage-selection.js?v=20260705"></script>
+<!-- FAZ 16.0: Stok girişi GitHub senkron Worker adresi.
+     stock-entry-adapter.js YÜKLENMEDEN ÖNCE tanımlı olmalı — recordStockEntry()
+     çağrıldığında bu URL'e (varsa) fire-and-forget POST atılır.
+     Rollback: bu satırı sil — stock-entry-adapter.js tanımsız bulursa
+     sessizce eski (yalnızca IndexedDB) davranışa döner. -->
+<script>window.STOK_SYNC_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/stok-sync';</script>
 <script src="js/ai/core/stock-entry-adapter.js?v=20260705"></script>
 <script src="js/ai/core/digital-twin-builder.js?v=20260705"></script>
 <!-- FAZ 14.0: Rota planı GitHub senkron Worker adresi.
@@ -424,6 +434,12 @@
 <!-- END FAZ 10.4 -->
 <!-- END FAZ 9.x Pharmacy Intelligence Layer -->
 
+<!-- FAZ 17.0: Satış Şartları ve Piyasa Haberleri GitHub senkron Worker
+     adresleri. sales-conditions.js YÜKLENMEDEN ÖNCE tanımlı olmalı.
+     Rollback: bu 2 satırı sil — sessizce eski (yalnızca localStorage)
+     davranışa döner. -->
+<script>window.SARTLAR_SYNC_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/sartlar-sync';</script>
+<script>window.HABER_SYNC_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/haber-sync';</script>
 <script src="js/pharmacy/sales-conditions.js?v=20260705"></script>
 
 <!-- FAZ 6.4: Rakip Satış Şartları Yöneticisi (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §9.1, §16)

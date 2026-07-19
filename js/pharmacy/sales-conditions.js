@@ -87,6 +87,98 @@
   var STORAGE_KEY_KAMPANYA_MODE = 'pv_kampanya_mode_v1';
 
   // ══════════════════════════════════════════════════════════════════
+  //  FAZ 17.0 — Worker/GitHub Senkronu (çoklu cihaz)
+  //
+  //  route-plan-input.js / stock-entry-adapter.js / saha-gozlem-store.js
+  //  FARKLI olarak, burada veri bir "olay günlüğü" (event log) değil,
+  //  PAYLAŞILAN BİR AYAR/YAPILANDIRMA (satış şartları, haber listesi) —
+  //  bu yüzden desen de farklı: her değişiklikte TAMAMI worker'a
+  //  gönderilir ("blob overwrite"), worker da GitHub'daki dosyayı
+  //  TAMAMEN o içerikle değiştirir (birleştirme/ekleme YOK — "son yazan
+  //  kazanır"). Bu, tek bir paylaşılan ayar için okuma-birleştirme
+  //  karmaşıklığından çok daha basit ve yeterlidir (tipik kullanım:
+  //  yönetici veya birkaç kişi ara sıra düzenliyor, yoğun eşzamanlı
+  //  yazma riski düşük).
+  //
+  //  KISIT: getSartlar()/isKampanyaModu()/getHaberler()/getEtkiCarpani()
+  //  gibi çekirdek fonksiyonlar SENKRON ve kod tabanında ÇOK YERDE
+  //  (getSiparisOnerisi, buildSalesConditionsContext, vb.) senkron
+  //  çağrılıyor — bunları asenkrona çevirmek devasa bir zincirleme
+  //  değişiklik gerektirir. Bu yüzden: localStorage okuma/yazma SENKRON
+  //  kalır (davranış değişmez); SADECE sayfa yüklenirken BİR KEZ worker'
+  //  daki paylaşılan veriyle localStorage "hidratlanır" (üzerine yazılır)
+  //  — böylece o oturumdaki TÜM okumalar paylaşılan son hale göre olur.
+  //  Sonraki her değişiklik hem localStorage'a hem worker'a yazılır.
+  var _sartlarSyncQueue = Promise.resolve();
+  var _haberSyncQueue   = Promise.resolve();
+
+  var _SARTLAR_RAW_URL = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/data/satis_sartlari.json';
+  var _HABER_RAW_URL   = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/data/piyasa_haberleri.json';
+
+  function _getKampanyaModesRaw() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY_KAMPANYA_MODE) || '{}'); } catch (e) { return {}; }
+  }
+
+  function _syncSartlarToWorker() {
+    if (!window.SARTLAR_SYNC_WORKER_URL) return;
+    var payload = { sartlar: SatisKosullariManager.getSartlar(), kampanyaModes: _getKampanyaModesRaw() };
+    _sartlarSyncQueue = _sartlarSyncQueue.then(function () {
+      return fetch(window.SARTLAR_SYNC_WORKER_URL, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      }).then(function (res) {
+        if (res && !res.ok) console.warn('[SatisKosullari] worker senkron HTTP hatası:', res.status);
+      }).catch(function (e) {
+        console.warn('[SatisKosullari] worker senkron hatası (yoksayıldı, yerel kayıt geçerli):', e && e.message);
+      });
+    });
+  }
+
+  function _syncHaberlerToWorker() {
+    if (!window.HABER_SYNC_WORKER_URL) return;
+    var payload = { haberler: HaberTakibiManager.getHaberler() };
+    _haberSyncQueue = _haberSyncQueue.then(function () {
+      return fetch(window.HABER_SYNC_WORKER_URL, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      }).then(function (res) {
+        if (res && !res.ok) console.warn('[HaberTakibi] worker senkron HTTP hatası:', res.status);
+      }).catch(function (e) {
+        console.warn('[HaberTakibi] worker senkron hatası (yoksayıldı, yerel kayıt geçerli):', e && e.message);
+      });
+    });
+  }
+
+  // Sayfa yüklenirken BİR KEZ: worker'daki paylaşılan veriyle localStorage'ı
+  // hidratla (varsa). Ağ hatası/worker tanımsızsa sessizce yerel veri
+  // kullanılmaya devam eder — davranış hiç bozulmaz.
+  function _hydrateFromWorkerOnLoad() {
+    fetch(_SARTLAR_RAW_URL + '?_=' + Date.now(), { cache: 'no-store' })
+      .then(function (res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+      .then(function (data) {
+        if (data && data.sartlar) {
+          localStorage.setItem(STORAGE_KEY_SARTLAR, JSON.stringify(data.sartlar));
+          window.SATIS_SARTLARI = data.sartlar;
+        }
+        if (data && data.kampanyaModes) {
+          localStorage.setItem(STORAGE_KEY_KAMPANYA_MODE, JSON.stringify(data.kampanyaModes));
+        }
+      })
+      .catch(function (e) {
+        console.warn('[SatisKosullari] worker hidrasyon hatası (yerel veri kullanılacak):', e && e.message);
+      });
+
+    fetch(_HABER_RAW_URL + '?_=' + Date.now(), { cache: 'no-store' })
+      .then(function (res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+      .then(function (data) {
+        if (data && Array.isArray(data.haberler)) {
+          localStorage.setItem(STORAGE_KEY_HABERLER, JSON.stringify(data.haberler));
+        }
+      })
+      .catch(function (e) {
+        console.warn('[HaberTakibi] worker hidrasyon hatası (yerel veri kullanılacak):', e && e.message);
+      });
+  }
+
+  // ══════════════════════════════════════════════════════════════════
   //  2. Satış Şartları Yöneticisi
   // ══════════════════════════════════════════════════════════════════
   var SatisKosullariManager = {
@@ -113,6 +205,7 @@
         localStorage.setItem(STORAGE_KEY_SARTLAR, JSON.stringify(sartlar));
         window.SATIS_SARTLARI = sartlar;
         console.log('[SatisKosullari] ✅ Şartlar kaydedildi');
+        _syncSartlarToWorker();
         return true;
       } catch (e) {
         console.error('[SatisKosullari] Kayıt hatası:', e);
@@ -142,6 +235,7 @@
         var modes = JSON.parse(localStorage.getItem(STORAGE_KEY_KAMPANYA_MODE) || '{}');
         modes[urun] = aktif;
         localStorage.setItem(STORAGE_KEY_KAMPANYA_MODE, JSON.stringify(modes));
+        _syncSartlarToWorker();
         return true;
       } catch (e) { return false; }
     },
@@ -174,6 +268,7 @@
       try {
         localStorage.setItem(STORAGE_KEY_HABERLER, JSON.stringify(haberler));
         console.log('[HaberTakibi] ✅ Haber eklendi:', haber.baslik);
+        _syncHaberlerToWorker();
         return true;
       } catch (e) { return false; }
     },
@@ -186,6 +281,7 @@
       });
       try {
         localStorage.setItem(STORAGE_KEY_HABERLER, JSON.stringify(haberler));
+        _syncHaberlerToWorker();
         return true;
       } catch (e) { return false; }
     },
@@ -194,6 +290,7 @@
       var haberler = this.getHaberler().filter(function (h) { return h.id !== id; });
       try {
         localStorage.setItem(STORAGE_KEY_HABERLER, JSON.stringify(haberler));
+        _syncHaberlerToWorker();
         return true;
       } catch (e) { return false; }
     },
@@ -987,6 +1084,11 @@
   // İlk yükleme
   window.SATIS_SARTLARI = SatisKosullariManager.getSartlar();
 
+  // FAZ 17.0: worker'daki paylaşılan (ekip geneli) son hali BİR KEZ çek ve
+  // localStorage'ı hidratla — bkz. dosya başı ve _hydrateFromWorkerOnLoad
+  // yorumları. Fire-and-forget, sayfa render'ını bloklamaz.
+  _hydrateFromWorkerOnLoad();
+
   window.SatisKosullariManager       = SatisKosullariManager;
   window.HaberTakibiManager          = HaberTakibiManager;
   window.getSiparisOnerisi           = getSiparisOnerisi;
@@ -995,6 +1097,7 @@
   window.renderSatisKosullariPanel   = renderSatisKosullariPanel;
   window.renderHaberTakibiPanel      = renderHaberTakibiPanel;
   window.renderEczaneUrunAnalizKarti = renderEczaneUrunAnalizKarti;
+  window.refreshSalesConditionsFromWorker = _hydrateFromWorkerOnLoad;
 
   window._SATIS_KOSULLARI_LOADED = true;
   console.log('[SatisKosullari] ✅ Phase 4.7 yüklendi — satış şartları, haber takibi, sipariş analizi');
