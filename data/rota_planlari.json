@@ -15,6 +15,11 @@
         [
           "GIRESUN BULANCAK+PIRAZIZ",
           "ORDU FATSA"
+        ],
+        [
+          "ORDU BATI ILCELER",
+          "ORDU DOGU ILCELER",
+          "ORDU GUNEY ILCELER -1"
         ]
       ],
       "2": [
@@ -38,5 +43,5 @@
       ]
     }
   },
-  "updatedAt": "2026-07-19T18:35:25.874Z"
+  "updatedAt": "2026-07-19T18:35:29.589Z"
 }
