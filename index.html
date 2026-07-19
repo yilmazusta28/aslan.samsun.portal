@@ -1827,8 +1827,9 @@ function renderMarketShareCard() {
           <div style="font-size:9px;color:var(--dim);margin-top:2px">Düşen Brick</div>
         </div>
       </div>
-      <div style="font-size:10px;font-weight:700;color:var(--dim);margin-bottom:6px">BRICK × PAZAR PAYI</div>
-      ${records.slice(0,8).map(r => {
+      <div style="font-size:10px;font-weight:700;color:var(--dim);margin-bottom:6px">BRICK × PAZAR PAYI (${records.length})</div>
+      <div style="max-height:360px;overflow-y:auto;padding-right:4px">
+      ${records.map(r => {
         const trendIcon = r.trend === 'up' ? '📈' : r.trend === 'down' ? '📉' : '➡️';
         const payClr = r.ourShare >= 30 ? '#059669' : r.ourShare >= 15 ? '#D97706' : '#DC2626';
         return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)" title="Ham veri: kendi=${r.ownTotal} kutu / pazar toplamı=${r.mktTotal} kutu">
@@ -1839,6 +1840,7 @@ function renderMarketShareCard() {
           <span>${trendIcon}</span>
         </div>`;
       }).join('')}
+      </div>
       ${anomalyCount ? '<div style="color:#D97706;font-size:10px;margin-top:8px">⚠️ ' + anomalyCount + ' brick veri tutarsızlığı nedeniyle listeden çıkarıldı (kendi satış > pazar toplamı) — konsolu kontrol edin.</div>' : ''}
     </div>`;
   const badge = document.getElementById('acc_market_share_badge');
@@ -2381,6 +2383,7 @@ function renderEczaneCharts(filtered, eczList) {
 // ── LOGIN ──────────────────────────────────────────────────
 const VALID_USERS=[
   'Şenol Yılmaz','şenol yılmaz','ŞENOL YILMAZ',
+  'admin','Admin','ADMIN', // FAZ 18.0: Şenol Yılmaz için ek yönetici girişi — aynı şifre, aynı yetki (bkz. USER_TO_TTT)
   'Yılmaz Usta','yılmaz usta','YILMAZ USTA',
   'Murat Kandiş','murat kandiş','MURAT KANDİŞ','Murat Kandis','murat kandis',
   'Kürşad Karadağ','kürşad karadağ','KÜRŞAD KARADAĞ','Kursad Karadag','kursad karadag',

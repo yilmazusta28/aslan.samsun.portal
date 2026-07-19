@@ -47,6 +47,7 @@ const URUN_CLR = {'PANOCER':'#16A34A','ACİDPASS':'#1BCED8','GRİPORT COLD':'#FF
 const USER_TO_TTT = {
   'şenol yılmaz':  'ŞENOL YILMAZ',
   'senol yilmaz':  'ŞENOL YILMAZ',
+  'admin':         'ŞENOL YILMAZ', // FAZ 18.0: ek yönetici girişi (VALID_USERS'a da eklendi)
   'yılmaz usta':   'YILMAZ USTA',
   'yilmaz usta':   'YILMAZ USTA',   // I→i varyantı
   'murat kandiş':  'MURAT KANDİŞ',
