@@ -1,13 +1,13 @@
 {
   "haberler": [
     {
-      "baslik": "Ciro Primi",
-      "etki": "CIRO_KAMPANYA",
-      "tarih": "2026-07-19",
-      "aciklama": "hedef ciro primi %5",
-      "id": 1784484816194,
+      "baslik": "ilko ürünler",
+      "etki": "DEPO_KAMPANYA",
+      "tarih": "2026-07-23",
+      "aciklama": "%3 iskonto",
+      "id": 1784530955701,
       "aktif": true
     }
   ],
-  "updatedAt": "2026-07-19T18:13:36.990Z"
+  "updatedAt": "2026-07-20T07:02:37.452Z"
 }
