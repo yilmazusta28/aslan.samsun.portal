@@ -875,51 +875,87 @@ function getFilteredData(filters) {
 
 
   // ── Public API ────────────────────────────────────────────────────────
-  // ── reresolveTTT — FAZ 12.3 BUG DÜZELTMESİ ─────────────────────────
+  // ── reresolveTTT — FAZ 12.3/12.4 BUG DÜZELTMESİ ────────────────────
   //
-  // Kanıt (canlı ortam konsolu): [PDM52] "Aktif data hazır: 24118 satır"
-  // satırı, [LOGIN] satırından ÖNCE geliyordu — yani PDM52 eczane/
-  // klasöründeki 18 CSV'yi TAMAMEN işleyip pharmacyStore.normalized'ı
-  // dolduruyordu, ama bu sırada IMS/MIGI_TL_RAW (index.html) henüz
-  // TAMAMEN BOŞTU (syncData() login'den SONRA çalışıyor). parseEczaneCSV()
-  // her satırın TTT'sini CSV'den DEĞİL, brick → temsilci haritasından
-  // (getBrickTTTMap(), IMS/MIGI_TL_RAW'a bakar) türetiyor — harita boşken
-  // TÜM 24118 satır `temsilci: null` ile kayıt oluyordu. Bu, tarayıcı/
-  // kullanıcı FARK ETMEKSİZİN HER girişte, HER ZAMAN oluyordu (zamanlama
-  // sorunu — PDM52'nin init sırası IMS'ten hep önce). Sonuç: normalizePharmacy
-  // (pharmacy-adapter.js) hiçbir tttFilter için satır bulamıyor,
-  // PharmacyBehaviorEngine boş dönüyor, AI Profil / pharmacy-ranking.js
-  // vb. HER ŞEY boş kalıyordu.
+  // FAZ 12.3'te bulunan sorunun AYNISI, İKİNCİ bir bağımsız yerde daha
+  // tespit edildi ("Bugünkü Akıllı Rota" / route-optimizer.js boş
+  // dönüyordu): loadPharmacyMonth() (bu dosyada, aylık lazy-loader) VE
+  // index.html/ai-context.js/ai-engine.js'deki parseEczaneCSV() çağrıları
+  // da AYNI şekilde getBrickTTTMap()'i erken (IMS/MIGI_TL_RAW boşken)
+  // çağırıp `ttt`'yi satıra KALICI olarak "pişiriyordu" — ama bu sefer
+  // pharmacyStore.normalized DEĞİL, window.pharmacyCache[ay] ve
+  // window.ECZANE_RAW dizilerinde. Bu ikisi de route-optimizer.js'in
+  // dayandığı pharmacy-intelligence.js::buildPharmacyProfiles()'ın
+  // ham veri kaynağı — dolayısıyla "Bugünkü Akıllı Rota" ve "Haftalık
+  // Rota" (AI önerisi) de boş/eksik çıkıyordu.
   //
-  // Çözüm: IMS/MIGI_TL_RAW DOLDUKTAN SONRA (data-loader.js::syncData()
-  // içinden çağrılır) bu fonksiyon pharmacyStore.normalized'taki EKSİK
-  // temsilci alanlarını, artık dolu olan getBrickTTTMap() ile GERİYE
-  // DOLDURUR (network isteği YOK — sadece bellek-içi, ucuz bir geçiş).
-  // Herhangi bir satır düzeltildiyse, üstteki katmanların (PharmacyAdapter,
-  // PharmacyBehaviorEngine, PharmacyRanking) cache'lerini de temizler ki
-  // bir sonraki okuma GÜNCEL veriyle yeniden hesaplansın.
+  // Ayrıca route-optimizer.js/pharmacy-intelligence.js kendi sonuçlarını
+  // (window.ROUTE_OPTIMIZER / window.PHARMACY_INTELLIGENCE) bir CACHE
+  // olarak değil, "bir kez üretilip saklanan SNAPSHOT" olarak tutuyor —
+  // ttt alanları düzelse bile bu snapshot'lar kendiliğinden yenilenmez.
+  // Bu yüzden düzeltmeden sonra ikisini de (varsa) yeniden çalıştırıyoruz.
   function reresolveTTT() {
-    if (!window.pharmacyStore || !window.pharmacyStore.normalized || !window.pharmacyStore.normalized.length) return 0;
     if (typeof getBrickTTTMap !== 'function') return 0;
-
     var map = getBrickTTTMap();
     if (!map || !Object.keys(map).length) return 0; // IMS/MIGI henüz hazır değil — sessizce çık, sonra tekrar denenir
 
     var fixed = 0;
-    window.pharmacyStore.normalized.forEach(function (r) {
-      if (!r.temsilci && r.brick) {
-        var t = map[r.brick.toUpperCase()];
-        if (t) { r.temsilci = t; fixed++; }
-      }
-    });
+
+    // 1) pharmacyStore.normalized (temsilci alanı)
+    if (window.pharmacyStore && window.pharmacyStore.normalized) {
+      window.pharmacyStore.normalized.forEach(function (r) {
+        if (!r.temsilci && r.brick) {
+          var t = map[r.brick.toUpperCase()];
+          if (t) { r.temsilci = t; fixed++; }
+        }
+      });
+    }
+
+    // 2) pharmacyCache (her ay için ayrı ayrı, ttt alanı) — pharmacyActiveData
+    //    bu dizilerle AYNI satır nesnelerini referans aldığı için (concat
+    //    sadece diziyi kopyalar, nesneleri değil) otomatik düzelir.
+    if (window.pharmacyCache) {
+      Object.keys(window.pharmacyCache).forEach(function (key) {
+        (window.pharmacyCache[key] || []).forEach(function (r) {
+          if (!r.ttt && r.brick) {
+            var t = map[r.brick.toUpperCase()];
+            if (t) { r.ttt = t; fixed++; }
+          }
+        });
+      });
+    }
+
+    // 3) ECZANE_RAW — bazı yollarda (ai-context.js, ai-engine.js) kendi
+    //    BAĞIMSIZ parseEczaneCSV() çağrısıyla oluşuyor, pharmacyCache'ten
+    //    farklı nesneler — ayrıca düzeltilmesi gerekiyor.
+    if (typeof ECZANE_RAW !== 'undefined' && ECZANE_RAW && ECZANE_RAW.length) {
+      ECZANE_RAW.forEach(function (r) {
+        if (!r.ttt && r.brick) {
+          var t = map[r.brick.toUpperCase()];
+          if (t) { r.ttt = t; fixed++; }
+        }
+      });
+    }
 
     if (fixed > 0) {
-      console.log('[PDM52] reresolveTTT: ' + fixed + ' kayıtta temsilci alanı geriye dolduruldu (brick→ttt haritası artık hazır).');
+      console.log('[PDM52] reresolveTTT: ' + fixed + ' kayıtta temsilci/ttt alanı geriye dolduruldu (brick→ttt haritası artık hazır).');
       if (window.PharmacyAdapter && typeof window.PharmacyAdapter.clearCache === 'function') window.PharmacyAdapter.clearCache();
       if (window.PharmacyBehaviorEngine && typeof window.PharmacyBehaviorEngine.clearCache === 'function') window.PharmacyBehaviorEngine.clearCache();
       if (window.PharmacyRanking && typeof window.PharmacyRanking.clearCache === 'function') window.PharmacyRanking.clearCache();
-      // Eczane sayfası açıksa ekranı güncelle (rota planı/manager panel'deki
-      // aynı desenle — bkz. initPharmacyDataManager).
+
+      // FAZ 12.4: route-optimizer.js / pharmacy-intelligence.js kendi
+      // snapshot'larını (ROUTE_OPTIMIZER / PHARMACY_INTELLIGENCE) yeniden
+      // üretsin — ttt alanları artık doğru.
+      var _ttt = (typeof engineSelTTT !== 'undefined' && engineSelTTT) ||
+                 (typeof selTTT !== 'undefined' && selTTT) || undefined;
+      if (typeof window.runPharmacyIntelligence === 'function') {
+        try { window.runPharmacyIntelligence(_ttt); } catch (e) { console.warn('[PDM52] runPharmacyIntelligence yeniden çalıştırma hatası:', e.message); }
+      }
+      if (typeof window.runRouteOptimizer === 'function') {
+        try { window.runRouteOptimizer(_ttt); } catch (e) { console.warn('[PDM52] runRouteOptimizer yeniden çalıştırma hatası:', e.message); }
+      }
+
+      // Eczane sayfası açıksa ekranı güncelle
       if (typeof curPage !== 'undefined' && curPage === 6 && typeof renderEczaneContent === 'function') {
         renderEczaneContent();
       }
