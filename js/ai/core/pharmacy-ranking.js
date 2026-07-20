@@ -84,9 +84,33 @@
   }
 
   // ── rankPharmacies — ana fonksiyon ────────────────────────────────
+  //
+  // FAZ 8.2 BUG DÜZELTMESİ (canlı ortamda tespit edildi — konsol kanıtı:
+  // "[pharmacy-ranking] PharmacyBehaviorEngine verisi yok — boş liste
+  // döndü", farklı tarayıcı/kullanıcıda sürekli tekrarlıyordu):
+  //   `if (_cache[cacheKey]) return _cache[cacheKey];` — boş dizi ([])
+  //   JS'te TRUTHY'dir. eczane/ klasöründeki CSV'ler henüz yüklenmeden
+  //   (pharmacy-data-manager.js/PDM52 hâlâ indiriyorken) bu fonksiyon BİR
+  //   KEZ çağrılırsa, PharmacyBehaviorEngine boş profil döndürüyordu ve
+  //   `_cache[cacheKey] = []` SONSUZA KADAR (o oturum boyunca) saklanıyordu
+  //   — veri sonradan gelse bile bir daha ASLA yeniden hesaplanmıyordu.
+  //   Bu, pharmacy-behavior-engine.js'in kendi cache'inde daha önce
+  //   düzeltilen AYNI hatanın bir üst katmandaki (bu dosyanın KENDİ ayrı
+  //   cache'i) tekrarıydı — oradaki düzeltme burayı KAPSAMIYORDU.
+  //   Düzeltme: (1) boş/başarısız sonuç artık hiç cache'lenmiyor — veri
+  //   henüz hazır değilse bir sonraki çağrı otomatik yeniden dener
+  //   (ucuz: PharmacyBehaviorEngine zaten kendi içinde imza-tabanlı
+  //   cache'li). (2) Başarılı sonuç için de pharmacy-behavior-engine.js
+  //   ile AYNI imza mantığı uygulanıyor — altta gerçekten yeni veri
+  //   gelirse (yeni ay yüklenmesi vb.) burası da otomatik yenilenir.
+  function _profilesSignature(profiles) {
+    var totalBoxes = 0;
+    profiles.forEach(function (p) { totalBoxes += (p.totalBoxes || 0); });
+    return profiles.length + ':' + totalBoxes;
+  }
+
   function rankPharmacies(tttFilter) {
     var cacheKey = tttFilter || '__all__';
-    if (_cache[cacheKey]) return _cache[cacheKey];
 
     // PharmacyBehaviorEngine üzerinden profil al
     var profiles = _safe(function () {
@@ -96,10 +120,13 @@
     }, null);
 
     if (!profiles || !profiles.length) {
-      console.warn('[pharmacy-ranking] PharmacyBehaviorEngine verisi yok — boş liste döndü');
-      _cache[cacheKey] = [];
+      console.warn('[pharmacy-ranking] PharmacyBehaviorEngine verisi yok (henüz yüklenmemiş olabilir) — boş liste döndü, cache\'lenmedi.');
       return [];
     }
+
+    var sig = _profilesSignature(profiles);
+    var cached = _cache[cacheKey];
+    if (cached && cached.signature === sig) return cached.ranked;
 
     var ranked = profiles
       .filter(function (p) { return (p.totalBoxes || 0) > 0; })
@@ -149,7 +176,7 @@
 
     ranked.sort(function (a, b) { return b.canonicalScore - a.canonicalScore; });
 
-    _cache[cacheKey] = ranked;
+    _cache[cacheKey] = { ranked: ranked, signature: sig };
     return ranked;
   }
 
@@ -158,9 +185,9 @@
   window.PharmacyRanking = {
     rankPharmacies: rankPharmacies,
     clearCache:     clearCache,
-    version:        '8.1'
+    version:        '8.2'
   };
 
-  console.debug('[pharmacy-ranking] FAZ 8.1 yüklendi — dört buildTop30* wrapper\'ın kanonik sıralama kaynağı.');
+  console.debug('[pharmacy-ranking] FAZ 8.2 yüklendi — imza-tabanlı cache, boş sonuç artık cache\'lenmiyor.');
 
 })();
