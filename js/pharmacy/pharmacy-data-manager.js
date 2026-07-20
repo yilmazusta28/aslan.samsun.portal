@@ -659,6 +659,10 @@
           if (typeof buildEczaneFilters==='function')  buildEczaneFilters();
           if (typeof renderEczaneContent==='function') renderEczaneContent();
         }
+        // FAZ 12.3: IMS/MIGI bu ana kadar zaten hazırsa (nadiren — normalde
+        // PDM52 IMS'ten önce biter, bkz. reresolveTTT() yorumu) hemen dene;
+        // hazır değilse data-loader.js::syncData() bunu IMS dolunca çağırır.
+        if (typeof reresolveTTT === 'function') reresolveTTT();
       });
     });
   }
@@ -871,6 +875,58 @@ function getFilteredData(filters) {
 
 
   // ── Public API ────────────────────────────────────────────────────────
+  // ── reresolveTTT — FAZ 12.3 BUG DÜZELTMESİ ─────────────────────────
+  //
+  // Kanıt (canlı ortam konsolu): [PDM52] "Aktif data hazır: 24118 satır"
+  // satırı, [LOGIN] satırından ÖNCE geliyordu — yani PDM52 eczane/
+  // klasöründeki 18 CSV'yi TAMAMEN işleyip pharmacyStore.normalized'ı
+  // dolduruyordu, ama bu sırada IMS/MIGI_TL_RAW (index.html) henüz
+  // TAMAMEN BOŞTU (syncData() login'den SONRA çalışıyor). parseEczaneCSV()
+  // her satırın TTT'sini CSV'den DEĞİL, brick → temsilci haritasından
+  // (getBrickTTTMap(), IMS/MIGI_TL_RAW'a bakar) türetiyor — harita boşken
+  // TÜM 24118 satır `temsilci: null` ile kayıt oluyordu. Bu, tarayıcı/
+  // kullanıcı FARK ETMEKSİZİN HER girişte, HER ZAMAN oluyordu (zamanlama
+  // sorunu — PDM52'nin init sırası IMS'ten hep önce). Sonuç: normalizePharmacy
+  // (pharmacy-adapter.js) hiçbir tttFilter için satır bulamıyor,
+  // PharmacyBehaviorEngine boş dönüyor, AI Profil / pharmacy-ranking.js
+  // vb. HER ŞEY boş kalıyordu.
+  //
+  // Çözüm: IMS/MIGI_TL_RAW DOLDUKTAN SONRA (data-loader.js::syncData()
+  // içinden çağrılır) bu fonksiyon pharmacyStore.normalized'taki EKSİK
+  // temsilci alanlarını, artık dolu olan getBrickTTTMap() ile GERİYE
+  // DOLDURUR (network isteği YOK — sadece bellek-içi, ucuz bir geçiş).
+  // Herhangi bir satır düzeltildiyse, üstteki katmanların (PharmacyAdapter,
+  // PharmacyBehaviorEngine, PharmacyRanking) cache'lerini de temizler ki
+  // bir sonraki okuma GÜNCEL veriyle yeniden hesaplansın.
+  function reresolveTTT() {
+    if (!window.pharmacyStore || !window.pharmacyStore.normalized || !window.pharmacyStore.normalized.length) return 0;
+    if (typeof getBrickTTTMap !== 'function') return 0;
+
+    var map = getBrickTTTMap();
+    if (!map || !Object.keys(map).length) return 0; // IMS/MIGI henüz hazır değil — sessizce çık, sonra tekrar denenir
+
+    var fixed = 0;
+    window.pharmacyStore.normalized.forEach(function (r) {
+      if (!r.temsilci && r.brick) {
+        var t = map[r.brick.toUpperCase()];
+        if (t) { r.temsilci = t; fixed++; }
+      }
+    });
+
+    if (fixed > 0) {
+      console.log('[PDM52] reresolveTTT: ' + fixed + ' kayıtta temsilci alanı geriye dolduruldu (brick→ttt haritası artık hazır).');
+      if (window.PharmacyAdapter && typeof window.PharmacyAdapter.clearCache === 'function') window.PharmacyAdapter.clearCache();
+      if (window.PharmacyBehaviorEngine && typeof window.PharmacyBehaviorEngine.clearCache === 'function') window.PharmacyBehaviorEngine.clearCache();
+      if (window.PharmacyRanking && typeof window.PharmacyRanking.clearCache === 'function') window.PharmacyRanking.clearCache();
+      // Eczane sayfası açıksa ekranı güncelle (rota planı/manager panel'deki
+      // aynı desenle — bkz. initPharmacyDataManager).
+      if (typeof curPage !== 'undefined' && curPage === 6 && typeof renderEczaneContent === 'function') {
+        renderEczaneContent();
+      }
+    }
+    return fixed;
+  }
+
   window.PharmacyDataManager = {
     discoverPharmacyFiles:        discoverPharmacyFiles,
     loadPharmacyMonth:            loadPharmacyMonth,
@@ -900,6 +956,7 @@ function getFilteredData(filters) {
     getFilteredData:              getFilteredData,
     updatePharmacyStore:          _updatePharmacyStore,
     normalizeRow:                 _normalizeRow,
+    reresolveTTT:                 reresolveTTT,
   };
 
   // Sayfa yüklenince arka planda başlat

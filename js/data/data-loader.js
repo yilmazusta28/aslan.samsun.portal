@@ -250,6 +250,13 @@ async function syncData(forceFresh) {
       if (_hadCache) {
         console.log('[syncData] Geçerli cache bulundu — anında gösteriliyor, taze veri arkaplanda çekiliyor.');
         rebuildKutuFromIMS();
+        // FAZ 12.3 BUG DÜZELTMESİ: IMS artık (cache'ten) hazır — PDM52
+        // eczane/ klasörünü IMS boşken işlemiş olabilir (temsilci alanı
+        // eksik kalmış olabilir); şimdi IMS hazır olduğuna göre eksikleri
+        // geriye doldur (bkz. pharmacy-data-manager.js::reresolveTTT).
+        if (window.PharmacyDataManager && typeof window.PharmacyDataManager.reresolveTTT === 'function') {
+          window.PharmacyDataManager.reresolveTTT();
+        }
         if (loadMsg) loadMsg.textContent = 'Önbellekten yüklendi, güncelleniyor…';
         if (curPage === 0)      renderAna();
         else if (curPage === 1) renderPazar();
@@ -520,6 +527,16 @@ async function syncData(forceFresh) {
       'KUTU:', KUTU.length, 'TTTS:', ALL_TTTS);
     console.log('[IMS_TL_MAP]', JSON.stringify(IMS_TL_MAP));
     console.log('[TR_SIRA_MAP]', JSON.stringify(TR_SIRA_MAP));
+
+    // FAZ 12.3 BUG DÜZELTMESİ: taze IMS/MIGI_TL_RAW burada kesinleşti —
+    // PDM52'nin eczane/ klasörünü (muhtemelen bu veriler henüz yokken)
+    // işlemesi sırasında boş kalmış temsilci alanlarını şimdi geriye
+    // doldur (bkz. pharmacy-data-manager.js::reresolveTTT). Cache-hit
+    // yolunda zaten bir kez denenmiş olabilir — reresolveTTT idempotent
+    // (sadece hâlâ eksik olanları doldurur), tekrar çağırmak zararsız.
+    if (window.PharmacyDataManager && typeof window.PharmacyDataManager.reresolveTTT === 'function') {
+      window.PharmacyDataManager.reresolveTTT();
+    }
 
     // AUDIT2 Bulgu 4 düzeltmesi: taze fetch başarıyla bitti — 24 saatlik
     // cache'e yaz (bir sonraki ilk açılışta anında gösterim için).
