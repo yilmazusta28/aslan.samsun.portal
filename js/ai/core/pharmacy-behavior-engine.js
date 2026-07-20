@@ -437,9 +437,32 @@
   }
 
   // ── buildBehaviorProfiles — PharmacyAdapter → BehaviorProfile[] ──────
+  //
+  // FAZ 12.2 BUG DÜZELTMESİ (canlı ortamda tespit edildi): bu fonksiyonun
+  // kendi cache'i (_cache[cacheKey]) SADECE tttFilter'a göre anahtarlıydı
+  // — altındaki gerçek veri kaynağı (pharmacy-adapter.js →
+  // window.pharmacyStore.normalized, yani eczane/ klasöründeki CSV'ler)
+  // YENİ bir ay yüklendiğinde ya da worker senkronuyla güncellendiğinde
+  // BUNU bilmiyordu, aynı tttFilter için hep eski (ilk hesaplanan)
+  // profilleri döndürüyordu. pharmacy-adapter.js'in KENDİSİ zaten
+  // içerik-imzası (_dataSignature: satır sayısı + toplam adet) ile akıllı
+  // geçersizleştirme yapıyor — ama bu, SADECE normalizePharmacy() çağrısı
+  // içinde kalıyordu, bir üst katman (burası) o imzayı hiç görmüyordu.
+  // Düzeltme: aynı ucuz imza mantığını burada da uygula — normalizePharmacy()
+  // her çağrıda (ucuz, kendi içinde zaten cache'li) çağrılır, dönen
+  // records'tan bir imza çıkarılır; imza değişmediyse ÖNCEKİ hesaplanmış
+  // profiles dizisi (records'u tekrar işlemeden) döndürülür, değiştiyse
+  // yeniden hesaplanır. Böylece eczane/ klasöründeki gerçek veri
+  // değiştiğinde AI Profil de otomatik güncellenir — clearCache()'e
+  // (outcome-tracker.js'in tek tetikleyicisi) bağımlı kalınmaz.
+  function _recordsSignature(records) {
+    var totalMonths = 0;
+    records.forEach(function (r) { totalMonths += (r.sortedMonths || []).length; });
+    return records.length + ':' + totalMonths;
+  }
+
   function buildBehaviorProfiles(tttFilter) {
     var cacheKey = tttFilter || '__all__';
-    if (_cache[cacheKey]) return _cache[cacheKey];
 
     if (!window.PharmacyAdapter || typeof window.PharmacyAdapter.normalizePharmacy !== 'function') {
       console.warn('[pharmacy-behavior-engine] PharmacyAdapter yüklü değil');
@@ -447,7 +470,14 @@
     }
 
     var records = window.PharmacyAdapter.normalizePharmacy(tttFilter);
-    if (!records || !records.length) return [];
+    var sig = _recordsSignature(records || []);
+    var cached = _cache[cacheKey];
+    if (cached && cached.signature === sig) return cached.profiles;
+
+    if (!records || !records.length) {
+      _cache[cacheKey] = { profiles: [], signature: sig };
+      return [];
+    }
 
     var profiles = records.map(function (r) {
       var vals         = window.PharmacyAdapter.monthValuesArray(r.months, r.sortedMonths);
@@ -558,7 +588,7 @@
       delete p._opportunityRaw;
     });
 
-    _cache[cacheKey] = profiles;
+    _cache[cacheKey] = { profiles: profiles, signature: sig };
     return profiles;
   }
 
@@ -569,9 +599,9 @@
     classifyBehavior:      classifyBehavior,
     BEHAVIOR_TYPES:        BEHAVIOR_TYPES,
     clearCache:            clearCache,
-    version:               '9.0'
+    version:               '9.1'
   };
 
-  console.debug('[pharmacy-behavior-engine] FAZ 9.0 yüklendi — 9 davranış tipi aktif.');
+  console.debug('[pharmacy-behavior-engine] FAZ 9.1 yüklendi — 9 davranış tipi, imza-tabanlı cache (eczane/ verisi güncellenince otomatik yenilenir).');
 
 })();

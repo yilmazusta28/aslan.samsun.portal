@@ -1207,7 +1207,74 @@ async function renderEczane() {
   renderEczaneContent();
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  FAZ 18.1 — Yönetici "Temsilci Adına İşlem Yap" (Act-As)
+//
+//  Amaç: Yönetici panelindeki "Temsilci Seçin" dropdown'ı (mgrTttSelect)
+//  eskiden SADECE görüntüleme/analiz için kullanılıyordu (bkz.
+//  onManagerTttChange → manager-panel-engine.js). Eczane sayfasındaki
+//  selEczaneTTT değişkeni ise zaten HERKESE (rol farkı gözetmeden) açık
+//  bir "aktif temsilci" seçicisiydi — rota planı (route-plan-input.js),
+//  saha gözlemi (saha-gozlem-store.js) girişleri hep bunu representative/
+//  ttt olarak kullanıyor (stok girişi eczane bazlı, temsilciden bağımsız
+//  zaten herkese açık). Yani teknik altyapı ZATEN VARDI — eksik olan,
+//  yöneticinin bunu Yönetici panelinden tek tıkla, ne yaptığını net
+//  görerek kullanabilmesiydi. Bu FAZ, o köprüyü kurar:
+//    1) actAsRepresentative() — mgrTttSelect'teki temsilciyi selEczaneTTT'ye
+//       atar ve Eczane sayfasına geçer (orada artık o temsilci adına
+//       stok/rota planı/saha gözlemi girilebilir — mevcut formlar hiç
+//       değişmedi, sadece "kimin adına" sorusu selEczaneTTT'den geliyor).
+//    2) _updateEczActingAsBanner() — Eczane sayfasında, YONETICI rolü
+//       kendi adı DIŞINDA biri seçiliyken mor bir uyarı şeridi gösterir
+//       ("🎭 X adına işlem yapıyorsunuz") — unutup yanlış kişi adına
+//       veri girmeyi önler. _exitActingAs() ile tek tıkla kendi TTT'sine
+//       (ŞENOL YILMAZ) döner.
+//  Not: Bu, VERİ ERİŞİMİNİ genişletmez — selEczaneTTT zaten ALL_TTTS
+//  listesinden herhangi birine ayarlanabiliyordu (bkz. buildEczaneFilters
+//  içindeki allT = [...ALL_TTTS]); bu FAZ sadece yöneticiye bunu
+//  Yönetici panelinden GÜVENLİ ve NET bir şekilde tetikleme yolu sağlar.
+// ══════════════════════════════════════════════════════════════════
+
+function actAsRepresentative() {
+  const sel = document.getElementById('mgrTttSelect');
+  const ttt = sel ? sel.value : '';
+  if (!ttt) {
+    alert('Önce "Temsilci Seçin" alanından bir temsilci seç.');
+    return;
+  }
+  selEczaneTTT = ttt;
+  if (typeof engineSelTTT !== 'undefined') { try { engineSelTTT = ttt; } catch (e) {} }
+  if (typeof setAiTTT === 'function') { try { setAiTTT(ttt); } catch (e) {} }
+  goPage(6);
+  SoundFX?.click?.();
+}
+window.actAsRepresentative = actAsRepresentative;
+
+function _exitActingAs() {
+  const _self = 'ŞENOL YILMAZ';
+  selEczaneTTT = _self;
+  buildEczaneFilters();
+  renderEczaneContent();
+}
+window._exitActingAs = _exitActingAs;
+
+function _updateEczActingAsBanner() {
+  const banner = document.getElementById('eczActingAsBanner');
+  const textEl = document.getElementById('eczActingAsText');
+  if (!banner || !textEl) return;
+  const role = (typeof getCurrentRole === 'function') ? getCurrentRole() : 'TEMSILCI';
+  const isActingAsOther = role === 'YONETICI' && selEczaneTTT && selEczaneTTT !== 'ŞENOL YILMAZ';
+  banner.style.display = isActingAsOther ? 'flex' : 'none';
+  if (isActingAsOther) {
+    textEl.textContent = selEczaneTTT + ' adına işlem yapıyorsunuz — stok, rota planı ve saha gözlemi girişleri bu temsilci adına kaydedilir.';
+  }
+}
+window._updateEczActingAsBanner = _updateEczActingAsBanner;
+
 function buildEczaneFilters() {
+  // FAZ 18.1 — Yönetici "temsilci adına işlem yapıyor" göstergesini
+  // güncelle (her filtre yeniden çizildiğinde — yani TTT değiştiğinde de).
+  if (typeof _updateEczActingAsBanner === 'function') _updateEczActingAsBanner();
   // Eczane sayfası henüz aktif değilse PDM render'ı yap ama DOM yazma
   const _eczPageActive = !!document.getElementById('eczaneTttBar');
   // ── PHASE 5.2: Yıl + Ay filtresi render (her çağrıda) ────────────
@@ -6351,6 +6418,19 @@ function _buildEczaneDrawerRefresh(){
 
 <!-- ══════ PAGE 6: ECZANE SATIŞ TAKİBİ ══════ -->
 <div class="page" id="page6">
+  <!-- FAZ 18.1 — Yönetici "Temsilci Adına İşlem Yap" göstergesi.
+       Yönetici (YONETICI rolü), Yönetici panelindeki "Bu Temsilci Adına
+       İşlem Yap" butonuyla buraya geldiğinde selEczaneTTT kendi adı
+       DIŞINDA biri olur — bu banner o durumda görünür, unutmayı önler.
+       _updateEczActingAsBanner() buildEczaneFilters() içinden çağrılır. -->
+  <div id="eczActingAsBanner" style="display:none;background:linear-gradient(90deg,#7C3AED,#6D28D9);color:#fff;
+    padding:9px 14px;border-radius:10px;margin:0 0 10px;font-size:11.5px;font-weight:700;
+    align-items:center;gap:8px">
+    <span style="font-size:14px">🎭</span>
+    <span id="eczActingAsText">—</span>
+    <button onclick="_exitActingAs()" style="margin-left:auto;background:rgba(255,255,255,.2);border:none;
+      color:#fff;font-size:10px;font-weight:700;padding:4px 10px;border-radius:6px;cursor:pointer">Çık</button>
+  </div>
   <!-- TOP STICKY FILTER BAR -->
   <div class="top-filter-bar">
     <div class="filter-row">
@@ -6800,9 +6880,18 @@ function _buildEczaneDrawerRefresh(){
       <div class="card-body">
         <div style="margin-bottom:12px">
           <label style="font-size:10px;font-weight:700;color:var(--dim);display:block;margin-bottom:4px">Temsilci Seçin</label>
-          <select id="mgrTttSelect" onchange="onManagerTttChange()" style="width:100%;max-width:320px;font-size:12px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surf);color:var(--fg)">
-            <option value="">— Temsilci Seçin —</option>
-          </select>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <select id="mgrTttSelect" onchange="onManagerTttChange()" style="flex:1;min-width:200px;max-width:320px;font-size:12px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surf);color:var(--fg)">
+              <option value="">— Temsilci Seçin —</option>
+            </select>
+            <!-- FAZ 18.1 — Yönetici bu temsilci adına stok/rota planı/saha
+                 gözlemi girebilsin diye Eczane sayfasına, o temsilci
+                 seçiliyken geçiş yapar (bkz. actAsRepresentative()). -->
+            <button onclick="actAsRepresentative()" title="Eczane Yönetimi'ne bu temsilci seçiliyken geç — stok, rota planı ve saha gözlemi bu temsilci adına girilebilir"
+              style="font-size:11px;font-weight:700;padding:7px 14px;border:none;border-radius:8px;background:linear-gradient(90deg,#7C3AED,#6D28D9);color:#fff;cursor:pointer;white-space:nowrap">
+              🎭 Bu Temsilci Adına İşlem Yap
+            </button>
+          </div>
         </div>
 
         <div class="scroll-x" style="margin-bottom:14px">
