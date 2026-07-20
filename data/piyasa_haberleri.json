@@ -1,4 +1,13 @@
 {
-  "haberler": [],
-  "updatedAt": "2026-07-20T07:01:55.301Z"
+  "haberler": [
+    {
+      "baslik": "ilko ürünler",
+      "etki": "DEPO_KAMPANYA",
+      "tarih": "2026-07-23",
+      "aciklama": "%3 iskonto",
+      "id": 1784530955701,
+      "aktif": true
+    }
+  ],
+  "updatedAt": "2026-07-20T07:02:37.452Z"
 }
