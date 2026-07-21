@@ -250,11 +250,20 @@ function parseGenelCSV(csvText) {
   // normPct: parseN zaten % kaldırır.
   // "56,34%" → parseN → 56.34 (zaten yüzde, >1)
   // "0,4856" → parseN → 0.4856 (<1, ×100 yap)
+  // BUG DÜZELTMESİ: eski kod "değer ≤1 ise ondalık kesirdir, ×100 yap"
+  // varsayımını yapıyordu. Bu, TL%/PRİM PUAN% değeri gerçekten %1'in
+  // altında olan satırlarda (örn. FAMTREC — own-IMS-satışı olmayan
+  // "lansman öncesi" pazar, gerçek TL% "%0,34" gibi çok düşük olabilir)
+  // yanlış çalışıyordu: "0,34%" → parseN → 0.34 → ≤1 olduğu için ×100
+  // yapılıp %34 gibi görünüyordu, oysa gerçek değer %0,34 idi. Artık ham
+  // veride "%" işareti olup olmadığına bakılıyor: varsa değer zaten
+  // yüzdedir (büyüklüğü ne olursa olsun ×100 YAPILMAZ); yoksa eski
+  // ondalık-kesir varsayımı (×100) geçerliliğini korur.
   function normPct(raw) {
+    const hasPercentSign = String(raw || '').includes('%');
     const v = parseN(raw);
     if (v === 0) return 0;
-    // Eğer değer 1'den büyükse zaten yüzde formatında (56.34 gibi)
-    // Eğer 1'den küçük veya eşitse decimal format (0.5634), ×100 gerekli
+    if (hasPercentSign) return parseFloat(v.toFixed(4));
     return v > 1 ? parseFloat(v.toFixed(4)) : parseFloat((v * 100).toFixed(4));
   }
 
