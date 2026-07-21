@@ -574,7 +574,7 @@ let MIGI_RAW         = []; // compat fallback
 
 // Bölüm-1 (TOPLAM) filtre state
 let mg1_tip   = 'TL';
-let mg1_ttt   = 'TÜMÜ';
+let mg1_ttt   = '';
 let mg1_donem = 'TÜMÜ';
 let mg1_veri  = 'TUM'; // TUM | BI | EVOL | MI | PP
 
@@ -2659,6 +2659,7 @@ function initMigi1() {
   const src = mg1_tip === 'TL' ? MIGI_TL_RAW : MIGI_KUTU_RAW;
 
   const persons = [...new Set(src.map(r=>r.person))].filter(Boolean).sort();
+  if (!mg1_ttt && persons.length) mg1_ttt = _autoSelTTT('TÜMÜ');
   const donems = [...new Set(src.map(r=>r.donem))].filter(Boolean).sort();
   const veriOpts = [
     {k:'TUM',l:'Tüm'},{k:'BI',l:'Büyüme'},{k:'EVOL',l:'EVOL'},{k:'MI',l:'Market'},{k:'PP',l:'Pazar Payı'}
@@ -3880,7 +3881,7 @@ function _buildMg1Drawer(persons,donems,veriOpts){
       <div class="drawer-btns">${(veriOpts||[]).map(v=>`<button class="drawer-btn-item${v.k===mg1_veri?' active':''}" onclick="mg1_veri='${v.k}';initMigi1()">${v.l}</button>`).join('')}</div>
     </div>
     <div class="drawer-actions">
-      <button class="btn-drawer-clear" onclick="mg1_ttt='TÜMÜ';mg1_tip='TL';mg1_donem='TÜMÜ';mg1_veri='TUM';initMigi1()">Sıfırla</button>
+      <button class="btn-drawer-clear" onclick="mg1_ttt='';mg1_tip='TL';mg1_donem='TÜMÜ';mg1_veri='TUM';initMigi1()">Sıfırla</button>
       <button class="btn-drawer-apply" onclick="closeMfDrawer('mg1Drawer')">Uygula</button>
     </div>`;
 }
