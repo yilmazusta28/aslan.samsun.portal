@@ -1,13 +1,21 @@
 {
   "plans": {
-    "AYKUT DİNLER": {
+    "AYKUT DÄ°NLER": {
       "1": {
         "5": [
           "CORUM GUNEYDOGU ILCELER",
           "CORUM KARGI+OSMANCIK"
         ]
       }
+    },
+    "AYKUT DİNLER": {
+      "2": {
+        "1": [
+          "AMASYA GOYNUCEK+TASOVA",
+          "AMASYA ILCELER"
+        ]
+      }
     }
   },
-  "updatedAt": "2026-07-21T22:46:10.244Z"
+  "updatedAt": "2026-07-21T22:46:11.326Z"
 }
