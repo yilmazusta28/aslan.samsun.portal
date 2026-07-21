@@ -352,7 +352,7 @@ async function syncData(forceFresh) {
 
     // Parse IMS + GENEL
     const newIMS = parseIMSCSV(csvIMS);
-    const { genel: newGenel, imsTL: newImsTL, trSira: newTrSira } = parseGenelCSV(csvGenel);
+    const { genel: newGenel, imsTL: newImsTL, trSira: newTrSira, regions: newRegions } = parseGenelCSV(csvGenel);
 
     // TOPLAM dosyaları
     if(csvMiGiTL)  { try{ const p=parseMiGiToplamCSV(csvMiGiTL);   MIGI_TL_RAW.length=0;      MIGI_TL_RAW.push(...p);      console.log('[TOPLAM-TL]',p.length); }catch(e){console.warn(e);} }
@@ -447,6 +447,15 @@ async function syncData(forceFresh) {
 
     // TR SIRA haritasını güncelle
     Object.assign(TR_SIRA_MAP, newTrSira);
+
+    // ── Bölge/Ulusal Sıralaması ──────────────────────────────────────
+    // GENEL_TABLO.csv'ye eklenen NATIONAL/DİYARBAKIR/KONYA/BURSA vb. bölge
+    // satırları (bkz. csv-parser.js parseGenelCSV — "BÖLGE/ULUSAL SATIRI").
+    // Yönetici sayfasındaki Bölge Sıralaması tablosunu besler.
+    if (typeof REGION_RANKING !== 'undefined') {
+      REGION_RANKING.length = 0;
+      REGION_RANKING.push(...(newRegions || []));
+    }
 
     // KUTU'yu yeniden oluştur
     rebuildKutuFromIMS();

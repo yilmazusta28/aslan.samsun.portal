@@ -27,7 +27,8 @@
 //            bulunamazsa o bloğu boş bırakır).
 // ══════════════════════════════════════════════════════════════════════
 /* global GENEL, IMS, MIGI_BRICK_TL_RAW, ALL_TTTS, URUN_ORDER, URUN_CLR,
-          IMS_TL_MAP, OWN_DRUG_BY_GRP, fK, fTL, buildTeamRanking, detectRisks */
+          IMS_TL_MAP, OWN_DRUG_BY_GRP, fK, fTL, fPct, buildTeamRanking, detectRisks,
+          REGION_RANKING */
 
 (function () {
   'use strict';
@@ -61,6 +62,58 @@
       _c('Satış TL', fTL(gt.satis_tl || 0), 'var(--fg,#111)') +
       _c('Kalan TL', fTL(kalan), 'var(--c2,#1BCED8)') +
       '</div>';
+  }
+
+  // ── 0a2) BÖLGE SIRALAMASI (NATIONAL + SAMSUN + diğer bölgeler) ───────
+  // Kullanıcı isteği: GENEL_TABLO.csv'ye eklenen NATIONAL/DİYARBAKIR/KONYA/
+  // BURSA vb. bölge satırlarını (REGION_RANKING — bkz. data-state.js +
+  // csv-parser.js "BÖLGE/ULUSAL SATIRI") "sıra - bölge - TL%" formatında
+  // listeler. NATIONAL her zaman en üstte sabit durur; SAMSUN için CSV'de
+  // ayrı bir satır YOKTUR — ŞENOL YILMAZ'ın (bölge müdürü) GENEL TOPLAM
+  // satırından türetilir. Diğer bölgeler TR SIRA'ya göre (küçükten büyüğe,
+  // yani en iyi sıradan) sıralanır. Bölge Özet Analizi'nden ÖNCE gösterilir
+  // (bkz. index.html page7 + renderManagerExtra() çağrı sırası).
+  function buildRegionRanking() {
+    var list = (typeof REGION_RANKING !== 'undefined' ? REGION_RANKING : []).slice();
+
+    var samsun = (GENEL || []).find(function (r) { return r.ttt === MANAGER_NAME && r.urun === 'GENEL TOPLAM'; });
+    if (samsun && !list.some(function (r) { return r.bolge === 'SAMSUN'; })) {
+      list.push({ bolge: 'SAMSUN', tr_sira: samsun.tr_sira || 0, tl_pct: samsun.tl_pct || 0 });
+    }
+
+    var national = list.filter(function (r) { return r.bolge === 'NATIONAL'; });
+    var others   = list.filter(function (r) { return r.bolge !== 'NATIONAL'; })
+      .sort(function (a, b) {
+        var sa = a.tr_sira > 0 ? a.tr_sira : Infinity; // TR SIRA'sı olmayan en sona düşer
+        var sb = b.tr_sira > 0 ? b.tr_sira : Infinity;
+        if (sa !== sb) return sa - sb;
+        return (b.tl_pct || 0) - (a.tl_pct || 0); // eşitlikte TL%'e göre
+      });
+    return national.concat(others);
+  }
+
+  function renderRegionRanking(containerId) {
+    var body = document.getElementById(containerId || 'mgrRegionRankBody');
+    if (!body) return;
+    var rows = buildRegionRanking();
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--dim);padding:14px">' +
+        'Bölge sıralaması verisi yok — GENEL_TABLO.csv\'ye NATIONAL/bölge satırları henüz eklenmemiş olabilir.</td></tr>';
+      return;
+    }
+    body.innerHTML = rows.map(function (r) {
+      var isNational = r.bolge === 'NATIONAL';
+      var isSamsun   = r.bolge === 'SAMSUN';
+      var pct = r.tl_pct || 0;
+      var pctColor = pct >= 100 ? '#16A34A' : pct >= 91 ? '#059669' : pct >= 70 ? '#D97706' : '#DC2626';
+      var rowBg = isNational ? 'background:rgba(79,0,140,.06)' : (isSamsun ? 'background:rgba(5,150,105,.06)' : '');
+      var label = (isNational ? '🇹🇷 ' : (isSamsun ? '🏢 ' : '')) + r.bolge;
+      return '<tr style="' + rowBg + '">' +
+        '<td style="font-weight:700">' + (isNational ? '—' : (r.tr_sira > 0 ? '#' + r.tr_sira : '—')) + '</td>' +
+        '<td style="font-weight:' + (isNational || isSamsun ? '800' : '600') + '">' + label + '</td>' +
+        '<td class="mono" style="font-weight:700;color:' + pctColor + '">' + fPct(pct) + '</td>' +
+        '</tr>';
+    }).join('');
   }
 
   // ── 0b) BÖLGE ÖZET ANALİZİ (iadeler dahil) ───────────────────────────
@@ -795,6 +848,7 @@
       // FAZ 13.4-DÜZELTME: renderManagerRegionKpi() artık çağrılmıyor —
       // "Bölge Geneli — ŞENOL YILMAZ" kartı kaldırıldı (mgrHeroBanner ile
       // aynı bilgiyi tekrar ediyordu). Fonksiyon rollback için dosyada durur.
+      renderRegionRanking('mgrRegionRankBody');
       renderManagerBolgeOzet('mgrBolgeOzetBody', 'mgrBolgeAlertBox', 'mgrBolgeAlertBody');
       renderManagerUrunPerformans('mgrUrunBody');
       renderManagerHaftaTlDokum('mgrHaftaTlDokumBody');
@@ -821,6 +875,8 @@
   }
 
   // ── EXPORT ────────────────────────────────────────────────
+  window.buildRegionRanking         = buildRegionRanking;
+  window.renderRegionRanking        = renderRegionRanking;
   window.renderManagerRegionKpi     = renderManagerRegionKpi;
   window.renderPeriodArchiveCard    = renderPeriodArchiveCard;
   window.renderManagerBolgeOzet     = renderManagerBolgeOzet;

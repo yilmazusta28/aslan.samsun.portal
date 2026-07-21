@@ -6776,6 +6776,24 @@ function _buildEczaneDrawerRefresh(){
          id'si ve renderManagerRegionKpi() fonksiyonu rollback kolaylığı için
          dosyada bırakıldı, ancak artık çağrılmıyor/render edilmiyor. -->
 
+    <!-- ═══ BÖLGE SIRALAMASI (NATIONAL + Bölgeler) ═══
+         Kullanıcı isteği: GENEL_TABLO.csv'ye eklenen NATIONAL/DİYARBAKIR/
+         KONYA/BURSA vb. bölge satırlarının (kişi adı değil, bölge etiketi
+         taşırlar — bkz. REGION_RANKING, csv-parser.js/data-state.js)
+         sıra-bölge-TL% sıralaması. NATIONAL her zaman en başta sabit,
+         diğerleri (SAMSUN dahil) TR SIRA'ya göre sıralanır. Bölge Özet
+         Analizi'nden ÖNCE gösterilir. Doldurulması: manager-panel-engine.js
+         → renderRegionRanking() (renderManagerExtra() içinde çağrılır). -->
+    <div class="card mb16">
+      <div class="card-hd"><span class="card-title">🌍 Bölge Sıralaması</span><span class="card-badge">National &amp; Bölgeler — TL%</span></div>
+      <div class="card-body-0 scroll-x">
+        <table class="tbl" style="min-width:360px">
+          <thead><tr><th>Sıra</th><th>Bölge</th><th>TL %</th></tr></thead>
+          <tbody id="mgrRegionRankBody"></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- ═══ FAZ 13.3 — BÖLGE ÖZET ANALİZİ (iadeler dahil) ═══
          "Genel Durum" sayfasında her temsilcinin gördüğü Özet Analizi
          kutusunun bölge-geneli karşılığı. renderAnaInsight()/

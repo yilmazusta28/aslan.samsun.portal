@@ -243,9 +243,10 @@ function parseGenelCSV(csvText) {
     startRow = 0; // header yok
   }
 
-  const genel  = [];
-  const imsTL  = {};  // urun → IMS TL fiyatı
-  const trSira = {};  // ttt  → TR sıra no
+  const genel   = [];
+  const imsTL   = {};  // urun → IMS TL fiyatı
+  const trSira  = {};  // ttt  → TR sıra no
+  const regions = [];  // bölge/ulusal satırları (NATIONAL, DİYARBAKIR, KONYA, BURSA...)
 
   // normPct: parseN zaten % kaldırır.
   // "56,34%" → parseN → 56.34 (zaten yüzde, >1)
@@ -271,8 +272,27 @@ function parseGenelCSV(csvText) {
     const c = rows[i];
     if (c.length < 15) continue;
 
-    const ttt  = normTTT(c[13]);
-    if (!ttt) continue;
+    const rawName = (c[13] || '').trim();
+    const ttt = normTTT(rawName);
+
+    // ── BÖLGE / ULUSAL SATIRI ─────────────────────────────────
+    // Kullanıcı isteği: GENEL_TABLO.csv'ye NATIONAL, DİYARBAKIR, KONYA,
+    // BURSA gibi bölge satırları eklenebiliyor (kişi adı DEĞİL, bölge
+    // etiketi taşırlar — bu yüzden normTTT() null döner). Böyle bir satırda
+    // TR SIRA (J[9]) veya TL% (S[18]) dolu ise bunu bölge satırı sayıp
+    // REGION_RANKING için ayrı bir listeye ekliyoruz. ESKİ DAVRANIŞ: bu
+    // satırlar "if (!ttt) continue" ile sessizce atlanıyordu — artık
+    // atılmıyor, ama mevcut temsilci (genel[]) akışına da HİÇ KARIŞMIYOR.
+    if (!ttt) {
+      if (rawName) {
+        const regionTrSira = Math.round(parseN(c[9]));  // J: TR SIRA
+        const regionTlPct  = normPct(c[18]);             // S: TL%
+        if (regionTrSira > 0 || regionTlPct > 0) {
+          regions.push({ bolge: rawName.toUpperCase(), tr_sira: regionTrSira, tl_pct: regionTlPct });
+        }
+      }
+      continue;
+    }
 
     const urunRaw = (c[14] || '').trim().toUpperCase();
     if (!urunRaw) continue;
@@ -328,7 +348,10 @@ function parseGenelCSV(csvText) {
   console.log('[parseGenelCSV] Parsed', genel.length, 'rows. First:', JSON.stringify(genel[0]));
   console.log('[parseGenelCSV] GENEL TOPLAM:',
     JSON.stringify(genel.filter(r=>r.urun==='GENEL TOPLAM').map(r=>({ttt:r.ttt,tl:r.tl_pct,h:r.hedef_tl,s:r.satis_tl}))));
-  return { genel, imsTL, trSira };
+  if (regions.length) {
+    console.log('[parseGenelCSV] Bölge/Ulusal satırları:', JSON.stringify(regions));
+  }
+  return { genel, imsTL, trSira, regions };
 }
 
 // ─── KENDİ ÜRÜN HARİTASI ────────────────────────────────────
