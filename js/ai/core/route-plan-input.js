@@ -42,6 +42,9 @@
 //
 //  Public API:
 //    setDayPlan(weekGroup, weekday, bricks, representative?) → Promise<void>
+//      (dönen Promise'in .syncPromise özelliği de vardır →
+//       Promise<{ok:boolean, error?:string}>, ekip-geneli/GitHub senkronunun
+//       GERÇEK sonucu — bkz. FAZ 15.1 BUG DÜZELTMESİ aşağıda)
 //    getDayPlan(weekGroup, weekday, representative?)          → Promise<RoutePlan|null>
 //    getWeekPlan(weekGroup, representative?)                  → Promise<RoutePlan[]>
 //    getBothWeeksPlan(representative?)                        → Promise<{1:RoutePlan[],2:RoutePlan[]}>
@@ -157,9 +160,17 @@
   var _workerSyncQueue = Promise.resolve();
 
   function _syncDayToWorker(rep, weekGroup, weekday, bricks) {
-    if (!window.ROTA_SYNC_WORKER_URL || !rep) return;
+    if (!window.ROTA_SYNC_WORKER_URL || !rep) {
+      return Promise.resolve({ ok: false, error: 'worker URL veya temsilci tanımsız' });
+    }
     var payload = { representative: rep, weekGroup: weekGroup, weekday: weekday, bricks: bricks || [] };
-    _workerSyncQueue = _workerSyncQueue.then(function () {
+    // BUG DÜZELTMESİ: eskiden bu fonksiyon hiçbir şey DÖNDÜRMÜYORDU — çağıran
+    // (setDayPlan → Kaydet butonu) senkronun başarılı olup olmadığını asla
+    // ÖĞRENEMİYORDU, sadece console.warn ile sessizce loglanıyordu. Bir
+    // temsilcinin planı bu yüzden yönetici ekranında (Ekip Haftalık Rota
+    // Planları) hiç görünmeyebiliyordu ve kimse fark etmiyordu. Artık
+    // {ok, error} sonucu döndürülüyor; sıra (queue) davranışı KORUNUYOR.
+    var resultPromise = _workerSyncQueue.then(function () {
       return fetch(window.ROTA_SYNC_WORKER_URL, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -167,11 +178,20 @@
       }).then(function (res) {
         if (res && !res.ok) {
           console.warn('[route-plan-input] worker senkron HTTP hatası (' + GROUP_LABELS[weekGroup] + ', gün ' + weekday + '):', res.status);
+          return { ok: false, error: 'HTTP ' + res.status };
         }
-      }).catch(function (e) {
-        console.warn('[route-plan-input] worker senkron hatası (' + GROUP_LABELS[weekGroup] + ', gün ' + weekday + ', yoksayıldı, yerel kayıt geçerli):', e && e.message);
+        return { ok: true };
       });
+    }).catch(function (e) {
+      console.warn('[route-plan-input] worker senkron hatası (' + GROUP_LABELS[weekGroup] + ', gün ' + weekday + ', yoksayıldı, yerel kayıt geçerli):', e && e.message);
+      return { ok: false, error: (e && e.message) || 'ağ hatası' };
     });
+    // Kuyruğu HER ZAMAN devam ettir (bu gün hata verse bile) — bir günün
+    // senkron hatası SONRAKİ günün isteğini bloklamasın (FAZ 14.1 deseniyle
+    // aynı, sadece artık hatayı yutan queue ile sonucu döndüren promise
+    // ayrıştırıldı).
+    _workerSyncQueue = resultPromise.catch(function () {});
+    return resultPromise;
   }
 
   // ── fetchTeamPlans — GitHub'daki data/rota_planlari.json'ı doğrudan oku ─
@@ -244,8 +264,19 @@
     // IndexedDB yazımı KESİNLEŞTİKTEN sonra worker'a gönder — worker sadece
     // TEK GÜN kabul ediyor, bu yüzden elimizdeki weekGroup/weekday/bricks
     // doğrudan gönderilir. Çağırana dönen Promise'i bekletmez/etkilemez.
-    writePromise.then(function () { _syncDayToWorker(rep, weekGroup, weekday, bricks); }).catch(function () {});
+    var syncPromise = writePromise.then(function () {
+      return _syncDayToWorker(rep, weekGroup, weekday, bricks);
+    }).catch(function () {
+      return { ok: false, error: 'yerel kayıt hatası' };
+    });
 
+    // BUG DÜZELTMESİ: setDayPlan() GERİYE UYUMLU şekilde hâlâ yerel yazma
+    // promise'ini döndürür (davranış değişmedi) — ama artık bu promise
+    // nesnesine .syncPromise eklenir, böylece çağıran (Kaydet butonu)
+    // isterse ekip-geneli (GitHub) senkronunun GERÇEKTEN başarılı olup
+    // olmadığını da bekleyip kullanıcıya gösterebilir (bkz. renderRoutePlanForm
+    // içindeki Kaydet butonu — artık bunu kullanıyor).
+    writePromise.syncPromise = syncPromise;
     return writePromise;
   }
 
@@ -506,6 +537,7 @@
 
       var saveBtn = document.getElementById('routePlanSaveBtn');
       if (saveBtn) {
+        var _saveBtnDefaultBg = '#1976d2';
         saveBtn.addEventListener('click', function () {
           var promises = [];
           for (var d2 = 1; d2 <= 5; d2++) {
@@ -514,12 +546,40 @@
             var checked2 = Array.from(dayEl.querySelectorAll('input:checked')).map(function (cb) { return cb.value; });
             promises.push(setDayPlan(activeGroup, d2, checked2, rep));
           }
-          Promise.all(promises).then(function () {
-            saveBtn.textContent = 'Kaydedildi ✓';
-            setTimeout(function () { saveBtn.textContent = 'Kaydet (' + GROUP_LABELS[activeGroup] + ')'; }, 2000);
+          saveBtn.disabled = true;
+          saveBtn.textContent = 'Kaydediliyor…';
+          Promise.all(promises).then(function (savedPromises) {
+            // BUG DÜZELTMESİ: eskiden "Kaydedildi ✓" SADECE yerel IndexedDB
+            // yazımı bittiğinde gösteriliyordu — arka plandaki ekip-geneli
+            // (GitHub/worker) senkronu SESSİZCE başarısız olabiliyordu ve
+            // kullanıcı bundan hiç haberdar olmuyordu. Bu yüzden bir
+            // temsilcinin planı yönetici ekranında (Ekip Haftalık Rota
+            // Planları) hiç görünmeyebiliyordu. Artık senkron sonucu da
+            // beklenip kullanıcıya AÇIKÇA gösteriliyor.
+            saveBtn.textContent = 'Ekip ile paylaşılıyor…';
+            var syncPromises = savedPromises.map(function (p) { return (p && p.syncPromise) || Promise.resolve({ ok: true }); });
+            return Promise.all(syncPromises);
+          }).then(function (syncResults) {
+            var allOk = syncResults.every(function (r) { return r && r.ok; });
+            if (allOk) {
+              saveBtn.style.background = '#2e7d32';
+              saveBtn.textContent = 'Kaydedildi ✓ (ekip ile paylaşıldı)';
+            } else {
+              saveBtn.style.background = '#f59e0b';
+              saveBtn.textContent = '⚠️ Yerel kaydedildi — ekip senkronu BAŞARISIZ, tekrar deneyin';
+              console.warn('[route-plan-input] Ekip-geneli (GitHub) senkronu başarısız oldu — bu plan sadece BU CİHAZDA kayıtlı, yönetici ekranında görünmeyebilir. İnternet bağlantınızı kontrol edip Kaydet\'e tekrar basın.', syncResults);
+            }
+            saveBtn.disabled = false;
+            setTimeout(function () {
+              saveBtn.textContent = 'Kaydet (' + GROUP_LABELS[activeGroup] + ')';
+              saveBtn.style.background = _saveBtnDefaultBg;
+            }, 4000);
             if (typeof options.onSave === 'function') options.onSave(activeGroup);
           }).catch(function (e) {
             console.warn('[route-plan-input] Kayıt hatası:', e);
+            saveBtn.disabled = false;
+            saveBtn.style.background = '#f44336';
+            saveBtn.textContent = '⚠️ Kayıt hatası — tekrar deneyin';
           });
         });
       }
