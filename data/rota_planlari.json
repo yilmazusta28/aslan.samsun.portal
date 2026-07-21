@@ -1,6 +1,6 @@
 {
   "plans": {
-    "AYKUT DÄ°NLER": {
+    "AYKUT DÃÂ°NLER": {
       "1": {
         "5": [
           "CORUM GUNEYDOGU ILCELER",
@@ -8,14 +8,22 @@
         ]
       }
     },
-    "AYKUT DİNLER": {
+    "AYKUT DÄ°NLER": {
       "2": {
         "1": [
           "AMASYA GOYNUCEK+TASOVA",
           "AMASYA ILCELER"
         ]
       }
+    },
+    "AYKUT DİNLER": {
+      "2": {
+        "2": [
+          "AMASYA MERKEZ -1",
+          "AMASYA MERKEZ -2"
+        ]
+      }
     }
   },
-  "updatedAt": "2026-07-21T22:46:11.326Z"
+  "updatedAt": "2026-07-21T22:46:12.398Z"
 }
