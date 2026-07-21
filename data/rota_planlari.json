@@ -1,6 +1,6 @@
 {
   "plans": {
-    "AYKUT DÃÂÃÂÃÂÃÂ°NLER": {
+    "AYKUT DÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ°NLER": {
       "1": {
         "5": [
           "CORUM GUNEYDOGU ILCELER",
@@ -8,7 +8,7 @@
         ]
       }
     },
-    "AYKUT DÃÂÃÂ°NLER": {
+    "AYKUT DÃÂÃÂÃÂÃÂ°NLER": {
       "2": {
         "1": [
           "AMASYA GOYNUCEK+TASOVA",
@@ -16,7 +16,7 @@
         ]
       }
     },
-    "AYKUT DÃÂ°NLER": {
+    "AYKUT DÃÂÃÂ°NLER": {
       "2": {
         "2": [
           "AMASYA MERKEZ -1",
@@ -24,7 +24,7 @@
         ]
       }
     },
-    "AYKUT DÄ°NLER": {
+    "AYKUT DÃÂ°NLER": {
       "2": {
         "3": [
           "AMASYA MERZIFON",
@@ -32,14 +32,22 @@
         ]
       }
     },
-    "AYKUT DİNLER": {
+    "AYKUT DÄ°NLER": {
       "2": {
         "4": [
           "CORUM GUNEYDOGU ILCELER",
           "CORUM KARGI+OSMANCIK"
         ]
       }
+    },
+    "AYKUT DİNLER": {
+      "2": {
+        "5": [
+          "CORUM KUZEY ILCELER",
+          "CORUM MERKEZ -1"
+        ]
+      }
     }
   },
-  "updatedAt": "2026-07-21T22:46:15.001Z"
+  "updatedAt": "2026-07-21T22:46:16.049Z"
 }
