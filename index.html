@@ -1550,6 +1550,28 @@ function renderEczaneContent() {
     console.warn('[SatisKosullari] render hata (sessiz):', _saErr.message);
   }
 
+  // DÜZELTME: "AI Karar Önerisi", "Pazar Payı Analizi" ve "Lansman Hazırlık"
+  // kartları sadece ilk açılışta bir kez render ediliyordu (bkz.
+  // goEczaneSubTab() içindeki window._pvDecisionRendered vb. bayrakları) —
+  // yukarıdaki satis_sartlari/urun_analiz bloğunun aksine buraya hiç
+  // eklenmemişlerdi, bu yüzden temsilci değiştirildiğinde (selEczaneTTT)
+  // içerik yenilenmiyordu. urun_analiz ile aynı desen: sadece daha önce en
+  // az bir kez render edildiyse (_pv...Rendered true), filtre değişince de
+  // yeniden render et.
+  try {
+    if (typeof renderAIDecisionCard === 'function' && window._pvDecisionRendered) {
+      renderAIDecisionCard();
+    }
+    if (typeof renderMarketShareCard === 'function' && window._pvMarketShareRendered) {
+      renderMarketShareCard();
+    }
+    if (typeof renderLaunchReadinessCard === 'function' && window._pvLaunchRendered) {
+      renderLaunchReadinessCard();
+    }
+  } catch (_decErr) {
+    console.warn('[AIDecision/MarketShare/LaunchReadiness] render hata (sessiz):', _decErr.message);
+  }
+
   // PHASE 4.7: Smart Route Optimizer — Bugünkü Akıllı Rota
   // Rollback: bu try bloğunu sil + todayRouteCard + weeklyRouteCard div'lerini kaldır
   try {
