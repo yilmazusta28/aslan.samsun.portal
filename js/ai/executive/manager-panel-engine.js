@@ -78,7 +78,15 @@
 
     var samsun = (GENEL || []).find(function (r) { return r.ttt === MANAGER_NAME && r.urun === 'GENEL TOPLAM'; });
     if (samsun && !list.some(function (r) { return r.bolge === 'SAMSUN'; })) {
-      list.push({ bolge: 'SAMSUN', tr_sira: samsun.tr_sira || 0, tl_pct: samsun.tl_pct || 0 });
+      list.push({
+        bolge: 'SAMSUN',
+        tr_sira: samsun.tr_sira || 0,
+        tl_pct: samsun.tl_pct || 0,
+        hedef_tl: samsun.hedef_tl || 0,
+        satis_tl: samsun.satis_tl || 0,
+        kalan_tl: samsun.kalan_tl || 0,
+        prim_pct: samsun.prim_pct || 0
+      });
     }
 
     var national = list.filter(function (r) { return r.bolge === 'NATIONAL'; });
@@ -97,7 +105,7 @@
     if (!body) return;
     var rows = buildRegionRanking();
     if (!rows.length) {
-      body.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--dim);padding:14px">' +
+      body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--dim);padding:14px">' +
         'Bölge sıralaması verisi yok — GENEL_TABLO.csv\'ye NATIONAL/bölge satırları henüz eklenmemiş olabilir.</td></tr>';
       return;
     }
@@ -108,10 +116,17 @@
       var pctColor = pct >= 100 ? '#16A34A' : pct >= 91 ? '#059669' : pct >= 70 ? '#D97706' : '#DC2626';
       var rowBg = isNational ? 'background:rgba(79,0,140,.06)' : (isSamsun ? 'background:rgba(5,150,105,.06)' : '');
       var label = (isNational ? '🇹🇷 ' : (isSamsun ? '🏢 ' : '')) + r.bolge;
+      var barPct = Math.min(pct, 100);
+      var barColor = pctColor;
       return '<tr style="' + rowBg + '">' +
         '<td style="font-weight:700">' + (isNational ? '—' : (r.tr_sira > 0 ? '#' + r.tr_sira : '—')) + '</td>' +
         '<td style="font-weight:' + (isNational || isSamsun ? '800' : '600') + '">' + label + '</td>' +
+        '<td class="mono">' + fTL(r.hedef_tl || 0) + '</td>' +
+        '<td class="mono" style="font-weight:700">' + fTL(r.satis_tl || 0) + '</td>' +
+        '<td class="mono ' + ((r.kalan_tl || 0) < 0 ? 'negative' : 'positive') + '">' + fTL(r.kalan_tl || 0) + '</td>' +
         '<td class="mono" style="font-weight:700;color:' + pctColor + '">' + fPct(pct) + '</td>' +
+        '<td class="mono">' + fPct(r.prim_pct || 0) + '</td>' +
+        '<td><div class="prog" style="width:80px"><div class="prog-fill" style="width:' + barPct + '%;background:' + barColor + '"></div></div></td>' +
         '</tr>';
     }).join('');
   }

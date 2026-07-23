@@ -283,16 +283,32 @@ function parseGenelCSV(csvText) {
     // REGION_RANKING için ayrı bir listeye ekliyoruz. ESKİ DAVRANIŞ: bu
     // satırlar "if (!ttt) continue" ile sessizce atlanıyordu — artık
     // atılmıyor, ama mevcut temsilci (genel[]) akışına da HİÇ KARIŞMIYOR.
+    // GÜNCELLEME (Bölge Sıralaması'na Hedef/Satış/Kalan TL + PP% eklendi):
+    // bölge satırları için de P/Q/R/T kolonları (hedef_tl/satis_tl/kalan_tl/
+    // prim_pct) okunuyor — GENEL[] satırlarındaki mantığın AYNISI.
     if (!ttt) {
       if (rawName) {
         const regionTrSira = Math.round(parseN(c[9]));  // J: TR SIRA
         const regionTlPct  = normPct(c[18]);             // S: TL%
         if (regionTrSira > 0 || regionTlPct > 0) {
-          regions.push({ bolge: rawName.toUpperCase(), tr_sira: regionTrSira, tl_pct: regionTlPct });
+          const regionHedefTl = parseN(c[15]); // P
+          const regionSatisTl = parseN(c[16]); // Q
+          const regionKalanTl = parseN(c[17]) || (regionHedefTl - regionSatisTl); // R (fallback: hedef-satis)
+          const regionPrimPct = normPct(c[19]); // T: PRİM PUAN%
+          regions.push({
+            bolge: rawName.toUpperCase(),
+            tr_sira: regionTrSira,
+            tl_pct: regionTlPct,
+            hedef_tl: regionHedefTl,
+            satis_tl: regionSatisTl,
+            kalan_tl: regionKalanTl,
+            prim_pct: regionPrimPct
+          });
         }
       }
       continue;
     }
+
 
     const urunRaw = (c[14] || '').trim().toUpperCase();
     if (!urunRaw) continue;

@@ -6783,12 +6783,17 @@ function _buildEczaneDrawerRefresh(){
          sıra-bölge-TL% sıralaması. NATIONAL her zaman en başta sabit,
          diğerleri (SAMSUN dahil) TR SIRA'ya göre sıralanır. Bölge Özet
          Analizi'nden ÖNCE gösterilir. Doldurulması: manager-panel-engine.js
-         → renderRegionRanking() (renderManagerExtra() içinde çağrılır). -->
+         → renderRegionRanking() (renderManagerExtra() içinde çağrılır).
+         GÜNCELLEME: Hedef TL / Satış TL / Kalan TL / PP% / Gerçekleşme
+         (progress bar) kolonları eklendi — csv-parser.js'de bölge
+         satırlarından P/Q/R/T (hedef_tl/satis_tl/kalan_tl/prim_pct)
+         okunuyor; SAMSUN için ŞENOL YILMAZ GENEL TOPLAM satırından
+         türetilir. -->
     <div class="card mb16">
       <div class="card-hd"><span class="card-title">🌍 Bölge Sıralaması</span><span class="card-badge">National &amp; Bölgeler — TL%</span></div>
       <div class="card-body-0 scroll-x">
-        <table class="tbl" style="min-width:360px">
-          <thead><tr><th>Sıra</th><th>Bölge</th><th>TL %</th></tr></thead>
+        <table class="tbl" style="min-width:760px">
+          <thead><tr><th>Sıra</th><th>Bölge</th><th>Hedef TL</th><th>Satış TL</th><th>Kalan TL</th><th>TL %</th><th>PP %</th><th>Gerçekleşme</th></tr></thead>
           <tbody id="mgrRegionRankBody"></tbody>
         </table>
       </div>
