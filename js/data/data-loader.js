@@ -526,6 +526,13 @@ async function syncData(forceFresh) {
     else if (curPage === 7) {
       if (typeof renderManagerHeroBanner === 'function') renderManagerHeroBanner();
       if (typeof renderManagerExtra === 'function') renderManagerExtra();
+      // BUG DÜZELTMESİ: kart açık durumdayken taze veri gelirse (cache az
+      // önce temizlendi) ekranda hâlâ eski içerik dursun istemiyoruz —
+      // sayfa değiştirilip geri dönülmesini beklemeden hemen tazele.
+      var _tlc = document.getElementById('teamLearningCard');
+      if (_tlc && _tlc.style.display !== 'none' && typeof renderTeamLearningCard === 'function') {
+        renderTeamLearningCard();
+      }
     }
 
     const now = new Date();
@@ -545,6 +552,20 @@ async function syncData(forceFresh) {
     // (sadece hâlâ eksik olanları doldurur), tekrar çağırmak zararsız.
     if (window.PharmacyDataManager && typeof window.PharmacyDataManager.reresolveTTT === 'function') {
       window.PharmacyDataManager.reresolveTTT();
+    }
+
+    // BUG DÜZELTMESİ: "Takım Öğrenmesi & Peer Benchmark" kartı
+    // (TeamLearningEngine.buildTeamLearningPackage) sonucu 2 dakikalık
+    // TTL ile cache'leniyor, ama bu cache hiçbir yerde temizlenmiyordu —
+    // taze veri senkronize olsa bile kart 2 dakika dolana kadar (veya
+    // sayfa yeniden açılana kadar hafızada kalan eski _cache nesnesi
+    // yüzünden daha da uzun) ESKİ veriyi göstermeye devam ediyordu.
+    // Diğer motorlar (PharmacyAdapter, PharmacyBehaviorEngine,
+    // PharmacyRanking) taze veri gelince zaten temizleniyordu
+    // (bkz. pharmacy-data-manager.js::reresolveTTT) — TeamLearningEngine
+    // bu listeye hiç eklenmemişti.
+    if (window.TeamLearningEngine && typeof window.TeamLearningEngine.clearCache === 'function') {
+      window.TeamLearningEngine.clearCache();
     }
 
     // AUDIT2 Bulgu 4 düzeltmesi: taze fetch başarıyla bitti — 24 saatlik
