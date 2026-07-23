@@ -866,7 +866,14 @@ function renderAiAsistan() {
   // js/data/data-loader.js curPage===5 dispatch'i), o noktada bu blok
   // tekrar çalışıp gerçek veriyle dolduracak.
   try {
-    const _apeTtt = (typeof selTTT !== 'undefined' && selTTT) ? selTTT : (allTTTs[0] || null);
+    // DÜZELTME: "AI Saha Koçu — Günlük/Haftalık Görev Planı" kartı önceden
+    // her zaman Genel Durum sayfasının seçili temsilcisini (selTTT)
+    // kullanıyordu — AI & Görev Motoru'ndaki "Temsilci Seç" çubuğundan
+    // (setAiTTT → engineSelTTT/selAiTTT) yapılan seçim bu karta hiç
+    // yansımıyordu. Artık öncelik bu sayfadaki seçime verilir; selTTT
+    // sadece o da tanımsızsa yedek olarak kullanılır.
+    const _apeTtt = engineSelTTT || selAiTTT
+      || (typeof selTTT !== 'undefined' && selTTT) || (allTTTs[0] || null);
     if (_apeTtt && typeof renderAutonomousDashboard === 'function') {
       renderAutonomousDashboard('autonomousPlanningCard', _apeTtt);
     }
