@@ -172,10 +172,19 @@
   // ── Rakip ortamı (mevcut mantık — alan adları tüketicilerle hizalandı)
   function _buildRakipDurumu(pazar) {
     var competitors = [];
+    var veriVarMi = false;
     if (window.CompetitiveAdapter && typeof window.CompetitiveAdapter.normalizeCompetitive === 'function') {
       var compData = window.CompetitiveAdapter.normalizeCompetitive();
       var actions  = (compData && compData.competitorActions) || [];
+      var owns     = (compData && compData.ownActions) || [];
       competitors  = actions.filter(function (a) { return a.ilacGrubu === pazar && !a.isOwn; });
+      // Bu pazar için RAKIP_AKSİYON.csv'de HİÇ satır var mı (rakip VEYA
+      // kendi İLKO satırı)? FAMTREC gibi henüz competitive-intelligence
+      // takibine girmemiş pazarlarda ne rakip ne de İLKO satırı bulunur —
+      // bu durumda "0 rakip aktif" (rakip yok, pazar temiz) demek YANLIŞ;
+      // doğrusu "rakip verisi henüz toplanmadı" (bilinmiyor) demektir.
+      var ownRowsBuPazar = owns.filter(function (a) { return a.ilacGrubu === pazar; });
+      veriVarMi = (competitors.length > 0) || (ownRowsBuPazar.length > 0);
     }
 
     var getTier = (window.CompetitiveAdapter && window.CompetitiveAdapter.getMostGenerousTier) || function (tiers) { return (tiers && tiers[0]) || null; };
@@ -196,7 +205,8 @@
     return {
       rakipSayisi: competitors.length,
       enAgresifRakip: enAgresifRakip,
-      ortalamaIndirimPct: pctSayisi > 0 ? Math.round((pctToplam / pctSayisi) * 10) / 10 : null
+      ortalamaIndirimPct: pctSayisi > 0 ? Math.round((pctToplam / pctSayisi) * 10) / 10 : null,
+      veriVarMi: veriVarMi
     };
   }
 
@@ -218,8 +228,11 @@
         : (haftalik.aktifHaftaSayisi < AKTIF_HAFTA_YENI_ESIK ? 'LANSMANIN İLK HAFTALARI' : 'RAMP-UP DEVAM EDİYOR');
 
       // Hazırlık skoru: %50 satış performansı + %40 rekabet ortamı + trend/haftalık bonus.
+      // NOT: rakip verisi hiç toplanmamışsa (veriVarMi:false) 100 puan verip
+      // "rekabetsiz pazar" izlenimi YARATMIYORUZ — nötr (50) puan veriyoruz,
+      // çünkü "rakip yok" ile "rakip verisi yok" AYNI ŞEY DEĞİL.
       var satisSkoru   = _clamp(satis.hedefKarsilamaPct, 0, 100);
-      var rekabetSkoru = _clamp(100 - rakip.rakipSayisi * 8, 0, 100);
+      var rekabetSkoru = rakip.veriVarMi ? _clamp(100 - rakip.rakipSayisi * 8, 0, 100) : 50;
       var trendBonus   = haftalik.satisTrendi === 'up' ? 8 : (haftalik.satisTrendi === 'down' ? -8 : 0);
       var yeniPazarCezasi = haftalik.aktifHaftaSayisi === 0 ? -10 : 0;
       var hazirlikSkoru = Math.round(_clamp(satisSkoru * 0.5 + rekabetSkoru * 0.4 + trendBonus + yeniPazarCezasi, 0, 100));
@@ -238,7 +251,9 @@
         }
       }
 
-      if (rakip.rakipSayisi > RAKIP_YOGUN_ESIK) {
+      if (!rakip.veriVarMi) {
+        parts.push('rakip şartları verisi henüz toplanmadı — bu pazar için rekabet gözlemi eksik, "rakip yok" anlamına gelmez');
+      } else if (rakip.rakipSayisi > RAKIP_YOGUN_ESIK) {
         parts.push(rakip.rakipSayisi + ' rakip aktif, pazar yoğun' + (rakip.enAgresifRakip ? (' (en agresif: ' + rakip.enAgresifRakip.firma + ')') : '') + ' — farklılaştırıcı mesaj gerekli');
       } else if (rakip.rakipSayisi > 0) {
         parts.push(rakip.rakipSayisi + ' rakip izleniyor');
@@ -262,6 +277,7 @@
         hedefKarsilamaPct: satis.hedefKarsilamaPct,
 
         rakipSayisi:        rakip.rakipSayisi,
+        rakipVeriVarMi:      rakip.veriVarMi,
         enAgresifRakip:      rakip.enAgresifRakip,
         ortalamaIndirimPct:  rakip.ortalamaIndirimPct,
 
@@ -272,7 +288,7 @@
       pazar: pazar, urun: pazar, fazEtiketi: 'BİLİNMİYOR',
       aktifHaftaSayisi: 0, satisTrendi: 'stable',
       hedefTL: 0, satisTL: 0, kalanTL: 0, hedefKarsilamaPct: 0,
-      rakipSayisi: 0, enAgresifRakip: null, ortalamaIndirimPct: null,
+      rakipSayisi: 0, rakipVeriVarMi: false, enAgresifRakip: null, ortalamaIndirimPct: null,
       hazirlikSkoru: 50, oneri: 'Veri yetersiz.'
     });
   }
@@ -280,7 +296,7 @@
   window.LaunchReadinessEngine = {
     listOnLansmanPazarlar:     listOnLansmanPazarlar,
     getLaunchReadinessSummary: getLaunchReadinessSummary,
-    version: '19.0-satis-rakip-birlesik'
+    version: '19.1-rakip-veri-yok-ayrimi'
   };
 
   console.debug('[launch-readiness-engine] FAZ 19.0 (satış+rakip birleşik) yüklendi.');

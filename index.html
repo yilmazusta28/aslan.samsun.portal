@@ -1976,7 +1976,9 @@ function renderLaunchReadinessCard() {
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <span style="font-size:10px;background:var(--surf);padding:3px 8px;border-radius:8px">${s.aktifHaftaSayisi} hafta aktif satış</span>
           <span style="font-size:10px;background:var(--surf);padding:3px 8px;border-radius:8px">Hedef karşılama %${s.hedefKarsilamaPct}</span>
-          <span style="font-size:10px;background:var(--surf);padding:3px 8px;border-radius:8px">${s.rakipSayisi} rakip aktif</span>
+          ${s.rakipVeriVarMi
+            ? `<span style="font-size:10px;background:var(--surf);padding:3px 8px;border-radius:8px">${s.rakipSayisi} rakip aktif</span>`
+            : `<span style="font-size:10px;background:#FEF2F2;color:#B91C1C;padding:3px 8px;border-radius:8px" title="RAKIP_AKSİYON.csv'de bu pazar için henüz kayıt yok — rakip olmadığı anlamına gelmez">Rakip verisi yok</span>`}
           ${s.ortalamaIndirimPct != null ? `<span style="font-size:10px;background:var(--surf);padding:3px 8px;border-radius:8px">Ort. %${s.ortalamaIndirimPct} indirim</span>` : ''}
         </div>
       </div>`;
