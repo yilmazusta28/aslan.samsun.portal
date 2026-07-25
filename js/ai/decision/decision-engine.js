@@ -133,7 +133,9 @@
             classification: 'ON_LANSMAN',
             reason:   summary.oneri,
             detail:   summary.rakipSayisi + ' rakip aktif, en agresif: ' +
-                      (summary.enAgresifRakip ? summary.enAgresifRakip.firma : '?'),
+                      (summary.enAgresifRakip ? summary.enAgresifRakip.firma : '—') +
+                      ' | hedef karşılama: %' + summary.hedefKarsilamaPct +
+                      ' | hazırlık skoru: ' + summary.hazirlikSkoru,
             scores:   null,
             orderCycleSignal: null,
             _rank:    0
