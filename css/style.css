@@ -642,13 +642,14 @@ body{
    FAZ 13.x — Eczane Sayfası Alt Sekmeleri (sub-tabs)
    Masaüstünde yatay sekme çubuğu, mobilde (≤768px) açılır seçici.
    ══════════════════════════════════════════════════════════════ */
-.eczsub-bar{display:flex;flex-wrap:wrap;gap:2px;margin-bottom:16px;border-bottom:2px solid var(--border);overflow-x:auto}
-.eczsub-tab{display:flex;align-items:center;gap:6px;padding:10px 14px;border:none;border-bottom:3px solid transparent;background:transparent;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;color:var(--dim);cursor:pointer;transition:all .14s;white-space:nowrap;border-radius:8px 8px 0 0}
-.eczsub-tab:hover{color:var(--c1);background:rgba(79,0,140,.04)}
-.eczsub-tab.active{color:var(--c1);border-bottom-color:var(--c1);background:rgba(79,0,140,.05)}
-[data-theme="dark"] .eczsub-tab{color:var(--dim)!important}
-[data-theme="dark"] .eczsub-tab:hover{color:var(--c2)!important;background:rgba(139,92,246,.08)!important}
-[data-theme="dark"] .eczsub-tab.active{color:var(--c2)!important;border-bottom-color:var(--c2)!important;background:rgba(139,92,246,.1)!important}
+.eczsub-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;padding:8px;background:rgba(255,255,255,.95);border:1px solid var(--border);border-radius:16px;box-shadow:0 4px 14px rgba(0,0,0,.05);overflow-x:auto}
+[data-theme="dark"] .eczsub-bar{background:rgba(19,19,42,.95)!important;border-color:var(--border)!important}
+.eczsub-tab{display:flex;align-items:center;gap:6px;padding:9px 16px;border:1px solid var(--border);background:#fff;font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;color:var(--dim);cursor:pointer;transition:all .16s;white-space:nowrap;border-radius:11px;flex-shrink:0}
+.eczsub-tab:hover{color:var(--c1);border-color:var(--c1);background:rgba(79,0,140,.04);transform:translateY(-1px)}
+.eczsub-tab.active{color:#fff;background:linear-gradient(135deg,var(--c1),var(--c2));border-color:transparent;font-weight:700;box-shadow:0 3px 10px rgba(79,0,140,.3)}
+[data-theme="dark"] .eczsub-tab{background:var(--surf2)!important;border-color:var(--border)!important;color:var(--dim)!important}
+[data-theme="dark"] .eczsub-tab:hover{color:var(--c2)!important;border-color:var(--c2)!important;background:rgba(139,92,246,.08)!important}
+[data-theme="dark"] .eczsub-tab.active{color:#fff!important;background:linear-gradient(135deg,var(--c3),#0891B2)!important;border-color:transparent!important;box-shadow:0 3px 10px rgba(139,92,246,.3)!important}
 
 .eczsub-select-wrap{display:none;margin-bottom:16px}
 .eczsub-select{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surf);color:var(--text);font-family:'Poppins',sans-serif;font-size:13px;font-weight:600;-webkit-appearance:none;appearance:none}
