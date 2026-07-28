@@ -440,7 +440,17 @@ function _runEngineCore() {
   }
 
   document.getElementById('engineTimeline').innerHTML = wks.join('');
-  document.getElementById('engineWeekBadge').textContent = totalWeeks + ' Hafta Kaldı';
+  const _weekBadgeEl = document.getElementById('engineWeekBadge');
+  _weekBadgeEl.textContent = totalWeeks + ' Hafta Kaldı';
+  // TEŞHİS AMAÇLI: bu hesap TAMAMEN cihazın yerel saatine (`new Date()`)
+  // dayanır — sunucu saati ile senkron DEĞİLDİR. Bir kullanıcının cihaz
+  // tarihi yanlışsa (örn. hâlâ önceki döneme ait bir tarihte kalmışsa),
+  // sistem yanlış dönemi "aktif" sanıp çok daha fazla hafta kalmış gibi
+  // gösterebilir (bkz. kullanıcı bulgusu: bazı temsilcilerde 9 hafta,
+  // diğerlerinde 5 hafta görünmesi — veri değil, cihaz saati farkı).
+  // Fare ile üzerine gelince bu uyuşmazlık hemen görülebilsin diye title
+  // tooltip'ine cihazın gördüğü tarih + dönem eklendi.
+  _weekBadgeEl.title = 'Cihaz tarihi: ' + todayDisplay + ' · Sistemin gördüğü dönem: ' + (cur ? cur.label + ' (' + cur.start + ' – ' + cur.end + ')' : '—');
 
   // ── Prim Optimizasyon Senaryosu ─────────────────────────
   const hedefReal = 91;
