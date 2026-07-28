@@ -3445,7 +3445,24 @@ function _currentWeekNumInPeriod() {
     var totalDays = workDays(period.start, period.end);
     var elapsedDays = workDays(period.start, todayStr);
     if (totalDays <= 0) return 9;
-    return Math.max(1, Math.min(9, Math.ceil(elapsedDays / totalDays * 9)));
+    var calWeek = Math.max(1, Math.min(9, Math.ceil(elapsedDays / totalDays * 9)));
+
+    // BUG DÜZELTMESİ: takvim gününe göre hesaplanan hafta (calWeek), IMS
+    // verisinin GERÇEKTEN yüklendiği haftanın önüne geçebiliyordu (IMS
+    // ~1 hafta gecikmeli yükleniyor, bkz. temporal-context-engine.js).
+    // Bu durumda henüz veri girilmemiş bir h-sütunu (örn. h4) sanki o
+    // haftaya ait "güncel" bir iade uyarısıymış gibi gösteriliyordu (bkz.
+    // kullanıcı bulgusu: "4. hafta verisi yokken İade 4.H uyarısı").
+    // Artık calWeek, IMS satırlarından GÖZLEMLENEN son dolu hafta
+    // (TemporalContextEngine.cycleWeek) ile sınırlandırılıyor — henüz
+    // verisi yüklenmemiş bir haftaya asla bakılmıyor.
+    if (typeof TemporalContextEngine !== 'undefined') {
+      var _tc = TemporalContextEngine.getTemporalContext();
+      if (_tc && _tc.cycleWeek) {
+        return Math.min(calWeek, _tc.cycleWeek);
+      }
+    }
+    return calWeek;
   } catch (e) { return 9; }
 }
 
