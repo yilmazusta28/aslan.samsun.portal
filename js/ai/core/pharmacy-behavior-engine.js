@@ -515,10 +515,34 @@
       var lastMonth  = r.sortedMonths && r.sortedMonths[r.sortedMonths.length - 1];
       var daysSince  = lastMonth ? _daysSinceMonth(lastMonth) : 60;
       var avgCycle   = activeMonths > 1 ? Math.round(30 * (vals.length / activeMonths)) : 30;
-      var daysToNext = Math.max(0, avgCycle - daysSince);
 
-      // Reorder olasılığı
-      var reorderProb = _reorderProb(activeMonths, vals.length, daysSince, avgCycle, growthRate);
+      // BUG DÜZELTMESİ (kullanıcı bulgusu): avgCycle SADECE sipariş SIKLIĞINA
+      // (kaç ayda bir sipariş verildiğine) bakıyordu — sipariş BÜYÜKLÜĞÜNE
+      // hiç bakmıyordu. Sonuç: bir eczane normalde ayda ~30-60 kutu alırken,
+      // bir ay içinde tek seferde 300 kutu (kampanya/stoklama tipi) aldığında
+      // sistem "bu eczane her ay sipariş veriyor demek yine sipariş verecek"
+      // diye yorumluyor ve stoku aslında aylarca yetecek bu eczaneyi
+      // reorderProbability/forecastBoxes/opportunityScore/visitPriority
+      // hesaplarının HER BİRİNDE en başa koyuyordu (mantıken Temmuz'da tekrar
+      // satış beklenmez — CAMPAIGN_BUYER olarak DOĞRU sınıflandırılıyordu
+      // ama bu bilgi reorder/opportunity hesaplarına hiç YANSITILMIYORDU).
+      // Çözüm: son sipariş, o eczanenin TİPİK (spike hariç, priorAvg)
+      // ortalama sipariş büyüklüğünün kaç katıysa, stoku o kadar uzun süre
+      // yeter — etkin döngü (effectiveCycle) bu oranda uzatılır (mantıksız
+      // aşırı tahminleri önlemek için 4 kat ile sınırlandırıldı). forecastBoxes
+      // da spike hariç tipik hacme göre hesaplanır, yoksa spike bir sonraki
+      // aya da aynen tekrar edecekmiş gibi öngörülür.
+      var lastVal      = vals.length ? (vals[vals.length - 1] || 0) : 0;
+      var priorVals    = vals.slice(0, -1).filter(function (v) { return v > 0; });
+      var priorAvg     = priorVals.length
+        ? priorVals.reduce(function (s, v) { return s + v; }, 0) / priorVals.length
+        : avg;
+      var stockMultiplier = (priorAvg > 0 && lastVal > priorAvg) ? Math.min(4, lastVal / priorAvg) : 1;
+      var effectiveCycle  = Math.round(avgCycle * stockMultiplier);
+      var daysToNext = Math.max(0, effectiveCycle - daysSince);
+
+      // Reorder olasılığı — stok-ayarlı döngü (effectiveCycle) kullanılıyor
+      var reorderProb = _reorderProb(activeMonths, vals.length, daysSince, effectiveCycle, growthRate);
 
       // 9 tip sınıflandırma
       var bResult = classifyBehavior({
@@ -536,7 +560,10 @@
         legacyCls = legacyDirect;
       }
 
-      var forecastBoxes = Math.max(0, Math.round(avg * 0.9));
+      // forecastBoxes: spike varsa (stockMultiplier>1) tipik hacme (priorAvg)
+      // göre öngör — yoksa büyük tek seferlik alım bir sonraki aya da aynen
+      // tekrar edecekmiş gibi (yanlış) öngörülür.
+      var forecastBoxes = Math.max(0, Math.round((stockMultiplier > 1 ? priorAvg : avg) * 0.9));
       var boxPrice = _bestBoxPrice(r);
 
       return {
@@ -572,7 +599,7 @@
         productAffinityScore:    _productAffinity(r.monthsByProduct, r.sortedMonths),
         nextOrderProducts:       [],
         daysSinceLastOrder:      daysSince,
-        avgOrderCycle:           avgCycle,
+        avgOrderCycle:           effectiveCycle,
         daysToNextOrder:         daysToNext,
         expectedOrderDate:       null
       };
