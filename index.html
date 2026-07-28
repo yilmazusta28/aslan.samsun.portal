@@ -2510,7 +2510,7 @@ function _autoSelTTT(fallback) {
 }
 
 
-const VALID_PASS='ilko2030';
+const VALID_PASS='Saslan.9';
 
 function doLogin(){
   const user=document.getElementById('loginUser').value.trim();
@@ -6389,6 +6389,31 @@ function _buildEczaneDrawerRefresh(){
             </div>
             <div id="engineAiOutput" style="margin-top:12px;display:none">
               <div id="engineAiChatArea" style="display:flex;flex-direction:column;gap:12px;min-height:60px"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Sohbet Asistanı — AI Detaylı Strateji kartının altında,
+             serbest soru-cevap. sendAiMsg/sendAiMsgWithText (js/ai/ai-service.js)
+             #aiChatArea, #aiInput, #aiSendBtn, #aiStatus ID'lerini kullanır;
+             #aiStatus üstteki motor başlığında (id="aiStatus") zaten mevcut. -->
+        <div class="card mb16" style="border:1.5px solid rgba(79,0,140,.15)">
+          <div class="card-hd" style="background:linear-gradient(90deg,rgba(79,0,140,.04),transparent)">
+            <span class="card-title"><i class="fas fa-comments"></i> AI Sohbet Asistanı</span>
+            <span class="card-badge" style="background:linear-gradient(135deg,#4F008C,#1BCED8);color:#fff">Claude AI</span>
+          </div>
+          <div class="card-body" style="padding:14px 18px">
+            <p style="font-size:12px;color:var(--dim);margin-bottom:12px">Motor bağlamını temel alarak Claude AI'a serbest soru sorun.</p>
+
+            <div id="aiChatArea" style="display:flex;flex-direction:column;gap:12px;min-height:70px;max-height:340px;overflow-y:auto;margin-bottom:12px;padding:2px 2px 4px"></div>
+
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="text" id="aiInput" class="inp" placeholder="Örn: Bu hafta hangi eczanelere öncelik vermeliyim?"
+                     style="flex:1;font-weight:400"
+                     onkeypress="if(event.key==='Enter'){event.preventDefault();sendAiMsg();}">
+              <button class="btn-calc" id="aiSendBtn" onclick="sendAiMsg()" style="border-radius:11px;font-size:11px;white-space:nowrap;flex-shrink:0">
+                <i class="fas fa-paper-plane" style="margin-right:5px"></i>Gönder
+              </button>
             </div>
           </div>
         </div>
