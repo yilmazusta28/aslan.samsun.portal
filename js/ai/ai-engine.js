@@ -365,12 +365,33 @@ function _runEngineCore() {
   document.getElementById('engineOpps').innerHTML = oppHtml;
 
   // ── Haftalık Strateji Timeline ──────────────────────────
-  const totalWeeks = Math.ceil(remDays / 5);
+  // NOT: Önceki sürümde her haftanın payı yalnızca "wDays / remDays" oranına
+  // dayanıyordu. İş günü sayısı haftadan haftaya sabit (5) kaldığı için bu
+  // oran da sabit kalıyor ve TL Hedef / kutu hedefleri + brick fokus TÜM
+  // haftalarda birebir aynı basılıyordu (bkz. kullanıcı bulgusu). Aşağıda:
+  //   1) Haftalara göre kademeli ağırlık (front-loaded: kritik haftalar daha
+  //      yüklü, konsolidasyon hafifler, sprint finish kalanı toplar) — TL ve
+  //      kutu hedefleri artık haftadan haftaya farklı.
+  //   2) Brick fokus her fazda farklı kaynaktan besleniyor (risk / fırsat /
+  //      karışık / kalan) — aynı 1-2 brick sonsuza kadar tekrar etmiyor.
+  const totalWeeks  = Math.ceil(remDays / 5);
+  const shownWeeks  = Math.min(totalWeeks, 4);
   const wks = [];
   let cumDays = 0;
-  for (let w=0; w<Math.min(totalWeeks,4); w++) {
-    const wDays  = Math.min(5, remDays - cumDays);
-    const wKalan = kalanTL > 0 ? Math.round(kalanTL * wDays / Math.max(1,remDays)) : 0;
+
+  // Kademeli ağırlıklar — ortalama 1.0 olacak şekilde normalize edilir, böylece
+  // toplam TL/kutu dağılımı eskisiyle aynı kapsamı korur, sadece haftalar
+  // arası pay farklılaşır.
+  const BASE_WEIGHTS = [1.35, 1.05, 0.85, 0.75];
+  const usedWeights  = BASE_WEIGHTS.slice(0, shownWeeks);
+  const weightAvg     = usedWeights.reduce((a,b)=>a+b,0) / Math.max(1,usedWeights.length);
+  const normWeights   = usedWeights.map(w => w / Math.max(0.0001, weightAvg));
+
+  for (let w=0; w<shownWeeks; w++) {
+    const wDays   = Math.min(5, remDays - cumDays);
+    const baseFrac = wDays / Math.max(1, remDays);
+    const wFrac    = baseFrac * normWeights[w];
+    const wKalan   = kalanTL > 0 ? Math.round(kalanTL * wFrac) : 0;
     const wKutu  = urunKPI.map(r=>{
       // kalanKutu 0 ise hedef_kutu × kalan% / remDays ile türet
       let kutu = r.kalanKutu || 0;
@@ -383,10 +404,25 @@ function _runEngineCore() {
           kutu = Math.round(r.hedef_kutu * (1 - r.tl_pct / 100));
         }
       }
-      return {urun:r.urun, kutu: Math.ceil(kutu * wDays / Math.max(1,remDays))};
+      return {urun:r.urun, kutu: Math.ceil(kutu * wFrac)};
     });
     const dotCls = w===0?'danger':w===1?'warn':'good';
-    const brickFocus = critBricks.slice(0,2+w).map(b=>b.brick).join(', ') || 'Tüm brickler';
+
+    // Faza göre farklı brick kaynağı: kritik→risk, büyüme→fırsat,
+    // konsolidasyon→risk+fırsat karışık, sprint finish→henüz değinilmemiş
+    // risk brickler (yoksa fırsat brickleriyle tamamla).
+    let brickPool;
+    if (w === 0) {
+      brickPool = riskBricks.slice(0, 2);
+    } else if (w === 1) {
+      brickPool = oppBricks.slice(0, 2).length ? oppBricks.slice(0, 2) : riskBricks.slice(0, 2);
+    } else if (w === 2) {
+      brickPool = [...riskBricks.slice(0, 2), ...oppBricks.slice(0, 1)];
+    } else {
+      brickPool = riskBricks.slice(2, 5).length ? riskBricks.slice(2, 5) : riskBricks.slice(0, 3);
+    }
+    const brickFocus = (brickPool.map(b=>b.brick).filter(Boolean).join(', ')) || 'Tüm brickler';
+
     wks.push(`
       <div class="stl-item">
         <div class="stl-dot ${dotCls}"></div>
