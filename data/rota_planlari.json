@@ -1,23 +1,29 @@
 {
   "plans": {
-    "SAMET ÃÂETÃÂ°N": {
+    "SAMET ÃÂÃÂETÃÂÃÂ°N": {
       "1": [
         "TOKAT MERKEZ -2",
         "TOKAT TURHAL"
       ]
     },
-    "SAMET ÃETÄ°N": {
+    "SAMET ÃÂETÃÂ°N": {
       "2": [
         "TOKAT ERBAA",
         "TOKAT MERKEZ -1"
       ]
     },
-    "SAMET ÇETİN": {
+    "SAMET ÃETÄ°N": {
       "3": [
         "TOKAT BATI ILCELER",
         "TOKAT DOGU ILCELER"
       ]
+    },
+    "SAMET ÇETİN": {
+      "4": [
+        "SIVAS MERKEZ -3",
+        "SIVAS MERKEZ -4"
+      ]
     }
   },
-  "updatedAt": "2026-07-29T22:22:36.322Z"
+  "updatedAt": "2026-07-29T22:22:37.874Z"
 }
