@@ -398,6 +398,29 @@
     return items.slice(0, 3);
   }
 
+  // BUG DÜZELTMESİ (kullanıcı bulgusu): "Bugün Sat" listesi eskiden sadece
+  // eczanenin GEÇMİŞ satış afinitesine (productAffinityScore) bakarak ürün
+  // seçiyordu — bu yüzden tüm gün boyunca hep en çok satılan 1-2 ürün
+  // (PANOCER/ACİDPASS) öneriliyor, "Haftalık Aksiyon Planı"nın hedef açığına
+  // göre satılması gerektiğini söylediği diğer ürünler (GRİPORT COLD,
+  // MOKSEFEN, FAMTREC) hiç günlük göreve girmiyordu. _buildProductGapWeight,
+  // analyzeProductImpact() (scenario-builder.js — "Haftalık Aksiyon Planı"nın
+  // KENDİSİNİN kullandığı fonksiyon) çıktısındaki impactScore'u (0-10) 0-100
+  // ölçeğe taşıyarak döndürür; bu sayede ürün seçimi hem "bu eczane tarihsel
+  // olarak ne alır" hem de "hedefe göre ne satılması gerekiyor"u birlikte
+  // dikkate alır.
+  function _buildProductGapWeight(ttt) {
+    var weight = {};
+    try {
+      var impact = (typeof analyzeProductImpact === 'function') ? (analyzeProductImpact(ttt) || []) : [];
+      impact.forEach(function (row) {
+        // impactScore 0-10 → 0-100
+        weight[row.product] = Math.round((row.impactScore || 0) * 10);
+      });
+    } catch (_e) {}
+    return weight;
+  }
+
   // ══════════════════════════════════════════════════════════════════════
   //  BÖLÜM 6.5: Recommendation Memory — Görünmez Hafıza Katmanı
   // ══════════════════════════════════════════════════════════════════════
@@ -531,6 +554,10 @@
       if (k) profileByKey[k] = pr;
     });
 
+    // BUG DÜZELTMESİ (kullanıcı bulgusu): hedef açığı ağırlığı — bkz.
+    // _buildProductGapWeight tanımındaki not.
+    var gapWeight = _buildProductGapWeight(ttt);
+
     var visits = todayVisits.slice(0, 10).map(function (p) {
       var key         = (p.gln || p.eczane || '').toString();
       var fullProfile = profileByKey[key] || p;
@@ -538,15 +565,30 @@
       var totalBoxes  = p.expectedOrderBoxes || fullProfile.expectedOrderBoxes || 0;
       var totalTL     = p.expectedOrderValue || fullProfile.expectedOrderValue || 0;
 
-      var topProducts = PRODUCTS
-        .filter(function (u) { return (affinity[u] || 0) > 0; })
-        .sort(function (a, b) { return (affinity[b] || 0) - (affinity[a] || 0); })
-        .slice(0, 2);
+      // combinedScore: eczanenin geçmiş afinitesi (%60) + ürünün hedef
+      // açığındaki payı/kaldıraç gücü (%40). Sadece afiniteye göre sıralarsak
+      // her gün hep aynı 1-2 ürün (en çok satılanlar) öne çıkıyor; sadece
+      // hedef açığına göre sıralarsak da eczanenin hiç almadığı bir ürünü
+      // zorla önermiş oluruz — ikisinin karışımı daha dengeli.
+      var combinedScore = {};
+      PRODUCTS.forEach(function (u) {
+        combinedScore[u] = (affinity[u] || 0) * 0.6 + (gapWeight[u] || 0) * 0.4;
+      });
 
-      var affinitySum = topProducts.reduce(function (s, u) { return s + (affinity[u] || 0); }, 0);
+      var topProducts = PRODUCTS
+        .filter(function (u) { return combinedScore[u] > 0; })
+        .sort(function (a, b) { return combinedScore[b] - combinedScore[a]; })
+        .slice(0, 3); // BUG DÜZELTMESİ: 2 → 3, diğer ürünlere de yer açmak için
+
+      // BUG DÜZELTMESİ: pay (share) artık combinedScore toplamına göre
+      // hesaplanıyor (eskiden sadece affinitySum'a göreydi). Sadece afiniteye
+      // göre hesaplansaydı, gap ağırlığıyla listeye giren düşük-afiniteli
+      // ürünler için share=0 çıkar, bu da o ürünün "0 TL / 0 kutu" gibi
+      // anlamsız görünmesine yol açardı.
+      var scoreSum = topProducts.reduce(function (s, u) { return s + (combinedScore[u] || 0); }, 0);
 
       var products = topProducts.map(function (u) {
-        var share = affinitySum > 0 ? (affinity[u] / affinitySum) : (1 / topProducts.length);
+        var share = scoreSum > 0 ? (combinedScore[u] / scoreSum) : (1 / topProducts.length);
         var price = (typeof IMS_TL_MAP !== 'undefined' && IMS_TL_MAP[u]) ? IMS_TL_MAP[u] : 100;
         var rawBoxes = totalBoxes > 0 ? Math.max(1, Math.round(totalBoxes * share)) : Math.max(1, Math.round(affinity[u] || 5));
 
@@ -594,6 +636,50 @@
         expectedTL: expectedTL
       };
     });
+
+    // BUG DÜZELTMESİ (kullanıcı bulgusu): topProducts.slice(0,3) her ziyarette
+    // ayrı ayrı en iyi 3'ü seçtiği için, teorik olarak yine de bazı ürünler
+    // günün TÜMÜNDE hiç görünmeyebilir (örn. o gün ziyaret edilen eczanelerin
+    // hiçbirinde o ürünün ne afinitesi ne de yüksek gap ağırlığı yeterliyse).
+    // "Haftalık Aksiyon Planı" 5 ürünün de hedefe göre satılması gerektiğini
+    // söylüyorsa, günlük görev listesinde en azından hatırlatma amaçlı bir kez
+    // geçmesi gerekir. Bu yüzden gün sonunda kapsanmayan ürünleri, hedef açığı
+    // önceliğine (gapWeight) göre sırayla en uygun ziyarete ekliyoruz.
+    (function _fillMissingProducts() {
+      var covered = {};
+      visits.forEach(function (v) {
+        (v.products || []).forEach(function (x) { covered[x.urun] = true; });
+      });
+      var missing = PRODUCTS
+        .filter(function (u) { return !covered[u]; })
+        .sort(function (a, b) { return (gapWeight[b] || 0) - (gapWeight[a] || 0); });
+      if (!missing.length || !visits.length) return;
+
+      missing.forEach(function (u) {
+        // En az ürünü olan (henüz kalabalıklaşmamış) ziyareti seç.
+        var target = visits.slice().sort(function (a, b) {
+          return (a.products || []).length - (b.products || []).length;
+        })[0];
+        if (!target || target.products.length >= 4) return; // ziyaret başına makul üst sınır
+
+        var price = (typeof IMS_TL_MAP !== 'undefined' && IMS_TL_MAP[u]) ? IMS_TL_MAP[u] : 100;
+        var rawBoxes = 5; // afinite/hacim verisi yok — hedef açığı hatırlatması amaçlı minimum öneri
+        var oneri = (typeof getSiparisOnerisi === 'function') ? getSiparisOnerisi(u, rawBoxes) : null;
+        var boxes = oneri ? oneri.miktar : rawBoxes;
+        var tl    = boxes * price;
+
+        target.products.push({
+          urun:        u,
+          boxes:       boxes,
+          bonusBoxes:  oneri ? oneri.bonusKutu : 0,
+          totalWithMF: oneri ? oneri.toplam : rawBoxes,
+          sart:        oneri && oneri.sart ? oneri.sart : null,
+          tl:          tl,
+          gapDriven:   true // hedef açığı nedeniyle eklendi (afiniteye dayanmıyor)
+        });
+        target.expectedTL += tl;
+      });
+    })();
 
     var expectedTL  = visits.reduce(function (s, v) { return s + v.expectedTL; }, 0);
     var successProb = _calcSuccessProbability(ttt, dailyNeed, expectedTL);
@@ -736,13 +822,17 @@
       sellToday: {
         icon:  '💊',
         title: 'Bugün Sat',
+        // BUG DÜZELTMESİ (kullanıcı bulgusu): eski slice(0,8), ziyaret başına
+        // artık 3-4 ürün olabildiğinden (bkz. topProducts.slice(0,3) ve
+        // _fillMissingProducts) listenin daha ilk 2-3 eczanesinde dolup
+        // taşıyor, hedef açığı için eklenen ürünler hiç görünmüyordu.
         items: (daily && daily.visits || []).flatMap
           ? (daily.visits || []).flatMap(function (v) {
               return (v.products || []).map(function (p) {
                 var kutuTxt = p.sart ? (p.sart + ' kutu (toplam ' + p.totalWithMF + ')') : (p.boxes + ' kutu');
-                return v.eczane + ' → ' + p.urun + ' ' + kutuTxt;
+                return v.eczane + ' → ' + p.urun + ' ' + kutuTxt + (p.gapDriven ? ' (hedef açığı)' : '');
               });
-            }).slice(0, 8)
+            }).slice(0, 15)
           : []
       },
       primActions: {

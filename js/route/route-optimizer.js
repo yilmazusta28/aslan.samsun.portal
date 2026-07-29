@@ -296,6 +296,10 @@
   // ══════════════════════════════════════════════════════════════════════
 
   // ── FAZ 10.3: 5-Kademe Sıralama Yardımcıları ──────────────────────────
+  // NOT: Bu 5 fonksiyon artık buildTodayRoute() tarafından ÇAĞRILMIYOR
+  // (bkz. buildTodayRoute içindeki "kullanıcı bulgusu" notu — buildTodayRoute
+  // artık buildWeeklyRoutes'un bugünkü gününü tek kaynak olarak kullanıyor).
+  // Kod, ileride ihtiyaç olursa diye referans amaçlı bırakıldı.
 
   // Kademe 1: Bugünkü PLANLI brickler (RoutePlanInput manuel girişi)
   function _tier1PlannedBricks(enriched, tttFilter) {
@@ -352,13 +356,6 @@
   function buildTodayRoute(tttFilter) {
     var MAX_DAILY = 5; // FAZ 10.3: SON-MASTER'ın istediği maksimum 5 eczane
 
-    // Profilleri al
-    var profiles = _getProfiles(tttFilter);
-    if (!profiles || !profiles.length) return null;
-
-    // Zenginleştir
-    var enriched = _enrichProfiles(profiles);
-
     // Bugünün günü
     // BUG DÜZELTMESİ: Cumartesi/Pazar günü eskiden dayOffset sabit 1'e
     // ayarlanıyordu — bu "Salı" (DAY_NAMES[1]) etiketini gösteriyordu ama
@@ -367,50 +364,52 @@
     // artık hafta sonuysa bir sonraki iş gününün (Pazartesi) planı
     // üretiliyor ve `isWeekend` bayrağıyla işaretleniyor, render fonksiyonu
     // bunu "bugün" yerine "Pazartesi için" diye göstermeli.
-    var today      = new Date().getDay();
+    var today      = new Date().getDay(); // 0=Paz 1=Pzt ... 6=Cmt
     var isWeekend  = (today === 0 || today === 6);
-    var dayOffset  = isWeekend ? 0 : today - 1; // hafta sonu → Pazartesi (index 0)
-    var dayName    = DAY_NAMES[Math.min(dayOffset, 4)];
+    var dayIdx     = isWeekend ? 0 : today - 1; // hafta sonu → Pazartesi (index 0)
 
-    // FAZ 10.3: 5-kademe sıralama
-    var used = {};
-    var result = [];
+    // BUG DÜZELTMESİ (kullanıcı bulgusu): buildTodayRoute() eskiden kendi
+    // bağımsız 5-kademeli seçim mantığını (planlı brick → sipariş zamanı →
+    // rakip baskısı → fırsat → potansiyel, brick'e bakmadan eczane bazlı)
+    // çalıştırıyordu; buildWeeklyRoutes() ise "bugün"ün haftaiçi günü için
+    // TAMAMEN FARKLI bir mantık kullanıyordu (manuel plan → URGENT → brick
+    // kümeleri sırayla). Sonuç: "Bugünün Görevi" ve "Haftalık Rota Planı"
+    // aynı gün için FARKLI brickler önerebiliyordu. Artık buildTodayRoute
+    // kendi seçimini yapmıyor — buildWeeklyRoutes'un ürettiği o güne ait
+    // rotayı TEK KAYNAK olarak kullanıp ilk MAX_DAILY eczaneyi alıyor.
+    // Böylece iki kart HER ZAMAN aynı eczane/brick setinden türüyor.
+    var weeklyRoutes = buildWeeklyRoutes(tttFilter);
+    if (!weeklyRoutes || !weeklyRoutes.length) return null;
 
-    function _addFromTier(tieredList) {
-      tieredList.forEach(function (p) {
-        var key = p.gln || p.eczane;
-        if (!used[key] && result.length < MAX_DAILY) {
-          used[key] = true;
-          result.push(p);
-        }
-      });
-    }
+    var src = weeklyRoutes[Math.min(dayIdx, weeklyRoutes.length - 1)];
+    if (!src || !src.pharmacies || !src.pharmacies.length) return null;
 
-    _addFromTier(_tier1PlannedBricks(enriched, tttFilter));
-    _addFromTier(_tier2OrderDue(enriched));
-    _addFromTier(_tier3CompetitivePressure(enriched, tttFilter));
-    _addFromTier(_tier4HighOpportunity(enriched));
-    _addFromTier(_tier5UnselectedHighPotential(enriched, tttFilter));
+    var pharmacies = src.pharmacies.slice(0, MAX_DAILY).map(function (p, i) {
+      return Object.assign({}, p, { rank: i + 1 });
+    });
 
-    // Kademe dolmadıysa kalan yüksek-skor eczanelerden tamamla (fallback)
-    if (result.length < MAX_DAILY) {
-      var clusters = _clusterByBrick(enriched);
-      clusters.forEach(function (cluster) {
-        cluster.pharmacies.forEach(function (p) {
-          var key = p.gln || p.eczane;
-          if (!used[key] && result.length < MAX_DAILY) {
-            used[key] = true;
-            result.push(Object.assign({}, p, { tier: 0, neden: 'Genel sıralama' }));
-          }
-        });
-      });
-    }
+    var dayBricks = {};
+    pharmacies.forEach(function (p) {
+      var bKey = (p.brick || 'BİLİNMİYOR').toUpperCase();
+      dayBricks[bKey] = (dayBricks[bKey] || 0) + 1;
+    });
+    var bricksArr = Object.keys(dayBricks)
+      .map(function (k) { return { name: k, count: dayBricks[k] }; })
+      .sort(function (a, b) { return b.count - a.count; });
 
-    // _buildDayRoute için sahte tek-cluster yapısı
-    var fakeCluster = [{ name: dayName, pharmacies: result }];
-    var built = _buildDayRoute(dayName, fakeCluster, 0, MAX_DAILY);
-    if (built) built.isWeekend = isWeekend;
-    return built;
+    return {
+      day:              src.day,
+      brick:            bricksArr.length ? bricksArr[0].name : '—',
+      bricks:           bricksArr,
+      expectedRevenue:  pharmacies.reduce(function (s, p) { return s + (p.expectedOrderValue || 0); }, 0),
+      expectedBoxes:    pharmacies.reduce(function (s, p) { return s + (p.expectedOrderBoxes || 0); }, 0),
+      pharmacies:       pharmacies,
+      pharmacyCount:    pharmacies.length,
+      urgentCount:      pharmacies.filter(function (p) { return p.priority === 'URGENT'; }).length,
+      opportunityCount: pharmacies.filter(function (p) { return p.priority === 'OPPORTUNITY'; }).length,
+      recoveryCount:    pharmacies.filter(function (p) { return p.priority === 'RECOVERY'; }).length,
+      isWeekend:        isWeekend
+    };
   }
 
   function buildWeeklyRoutes(tttFilter) {
@@ -469,7 +468,7 @@
           .forEach(function (p) {
             var pKey = p.gln || p.eczane;
             if (dayPharmacies.length < maxVisits && !usedPharmacies.has(pKey)) {
-              dayPharmacies.push(p);
+              dayPharmacies.push(Object.assign({}, p, { tier: 1, neden: 'Planlanmış brick (' + p.brick + ')' }));
               usedPharmacies.add(pKey);
             }
           });
@@ -478,7 +477,7 @@
       // Önce URGENT'ları ekle (her gün paylaştırılır)
       urgents.forEach(function (p) {
         if (dayPharmacies.length < maxVisits && !usedPharmacies.has(p.gln || p.eczane)) {
-          dayPharmacies.push(p);
+          dayPharmacies.push(Object.assign({}, p, { tier: 2, neden: 'Acil öncelik (URGENT)' }));
           usedPharmacies.add(p.gln || p.eczane);
         }
       });
@@ -491,7 +490,7 @@
           var p = cluster.pharmacies[pi];
           var pKey = p.gln || p.eczane;
           if (!usedPharmacies.has(pKey)) {
-            dayPharmacies.push(p);
+            dayPharmacies.push(Object.assign({}, p, { tier: 0, neden: 'Genel sıralama (' + (p.brick || '—') + ')' }));
             usedPharmacies.add(pKey);
             remaining--;
           }
@@ -519,7 +518,9 @@
           daysToNextOrder:    p.daysToNextOrder     || 0,
           classification:     p.classification,
           gapContribution:    p.gapContribution     || 0,
-          gln:                p.gln                 || ''
+          gln:                p.gln                 || '',
+          tier:               p.tier  || 0,
+          neden:              p.neden || null
         };
       });
 
