@@ -83,6 +83,36 @@
 
   function isMemCacheReady() { return _memCacheReady; }
 
+  // ── BUG DÜZELTMESİ (kod incelemesi bulgusu): STOK_SYNC_WORKER_URL
+  // index.html'de tanımlıydı ama hiçbir yerden fetch edilmiyordu — /stok-
+  // sync tamamen bağlanmamış bir özellikti. saha-gozlem-store.js /
+  // sales-conditions.js İLE AYNI desen kullanılarak eklendi: sıraya
+  // alınmış (queued), "fire-and-forget" POST. Worker.js tarafında da
+  // /stok-sync artık data/stok_girisleri.json'a append ediyor (bkz. PV
+  // Doküman İnceleme Raporu, Bulgu 1).
+  var _workerSyncQueue = Promise.resolve();
+
+  function _syncToWorker(entry) {
+    if (!window.STOK_SYNC_WORKER_URL || !entry) return;
+    var payload = {
+      pharmacy:  entry.pharmacy,
+      date:      entry.date,
+      products:  entry.products,
+      enteredAt: entry.enteredAt
+    };
+    _workerSyncQueue = _workerSyncQueue.then(function () {
+      return fetch(window.STOK_SYNC_WORKER_URL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload)
+      }).then(function (res) {
+        if (res && !res.ok) console.warn('[stock-entry-adapter] worker senkron HTTP hatası:', res.status);
+      }).catch(function (e) {
+        console.warn('[stock-entry-adapter] worker senkron hatası (yoksayıldı, yerel kayıt geçerli):', e && e.message);
+      });
+    });
+  }
+
   // ── recordStockEntry ───────────────────────────────────────────────────
   function recordStockEntry(pharmacy, date, products) {
     var entry = {
@@ -91,6 +121,11 @@
       products:   products || [],
       enteredAt:  new Date().toISOString()
     };
+
+    // Yerel kayıtla PARALEL, bloklamadan gönder — yerel kayıt her zaman
+    // "gerçek" kaynak kalır; worker senkronu sadece yöneticinin
+    // cihazından da görünür olmasını sağlayan bir aynadır.
+    _syncToWorker(entry);
 
     function _updateMemCache() {
       // Yeni kayıt her zaman "en son" olur (enteredAt = şimdi) — direkt yaz.
@@ -214,6 +249,6 @@
   // dönmesini sağlar.
   _rebuildMemCache();
 
-  console.debug('[stock-entry-adapter] FAZ 9.4 yüklendi. contextHook: stockEntries (senkron önbellek eklendi)');
+  console.debug('[stock-entry-adapter] FAZ 9.4 yüklendi. contextHook: stockEntries (senkron önbellek eklendi, worker senkron: ' + (window.STOK_SYNC_WORKER_URL ? 'aktif' : 'pasif') + ').');
 
 })();
