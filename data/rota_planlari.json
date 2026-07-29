@@ -1,35 +1,40 @@
 {
   "plans": {
-    "SAMET ÃÂÃÂÃÂÃÂETÃÂÃÂÃÂÃÂ°N": {
+    "SAMET ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂETÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ°N": {
       "1": [
         "TOKAT MERKEZ -2",
         "TOKAT TURHAL"
       ]
     },
-    "SAMET ÃÂÃÂETÃÂÃÂ°N": {
+    "SAMET ÃÂÃÂÃÂÃÂETÃÂÃÂÃÂÃÂ°N": {
       "2": [
         "TOKAT ERBAA",
         "TOKAT MERKEZ -1"
       ]
     },
-    "SAMET ÃÂETÃÂ°N": {
+    "SAMET ÃÂÃÂETÃÂÃÂ°N": {
       "3": [
         "TOKAT BATI ILCELER",
         "TOKAT DOGU ILCELER"
       ]
     },
-    "SAMET ÃETÄ°N": {
+    "SAMET ÃÂETÃÂ°N": {
       "4": [
         "SIVAS MERKEZ -3",
         "SIVAS MERKEZ -4"
       ]
     },
-    "SAMET ÇETİN": {
+    "SAMET ÃETÄ°N": {
       "5": [
         "SIVAS MERKEZ -1",
         "SIVAS MERKEZ -2"
       ]
+    },
+    "MURAT KANDİŞ": {
+      "1": [
+        "RIZE MERKEZ"
+      ]
     }
   },
-  "updatedAt": "2026-07-29T22:22:38.960Z"
+  "updatedAt": "2026-07-29T22:23:59.145Z"
 }
