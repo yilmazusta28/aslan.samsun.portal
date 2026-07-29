@@ -1,11 +1,17 @@
 {
   "plans": {
-    "SAMET ÇETİN": {
+    "SAMET ÃETÄ°N": {
       "1": [
         "TOKAT MERKEZ -2",
         "TOKAT TURHAL"
       ]
+    },
+    "SAMET ÇETİN": {
+      "2": [
+        "TOKAT ERBAA",
+        "TOKAT MERKEZ -1"
+      ]
     }
   },
-  "updatedAt": "2026-07-29T22:22:33.740Z"
+  "updatedAt": "2026-07-29T22:22:34.799Z"
 }
