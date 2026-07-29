@@ -548,15 +548,39 @@
       var products = topProducts.map(function (u) {
         var share = affinitySum > 0 ? (affinity[u] / affinitySum) : (1 / topProducts.length);
         var price = (typeof IMS_TL_MAP !== 'undefined' && IMS_TL_MAP[u]) ? IMS_TL_MAP[u] : 100;
-        var boxes = totalBoxes > 0 ? Math.max(1, Math.round(totalBoxes * share)) : Math.max(1, Math.round(affinity[u] || 5));
-        var tl    = totalTL > 0 ? Math.round(totalTL * share) : boxes * price;
-        return { urun: u, boxes: boxes, tl: tl };
+        var rawBoxes = totalBoxes > 0 ? Math.max(1, Math.round(totalBoxes * share)) : Math.max(1, Math.round(affinity[u] || 5));
+
+        // BUG DÜZELTMESİ (kullanıcı bulgusu): eczaneler kutu sayısını
+        // rastgele/ham bir sayıyla değil, satış şartı (MF — mal fazlası)
+        // basamaklarına göre verir (örn. ACİDPASS için 10+1, 20+3, 50+15).
+        // Sistem "23 kutu ACİDPASS" gibi ham bir sayı önerince, saha
+        // ekibi bunu 20+3 (20 sipariş + 3 bonus = 23 toplam) yerine
+        // literal 23 birim sipariş gibi yorumlayabiliyordu. sales-conditions.js
+        // içinde bu mantığı ZATEN doğru şekilde uygulayan getSiparisOnerisi()
+        // vardı ama bu görev planı hiç çağırmıyordu — artık çağırıyor.
+        var oneri = (typeof getSiparisOnerisi === 'function') ? getSiparisOnerisi(u, rawBoxes) : null;
+        var boxes       = oneri ? oneri.miktar : rawBoxes;      // fiilen SİPARİŞ edilecek (ödenen) kutu
+        var bonusBoxes  = oneri ? oneri.bonusKutu : 0;          // MF ile gelen bedava kutu
+        var totalWithMF = oneri ? oneri.toplam : rawBoxes;      // eczanenin fiilen alacağı toplam
+        var sart        = oneri && oneri.sart ? oneri.sart : null; // örn. "20+3"
+
+        var tl = totalTL > 0 ? Math.round(totalTL * share) : boxes * price;
+        return { urun: u, boxes: boxes, bonusBoxes: bonusBoxes, totalWithMF: totalWithMF, sart: sart, tl: tl };
       });
 
       // Ürün afinitesi hiç yoksa ama toplam beklenen kutu/TL varsa yine de
-      // jenerik tek satır göster — boş kart yerine.
+      // jenerik tek satır göster — boş kart yerine. (Aynı MF şart mantığı
+      // burada da uygulanır.)
       if (!products.length && totalBoxes > 0) {
-        products.push({ urun: PRODUCTS[0], boxes: totalBoxes, tl: totalTL });
+        var _fbOneri = (typeof getSiparisOnerisi === 'function') ? getSiparisOnerisi(PRODUCTS[0], totalBoxes) : null;
+        products.push({
+          urun: PRODUCTS[0],
+          boxes: _fbOneri ? _fbOneri.miktar : totalBoxes,
+          bonusBoxes: _fbOneri ? _fbOneri.bonusKutu : 0,
+          totalWithMF: _fbOneri ? _fbOneri.toplam : totalBoxes,
+          sart: _fbOneri && _fbOneri.sart ? _fbOneri.sart : null,
+          tl: totalTL
+        });
       }
 
       var expectedTL = totalTL || products.reduce(function (s, x) { return s + x.tl; }, 0);
@@ -715,7 +739,8 @@
         items: (daily && daily.visits || []).flatMap
           ? (daily.visits || []).flatMap(function (v) {
               return (v.products || []).map(function (p) {
-                return v.eczane + ' → ' + p.urun + ' ' + p.boxes + ' kutu';
+                var kutuTxt = p.sart ? (p.sart + ' kutu (toplam ' + p.totalWithMF + ')') : (p.boxes + ' kutu');
+                return v.eczane + ' → ' + p.urun + ' ' + kutuTxt;
               });
             }).slice(0, 8)
           : []
@@ -924,7 +949,10 @@
           '<div class="ape-visit-body">' +
             '<div class="ape-visit-name">' + v.eczane + ' <span class="ape-brick-badge">' + (v.brick || '') + '</span></div>' +
             v.products.map(function (p) {
-              return '<div class="ape-visit-prod">→ ' + p.urun + ' <b>' + p.boxes + ' kutu</b></div>';
+              var kutuTxt = p.sart
+                ? p.sart + ' kutu <span style="font-size:9px;font-weight:700;color:#D97706;background:#FEF3C7;border-radius:4px;padding:1px 5px">MF +' + p.bonusBoxes + '</span> (toplam ' + p.totalWithMF + ')'
+                : p.boxes + ' kutu';
+              return '<div class="ape-visit-prod">→ ' + p.urun + ' <b>' + kutuTxt + '</b></div>';
             }).join('') +
             '<div class="ape-visit-why">' + v.why.join(' · ') + '</div>' +
           '</div>' +

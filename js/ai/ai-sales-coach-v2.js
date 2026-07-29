@@ -165,12 +165,21 @@
             ? 'Risk altında — ' + p.classification + ' yeniden kazanım gerekli.'
             : 'Reorder olasılığı %' + p.reorderProbability + '.';
 
+      // BUG DÜZELTMESİ (kullanıcı bulgusu — autonomous-planning-engine.js'e
+      // uygulanan AYNI düzeltme burada da uygulandı): kutu önerisi MF (mal
+      // fazlası) şartı basamağına (örn. 20+3) yuvarlanmalı, ham sayı değil.
+      var _rawBoxes = p.expectedOrderBoxes || 0;
+      var _oneri = (typeof getSiparisOnerisi === 'function' && _rawBoxes > 0) ? getSiparisOnerisi(product, _rawBoxes) : null;
+
       return {
         rank:          i + 1,
         eczane:        p.eczane,
         brick:         p.brick,
         expectedValue: p.expectedOrderValue || 0,
-        expectedBoxes: p.expectedOrderBoxes || 0,
+        expectedBoxes: _oneri ? _oneri.miktar : _rawBoxes,
+        sart:          _oneri && _oneri.sart ? _oneri.sart : null,
+        bonusBoxes:    _oneri ? _oneri.bonusKutu : 0,
+        totalWithMF:   _oneri ? _oneri.toplam : _rawBoxes,
         product:       product,
         reason:        reason,
         priority:      p.priority,
@@ -617,7 +626,7 @@
           '<div style="font-size:9px;color:var(--text);margin-top:1px">' + a.reason + '</div>' +
         '</div>' +
         '<div style="font-weight:800;font-size:11px;color:#15803D;white-space:nowrap">' +
-          (a.expectedValue > 0 ? a.expectedValue.toLocaleString('tr-TR') + '₺' : a.expectedBoxes + ' kts') +
+          (a.expectedValue > 0 ? a.expectedValue.toLocaleString('tr-TR') + '₺' : (a.sart ? a.sart + ' kts' : a.expectedBoxes + ' kts')) +
         '</div>' +
       '</div>';
     }).join('');
