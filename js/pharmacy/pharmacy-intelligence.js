@@ -624,6 +624,25 @@
         var daysSince      = _daysSince(lastAy);
         var activeAyKeys   = allMonths.filter(function (ay) { return e.ayToplam[ay] > 0; });
         var avgOrderCycle  = _orderCycle(activeAyKeys);
+
+        // BUG DÜZELTMESİ (kullanıcı bulgusu — pharmacy-behavior-engine.js'e
+        // uygulanan AYNI düzeltme burada da tekrarlandı, §16 tutarlılığı):
+        // avgOrderCycle SADECE sipariş SIKLIĞINA (kaç ayda bir sipariş
+        // verildiğine) bakıyordu, BÜYÜKLÜĞÜNE bakmıyordu. Bir eczane tek
+        // seferde tipik ayının kat kat üstünde (kampanya/stoklama tipi)
+        // sipariş verdiğinde, stoku o kadar uzun süre yeter — ama eskiden
+        // sistem "her ay sipariş veriyor, yine verecek" diye yorumlayıp bu
+        // eczaneyi hemen ertesi ay yine listenin en başına koyuyordu. Zaten
+        // mevcut olan FAZ 10.0 spike-filtreli ortalama (avgMonthlyBoxesAdj)
+        // burada "tipik sipariş büyüklüğü" referansı olarak yeniden
+        // kullanılıyor — son sipariş bu tipik büyüklüğün kaç katıysa, döngü
+        // o oranda uzatılıyor (mantıksız aşırı tahminleri önlemek için 4
+        // kat ile sınırlandırıldı).
+        var _lastVal = sales.length ? (sales[sales.length - 1] || 0) : 0;
+        var _stockMultiplier = (avgMonthlyBoxesAdj > 0 && _lastVal > avgMonthlyBoxesAdj)
+          ? Math.min(4, _lastVal / avgMonthlyBoxesAdj)
+          : 1;
+        avgOrderCycle = Math.round(avgOrderCycle * _stockMultiplier);
         var daysToNextOrder= Math.max(0, avgOrderCycle - daysSince);
         var expectedOrderDate = _dateAfterDays(daysToNextOrder);
 
