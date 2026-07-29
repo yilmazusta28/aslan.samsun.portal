@@ -7077,14 +7077,14 @@ function _buildEczaneDrawerRefresh(){
       <div id="sgList" style="margin-top:12px"></div>
     </div>
 
-    <!-- ═══ FAZ 12.2 — AI Eğitim Girdileri Kısayolları ═══ -->
-    <div style="background:var(--surf);border:1px solid var(--border);border-radius:14px;padding:14px">
-      <div style="font-size:12px;font-weight:700;color:var(--fg);margin-bottom:10px">🔗 AI Eğitim Girdileri Özeti</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button onclick="goPage(6)" style="font-size:11px;padding:6px 12px;border:1px solid rgba(79,0,140,.2);background:rgba(79,0,140,.06);color:var(--c1);border-radius:8px;cursor:pointer">☑ Ziyaret Planı (FAZ 9.2)</button>
-        <button onclick="goPage(6)" style="font-size:11px;padding:6px 12px;border:1px solid rgba(5,150,105,.2);background:rgba(5,150,105,.06);color:#059669;border-radius:8px;cursor:pointer">✓ Gün Sonu Geri Bildirimi (FAZ 11.2)</button>
+    <!-- ═══ FAZ 12.2 — AI Eğitim Girdileri Özeti (GÜNCELLEME: artık gerçek
+         sayılar gösteriyor — bkz. manager-panel-engine.js renderAiEgitimGirdileriOzeti) ═══ -->
+    <div class="card mb16" style="border:1.5px solid rgba(79,0,140,.15)">
+      <div class="card-hd">
+        <span class="card-title">🔗 AI Eğitim Girdileri Özeti</span>
+        <span class="card-badge" style="font-size:9px">Ekip Geneli — Son 7 Gün</span>
       </div>
-      <div style="font-size:10px;color:var(--dim);margin-top:8px">Eczane sayfasında her eczane satırında ☑ checkbox (ziyaret planı) ve öneri kartlarında manuel feedback butonları mevcuttur.</div>
+      <div class="card-body" id="mgrAiEgitimOzeti"></div>
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════

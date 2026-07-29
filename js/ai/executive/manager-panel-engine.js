@@ -817,6 +817,87 @@
   }
 
 
+  // ── FAZ 12.2 → GÜNCELLEME (kullanıcı bulgusu) — AI Eğitim Girdileri
+  //    Özeti GERÇEK bir özete çevrildi. Eskiden bu kart sadece "eczane
+  //    sayfasına git" diyen 2 buton ve hiçbir sayı içermiyordu — adı
+  //    "Özet" olsa da özet DEĞİLDİ. Artık CoverageSelection (FAZ 9.2,
+  //    ziyaret planı) ve OutcomeTracker (FAZ 11.2, manuel gün sonu geri
+  //    bildirimi) verilerinden EKİP GENELİ, son 7 güne ait gerçek sayılar
+  //    okunup gösteriliyor. İkisi de IndexedDB tabanlı ve ASENKRON —
+  //    bu yüzden fonksiyon önce bir "yükleniyor" durumu basar, veriler
+  //    gelince günceller.
+  function renderAiEgitimGirdileriOzeti(containerId) {
+    var el = document.getElementById(containerId || 'mgrAiEgitimOzeti');
+    if (!el) return;
+
+    el.innerHTML = '<div style="font-size:11px;color:var(--dim)">⏳ Özet hazırlanıyor…</div>';
+
+    var reps = (typeof ALL_TTTS !== 'undefined' && ALL_TTTS.length) ? ALL_TTTS : [];
+    var _sevenDaysAgo = Date.now() - 7 * 86400000;
+
+    // 1) Ziyaret planı (Coverage Selection) — ekip geneli, tüm temsilciler
+    var coverageP = (window.CoverageSelection && reps.length)
+      ? Promise.all(reps.map(function (t) { return window.CoverageSelection.listSelected(t).catch(function () { return []; }); }))
+        .then(function (arrays) {
+          var all = [].concat.apply([], arrays);
+          return {
+            total: all.length,
+            thisWeek: all.filter(function (s) {
+              return s.selectedDate && new Date(s.selectedDate).getTime() >= _sevenDaysAgo;
+            }).length
+          };
+        })
+      : Promise.resolve({ total: 0, thisWeek: 0 });
+
+    // 2) Gün sonu geri bildirimi (Manual Feedback) — ekip geneli, son 7 gün
+    var feedbackP = (window.OutcomeTracker && typeof window.OutcomeTracker.getOutcomes === 'function')
+      ? window.OutcomeTracker.getOutcomes().then(function (all) {
+          var withFeedback = (all || []).filter(function (o) { return o.manualFeedback && o.manualFeedback.type; });
+          var recent = withFeedback.filter(function (o) {
+            return o.manualFeedback.recordedAt && new Date(o.manualFeedback.recordedAt).getTime() >= _sevenDaysAgo;
+          });
+          var byType = {};
+          recent.forEach(function (o) {
+            var t = o.manualFeedback.type;
+            byType[t] = (byType[t] || 0) + 1;
+          });
+          return { total: withFeedback.length, thisWeek: recent.length, byType: byType };
+        }).catch(function () { return { total: 0, thisWeek: 0, byType: {} }; })
+      : Promise.resolve({ total: 0, thisWeek: 0, byType: {} });
+
+    Promise.all([coverageP, feedbackP]).then(function (results) {
+      var cov = results[0], fb = results[1];
+      var typeLabel = {
+        UYGULANDIM:            '✓ uygulandı',
+        SIPARIS_ALINDI:        '✓ sipariş alındı',
+        SIPARIS_ALINAMADI:     '✗ sipariş alınamadı',
+        ZIYARET_GERCEKLESMEDI: '✗ ziyaret yapılmadı'
+      };
+      var fbBreakdown = Object.keys(fb.byType).map(function (k) {
+        return (fb.byType[k] || 0) + ' ' + (typeLabel[k] || k);
+      }).join(' · ') || '—';
+
+      el.innerHTML =
+        '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">' +
+          '<div style="flex:1;min-width:160px;background:rgba(79,0,140,.06);border-radius:10px;padding:10px 12px">' +
+            '<div style="font-size:18px;font-weight:800;color:var(--c1)">' + cov.thisWeek + '</div>' +
+            '<div style="font-size:10px;color:var(--dim)">Bu hafta ziyaret planına eklenen eczane (ekip geneli, toplam ' + cov.total + ')</div>' +
+          '</div>' +
+          '<div style="flex:1;min-width:160px;background:rgba(5,150,105,.06);border-radius:10px;padding:10px 12px">' +
+            '<div style="font-size:18px;font-weight:800;color:#059669">' + fb.thisWeek + '</div>' +
+            '<div style="font-size:10px;color:var(--dim)">Bu hafta gün sonu geri bildirimi (toplam ' + fb.total + ')</div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="font-size:10px;color:var(--dim);margin-bottom:10px">Geri bildirim dağılımı (son 7 gün): ' + fbBreakdown + '</div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+          '<button onclick="goPage(6)" style="font-size:11px;padding:6px 12px;border:1px solid rgba(79,0,140,.2);background:rgba(79,0,140,.06);color:var(--c1);border-radius:8px;cursor:pointer">☑ Ziyaret Planı (FAZ 9.2)</button>' +
+          '<button onclick="goPage(6)" style="font-size:11px;padding:6px 12px;border:1px solid rgba(5,150,105,.2);background:rgba(5,150,105,.06);color:#059669;border-radius:8px;cursor:pointer">✓ Gün Sonu Geri Bildirimi (FAZ 11.2)</button>' +
+        '</div>';
+    }).catch(function (e) {
+      el.innerHTML = '<div style="font-size:11px;color:var(--dim)">Yüklenemedi: ' + e.message + '</div>';
+    });
+  }
+
   // ── FAZ 10 — Dönem Arşivi Kartı (kullanıcı isteğiyle eklendi) ────────
   function renderPeriodArchiveCard(containerId) {
     var el = document.getElementById(containerId || 'mgrPeriodArchive');
@@ -869,6 +950,7 @@
       renderManagerHaftaTlDokum('mgrHaftaTlDokumBody');
       renderManagerKutuAggregate('mgrKutuBody');
       renderTeamCriticalActions('mgrCriticalActions');
+      renderAiEgitimGirdileriOzeti('mgrAiEgitimOzeti');
       renderPeriodArchiveCard('mgrPeriodArchive');
       renderManagerRankingFull('mgrRankingBody');
       renderManagerTeamRoutePlans('mgrTeamRouteBody');
@@ -894,6 +976,7 @@
   window.renderRegionRanking        = renderRegionRanking;
   window.renderManagerRegionKpi     = renderManagerRegionKpi;
   window.renderPeriodArchiveCard    = renderPeriodArchiveCard;
+  window.renderAiEgitimGirdileriOzeti = renderAiEgitimGirdileriOzeti;
   window.renderManagerBolgeOzet     = renderManagerBolgeOzet;
   window.buildManagerUrunPerformans = buildManagerUrunPerformans;
   window.renderManagerUrunPerformans= renderManagerUrunPerformans;
