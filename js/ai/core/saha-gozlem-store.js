@@ -97,7 +97,7 @@
 
   // ── fetchTeamObservations — GitHub'daki data/saha_gozlemleri.json'ı
   // doğrudan oku (worker'da GET yok, route-plan-input.js ile aynı desen) ─
-  var _GOZLEM_RAW_URL = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/data/saha_gozlemleri.json';
+  var _GOZLEM_RAW_URL = './data/saha_gozlemleri.json';
   function fetchTeamObservations() {
     return fetch(_GOZLEM_RAW_URL + '?_=' + Date.now(), { cache: 'no-store' })
       .then(function (res) {

@@ -8,31 +8,31 @@
 // ══════════════════════════════════════════════════════════════
 
 // ── GitHub Raw CSV URL'leri ─────────────────────────────────
-const GS_IMS_URL   = "https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/IMS_TABLO.csv";
-const GS_GENEL_URL = "https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/GENEL_TABLO.csv";
+const GS_IMS_URL   = "./IMS_TABLO.csv";
+const GS_GENEL_URL = "./GENEL_TABLO.csv";
 // MI_GI.csv artık kullanılmıyor (MI_GI-TL.csv ve MI_GI-KUTU.csv kullanılıyor)
-const GS_MIGI_TL_URL        = "https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI_TL_TOPLAM.csv";
-const GS_MIGI_KUTU_URL      = "https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI_KUTU_TOPLAM.csv";
-const GS_MIGI_BRICK_TL_URL  = "https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI-TL.csv";
-const GS_MIGI_BRICK_KUTU_URL= "https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI-KUTU.csv";
-const GS_ECZANE_URL = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/eczane/ECZANE.csv';
+const GS_MIGI_TL_URL        = "./MI_GI_TL_TOPLAM.csv";
+const GS_MIGI_KUTU_URL      = "./MI_GI_KUTU_TOPLAM.csv";
+const GS_MIGI_BRICK_TL_URL  = "./MI_GI-TL.csv";
+const GS_MIGI_BRICK_KUTU_URL= "./MI_GI-KUTU.csv";
+const GS_ECZANE_URL = './eczane/ECZANE.csv';
 
 // ── FAZ 6.4: Rakip Satış Şartları Takvimi (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §7) ──
-const GS_RAKIP_URL = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/RAKIP_AKSIYON.csv';
+const GS_RAKIP_URL = './RAKIP_AKSIYON.csv';
 
 // ── PHASE 5.2: Aylık Eczane Dosya Dizini ─────────────────────────
 // Yeni format: data/ECZANE/YYYY_MM_Eczane.csv
 // Eski ECZANE.csv → geriye dönük uyumluluk için korundu
-const GS_ECZANE_DIR = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/ECZANE/';
+const GS_ECZANE_DIR = './ECZANE/';
 
 // FAZ 10 — Dönem arşivi paylaşım klasörü (bkz. period-archive-manager.js
 // exportPeriodAsFile/fetchRemoteArchive). localStorage'daki dönem arşivi
 // tek tarayıcıya bağlıydı — kullanıcı isteğiyle eklendi: bu klasöre commit
 // edilen dosyalar TÜM cihazlardan/tarayıcılardan otomatik okunur.
-const GS_ARSIV_DIR = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/arsiv/';
+const GS_ARSIV_DIR = './arsiv/';
 
 // ── Medya & Asset URL'leri ───────────────────────────────────
-const GITHUB_IMG_BASE = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/images/';
+const GITHUB_IMG_BASE = './images/';
 
 // ── Ürün & Grup Sabitleri ────────────────────────────────────
 const URUN_ORDER = ['PANOCER','ACİDPASS','GRİPORT COLD','MOKSEFEN','FAMTREC'];

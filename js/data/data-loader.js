@@ -340,10 +340,10 @@ async function syncData(forceFresh) {
     const [csvIMS, csvGenel, csvMiGiTL, csvMiGiKutu, csvMiGiBTL, csvMiGiBKutu, csvRakip] = await Promise.all([
       respIMS.text(),
       respGenel.text(),
-      safeGet('https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI_TL_TOPLAM.csv'),
-      safeGet('https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI_KUTU_TOPLAM.csv'),
-      safeGet('https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI-TL.csv'),
-      safeGet('https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MI_GI-KUTU.csv'),
+      safeGet(GS_MIGI_TL_URL),
+      safeGet(GS_MIGI_KUTU_URL),
+      safeGet(GS_MIGI_BRICK_TL_URL),
+      safeGet(GS_MIGI_BRICK_KUTU_URL),
       safeGet(GS_RAKIP_URL),
     ]);
 

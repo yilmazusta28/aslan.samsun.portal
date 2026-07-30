@@ -30,7 +30,7 @@
     if (typeof GITHUB_IMG_BASE !== 'undefined') {
       return GITHUB_IMG_BASE.replace(/images\/?$/, '');
     }
-    return 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/';
+    return './';
   })();
 
   var ECZANE_DIR = 'eczane/';

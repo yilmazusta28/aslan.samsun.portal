@@ -60,7 +60,8 @@
 //    body kabul ettiği için "tüm hafta" gönderilmez. Worker bunu GitHub'daki
 //    data/rota_planlari.json'a yazar (NESTED: plans[rep][weekGroup][weekday]
 //    — worker.js AYRICA GÜNCELLENMELİ, ayrı dosya olarak verildi).
-//    fetchTeamPlans() o dosyayı raw.githubusercontent.com üzerinden
+//    fetchTeamPlans() o dosyayı aynı-origin (Pages sitesinin kendi alan
+//    adından, _ROTA_RAW_URL = './data/rota_planlari.json') üzerinden
 //    DOĞRUDAN okur (worker üzerinden değil) — manager-panel-engine.js bunu
 //    ekip-geneli (çoklu cihaz) görünüm için kullanır, okuma başarısızsa
 //    sessizce yerel IndexedDB'ye (per-rep) döner.
@@ -144,7 +145,7 @@
   // worker.js'in /rota-sync endpoint'i SADECE POST kabul ediyor ve body'de
   // TEK GÜN bekliyor: { representative, weekGroup, weekday, bricks }.
   // Worker'da GET handler'ı YOK (405 döner) — ekip verisi worker'dan değil,
-  // worker'ın GitHub'a yazdığı dosyadan doğrudan (raw.githubusercontent.com)
+  // worker'ın GitHub'a yazdığı dosyadan doğrudan (aynı-origin, ./data/)
   // okunuyor (bkz. fetchTeamPlans). Fire-and-forget: ağ hatası/timeout olsa
   // da setDayPlan'in kendi Promise'ini REDDETMEZ — sadece console.warn ile
   // sessizce loglanır, IndexedDB'ye yazım (asıl kayıt) her zaman kesin kalır.
@@ -201,7 +202,7 @@
   // bunlar otomatik olarak A Haftası (1) altına migrate edilerek normalize
   // edilir, çağıran (manager-panel-engine.js) HER ZAMAN nested formatı görür.
   // Ağ hatası/404'te null döner → çağıran yerel IndexedDB'ye (per-rep) döner.
-  var _ROTA_RAW_URL = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/data/rota_planlari.json';
+  var _ROTA_RAW_URL = './data/rota_planlari.json';
   function fetchTeamPlans() {
     return fetch(_ROTA_RAW_URL + '?_=' + Date.now(), { cache: 'no-store' })
       .then(function (res) {

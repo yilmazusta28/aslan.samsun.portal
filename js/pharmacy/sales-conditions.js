@@ -112,8 +112,8 @@
   var _sartlarSyncQueue = Promise.resolve();
   var _haberSyncQueue   = Promise.resolve();
 
-  var _SARTLAR_RAW_URL = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/data/satis_sartlari.json';
-  var _HABER_RAW_URL   = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/data/piyasa_haberleri.json';
+  var _SARTLAR_RAW_URL = './data/satis_sartlari.json';
+  var _HABER_RAW_URL   = './data/piyasa_haberleri.json';
 
   function _getKampanyaModesRaw() {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY_KAMPANYA_MODE) || '{}'); } catch (e) { return {}; }
