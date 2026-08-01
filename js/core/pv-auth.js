@@ -44,7 +44,7 @@
 // rastgele bir dizeyle değiştir ve AYNI değeri worker secret'ı olarak
 // (PORTAL_PASSWORD) tanımla. Bu placeholder ile ÇALIŞMAZ — bilinçli
 // olarak worker.js'teki değerle eşleşmeyecek şekilde bırakıldı.
-const _PV_WORKER_KEY = 'DEĞİŞTİR__openssl_rand_hex_32__DEĞİŞTİR';
+const _PV_WORKER_KEY = '91a10ba4125a31b7e4dbde096661c9f58af32413818a773e4e734f62fcaeda80';
 
 const _PV_AUTH_WINDOW_SEC = 300; // worker.js'teki PV_AUTH_WINDOW_SEC ile AYNI olmalı
 
