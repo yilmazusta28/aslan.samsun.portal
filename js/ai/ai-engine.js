@@ -782,7 +782,13 @@ ZAMAN DUYARLI DEĞERLENDİRME — MUTLAKA UYGULA:
       headers: Object.assign({ 'Content-Type': 'application/json' }, _authHeaders),
       body: JSON.stringify({
         model: 'claude-sonnet-5',
-        max_tokens: 4096,
+        // GÜVENLİK/İYİLEŞTİRME: 4096 → 8192. "Detaylı Strateji" (özellikle
+        // 'eczane' ve 'full') çok bölümlü, uzun yanıtlar üretiyor ve 4096
+        // sınırında stop_reason:"max_tokens" ile yarıda kesiliyordu — bu da
+        // ekranda ham/parçalı JSON'un hata gibi görünmesine sebep oluyordu.
+        // max_tokens bir ÜST SINIR'dır; maliyet gerçekte üretilen token
+        // kadardır, bu artış otomatik maliyet artışı YARATMAZ.
+        max_tokens: 8192,
         system: systemPrompt,
         messages: [{ role: 'user', content: prompts[type] || prompts.full }]
       })
