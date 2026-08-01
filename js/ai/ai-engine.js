@@ -775,9 +775,11 @@ ZAMAN DUYARLI DEĞERLENDİRME — MUTLAKA UYGULA:
 
   try {
     const AI_PROXY = window.AI_PROXY_URL || 'https://samsun.yilmazusta28.workers.dev';
+    // GÜVENLİK: worker.js artık X-PV-Auth doğrulaması istiyor (bkz. pv-auth.js)
+    const _authHeaders = await pvAuthHeaders();
     const response = await fetch(AI_PROXY, {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      headers: Object.assign({ 'Content-Type': 'application/json' }, _authHeaders),
       body: JSON.stringify({
         model: 'claude-sonnet-5',
         max_tokens: 4096,

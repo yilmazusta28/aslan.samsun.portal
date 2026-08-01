@@ -112,8 +112,8 @@
   var _sartlarSyncQueue = Promise.resolve();
   var _haberSyncQueue   = Promise.resolve();
 
-  var _SARTLAR_RAW_URL = './data/satis_sartlari.json';
-  var _HABER_RAW_URL   = './data/piyasa_haberleri.json';
+  var _SARTLAR_RAW_URL = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/data/satis_sartlari.json';
+  var _HABER_RAW_URL   = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/data/piyasa_haberleri.json';
 
   function _getKampanyaModesRaw() {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY_KAMPANYA_MODE) || '{}'); } catch (e) { return {}; }
@@ -123,8 +123,11 @@
     if (!window.SARTLAR_SYNC_WORKER_URL) return;
     var payload = { sartlar: SatisKosullariManager.getSartlar(), kampanyaModes: _getKampanyaModesRaw() };
     _sartlarSyncQueue = _sartlarSyncQueue.then(function () {
-      return fetch(window.SARTLAR_SYNC_WORKER_URL, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      // GÜVENLİK: worker.js artık X-PV-Auth doğrulaması istiyor (bkz. pv-auth.js)
+      return pvAuthHeaders().then(function (_authHeaders) {
+        return fetch(window.SARTLAR_SYNC_WORKER_URL, {
+          method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, _authHeaders), body: JSON.stringify(payload)
+        });
       }).then(function (res) {
         if (res && !res.ok) console.warn('[SatisKosullari] worker senkron HTTP hatası:', res.status);
       }).catch(function (e) {
@@ -137,8 +140,11 @@
     if (!window.HABER_SYNC_WORKER_URL) return;
     var payload = { haberler: HaberTakibiManager.getHaberler() };
     _haberSyncQueue = _haberSyncQueue.then(function () {
-      return fetch(window.HABER_SYNC_WORKER_URL, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      // GÜVENLİK: worker.js artık X-PV-Auth doğrulaması istiyor (bkz. pv-auth.js)
+      return pvAuthHeaders().then(function (_authHeaders) {
+        return fetch(window.HABER_SYNC_WORKER_URL, {
+          method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, _authHeaders), body: JSON.stringify(payload)
+        });
       }).then(function (res) {
         if (res && !res.ok) console.warn('[HaberTakibi] worker senkron HTTP hatası:', res.status);
       }).catch(function (e) {

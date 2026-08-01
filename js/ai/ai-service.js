@@ -50,9 +50,11 @@ function _getProxyUrl() {
 // HTTP guard + response.ok kontrolü (Phase 1.9 B-02-2)
 async function fetchAI(payload) {
   var url = _getProxyUrl();
+  // GÜVENLİK: worker.js artık X-PV-Auth doğrulaması istiyor (bkz. pv-auth.js)
+  var _authHeaders = await pvAuthHeaders();
   var response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: Object.assign({ 'Content-Type': 'application/json' }, _authHeaders),
     body: JSON.stringify(payload)
   });
   if (!response.ok) {

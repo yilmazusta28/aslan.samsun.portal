@@ -101,10 +101,13 @@
       enteredAt: entry.enteredAt
     };
     _workerSyncQueue = _workerSyncQueue.then(function () {
-      return fetch(window.STOK_SYNC_WORKER_URL, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(payload)
+      // GÜVENLİK: worker.js artık X-PV-Auth doğrulaması istiyor (bkz. pv-auth.js)
+      return pvAuthHeaders().then(function (_authHeaders) {
+        return fetch(window.STOK_SYNC_WORKER_URL, {
+          method:  'POST',
+          headers: Object.assign({ 'Content-Type': 'application/json' }, _authHeaders),
+          body:    JSON.stringify(payload)
+        });
       }).then(function (res) {
         if (res && !res.ok) console.warn('[stock-entry-adapter] worker senkron HTTP hatası:', res.status);
       }).catch(function (e) {
