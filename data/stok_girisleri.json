@@ -1,7 +1,7 @@
 {
   "girisler": [
     {
-      "pharmacy": "KINA ECZANESÃÂ°",
+      "pharmacy": "KINA ECZANESÃÂÃÂ°",
       "date": "2026-08-11",
       "products": [
         {
@@ -9,7 +9,7 @@
           "stock": 300
         },
         {
-          "product": "ACÃÂ°DPASS",
+          "product": "ACÃÂÃÂ°DPASS",
           "stock": 90
         },
         {
@@ -25,7 +25,7 @@
       "syncedAt": "2026-08-11T16:48:38.226Z"
     },
     {
-      "pharmacy": "KOVANLIK ECZANESÄ°",
+      "pharmacy": "KOVANLIK ECZANESÃÂ°",
       "date": "2026-08-11",
       "products": [
         {
@@ -33,11 +33,11 @@
           "stock": 360
         },
         {
-          "product": "ACÄ°DPASS",
+          "product": "ACÃÂ°DPASS",
           "stock": 45
         },
         {
-          "product": "GRÄ°PORT COLD",
+          "product": "GRÃÂ°PORT COLD",
           "stock": 28
         },
         {
@@ -53,7 +53,7 @@
       "syncedAt": "2026-08-11T16:49:03.049Z"
     },
     {
-      "pharmacy": "FIRAT ECZANESİ",
+      "pharmacy": "FIRAT ECZANESÄ°",
       "date": "2026-08-11",
       "products": [
         {
@@ -61,11 +61,11 @@
           "stock": 65
         },
         {
-          "product": "ACİDPASS",
+          "product": "ACÄ°DPASS",
           "stock": 44
         },
         {
-          "product": "GRİPORT COLD",
+          "product": "GRÄ°PORT COLD",
           "stock": 200
         },
         {
@@ -79,7 +79,35 @@
       ],
       "enteredAt": "2026-08-11T16:49:18.183Z",
       "syncedAt": "2026-08-11T16:49:26.275Z"
+    },
+    {
+      "pharmacy": "ŞİFA ECZANESİ",
+      "date": "2026-08-11",
+      "products": [
+        {
+          "product": "PANOCER",
+          "stock": 280
+        },
+        {
+          "product": "ACİDPASS",
+          "stock": 90
+        },
+        {
+          "product": "GRİPORT COLD",
+          "stock": 66
+        },
+        {
+          "product": "MOKSEFEN",
+          "stock": 12
+        },
+        {
+          "product": "FAMTREC",
+          "stock": 6
+        }
+      ],
+      "enteredAt": "2026-08-11T16:49:58.519Z",
+      "syncedAt": "2026-08-11T16:50:06.808Z"
     }
   ],
-  "updatedAt": "2026-08-11T16:49:26.275Z"
+  "updatedAt": "2026-08-11T16:50:06.808Z"
 }
