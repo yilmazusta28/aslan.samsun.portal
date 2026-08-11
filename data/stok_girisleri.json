@@ -1,7 +1,7 @@
 {
   "girisler": [
     {
-      "pharmacy": "KINA ECZANESÄ°",
+      "pharmacy": "KINA ECZANESÃÂ°",
       "date": "2026-08-11",
       "products": [
         {
@@ -9,7 +9,7 @@
           "stock": 300
         },
         {
-          "product": "ACÄ°DPASS",
+          "product": "ACÃÂ°DPASS",
           "stock": 90
         },
         {
@@ -25,7 +25,7 @@
       "syncedAt": "2026-08-11T16:48:38.226Z"
     },
     {
-      "pharmacy": "KOVANLIK ECZANESİ",
+      "pharmacy": "KOVANLIK ECZANESÄ°",
       "date": "2026-08-11",
       "products": [
         {
@@ -33,11 +33,11 @@
           "stock": 360
         },
         {
-          "product": "ACİDPASS",
+          "product": "ACÄ°DPASS",
           "stock": 45
         },
         {
-          "product": "GRİPORT COLD",
+          "product": "GRÄ°PORT COLD",
           "stock": 28
         },
         {
@@ -51,7 +51,35 @@
       ],
       "enteredAt": "2026-08-11T16:48:54.951Z",
       "syncedAt": "2026-08-11T16:49:03.049Z"
+    },
+    {
+      "pharmacy": "FIRAT ECZANESİ",
+      "date": "2026-08-11",
+      "products": [
+        {
+          "product": "PANOCER",
+          "stock": 65
+        },
+        {
+          "product": "ACİDPASS",
+          "stock": 44
+        },
+        {
+          "product": "GRİPORT COLD",
+          "stock": 200
+        },
+        {
+          "product": "MOKSEFEN",
+          "stock": 15
+        },
+        {
+          "product": "FAMTREC",
+          "stock": 12
+        }
+      ],
+      "enteredAt": "2026-08-11T16:49:18.183Z",
+      "syncedAt": "2026-08-11T16:49:26.275Z"
     }
   ],
-  "updatedAt": "2026-08-11T16:49:03.049Z"
+  "updatedAt": "2026-08-11T16:49:26.275Z"
 }
