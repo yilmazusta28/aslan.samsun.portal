@@ -1,0 +1,29 @@
+{
+  "girisler": [
+    {
+      "pharmacy": "KINA ECZANESİ",
+      "date": "2026-08-11",
+      "products": [
+        {
+          "product": "PANOCER",
+          "stock": 300
+        },
+        {
+          "product": "ACİDPASS",
+          "stock": 90
+        },
+        {
+          "product": "MOKSEFEN",
+          "stock": 35
+        },
+        {
+          "product": "FAMTREC",
+          "stock": 6
+        }
+      ],
+      "enteredAt": "2026-08-11T16:48:29.746Z",
+      "syncedAt": "2026-08-11T16:48:38.226Z"
+    }
+  ],
+  "updatedAt": "2026-08-11T16:48:38.226Z"
+}
