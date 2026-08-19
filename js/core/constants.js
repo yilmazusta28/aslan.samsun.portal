@@ -36,10 +36,10 @@ const GITHUB_IMG_BASE = './images/';
 
 // ── Ürün & Grup Sabitleri ────────────────────────────────────
 const URUN_ORDER = ['PANOCER','ACİDPASS','GRİPORT COLD','MOKSEFEN','FAMTREC'];
-const ALL_TTTS = ['AYKUT DİNLER','EMRAH YILDIZ','HAKAN YUMAK','KÜRŞAD KARADAĞ','MEHMET AKİF ÖZGEÇEN','MURAT KANDİŞ','SAMET ÇETİN','YILMAZ USTA'];
+const ALL_TTTS = ['AYKUT DİNLER','ENİS TOK','HAKAN YUMAK','KÜRŞAD KARADAĞ','MEHMET AKİF ÖZGEÇEN','MURAT KANDİŞ','SAMET ÇETİN','YILMAZ USTA'];
 const ALL_GROUPS = ['PANTAPROZOL PAZARI','ACIDPASS PAZARI','GRİPORT COLD PAZARI','MOKSİFLOKSASİN PAZARI','FAMTREC PAZARI'];
 const GRP_LBL = {'PANTAPROZOL PAZARI':'Pantaprozol','ACIDPASS PAZARI':'Acidpass','GRİPORT COLD PAZARI':'Griport Cold','MOKSİFLOKSASİN PAZARI':'Moksiflo.','FAMTREC PAZARI':'Famtrec'};
-const TR_SIRA_MAP = {"KÜRŞAD KARADAĞ": 20, "MEHMET AKİF ÖZGEÇEN": 28, "MURAT KANDİŞ": 36, "YILMAZ USTA": 52, "SAMET ÇETİN": 54, "AYKUT DİNLER": 55, "HAKAN YUMAK": 64, "EMRAH YILDIZ": 67, "ŞENOL YILMAZ": 5};
+const TR_SIRA_MAP = {"KÜRŞAD KARADAĞ": 20, "MEHMET AKİF ÖZGEÇEN": 28, "MURAT KANDİŞ": 36, "YILMAZ USTA": 52, "SAMET ÇETİN": 54, "AYKUT DİNLER": 55, "HAKAN YUMAK": 64, "ENİS TOK": 67, "ŞENOL YILMAZ": 5};
 const IMS_TL_MAP = {"PANOCER":105.31,"ACİDPASS":112.23,"GRİPORT COLD":84.15,"MOKSEFEN":149,"FAMTREC":95};
 const URUN_CLR = {'PANOCER':'#16A34A','ACİDPASS':'#1BCED8','GRİPORT COLD':'#FF375E','MOKSEFEN':'#521FD1','FAMTREC':'#E07B39'};
 
@@ -54,8 +54,7 @@ const USER_TO_TTT = {
   'murat kandis':  'MURAT KANDİŞ',
   'kürşad karadağ': 'KÜRŞAD KARADAĞ',
   'kursad karadag': 'KÜRŞAD KARADAĞ',
-  'emrah yıldız':  'EMRAH YILDIZ',
-  'emrah yildiz':  'EMRAH YILDIZ',
+  'enis tok':      'ENİS TOK',
   'hakan yumak':   'HAKAN YUMAK',
   'aykut dinler':  'AYKUT DİNLER',
   'mehmet akif özgeçen': 'MEHMET AKİF ÖZGEÇEN',

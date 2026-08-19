@@ -20,7 +20,7 @@ function stripTR(s) {
 // Known canonical names for reverse-lookup
 const CANONICAL_TTTS = [
   'KÜRŞAD KARADAĞ','AYKUT DİNLER','MURAT KANDİŞ','HAKAN YUMAK',
-  'YILMAZ USTA','EMRAH YILDIZ','MEHMET AKİF ÖZGEÇEN','SAMET ÇETİN','ŞENOL YILMAZ'
+  'YILMAZ USTA','ENİS TOK','MEHMET AKİF ÖZGEÇEN','SAMET ÇETİN','ŞENOL YILMAZ'
 ];
 
 function normTTT(raw) {
