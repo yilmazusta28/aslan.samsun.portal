@@ -2173,8 +2173,8 @@ function renderEczaneTable(data) {
       <th onclick="sortEczane('toplam')" style="cursor:pointer">Toplam ▾</th>
       <th onclick="sortEczane('tutar')" style="cursor:pointer">Tutar ▾</th>
       <th>Ürünler</th>
-      <th style="min-width:90px">📦 Stok</th>
-      <th style="min-width:80px">Son Ziyaret</th>
+      <th class="pv-hidden-ui" style="min-width:90px">📦 Stok</th>
+      <th class="pv-hidden-ui" style="min-width:80px">Son Ziyaret</th>
       <th style="min-width:110px">AI Profil</th>`;
   }
 
@@ -2297,8 +2297,8 @@ function renderEczaneTable(data) {
       <td class="mono" style="font-weight:700;color:var(--c1)">${e.toplam>0?fK(e.toplam):'—'}</td>
       <td class="mono" style="font-size:10px">${e.tutar>0?fTL(e.tutar):'—'}</td>
       <td>${urunBadges}</td>
-      <td style="min-width:90px;padding:4px 6px">${stokLines}${stokSayisalBtn}${stokRozetHtml}</td>
-      <td style="font-size:10px;color:var(--dim);white-space:nowrap">${_visitDate}</td>
+      <td class="pv-hidden-ui" style="min-width:90px;padding:4px 6px">${stokLines}${stokSayisalBtn}${stokRozetHtml}</td>
+      <td class="pv-hidden-ui" style="font-size:10px;color:var(--dim);white-space:nowrap">${_visitDate}</td>
       <td style="padding:4px 6px">${_behHtml}</td>
     </tr>`;
   }).join('');
@@ -2568,7 +2568,11 @@ function doLogin(){
     const _sr=document.getElementById('sidebarRole');
     const _sa=document.getElementById('sidebarAvatarWrap');
     if(_sn) _sn.textContent=user;
-    if(_sr) _sr.textContent=LOGGED_IN_USER==='ŞENOL YILMAZ'?'Bölge Müdürü':LOGGED_IN_USER?'Uzman Tıbbi Tanıtım Temsilcisi':'Bölge Müdürü';
+    // Ünvan istisnası: SADECE Enis Tok için "Uzman" öneki olmadan gösterilir
+    // (bkz. role-visibility.js applyRoleVisibility() — asıl kalıcı atama
+    // ORADA yapılıyor, buradaki HEMEN ardından applyRoleVisibility() ile
+    // üzerine yazılıyor; burası sadece o çağrıya kadarki anlık tutarlılık için).
+    if(_sr) _sr.textContent=LOGGED_IN_USER==='ŞENOL YILMAZ'?'Bölge Müdürü':LOGGED_IN_USER==='ENİS TOK'?'Tıbbi Tanıtım Temsilcisi':LOGGED_IN_USER?'Uzman Tıbbi Tanıtım Temsilcisi':'Bölge Müdürü';
     if(_sa){
       const _photoUrl=getTTTPhoto(LOGGED_IN_USER||user.toUpperCase());
       if(_photoUrl){
@@ -3292,6 +3296,9 @@ function renderTopBar(){
       p.textContent=fPct(sg.tl_pct);
       p.className='sb-stat-val '+(sg.tl_pct>=70?'good':sg.tl_pct>=50?'warn':'danger');
     }
+    // Samsun bölge sıralaması (tr_sira) — sidebar Bölge Özeti
+    const br=document.getElementById('sb_bolge_sira');
+    if(br) br.textContent=sg.tr_sira>0?('#'+sg.tr_sira):'—';
     // Eski topbar elementleri (hidden ama güncelle)
     const th=document.getElementById('tb_hedef');
     const ts=document.getElementById('tb_satis');
@@ -3552,7 +3559,9 @@ function renderTTTDetail(){
     .sort((a,b)=>URUN_ORDER.indexOf(a.urun)-URUN_ORDER.indexOf(b.urun));
   const gen=GENEL.find(r=>r.ttt===selTTT&&r.urun==='GENEL TOPLAM')||{};
 
-  const roleLabel=isSenol?'🏢 Bölge Müdürü':'Uzman Tıbbi Tanıtım Temsilcisi';
+  // Ünvan istisnası: SADECE Enis Tok için "Uzman" öneki olmadan gösterilir —
+  // diğer tüm temsilciler için ünvan DEĞİŞMEDİ.
+  const roleLabel=isSenol?'🏢 Bölge Müdürü':(selTTT==='ENİS TOK'?'Tıbbi Tanıtım Temsilcisi':'Uzman Tıbbi Tanıtım Temsilcisi');
   const _bannerPhoto = getTTTPhoto(selTTT);
   const _initials = selTTT.split(' ').map(s=>s[0]).slice(0,2).join('');
   const _bannerImg = _bannerPhoto
@@ -5755,7 +5764,7 @@ function _buildEczaneDrawerRefresh(){
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
         <span class="tab-label">Satış Takibi</span>
       </button>
-      <button class="nav-tab" id="ntab3" onclick="goPage(3)">
+      <button class="nav-tab pv-hidden-ui" id="ntab3" onclick="goPage(3)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         <span class="tab-label">MI & GI</span>
       </button>
@@ -5795,7 +5804,7 @@ function _buildEczaneDrawerRefresh(){
     <span class="mtb-icon"><i class="fas fa-chart-line"></i></span>
     <span class="mtb-label">Satış</span>
   </button>
-  <button class="mtb-btn" id="mtb3" onclick="goPage(3)">
+  <button class="mtb-btn pv-hidden-ui" id="mtb3" onclick="goPage(3)">
     <span class="mtb-icon"><i class="fas fa-map-marker-alt"></i></span>
     <span class="mtb-label">MI&GI</span>
   </button>
@@ -5845,6 +5854,14 @@ function _buildEczaneDrawerRefresh(){
         <div class="sb-stat-name">Gerçekleşme</div>
         <div class="sb-stat-val" id="sb_pct">—</div>
       </div>
+      <!-- Samsun bölge sıralaması — kaynak: ŞENOL YILMAZ GENEL TOPLAM satırının
+           tr_sira alanı (aynı değer, Yönetici > Bölge Sıralaması tablosundaki
+           SAMSUN satırında da kullanılır — bkz. manager-panel-engine.js
+           buildRegionRanking()). renderTopBar() içinde doldurulur. -->
+      <div class="sb-stat-item">
+        <div class="sb-stat-name">Samsun Bölge Sırası</div>
+        <div class="sb-stat-val" id="sb_bolge_sira">—</div>
+      </div>
     </div>
   </div>
 
@@ -5871,7 +5888,7 @@ function _buildEczaneDrawerRefresh(){
   <div class="nav-item pg" id="snav2" onclick="goPage(2)">
     <span class="nav-icon"><i class="fas fa-chart-line"></i></span><span>Satış Takibi</span>
   </div>
-  <div class="nav-item pg" id="snav3" onclick="goPage(3)">
+  <div class="nav-item pg pv-hidden-ui" id="snav3" onclick="goPage(3)">
     <span class="nav-icon"><i class="fas fa-map-marker-alt"></i></span><span>MI &amp; GI Takibi</span>
   </div>
   <div class="nav-item pg" id="snav4" onclick="goPage(4)">
@@ -6632,28 +6649,28 @@ function _buildEczaneDrawerRefresh(){
        fonksiyonu veya veri motoru değişmedi. -->
   <div class="eczsub-bar" role="tablist">
     <button type="button" class="eczsub-tab active" onclick="goEczaneSubTab(0)">📋 Eczane Detay Listesi</button>
-    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(1)">📦 Ürün Sipariş Analizi</button>
+    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(1)">📦 Ürün Sipariş Analizi</button>
     <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(2)">📝 Haftalık Rota Planım</button>
     <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(3)">🗺️ Bugünkü Akıllı Rota</button>
     <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(4)">⚙️ Satış Şartları Yönetimi</button>
     <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(5)">📰 Piyasa Haberleri</button>
-    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(6)">🧠 AI Tahmin Performansı</button>
-    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(7)">🎯 AI Karar Önerisi</button>
+    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(6)">🧠 AI Tahmin Performansı</button>
+    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(7)">🎯 AI Karar Önerisi</button>
     <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(8)">📊 Pazar Payı Analizi</button>
-    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(9)">🚀 Lansman Hazırlık</button>
+    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(9)">🚀 Lansman Hazırlık</button>
   </div>
   <div class="eczsub-select-wrap">
     <select class="eczsub-select" id="eczSubSelect" onchange="goEczaneSubTab(parseInt(this.value,10))">
       <option value="0">📋 Eczane Detay Listesi</option>
-      <option value="1">📦 Eczane Ürün Sipariş Analizi</option>
+      <option value="1" class="pv-hidden-ui">📦 Eczane Ürün Sipariş Analizi</option>
       <option value="2">📝 Haftalık Rota Planım (Manuel)</option>
       <option value="3">🗺️ Bugünkü Akıllı Rota</option>
       <option value="4">⚙️ Satış Şartları Yönetimi</option>
       <option value="5">📰 Piyasa Haberleri ve Özel Durumlar</option>
-      <option value="6">🧠 AI Tahmin Performansı</option>
-      <option value="7">🎯 AI Karar Önerisi</option>
+      <option value="6" class="pv-hidden-ui">🧠 AI Tahmin Performansı</option>
+      <option value="7" class="pv-hidden-ui">🎯 AI Karar Önerisi</option>
       <option value="8">📊 Pazar Payı Analizi</option>
-      <option value="9">🚀 Lansman Hazırlık</option>
+      <option value="9" class="pv-hidden-ui">🚀 Lansman Hazırlık</option>
     </select>
   </div>
 

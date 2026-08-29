@@ -73,9 +73,16 @@
     });
 
     // Update sidebar role label if present
+    // Ünvan istisnası: SADECE Enis Tok için "Uzman" öneki olmadan
+    // "Tıbbi Tanıtım Temsilcisi" gösterilir — diğer tüm temsilciler
+    // için ünvan DEĞİŞMEDİ ("Uzman Tıbbi Tanıtım Temsilcisi").
     var roleEl = document.getElementById('sidebarRole');
     if (roleEl) {
-      roleEl.textContent = role === 'YONETICI' ? 'Bölge Müdürü' : 'Uzman Tıbbi Tanıtım Temsilcisi';
+      var _userNow = '';
+      try { _userNow = _stripTRLocal(window.LOGGED_IN_USER || '').toUpperCase().trim(); } catch (_e) {}
+      var _isEnisTok = (_userNow === _stripTRLocal('ENİS TOK').toUpperCase());
+      roleEl.textContent = role === 'YONETICI' ? 'Bölge Müdürü' :
+        (_isEnisTok ? 'Tıbbi Tanıtım Temsilcisi' : 'Uzman Tıbbi Tanıtım Temsilcisi');
     }
 
     console.debug('[role-visibility] Rol uygulandı:', role);

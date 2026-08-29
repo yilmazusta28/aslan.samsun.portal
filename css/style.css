@@ -950,3 +950,18 @@ body{
 @media(min-width:769px){
   #mobileTabBar{display:none!important}
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   GİZLENEN ARAYÜZ ÖĞELERİ (Yılmaz talebi — 2026-08)
+   Kapsam: Sidebar/Topbar/Mobil "MI & GI Takibi" sekmesi; Eczane Satış
+   sayfasındaki "Ürün Sipariş Analizi", "AI Tahmin Performansı",
+   "AI Karar Önerisi", "Lansman Hazırlık" alt-sekmeleri (buton + açılır
+   seçici seçeneği); Eczane Detay Listesi tablosunda "Stok" ve
+   "Son Ziyaret" kolonları (bkz. index.html — bu öğelerin hepsine
+   class="pv-hidden-ui" eklendi, hiçbir motor/veri/fonksiyon SİLİNMEDİ).
+
+   GERİ GETİRMEK İÇİN: sadece bu kuralı silin (ya da yorum satırına alın).
+   Başka hiçbir dosyada/yerde değişiklik gerekmez — class'lar HTML'de
+   kalabilir, hiçbir işlevi yoktur bu kural olmadan.
+   ══════════════════════════════════════════════════════════════════════ */
+.pv-hidden-ui{display:none!important}
