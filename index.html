@@ -6,6 +6,7 @@
 <title>PHARMA VISION Satış Portalı</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- ═══════════════════════════════════════════════════════════════
      MODÜL YÜKLEMESİ — PHARMA VISION Satış Portalı
      Yükleme sırası (bağımlılık sırasına göre):
@@ -2078,6 +2079,73 @@ function sortEczane(key) {
   else { eczaneSortKey = key; eczaneSortAsc = false; }
   eczaneCurrentPage = 1; // sıralama değişince baştan başla
   renderEczaneTable(_eczaneData);
+}
+
+// "Excel'e Aktar" butonu — aktif arama filtresi ve sıralama uygulanmış
+// TÜM eczane detay listesini (sayfalamadan bağımsız, tüm sayfalar dahil)
+// .xlsx dosyası olarak kullanıcının cihazına indirir. Veri kaynağı
+// renderEczaneTable() ile birebir aynı mantıkla (_eczaneSearchFilter +
+// eczaneSortKey/eczaneSortAsc) _eczaneData üzerinden türetilir, böylece
+// ekranda görülen sıralama/arama ile indirilen dosya tutarlı olur.
+function exportEczaneToExcel() {
+  try {
+    if (typeof XLSX === 'undefined') {
+      alert('Excel dışa aktarma kütüphanesi yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.');
+      return;
+    }
+    if (typeof SoundFX !== 'undefined' && SoundFX.click) SoundFX.click();
+    const data = _eczaneData || [];
+    if (!data.length) { alert('Aktarılacak eczane verisi bulunamadı.'); return; }
+
+    // Arama filtresi — renderEczaneTable() ile aynı mantık
+    let list = _eczaneSearchFilter
+      ? data.filter(e => e.ad.toLowerCase().includes(_eczaneSearchFilter) || e.brick.toLowerCase().includes(_eczaneSearchFilter) || e.gln.includes(_eczaneSearchFilter))
+      : [...data];
+
+    // Sıralama — renderEczaneTable() ile aynı mantık
+    list.sort((a,b) => {
+      let av=a[eczaneSortKey]||0, bv=b[eczaneSortKey]||0;
+      if (typeof av==='string') av=av.toLowerCase(), bv=(bv||'').toLowerCase();
+      return eczaneSortAsc ? (av>bv?1:-1) : (av<bv?1:-1);
+    });
+
+    // Aktif aylar — renderEczaneTable() ile aynı mantık
+    const _aylar = [...new Set(data.flatMap(e=>Object.keys(e).filter(k=>k.startsWith('ay_')).map(k=>k.slice(3))))].sort();
+    const _AY_K_BASE = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+    const _AY_K = {};
+    [2024,2025,2026,2027].forEach(yr => {
+      _AY_K_BASE.forEach((ad,i) => { _AY_K[String(i+1).padStart(2,'0')+'/'+yr] = ad + (yr!==2026?"'"+(yr%100):''); });
+    });
+
+    // Satırları oluştur
+    const rows = list.map(e => {
+      const row = { 'Eczane': e.ad, 'Brick': e.brick };
+      _aylar.forEach(a => { row[_AY_K[a]||a] = e['ay_'+a] || 0; });
+      row['Toplam Adet'] = e.toplam || 0;
+      row['Toplam Tutar (₺)'] = Math.round((e.tutar||0) * 100) / 100;
+      row['Ürünler'] = (e.uruns||[]).join(', ');
+      row['Durum'] = e.toplam === 0 ? 'Pasif' : 'Aktif';
+      return row;
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    // Sütun genişlikleri — okunabilirlik için
+    ws['!cols'] = [
+      { wch: 32 }, { wch: 14 },
+      ..._aylar.map(() => ({ wch: 8 })),
+      { wch: 12 }, { wch: 16 }, { wch: 30 }, { wch: 8 }
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Eczane Detay Listesi');
+
+    const now = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    const stamp = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+    XLSX.writeFile(wb, `eczane_detay_listesi_${stamp}.xlsx`);
+  } catch (err) {
+    console.error('[exportEczaneToExcel] hata:', err);
+    alert('Excel dosyası oluşturulurken bir hata oluştu: ' + err.message);
+  }
 }
 
 // Sayfa numarasına tıklanınca çağrılır — mevcut filtre/sıralama korunur,
@@ -6687,6 +6755,12 @@ function _buildEczaneDrawerRefresh(){
         <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
           <input type="text" id="eczaneSearch" class="inp" placeholder="🔍 Eczane ara..." 
             style="padding:5px 10px;font-size:11px;width:160px" oninput="filterEczaneTable()">
+          <button type="button" onclick="exportEczaneToExcel()"
+            title="Görüntülenen (filtrelenmiş/sıralanmış) eczane detay listesini Excel dosyası olarak indir"
+            style="padding:5px 10px;font-size:11px;font-weight:600;border-radius:6px;cursor:pointer;
+            border:1px solid #16A34A;background:#16A34A18;color:#16A34A;white-space:nowrap;display:flex;align-items:center;gap:4px">
+            ⬇️ Excel'e Aktar
+          </button>
         </div>
       </div>
       <div class="card-body-0 scroll-x">
