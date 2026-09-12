@@ -969,19 +969,11 @@ body{
 /* ══════════════════════════════════════════════════════════════════════
    YTD TL SAYFASI (Satış Takibi'nden sonra eklenen sayfa)
    Kapsam: js/data/ytd-tl-loader.js + js/ui/ytd-tl-page.js + index.html #page8
+   Filtre görünümü (mf-select, filter-drawer, drawer-btn-item, filter-chip-tag)
+   Eczane Satış sayfasıyla AYNI ortak sınıfları kullanır — burada ek stil
+   tanımlamaya gerek yok, sadece bu sayfaya özel özet kutuları ve tablo
+   satır/renk vurguları aşağıda tanımlanıyor.
    ══════════════════════════════════════════════════════════════════════ */
-.ytdtl-filter-group{margin-bottom:16px}
-.ytdtl-filter-group:last-child{margin-bottom:0}
-.ytdtl-filter-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);font-weight:700;margin-bottom:9px;display:flex;align-items:center;gap:6px}
-.ytdtl-chip-row{display:flex;flex-wrap:wrap;gap:8px}
-.ytdtl-chip{padding:7px 14px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:12px;font-weight:600;color:var(--text);cursor:pointer;transition:transform .2s,box-shadow .2s,border-color .2s;white-space:nowrap}
-.ytdtl-chip:hover:not(.locked){border-color:var(--c1);transform:translateY(-1px)}
-.ytdtl-chip.active{background:linear-gradient(135deg,var(--c1),var(--c3));color:#fff;border-color:transparent;box-shadow:0 4px 14px rgba(79,0,140,.25)}
-.ytdtl-chip.locked{opacity:.9;cursor:default;border-style:dashed}
-.ytdtl-chip.locked.sel-national{background:rgba(79,0,140,.07);border-color:var(--c1);color:var(--c1)}
-.ytdtl-chip.locked.sel-senol{background:rgba(27,206,216,.1);border-color:var(--c3);color:#0891B2}
-.ytdtl-chip .lock-ic{font-size:9px;margin-left:3px;opacity:.75}
-[data-theme="dark"] .ytdtl-chip{background:var(--surf);border-color:var(--border);color:var(--text)}
 .ytdtl-summary-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
 .ytdtl-stat{flex:1;min-width:150px;background:linear-gradient(135deg,rgba(79,0,140,.04),rgba(27,206,216,.03));border:1px solid var(--border);border-radius:12px;padding:12px 14px}
 .ytdtl-stat-label{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);font-weight:700;margin-bottom:5px}

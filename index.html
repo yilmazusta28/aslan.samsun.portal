@@ -3228,7 +3228,7 @@ function goPage(i){
   else if(i===6)renderEczane();
   // FAZ 8.2 — Yönetici sekmesi
   else if(i===7){ if(typeof renderManagerHeroBanner==='function') renderManagerHeroBanner(); if(typeof renderManagerExtra==='function') renderManagerExtra(); }
-  // YTD TL sayfası (Satış Takibi'nden sonra eklendi — bkz. js/ui/ytd-tl-page.js)
+  // YTD TL&KUTU sayfası (Satış Takibi'nden sonra eklendi — bkz. js/ui/ytd-tl-page.js)
   else if(i===8){ if(typeof initYtdTlPage==='function') initYtdTlPage(); }
 }
 
@@ -5838,7 +5838,7 @@ function _buildEczaneDrawerRefresh(){
       </button>
       <button class="nav-tab" id="ntab8" onclick="goPage(8)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>
-        <span class="tab-label">YTD TL</span>
+        <span class="tab-label">YTD TL&amp;KUTU</span>
       </button>
       <button class="nav-tab pv-hidden-ui" id="ntab3" onclick="goPage(3)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -5882,7 +5882,7 @@ function _buildEczaneDrawerRefresh(){
   </button>
   <button class="mtb-btn" id="mtb8" onclick="goPage(8)">
     <span class="mtb-icon"><i class="fas fa-chart-area"></i></span>
-    <span class="mtb-label">YTD TL</span>
+    <span class="mtb-label">YTD TL&amp;KUTU</span>
   </button>
   <button class="mtb-btn pv-hidden-ui" id="mtb3" onclick="goPage(3)">
     <span class="mtb-icon"><i class="fas fa-map-marker-alt"></i></span>
@@ -5969,7 +5969,7 @@ function _buildEczaneDrawerRefresh(){
     <span class="nav-icon"><i class="fas fa-chart-line"></i></span><span>Satış Takibi</span>
   </div>
   <div class="nav-item pg" id="snav8" onclick="goPage(8)">
-    <span class="nav-icon"><i class="fas fa-chart-area"></i></span><span>YTD TL</span>
+    <span class="nav-icon"><i class="fas fa-chart-area"></i></span><span>YTD TL&amp;KUTU</span>
   </div>
   <div class="nav-item pg pv-hidden-ui" id="snav3" onclick="goPage(3)">
     <span class="nav-icon"><i class="fas fa-map-marker-alt"></i></span><span>MI &amp; GI Takibi</span>
@@ -7231,7 +7231,7 @@ function _buildEczaneDrawerRefresh(){
   </div>
 </div>
 
-<!-- ══════ PAGE 8: YTD TL (Satış Takibi'nden sonra eklendi) ══════
+<!-- ══════ PAGE 8: YTD TL&KUTU (Satış Takibi'nden sonra eklendi) ══════
      Kaynak: YTD_TL.csv (bkz. js/data/ytd-tl-loader.js) — dönemsel olarak
      https://github.com/yilmazusta28/aslan.samsun.portal/blob/main/YTD_TL.csv
      adresinde güncellenir. Filtreler: Dönem (YTD/1-6.Dönem/1-2.Kompanzasyon),
@@ -7240,10 +7240,48 @@ function _buildEczaneDrawerRefresh(){
      (kilitli/her zaman görünür) gösterilir — bkz. js/ui/ytd-tl-page.js -->
 <div class="page" id="page8">
   <div style="padding:16px">
-    <div class="top-filter-bar" style="position:static;margin:0 0 16px">
-      <div id="ytdTlFilterBar">
-        <div class="filter-row"><span style="color:var(--dim);font-size:12px">Filtreler yükleniyor…</span></div>
+    <!-- TOP STICKY FILTER BAR — Eczane Satış sayfasıyla AYNI görsel desen
+         (mf-select kutuları + Filtrele butonu + drawer). -->
+    <div class="top-filter-bar">
+      <div class="filter-row">
+        <div class="mf-select" id="ytdTlMfBirim" onclick="toggleMfDrawer('ytdTlDrawer')">
+          <div class="mf-icon">📐</div>
+          <div class="mf-content">
+            <div class="mf-label">Birim</div>
+            <div class="mf-value" id="ytdTlMfBirimVal">TL</div>
+          </div>
+          <div class="mf-arrow">▼</div>
+        </div>
+        <div class="mf-select active-box" id="ytdTlMfDonem" onclick="toggleMfDrawer('ytdTlDrawer')">
+          <div class="mf-icon">📅</div>
+          <div class="mf-content">
+            <div class="mf-label">Dönem</div>
+            <div class="mf-value" id="ytdTlMfDonemVal">—</div>
+          </div>
+          <div class="mf-arrow">▼</div>
+        </div>
+        <div class="mf-select" id="ytdTlMfUrun" onclick="toggleMfDrawer('ytdTlDrawer')">
+          <div class="mf-icon">💊</div>
+          <div class="mf-content">
+            <div class="mf-label">Ürün</div>
+            <div class="mf-value" id="ytdTlMfUrunVal">Tümü</div>
+          </div>
+          <div class="mf-arrow">▼</div>
+        </div>
+        <div class="mf-select" id="ytdTlMfTemsilci" onclick="toggleMfDrawer('ytdTlDrawer')">
+          <div class="mf-icon">👤</div>
+          <div class="mf-content">
+            <div class="mf-label">Temsilci</div>
+            <div class="mf-value" id="ytdTlMfTemsilciVal">—</div>
+          </div>
+          <div class="mf-arrow">▼</div>
+        </div>
+        <button class="mf-detail-btn" onclick="toggleMfDrawer('ytdTlDrawer')">
+          <i class="fas fa-sliders-h"></i> Filtrele
+        </button>
+        <span class="card-badge" id="ytdTlBadge" style="margin-left:auto">—</span>
       </div>
+      <div class="active-filters" id="ytdTlChips" style="display:none"></div>
     </div>
 
     <div id="ytdTlWarn" style="display:none"></div>
@@ -7252,13 +7290,12 @@ function _buildEczaneDrawerRefresh(){
 
     <div class="card">
       <div class="card-hd">
-        <span class="card-title"><i class="fas fa-chart-area"></i> YTD TL — Hedef / Satış / Gerçekleşme</span>
-        <span class="card-badge" id="ytdTlBadge">—</span>
+        <span class="card-title"><i class="fas fa-chart-area"></i> YTD TL&amp;KUTU — Hedef / Satış / Gerçekleşme</span>
       </div>
       <div class="card-body-0 scroll-x">
         <table class="tbl" id="ytdTlTable" style="min-width:560px">
           <thead><tr>
-            <th>Temsilci</th><th>Hedef (TL)</th><th>Satış (TL)</th><th>Gerçekleşme %</th>
+            <th>Temsilci</th><th id="ytdTlColHedef">Hedef (TL)</th><th id="ytdTlColSatis">Satış (TL)</th><th>Gerçekleşme %</th>
           </tr></thead>
           <tbody id="ytdTlBody"></tbody>
         </table>
@@ -7266,6 +7303,7 @@ function _buildEczaneDrawerRefresh(){
     </div>
   </div>
 </div>
+
 
 </div><!-- /main -->
 </div><!-- /app -->
@@ -7288,6 +7326,9 @@ function _buildEczaneDrawerRefresh(){
 
 <!-- Eczane Drawer -->
 <div class="filter-drawer" id="eczaneDrawer"></div>
+
+<!-- YTD TL&KUTU Drawer -->
+<div class="filter-drawer" id="ytdTlDrawer"></div>
 
 <!-- FAZ 9.3-DÜZELTME — Sayısal Stok Girişi Popover (tek global örnek, her
      eczane satırından açılır; recordStockEntry() artık gerçekten çağrılıyor) -->
