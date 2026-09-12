@@ -4260,6 +4260,18 @@ function renderRakipTable(grpData,drugs,ownIlac,mktRows,mktWk){
 
 function renderMarketDetailTable(grpData,drugs,bricks,ownIlac){
   const body=document.getElementById('marketDetailBody');
+  // Brick → Ulusal Brick Sırası eşlemesi (MI GI Bölüm 2 verisinden — MI_GI-TL.csv /
+  // MI_GI-KUTU.csv içindeki "sira" kolonu, brick'in Türkiye genelindeki büyüklük
+  // sırasını gösterir; aynı "brick 333" eşiği MI GI Bölüm 2'deki gibi vurgulanır).
+  const _brickSiraSrc = (typeof MIGI_BRICK_TL_RAW!=='undefined' && MIGI_BRICK_TL_RAW.length) ? MIGI_BRICK_TL_RAW
+                      : (typeof MIGI_BRICK_KUTU_RAW!=='undefined' && MIGI_BRICK_KUTU_RAW.length) ? MIGI_BRICK_KUTU_RAW : [];
+  const _brickSiraMap = new Map();
+  _brickSiraSrc.forEach(r=>{ if(r.brick && !_brickSiraMap.has(r.brick)) _brickSiraMap.set(r.brick, r.sira); });
+  const brickSiraTag = (brick)=>{
+    const s = _brickSiraMap.get(brick);
+    if (!s && s!==0) return '';
+    return ` <span class="mono" style="font-size:9px;font-weight:700;${s<=333?'color:#0891B2':'color:var(--dim)'}" title="Ulusal Brick Sırası">#${s}</span>`;
+  };
   let rows=[];
   bricks.forEach(brick=>{
     drugs.forEach(drug=>{
@@ -4274,7 +4286,7 @@ function renderMarketDetailTable(grpData,drugs,bricks,ownIlac){
     const brickStyle=newBrick?'font-weight:700;color:#334155':'color:var(--dim)';
     return `<tr style="${rowBorder}">
       <td><span class="${isOwn?'tag-own':'tag-comp'}">${isOwn?'KENDİ':'RAKİP'}</span> <strong style="${isOwn?'color:#0E7490':''}">${drugLabel(drug)}</strong></td>
-      <td style="font-size:10px;${brickStyle}">${brick}</td>
+      <td style="font-size:10px;${brickStyle}">${brick}${brickSiraTag(brick)}</td>
       <td class="mono">${fK(r.toplam)}</td>
       <td><span class="bdg ${pCls(r.toplam_ppi||0)}">${(r.toplam_ppi||0).toFixed(1)}%</span></td>
       ${['h1','h2','h3','h4','h5','h6','h7','h8','h9'].map(w=>`<td style="font-size:10px;${r[w]>0?'font-weight:600':r[w]<0?'color:#DC2626;font-weight:600':'color:#A0AEC0'}">${r[w]!==0?fK(r[w]):'—'}</td>`).join('')}
