@@ -288,22 +288,41 @@ function parseGenelCSV(csvText) {
     // prim_pct) okunuyor — GENEL[] satırlarındaki mantığın AYNISI.
     if (!ttt) {
       if (rawName) {
-        const regionTrSira = Math.round(parseN(c[9]));  // J: TR SIRA
-        const regionTlPct  = normPct(c[18]);             // S: TL%
-        if (regionTrSira > 0 || regionTlPct > 0) {
-          const regionHedefTl = parseN(c[15]); // P
-          const regionSatisTl = parseN(c[16]); // Q
-          const regionKalanTl = parseN(c[17]) || (regionHedefTl - regionSatisTl); // R (fallback: hedef-satis)
-          const regionPrimPct = normPct(c[19]); // T: PRİM PUAN%
-          regions.push({
-            bolge: rawName.toUpperCase(),
-            tr_sira: regionTrSira,
-            tl_pct: regionTlPct,
-            hedef_tl: regionHedefTl,
-            satis_tl: regionSatisTl,
-            kalan_tl: regionKalanTl,
-            prim_pct: regionPrimPct
-          });
+        // BUG DÜZELTMESİ — "Bölge Sıralaması" tablosunda 8'den fazla
+        // satır görünmesi: GENEL_TABLO.csv'de bölge/ulusal satırları da
+        // (NATIONAL, DİYARBAKIR, KONYA, BURSA...) normal TTT satırları
+        // gibi ÜRÜN bazında tekrarlanabiliyor (PANOCER, FAMTREC, ... ve
+        // en sonda GENEL TOPLAM). Eski kod ürün ayrımı yapmadan, TR SIRA
+        // veya TL% dolu olan HER satırı ayrı bir bölge kaydı sayıyordu —
+        // bu yüzden aynı bölge (örn. "NATIONAL") CSV'de kaç ürün satırı
+        // varsa o kadar kez regions[]'a ekleniyor, sonuçta tabloda aynı
+        // bölge birden fazla kez (ve olması gerekenden fazla toplam
+        // satır) görünüyordu. Düzeltme: normal TTT satırlarındaki AYNI
+        // kural uygulanıyor — sadece o bölgenin TOPLAM satırı (ürün
+        // kolonu boş VEYA "GENEL TOPLAM") dikkate alınıyor.
+        const regionUrun = (c[14] || '').trim().toUpperCase();
+        const isRegionTotalRow = !regionUrun || regionUrun === 'GENEL TOPLAM';
+        if (isRegionTotalRow) {
+          const regionTrSira = Math.round(parseN(c[9]));  // J: TR SIRA
+          const regionTlPct  = normPct(c[18]);             // S: TL%
+          // Ek güvenlik: aynı bölge adı CSV'de (beklenmedik bir sebeple)
+          // birden fazla kez geçse bile, sadece İLK geçerli satır alınır.
+          const alreadyHave = regions.some(r => r.bolge === rawName.toUpperCase());
+          if (!alreadyHave && (regionTrSira > 0 || regionTlPct > 0)) {
+            const regionHedefTl = parseN(c[15]); // P
+            const regionSatisTl = parseN(c[16]); // Q
+            const regionKalanTl = parseN(c[17]) || (regionHedefTl - regionSatisTl); // R (fallback: hedef-satis)
+            const regionPrimPct = normPct(c[19]); // T: PRİM PUAN%
+            regions.push({
+              bolge: rawName.toUpperCase(),
+              tr_sira: regionTrSira,
+              tl_pct: regionTlPct,
+              hedef_tl: regionHedefTl,
+              satis_tl: regionSatisTl,
+              kalan_tl: regionKalanTl,
+              prim_pct: regionPrimPct
+            });
+          }
         }
       }
       continue;

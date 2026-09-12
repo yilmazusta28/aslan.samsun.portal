@@ -74,7 +74,27 @@
   // yani en iyi sıradan) sıralanır. Bölge Özet Analizi'nden ÖNCE gösterilir
   // (bkz. index.html page7 + renderManagerExtra() çağrı sırası).
   function buildRegionRanking() {
-    var list = (typeof REGION_RANKING !== 'undefined' ? REGION_RANKING : []).slice();
+    var rawList = (typeof REGION_RANKING !== 'undefined' ? REGION_RANKING : []).slice();
+
+    // GÜVENLİK KATMANI (bug düzeltmesi): "Bölge Sıralaması" tablosunda
+    // 8'den fazla satır görünmesinin kök nedeni csv-parser.js'de
+    // düzeltildi (bölge satırları artık sadece TOPLAM satırından bir kez
+    // okunuyor). Burada AYRICA aynı bölge adının (örn. NATIONAL) birden
+    // fazla kez gelmesine karşı ikinci bir savunma satırı var — REGION_RANKING
+    // içinde aynı "bolge" için birden fazla kayıt varsa, en dolu/tamamlanmış
+    // olan (tr_sira>0 olan, yoksa hedef_tl'si en yüksek olan) TEK kayıt
+    // tutulur; diğerleri atılır.
+    var byBolge = {};
+    rawList.forEach(function (r) {
+      if (!r || !r.bolge) return;
+      var key = r.bolge;
+      var existing = byBolge[key];
+      if (!existing) { byBolge[key] = r; return; }
+      var existingScore = (existing.tr_sira > 0 ? 1 : 0) + (existing.hedef_tl || 0);
+      var newScore      = (r.tr_sira > 0 ? 1 : 0) + (r.hedef_tl || 0);
+      if (newScore > existingScore) byBolge[key] = r;
+    });
+    var list = Object.keys(byBolge).map(function (k) { return byBolge[k]; });
 
     var samsun = (GENEL || []).find(function (r) { return r.ttt === MANAGER_NAME && r.urun === 'GENEL TOPLAM'; });
     if (samsun && !list.some(function (r) { return r.bolge === 'SAMSUN'; })) {
