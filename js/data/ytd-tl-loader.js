@@ -1,4 +1,74 @@
-﻿ 2026 YTD ; TÜM ÜRÜNLER TOPLAM  ;;; PANOCER ;;; FAMTREC ;;; MOKSEFEN ;;; ACIDPASS ;;; GRIPORT COLD ;;
+// ══════════════════════════════════════════════════════════════
+//  js/data/ytd-tl-loader.js — YTD TL Sayfası: Veri Yükleme & Parser
+//  Kaynak CSV: ./YTD_TL.csv (GitHub repo kökünde, GS_*_URL desenine uygun)
+//  Repo: https://github.com/yilmazusta28/aslan.samsun.portal/blob/main/YTD_TL.csv
+//
+//  CSV YAPISI (dönemsel bloklar halinde, ';' ayraçlı):
+//    Satır 1: " 2026 YTD ; TÜM ÜRÜNLER TOPLAM ;;; PANOCER ;;; FAMTREC ;;; ... "
+//    Satır 2: "PERSONEL; HEDEF ; SATIŞ ; REAL ; HEDEF ; SATIŞ ; REAL ; ..."
+//    Satır 3-12: 10 personel satırı (NATIONAL, ŞENOL YILMAZ, 8 temsilci)
+//      NOT: "GİDİLMEYEN SAMSUN" satırı kaynak CSV'den kaldırıldı (2026-09
+//      güncellemesi) — artık her blokta sadece bu 10 satır bulunuyor.
+//    Satır 13: boş ayraç satırı (;;;;...)
+//    → Bu blok 9 kez tekrarlanır: YTD, 1-6.DÖNEM, 1-2.KOMPANZASYON
+//
+//  Her personel satırında 6 ürün grubu × 3 kolon (HEDEF/SATIŞ/REAL) = 18 veri
+//  kolonu + 1 isim kolonu = 19 kolon. Ürün grupları SABİT SIRADA:
+//    0=TOPLAM(Tüm Ürünler)  1=PANOCER  2=FAMTREC  3=MOKSEFEN  4=ACIDPASS  5=GRIPORT COLD
+//  NOT: 5. ürün grubu daha önce "GRIPORT GOLD" idi, kaynak CSV'de
+//  "GRIPORT COLD" olarak düzeltildi (2026-09 güncellemesi).
+//
+//  Bağımlılık: js/data/csv-parser.js → parseN() (Türkçe sayı formatı: "1.234.567" / "95,8%")
+//  GitHub Pages compatible: classic script, no ES modules
+// ══════════════════════════════════════════════════════════════
+
+// ─── SABİTLER ─────────────────────────────────────────────────
+const GS_YTD_TL_URL = "./YTD_TL.csv";
+
+// Dönem sırası (kullanıcı isteğine göre: YTD - 1..6.Dönem - 1-2.Kompanzasyon)
+const YTD_TL_PERIOD_ORDER = [
+  'YTD','1.DÖNEM','2.DÖNEM','3.DÖNEM','4.DÖNEM','5.DÖNEM','6.DÖNEM',
+  '1.KOMPANZASYON','2.KOMPANZASYON'
+];
+const YTD_TL_PERIOD_LABELS = {
+  'YTD':             'YTD (Yıl Başından Bugüne)',
+  '1.DÖNEM':         '1. Dönem',
+  '2.DÖNEM':         '2. Dönem',
+  '3.DÖNEM':         '3. Dönem',
+  '4.DÖNEM':         '4. Dönem',
+  '5.DÖNEM':         '5. Dönem',
+  '6.DÖNEM':         '6. Dönem',
+  '1.KOMPANZASYON':  '1. Kompanzasyon',
+  '2.KOMPANZASYON':  '2. Kompanzasyon'
+};
+
+// Ürün grupları — CSV'deki SABİT pozisyon sırası (isimden bağımsız okunur)
+const YTD_TL_PRODUCT_KEYS = ['TOPLAM','PANOCER','FAMTREC','MOKSEFEN','ACIDPASS','GRIPORT_COLD'];
+const YTD_TL_PRODUCT_LABELS = {
+  'TOPLAM':       'Tüm Ürünler Toplam',
+  'PANOCER':      'PANOCER',
+  'FAMTREC':      'FAMTREC',
+  'MOKSEFEN':     'MOKSEFEN',
+  'ACIDPASS':     'ACIDPASS',
+  'GRIPORT_COLD': 'GRIPORT COLD'
+};
+
+// Her filtrede STANDART olarak gösterilecek satırlar (kullanıcı talebi)
+const YTD_TL_STANDARD_ROWS = ['NATIONAL', 'ŞENOL YILMAZ'];
+
+// Temsilci filtresi — 8 temsilci (NATIONAL ve ŞENOL YILMAZ hariç; bunlar
+// birer "temsilci" değil, ulusal/bölge müdürü toplam satırlarıdır.
+// "GİDİLMEYEN SAMSUN" satırı kaynak CSV'den tamamen kaldırıldı.)
+const YTD_TL_TEMSILCILER = [
+  'AYKUT DİNLER','ENİS TOK','HAKAN YUMAK','KÜRŞAD KARADAĞ',
+  'MEHMET AKİF ÖZGEÇEN','MURAT KANDİŞ','SAMET ÇETİN','YILMAZ USTA'
+];
+
+// ─── GÖMÜLÜ YEDEK VERİ (fetch başarısız olursa, örn. file:// veya offline) ───
+// Kaynak: kullanıcının yüklediği YTD_TL.csv anlık görüntüsü.
+// Canlı ortamda (GitHub Pages) her zaman GS_YTD_TL_URL'den TAZE veri çekilir;
+// bu sadece bir düşme (fallback) senaryosudur.
+const YTD_TL_EMBEDDED_CSV = ` 2026 YTD ; TÜM ÜRÜNLER TOPLAM  ;;; PANOCER ;;; FAMTREC ;;; MOKSEFEN ;;; ACIDPASS ;;; GRIPORT COLD ;;
 PERSONEL; HEDEF ; SATIŞ ; REAL ; HEDEF ; SATIŞ ; REAL ; HEDEF ; SATIŞ ; REAL ; HEDEF ; SATIŞ ; REAL ; HEDEF ; SATIŞ ; REAL ; HEDEF ; SATIŞ ; REAL 
 NATIONAL; 296.203.307   ; 283.808.436   ;95,8%; 124.960.645   ; 123.638.163   ;98,9%; -     ; -     ;0,0%; 31.397.273   ; 28.825.622   ;91,8%; 98.348.536   ; 98.111.824   ;99,8%; 41.496.853   ; 33.232.828   ;80,1%
 ŞENOL YILMAZ; 29.705.143   ; 28.149.898   ;94,8%; 13.082.990   ; 12.281.442   ;93,9%; -     ; -     ;0,0%; 4.604.301   ; 4.567.806   ;99,2%; 8.588.053   ; 8.414.137   ;98,0%; 3.429.799   ; 2.886.512   ;84,2%
@@ -115,3 +185,94 @@ MURAT KANDİŞ; -     ; -     ;0,0%; -     ; -     ;0,0%; -     ; -     ;0,0%; -
 SAMET ÇETİN; -     ; -     ;0,0%; -     ; -     ;0,0%; -     ; -     ;0,0%; -     ; -     ;0,0%; -     ; -     ;0,0%; -     ; -     ;0,0%
 YILMAZ USTA; -     ; -     ;0,0%; -     ; -     ;0,0%; -     ; -     ;0,0%; -     ; -     ;0,0%; -     ; -     ;0,0%; -     ; -     ;0,0%
 ;;;;;;;;;;;;;;;;;;
+`;
+
+// ─── STATE ────────────────────────────────────────────────────
+// { order: [...periodKeys], data: { periodKey: [ {personel, products:{TOPLAM:{hedef,satis,real},...}} ] } }
+window.YTD_TL_DATA = null;
+window.YTD_TL_LOAD_ERROR = null;
+
+// ─── PARSER ───────────────────────────────────────────────────
+function parseYtdTlCSV(text) {
+  const clean = String(text || '').replace(/^\uFEFF/, '').replace(/\r/g, '');
+  const lines = clean.split('\n');
+  const data = {};
+  const order = [];
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (!line || !line.trim()) { i++; continue; }
+    const cols0 = line.split(';').map(s => s.trim());
+    // Blok başlığı: "2026 YTD", "2026 1.DÖNEM", "2026 1.KOMPANZASYON" ...
+    const m = cols0[0] && cols0[0].match(/^\d{4}\s+(.+)$/);
+    if (m) {
+      const periodKey = m[1].trim().toUpperCase();
+      i++; // kolon başlık satırını (PERSONEL;HEDEF;SATIŞ;REAL;...) atla
+      i++;
+      const rows = [];
+      while (i < lines.length) {
+        const dl = lines[i];
+        if (!dl || !dl.trim()) { i++; break; } // boş ayraç satırı → blok sonu
+        const dcols = dl.split(';').map(s => s.trim());
+        if (!dcols[0]) { i++; break; }
+        const personel = dcols[0].toUpperCase();
+        const products = {};
+        YTD_TL_PRODUCT_KEYS.forEach((key, k) => {
+          const base = 1 + 3 * k;
+          products[key] = {
+            hedef: typeof parseN === 'function' ? parseN(dcols[base])     : 0,
+            satis: typeof parseN === 'function' ? parseN(dcols[base + 1]) : 0,
+            real:  typeof parseN === 'function' ? parseN(dcols[base + 2]) : 0
+          };
+        });
+        rows.push({ personel, products });
+        i++;
+      }
+      if (rows.length) { data[periodKey] = rows; order.push(periodKey); }
+      continue;
+    }
+    i++;
+  }
+
+  return { order, data };
+}
+
+// ─── YÜKLEME (fetch + fallback) ────────────────────────────────
+async function loadYtdTlData(forceFresh) {
+  if (window.YTD_TL_DATA && !forceFresh) return window.YTD_TL_DATA;
+  window.YTD_TL_LOAD_ERROR = null;
+
+  // file:// altında fetch CORS ile engellenir → doğrudan gömülü veriye düş
+  if (window.location.protocol === 'file:') {
+    try {
+      window.YTD_TL_DATA = parseYtdTlCSV(YTD_TL_EMBEDDED_CSV);
+      window.YTD_TL_LOAD_ERROR = 'file://: GitHub\'dan taze veri çekilemedi, gömülü (statik) veri gösteriliyor.';
+      return window.YTD_TL_DATA;
+    } catch (e) {
+      window.YTD_TL_LOAD_ERROR = 'Gömülü veri de okunamadı: ' + e.message;
+      return null;
+    }
+  }
+
+  try {
+    const res = await fetch(GS_YTD_TL_URL + '?t=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    if (text.trim().startsWith('<')) throw new Error('YTD_TL.csv yerine HTML döndü');
+    const parsed = parseYtdTlCSV(text);
+    if (!parsed.order.length) throw new Error('YTD_TL.csv içinde geçerli dönem bloğu bulunamadı');
+    window.YTD_TL_DATA = parsed;
+    return parsed;
+  } catch (e) {
+    console.warn('[ytd-tl-loader] Canlı CSV çekilemedi, gömülü veriye düşülüyor:', e.message);
+    try {
+      window.YTD_TL_DATA = parseYtdTlCSV(YTD_TL_EMBEDDED_CSV);
+      window.YTD_TL_LOAD_ERROR = 'Canlı veri çekilemedi (' + e.message + ') — gömülü (statik) veri gösteriliyor.';
+      return window.YTD_TL_DATA;
+    } catch (e2) {
+      window.YTD_TL_LOAD_ERROR = 'Veri okunamadı: ' + e2.message;
+      return null;
+    }
+  }
+}

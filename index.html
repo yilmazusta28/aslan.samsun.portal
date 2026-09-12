@@ -101,6 +101,7 @@
 <script src="js/data/csv-parser.js?v=20260705"></script>
 <script src="js/data/data-state.js?v=20260705"></script>
 <script src="js/data/data-loader.js?v=20260705"></script>
+<script src="js/data/ytd-tl-loader.js?v=20260912"></script>
 <script src="js/data/charts.js?v=20260705"></script>
 <script src="js/data/storage.js?v=20260705"></script>
 <!-- PHASE 2.3.5: Data Cache Layer -->
@@ -117,6 +118,7 @@
 <script src="js/ui/confidence-meter.js?v=20260705"></script>
 <script src="js/ui/explainable-ai.js?v=20260705"></script>
 <script src="js/ui/role-visibility.js?v=20260705"></script>
+<script src="js/ui/ytd-tl-page.js?v=20260912"></script>
 <!-- END PHASE23 UI Layer -->
 <script src="js/core/runtime-patches.js?v=20260705"></script>
 <!-- PHASE 2.3.5: Performance Monitor + Health Check (console-only, no UI) -->
@@ -3192,9 +3194,9 @@ function goPage(i){
   // tab-system.js mirrors them for reuse elsewhere.
   document.querySelectorAll('.page').forEach((p,j)=>p.classList.toggle('active',j===i));
   document.querySelectorAll('.nav-tab').forEach((t,j)=>t.classList.toggle('active',j===i));
-  for(let k=0;k<=7;k++){const el=document.getElementById('snav'+k);if(el)el.classList.toggle('active',k===i);}
+  for(let k=0;k<=8;k++){const el=document.getElementById('snav'+k);if(el)el.classList.toggle('active',k===i);}
   // ── Mobil tab bar güncelle ──────────────────────────────
-  for(let k=0;k<=7;k++){
+  for(let k=0;k<=8;k++){
     const btn=document.getElementById('mtb'+k);
     if(btn) btn.classList.toggle('active',k===i);
   }
@@ -3226,6 +3228,8 @@ function goPage(i){
   else if(i===6)renderEczane();
   // FAZ 8.2 — Yönetici sekmesi
   else if(i===7){ if(typeof renderManagerHeroBanner==='function') renderManagerHeroBanner(); if(typeof renderManagerExtra==='function') renderManagerExtra(); }
+  // YTD TL sayfası (Satış Takibi'nden sonra eklendi — bkz. js/ui/ytd-tl-page.js)
+  else if(i===8){ if(typeof initYtdTlPage==='function') initYtdTlPage(); }
 }
 
 // ── DARK MODE ────────────────────────────────────────────
@@ -5832,6 +5836,10 @@ function _buildEczaneDrawerRefresh(){
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
         <span class="tab-label">Satış Takibi</span>
       </button>
+      <button class="nav-tab" id="ntab8" onclick="goPage(8)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>
+        <span class="tab-label">YTD TL</span>
+      </button>
       <button class="nav-tab pv-hidden-ui" id="ntab3" onclick="goPage(3)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         <span class="tab-label">MI & GI</span>
@@ -5871,6 +5879,10 @@ function _buildEczaneDrawerRefresh(){
   <button class="mtb-btn" id="mtb2" onclick="goPage(2)">
     <span class="mtb-icon"><i class="fas fa-chart-line"></i></span>
     <span class="mtb-label">Satış</span>
+  </button>
+  <button class="mtb-btn" id="mtb8" onclick="goPage(8)">
+    <span class="mtb-icon"><i class="fas fa-chart-area"></i></span>
+    <span class="mtb-label">YTD TL</span>
   </button>
   <button class="mtb-btn pv-hidden-ui" id="mtb3" onclick="goPage(3)">
     <span class="mtb-icon"><i class="fas fa-map-marker-alt"></i></span>
@@ -5955,6 +5967,9 @@ function _buildEczaneDrawerRefresh(){
   </div>
   <div class="nav-item pg" id="snav2" onclick="goPage(2)">
     <span class="nav-icon"><i class="fas fa-chart-line"></i></span><span>Satış Takibi</span>
+  </div>
+  <div class="nav-item pg" id="snav8" onclick="goPage(8)">
+    <span class="nav-icon"><i class="fas fa-chart-area"></i></span><span>YTD TL</span>
   </div>
   <div class="nav-item pg pv-hidden-ui" id="snav3" onclick="goPage(3)">
     <span class="nav-icon"><i class="fas fa-map-marker-alt"></i></span><span>MI &amp; GI Takibi</span>
@@ -7216,7 +7231,41 @@ function _buildEczaneDrawerRefresh(){
   </div>
 </div>
 
+<!-- ══════ PAGE 8: YTD TL (Satış Takibi'nden sonra eklendi) ══════
+     Kaynak: YTD_TL.csv (bkz. js/data/ytd-tl-loader.js) — dönemsel olarak
+     https://github.com/yilmazusta28/aslan.samsun.portal/blob/main/YTD_TL.csv
+     adresinde güncellenir. Filtreler: Dönem (YTD/1-6.Dönem/1-2.Kompanzasyon),
+     Ürün (Toplam + 5 ürün) ve Temsilci (8 temsilci). NATIONAL ve ŞENOL
+     YILMAZ satırları kullanıcı isteğiyle TÜM filtrelerde standart olarak
+     (kilitli/her zaman görünür) gösterilir — bkz. js/ui/ytd-tl-page.js -->
+<div class="page" id="page8">
+  <div style="padding:16px">
+    <div class="top-filter-bar" style="position:static;margin:0 0 16px">
+      <div id="ytdTlFilterBar">
+        <div class="filter-row"><span style="color:var(--dim);font-size:12px">Filtreler yükleniyor…</span></div>
+      </div>
+    </div>
 
+    <div id="ytdTlWarn" style="display:none"></div>
+
+    <div class="ytdtl-summary-row" id="ytdTlSummary"></div>
+
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-title"><i class="fas fa-chart-area"></i> YTD TL — Hedef / Satış / Gerçekleşme</span>
+        <span class="card-badge" id="ytdTlBadge">—</span>
+      </div>
+      <div class="card-body-0 scroll-x">
+        <table class="tbl" id="ytdTlTable" style="min-width:560px">
+          <thead><tr>
+            <th>Temsilci</th><th>Hedef (TL)</th><th>Satış (TL)</th><th>Gerçekleşme %</th>
+          </tr></thead>
+          <tbody id="ytdTlBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
 
 </div><!-- /main -->
 </div><!-- /app -->

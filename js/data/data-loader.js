@@ -274,6 +274,7 @@ async function syncData(forceFresh) {
           if (typeof renderManagerHeroBanner === 'function') renderManagerHeroBanner();
           if (typeof renderManagerExtra === 'function') renderManagerExtra();
         }
+        else if (curPage === 8) { if (typeof initYtdTlPage === 'function') initYtdTlPage(); }
         const _loadingEl = document.getElementById('loading');
         if (_loadingEl) _loadingEl.style.display = 'none';
       }
