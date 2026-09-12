@@ -479,7 +479,12 @@ async function syncData(forceFresh) {
     console.log('[SYNC] LOGGED_IN_USER:', LOGGED_IN_USER, '| norm:', _lu_norm, '| match:', _lu_match, '| ALL_TTTS:', ALL_TTTS);
     if (_lu_match && _lu_match !== 'ŞENOL YILMAZ') {
       const lu = _lu_match;
-      selTTT       = lu;   // Ana sayfa TTT picker
+      // Kullanıcı isteği: "Genel Durum" (page0) sayfası HER ZAMAN temsilci
+      // seçilmemiş (picker ekranı) ile açılsın — bu yüzden selTTT burada
+      // (temsilci girişinde bile) kasıtlı olarak boş bırakılıyor. Diğer
+      // sayfalar (Satış Takibi, Pazar Analizi, Eczane, AI, vb.) girişe göre
+      // otomatik seçilmeye devam ediyor, sadece Genel Durum bundan hariç.
+      selTTT       = '';   // Ana sayfa TTT picker — kasıtlı olarak boş
       selTTT_p2    = lu;   // Satış Takibi
       selTTT_p1    = lu;   // Pazar Analizi
       selMigiTTT   = lu;
