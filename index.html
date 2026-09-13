@@ -766,7 +766,15 @@ function calcPrim() {
   const mi = parseFloat(document.getElementById('primMI')?.value) || 100;
   const gi = parseFloat(document.getElementById('primGI')?.value) || 100;
 
-  const carpan       = effReal >= 91 ? getCarpan(effReal) : 0;
+  // KULLANICI İŞ KURALI: TL Realizasyon primi (çarpan tablosu), %100'ün
+  // üzerine SADECE Kompanzasyon döneminde (3. ve 6. dönemler / k1,k2)
+  // çıkabilir. Normal dönemlerde (1,2,4,5.Dönem) %100 üstü realizasyon
+  // çarpanı ARTIRMAZ — bkz. js/core/date-utils.js isKompanzasyonDonemi().
+  const _curPeriod  = (typeof getEffectivePeriod === 'function') ? getEffectivePeriod() : null;
+  const _isKompDonem = (typeof isKompanzasyonDonemi === 'function') ? isKompanzasyonDonemi(_curPeriod) : false;
+  const effRealCarpan = _isKompDonem ? effReal : Math.min(effReal, 100);
+
+  const carpan       = effReal >= 91 ? getCarpan(effRealCarpan) : 0;
   const migiKatsayi  = effReal >= 70 ? getMiGiKatsayi(mi, gi) : 0;
 
   const BAZ_TL_REAL  = 55000;
@@ -799,8 +807,12 @@ function calcPrim() {
         <div style="font-size:10px;color:var(--dim);font-weight:600;margin-bottom:6px">KOŞUL KONTROLÜ</div>
         <div style="font-size:11px;display:grid;gap:5px">
           <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
+            <span>Dönem</span>
+            <strong style="${_isKompDonem?'color:#D97706':'color:var(--text)'}">${_curPeriod?_curPeriod.label:'—'} ${_isKompDonem?'🏆 (Kompanzasyon — %100 üstü işlenir)':'(Normal — %100 üstü işlenmez)'}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
             <span>TL Realizasyon</span>
-            <strong style="${effReal>=91?'color:#16A34A':'color:#DC2626'}">${effReal.toFixed(1)}% ${effReal>=91?'✅ (≥91%)':'❌ (<91%)'}</strong>
+            <strong style="${effReal>=91?'color:#16A34A':'color:#DC2626'}">${effReal.toFixed(1)}% ${effReal>=91?'✅ (≥91%)':'❌ (<91%)'}${(!_isKompDonem && effReal>100)?' <span style=\"color:#D97706;font-weight:600\">→ prim için %100 sayılır</span>':''}</strong>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
             <span>Prim Puanı</span>
@@ -838,7 +850,7 @@ function calcPrim() {
         </table>
       </div>
       <div style="font-size:9px;color:var(--dim);background:var(--surf2);padding:8px;border-radius:6px;border:1px solid var(--border)">
-        * Dönemlik hesaplama. %100 üzeri realizasyonlar kompanzasyon döneminde işlenir.<br>
+        * Dönemlik hesaplama. %100 üzeri realizasyonlar ${_isKompDonem?'<strong style="color:#D97706">bu Kompanzasyon döneminde işleniyor</strong> (çarpan %100 üzerine çıkabilir).':'<strong>sadece Kompanzasyon dönemlerinde (3. ve 6. dönemler) işlenir</strong> — bu normal dönemde çarpan %100\'de sabitlenir.'}<br>
         * MI &amp; GI değerleri manuel girilir — dönem bitiminde kesinleşir.
       </div>
     </div>

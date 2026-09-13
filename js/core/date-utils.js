@@ -86,3 +86,17 @@ function getEffectivePeriod(dateStr) {
   }
   return cur;
 }
+
+// ── Kompanzasyon Dönemi Kontrolü (kullanıcı iş kuralı) ───────
+// Prim hesaplamasında TL Realizasyon çarpanı (bkz. prim-calc.js getCarpan)
+// %100'ün ÜZERİNE sadece Kompanzasyon dönemlerinde (k1, k2 — PERIODS
+// dizisindeki sıralı 3. ve 6. dönemler: 1d,2d,k1,4d,5d,k2) çıkabilir.
+// Normal dönemlerde (1d, 2d, 4d, 5d) %100 üstü realizasyon, prim
+// çarpanını ARTIRMAZ — hesaplama %100'de sabitlenir (istisna yok).
+// @param {object} [period] — PERIODS elemanı; verilmezse bugünün etkin
+//   dönemi (getEffectivePeriod()) kullanılır.
+// @returns {boolean}
+function isKompanzasyonDonemi(period) {
+  var p = period || (typeof getEffectivePeriod === 'function' ? getEffectivePeriod() : null);
+  return !!(p && p.key && p.key.indexOf('k') === 0);
+}

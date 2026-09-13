@@ -80,7 +80,14 @@
   function _calcPrimForReal(ttt, targetReal) {
     if (targetReal < 91) return 0;
 
-    var carpan      = (typeof getCarpan === 'function') ? getCarpan(targetReal) : 1;
+    // KULLANICI İŞ KURALI: %100 üzeri realizasyon, prim çarpanını SADECE
+    // Kompanzasyon döneminde (3. ve 6. dönemler / k1,k2) artırır. Normal
+    // dönemlerde (1,2,4,5.Dönem) bu senaryo simülasyonu bile %100'ü
+    // aşamaz — bkz. js/core/date-utils.js isKompanzasyonDonemi().
+    var _isKompDonem = (typeof isKompanzasyonDonemi === 'function') ? isKompanzasyonDonemi() : false;
+    var targetRealCarpan = _isKompDonem ? targetReal : Math.min(targetReal, 100);
+
+    var carpan      = (typeof getCarpan === 'function') ? getCarpan(targetRealCarpan) : 1;
     var migi        = _getMiGiAvg(ttt);
     var migiKatsayi = (typeof getMiGiKatsayi === 'function')
       ? getMiGiKatsayi(migi.mi, migi.gi) : 0;

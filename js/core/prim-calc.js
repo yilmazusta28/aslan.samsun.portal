@@ -61,7 +61,6 @@ function calcPrimForTTT(ttt) {
   const urunRows  = GENEL.filter(g => g.ttt === ttt && g.urun !== 'GENEL TOPLAM' && g.urun !== 'DESTEVIT');
   const urunReals = Object.fromEntries(urunRows.map(r => [r.urun, r.tl_pct]));
   const primPuani = rGenel.prim_pct || calcPrimPuani(urunReals, ttt);
-  const carpan    = effReal >= 91 ? getCarpan(effReal) : 0;
   // MI/GI: MIGI_TL_RAW'dan bu TTT'nin EN GÜNCEL dönemine ait ortalamasını al
   // BUG DÜZELTMESİ: gerçek alan adı 'person'dır ('ttt' değil) ve "GI"
   // değeri 'bi' alanında tutulur ('gi' değil) — bkz. data-loader.js
@@ -85,6 +84,13 @@ function calcPrimForTTT(ttt) {
   const migiKatsayi = effReal >= 70 ? getMiGiKatsayi(Math.round(miAvg), Math.round(giAvg)) : 0;
   const BAZ_TL_REAL = 55000;
   const BAZ_MIGI    = 14000;
+  // KULLANICI İŞ KURALI: TL Realizasyon primi (çarpan tablosu), %100'ün
+  // üzerine SADECE Kompanzasyon döneminde (3. ve 6. dönemler / k1,k2)
+  // çıkabilir. Normal dönemlerde (1,2,4,5.Dönem) %100 üstü realizasyon
+  // çarpanı artırmaz — bkz. js/core/date-utils.js isKompanzasyonDonemi().
+  const _isKompDonem = typeof isKompanzasyonDonemi === 'function' ? isKompanzasyonDonemi() : false;
+  const effRealCarpan = _isKompDonem ? effReal : Math.min(effReal, 100);
+  const carpan    = effReal >= 91 ? getCarpan(effRealCarpan) : 0;
   const tlRealPrim  = carpan * BAZ_TL_REAL;
   const portfoyPrim = (effReal >= 91 && primPuani >= 91) ? 0.20 * BAZ_TL_REAL * carpan : 0;
   const migiPrim    = migiKatsayi * BAZ_MIGI;
