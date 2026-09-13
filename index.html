@@ -3475,6 +3475,15 @@ function renderSidebarPeriodPill(cur,rem){
 function renderAna(){
   if(!GENEL.length||!IMS.length) return;
   buildTTTPicker();
+  // Kullanıcı isteği (Bölge Özet Analizi → National/Bölge hedef payı):
+  // Türkiye geneli TTT sayısı TR_SIRA.csv'den geliyor (bkz.
+  // js/data/tr-sira-loader.js). Bu veri "Genel Durum" ekranına ilk kez
+  // doğrudan bir temsilci seçiliyken girilse bile (picker görünümüne hiç
+  // uğranmasa da) yüklenebilsin diye burada, selTTT durumundan BAĞIMSIZ
+  // olarak tetikleniyor; veri gelince National Payı otomatik güncellenir.
+  if (typeof loadTrSiraData === 'function' && !window.TR_SIRA_FULL) {
+    loadTrSiraData(false).then(function () { renderAnaInsight(); });
+  }
   if(selTTT){
     document.getElementById('anaGenelView').style.display='none';
     document.getElementById('anaTTTView').style.display='block';
@@ -3489,6 +3498,53 @@ function renderAna(){
   renderAnaInsight();
 }
 
+// ── YENİ (kullanıcı isteği) — Hedef Payı Oranları ────────────────
+// 1) National Payı: temsilcinin hedefi / (National hedefi ÷ Türkiye
+//    genelindeki TOPLAM TTT sayısı). 100%'ün üzerinde olması, temsilcinin
+//    "eşit pay" varsayımına göre ortalamadan daha yüksek hedef aldığı
+//    anlamına gelir.
+// 2) Bölge Payı: aynı mantık, ama National yerine Samsun BÖLGESİ'nin
+//    toplam hedefi ve Türkiye geneli yerine Samsun'daki 8 temsilci sayısı
+//    kullanılır.
+// 3) Gerekli Pazar Payı: temsilcinin hedefi / o ürün grubundaki TOPLAM
+//    PAZAR büyüklüğü (TÜM ürünler + rakipler dahil, TL) — GENEL_TABLO.csv
+//    "TOP.PAZAR TL" kolonundan (bkz. csv-parser.js toplam_pazar_tl).
+function computeHedefOranlari(ttt) {
+  const gen = GENEL.find(r => r.ttt === ttt && r.urun === 'GENEL TOPLAM') || {};
+  const hedefTl = gen.hedef_tl || 0;
+
+  // 1) National Payı
+  let nationalPct = null;
+  const nationalRegion = (typeof REGION_RANKING !== 'undefined' ? REGION_RANKING : []).find(r => r.bolge === 'NATIONAL');
+  const ulkeGeneliTTTSayisi = (typeof window.TR_SIRA_FULL !== 'undefined' && window.TR_SIRA_FULL)
+    ? window.TR_SIRA_FULL.filter(r => r.ttt !== 'NATIONAL').length : 0;
+  if (nationalRegion && nationalRegion.hedef_tl > 0 && ulkeGeneliTTTSayisi > 0) {
+    const esitPay = nationalRegion.hedef_tl / ulkeGeneliTTTSayisi;
+    if (esitPay > 0) nationalPct = hedefTl / esitPay * 100;
+  }
+
+  // 2) Bölge (Samsun) Payı — Şenol Yılmaz'ın GENEL TOPLAM satırı = bölge toplamı
+  let bolgePct = null;
+  const bolgeGen = GENEL.find(r => r.ttt === 'ŞENOL YILMAZ' && r.urun === 'GENEL TOPLAM') || {};
+  const samsunTTTSayisi = (typeof ALL_TTTS !== 'undefined' ? ALL_TTTS.length : 0);
+  if (bolgeGen.hedef_tl > 0 && samsunTTTSayisi > 0) {
+    const esitPay = bolgeGen.hedef_tl / samsunTTTSayisi;
+    if (esitPay > 0) bolgePct = hedefTl / esitPay * 100;
+  }
+
+  // 3) Gerekli Pazar Payı
+  let pazarBuyuklukTl = gen.toplam_pazar_tl || 0;
+  if (!pazarBuyuklukTl) {
+    // GENEL TOPLAM satırında pazar büyüklüğü girilmemişse ürün bazlı
+    // satırların toplamına düş (fallback).
+    pazarBuyuklukTl = GENEL.filter(r => r.ttt === ttt && r.urun !== 'GENEL TOPLAM' && r.urun !== 'DESTEVIT')
+      .reduce((s, r) => s + (r.toplam_pazar_tl || 0), 0);
+  }
+  const pazarPct = pazarBuyuklukTl > 0 ? (hedefTl / pazarBuyuklukTl * 100) : null;
+
+  return { hedefTl, nationalPct, bolgePct, pazarBuyuklukTl, pazarPct };
+}
+
 function renderAnaInsight(){
   const ekip=GENEL.filter(r=>r.urun==='GENEL TOPLAM'&&r.ttt!=='ŞENOL YILMAZ');
   const sorted=[...ekip].sort((a,b)=>b.tl_pct-a.tl_pct);
@@ -3497,6 +3553,7 @@ function renderAnaInsight(){
   const over70=ekip.filter(r=>r.tl_pct>=70).length;
   const urunSatis=URUN_ORDER.map(u=>({u,sum:GENEL.filter(r=>r.urun===u&&r.ttt!=='ŞENOL YILMAZ').reduce((s,r)=>s+r.satis_tl,0)})).sort((a,b)=>b.sum-a.sum);
   let bodyHtml='';
+  const statsEl = document.getElementById('anaInsightStats');
 
   if(selTTT){
     const isSenol=selTTT==='ŞENOL YILMAZ';
@@ -3509,13 +3566,37 @@ function renderAnaInsight(){
     } else {
       bodyHtml=`<strong>${selTTT}</strong> toplam <strong>${fTL(gen.satis_tl)}</strong> satış (${fPct(gen.tl_pct)} hedef). Güçlü ürün: <strong>${en.urun||'—'}</strong> (${fPct(en.tl_pct)}). Gelişim: <strong>${dusuk.urun||'—'}</strong> (${fPct(dusuk.tl_pct)}). TR Sırası: <strong>#${gen.tr_sira||'—'}</strong>.`;
     }
-    const alerts=buildCompetitionAlerts(selTTT);
+
+    // ── YENİ: Hedef Payı Oranları (National / Bölge / Gerekli Pazar Payı) ──
+    if (statsEl) {
+      const o = computeHedefOranlari(selTTT);
+      const chip = (label, val, isPct) => {
+        const shown = val==null ? '—' : (isPct ? val.toFixed(0)+'%' : val);
+        const cls = val==null ? '' : (typeof pCls==='function' ? pCls(val) : '');
+        return `<div class="ais-chip"><span class="ais-label">${label}</span><span class="ais-val bdg ${cls}">${shown}</span></div>`;
+      };
+      statsEl.innerHTML = `
+        ${chip('National Payı', o.nationalPct, true)}
+        ${chip('Bölge Payı', o.bolgePct, true)}
+        <div class="ais-chip">
+          <span class="ais-label">Gerekli Pazar Payı</span>
+          <span class="ais-val bdg ${o.pazarPct!=null?pCls(o.pazarPct):''}">${o.pazarPct!=null?o.pazarPct.toFixed(1)+'%':'Veri yok'}</span>
+          ${o.pazarBuyuklukTl>0?`<span class="ais-sub">Pazar: ${fTL(o.pazarBuyuklukTl)} · Hedef: ${fTL(o.hedefTl)}</span>`:''}
+        </div>
+      `;
+      statsEl.style.display='flex';
+    }
+
+    // Uyarılar: İade (mevcut) + Rakip Aşırı Çıkış (YENİ — kullanıcı isteği,
+    // haftalık kısa özet halinde birleştirilir).
+    const alerts=buildCompetitionAlerts(selTTT).concat(typeof buildRakipSpikeAlerts==='function'?buildRakipSpikeAlerts(selTTT):[]);
     const alertBox=document.getElementById('alertBox');
     if(alerts.length){alertBox.style.display='block';document.getElementById('alertBoxBody').innerHTML=alerts.join('<br>');}
     else alertBox.style.display='none';
   } else {
     bodyHtml=`Ekip ort. gerçekleşme: <strong>${avg.toFixed(1)}%</strong>. ${over70}/${ekip.length} temsilci %70 üstünde. Lider: <strong>${best?.ttt||'—'}</strong> (${fPct(best?.tl_pct)}). Gelişim: <strong>${worst?.ttt||'—'}</strong> (${fPct(worst?.tl_pct)}). Bölge en güçlü ürün: <strong>${urunSatis[0]?.u||'—'}</strong> (${fTL(urunSatis[0]?.sum)}).`;
     document.getElementById('alertBox').style.display='none';
+    if (statsEl) { statsEl.style.display='none'; statsEl.innerHTML=''; }
   }
   document.getElementById('anaInsightBody').innerHTML=bodyHtml;
 }
@@ -3574,6 +3655,46 @@ function buildCompetitionAlerts(ttt){
           const prefix=ttt==='ŞENOL YILMAZ'?`[${t.split(' ')[0]}] `:'';
           const detay=iadeHft.map(w=>`${w.replace('h','')+'.H'}: ${Math.abs(r[w])} ktu`).join(', ');
           alerts.push(`🔴 ${prefix}<strong>${r.brick}</strong> — ${GRP_LBL[grp]}: İade ${detay}`);
+        }
+      });
+    });
+  });
+  return alerts;
+}
+
+// ── YENİ (kullanıcı isteği) — Rakip Aşırı Çıkış Uyarısı ──────────
+// "Rakip IMS haftasında herhangi bir brick'te aşırı çıkış" tespiti:
+// temsilcinin bricklerinde, RAKİP (kendi ürünü olmayan, pazar-toplamı
+// satırı olmayan) bir ilacın bu haftaki kutu satışı, önceki haftaların
+// ortalamasına göre belirgin şekilde sıçramışsa (≥ %75 artış VE en az
+// +5 kutu fark — küçük sayılarda gürültüyü elemek için) kısa, haftalık
+// bir uyarı satırı üretir. Not: Bu, önceden kaldırılmış olan genel
+// "rakip uyarısı" özelliğinden FARKLIDIR — sadece ANİ SIÇRAMALARI
+// hedefler, her rakip hareketini değil.
+function buildRakipSpikeAlerts(ttt){
+  const alerts=[];
+  const curWeek=_currentWeekNumInPeriod();
+  const oncekiHaftaNo=[];
+  for(let w=1;w<curWeek;w++) oncekiHaftaNo.push(w);
+  if(!oncekiHaftaNo.length) return alerts; // ilk haftada kıyaslanacak geçmiş yok
+
+  const tttList=ttt==='ŞENOL YILMAZ'?ALL_TTTS:[ttt];
+  const wKey='h'+curWeek;
+  const oncekiKeys=oncekiHaftaNo.map(n=>'h'+n);
+
+  tttList.forEach(t=>{
+    ALL_GROUPS.forEach(grp=>{
+      const ownIlac=OWN_IMS[grp];
+      const rakipRows=IMS.filter(r=>r.ttt===t&&r.ilac_grubu===grp&&r.ilac!==ownIlac&&!r.is_mkt);
+      rakipRows.forEach(r=>{
+        const guncel=r[wKey]||0;
+        if(guncel<=0) return;
+        const gecmis=oncekiKeys.map(k=>r[k]||0).filter(v=>v>0);
+        if(!gecmis.length) return; // baz alınacak geçmiş veri yok
+        const ort=gecmis.reduce((s,v)=>s+v,0)/gecmis.length;
+        if(ort>0 && guncel>=ort*1.75 && (guncel-ort)>=5){
+          const prefix=ttt==='ŞENOL YILMAZ'?`[${t.split(' ')[0]}] `:'';
+          alerts.push(`🟠 ${prefix}<strong>${r.brick}</strong> — ${GRP_LBL[grp]}: rakip <strong>${r.ilac}</strong> bu hafta <strong>${guncel} kutu</strong> çıkış yaptı (önceki ort. ${ort.toFixed(0)} kutu) — dikkat!`);
         }
       });
     });
@@ -6055,6 +6176,7 @@ function _buildEczaneDrawerRefresh(){
   <div class="insight mb16" id="anaInsight">
     <div class="insight-title">💡 Bölge Özet Analizi</div>
     <div class="insight-body" id="anaInsightBody">—</div>
+    <div class="ana-insight-stats" id="anaInsightStats" style="display:none"></div>
     <div id="alertBox" style="display:none" class="alert-box">
       <div class="alert-title">⚠️ Dikkat — Rekabet Uyarısı</div>
       <div class="alert-body" id="alertBoxBody"></div>

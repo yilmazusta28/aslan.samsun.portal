@@ -371,6 +371,11 @@ function parseGenelCSV(csvText) {
       kalan_tl:       parseN(c[17]) || (parseN(c[15]) - parseN(c[16])), // R (fallback: hedef-satis)
       tl_pct,                           // S ×100
       prim_pct,                         // T ×100
+      // Kullanıcı isteği (Bölge Özet Analizi → "Gerekli Pazar Payı"):
+      // W[22]=TOP.PAZAR TL — o ürün/temsilci için TÜM ürünler + rakipler
+      // dahil toplam pazar büyüklüğü (TL). Hedef TL'nin bu büyüklüğe
+      // oranı, alınması gereken pazar payını verir.
+      toplam_pazar_tl: parseN(c[22]),  // W
       hedef_kutu:     parseN(c[24]),   // Y
       cikan_kutu:     parseN(c[25]),   // Z
       kalan_kutu_100: parseN(c[26]),   // AA
