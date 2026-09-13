@@ -32,7 +32,18 @@ function ytdTlPctClass(p) {
 // ─── YARDIMCI: aktif birime göre veri seti / formatter / sütun etiketi ──
 function _ytdTlActiveData()   { return ytdTlBirim === 'KUTU' ? window.YTD_KUTU_DATA : window.YTD_TL_DATA; }
 function _ytdTlActiveError()  { return ytdTlBirim === 'KUTU' ? window.YTD_KUTU_LOAD_ERROR : window.YTD_TL_LOAD_ERROR; }
-function _ytdTlValFmt(n)      { return ytdTlBirim === 'KUTU' ? (typeof fK === 'function' ? fK(n) : n) : (typeof fTL === 'function' ? fTL(n) : n); }
+// Kullanıcı isteği: bu sayfada TL değerlerinin yanına eklenen "₺" simgesi
+// kaldırıldı — sayısal değerler daha sade/okunur olsun diye sadece
+// gruplandırılmış rakamlar gösteriliyor (birim zaten sütun başlığında
+// "(TL)" olarak belirtiliyor). Not: global fTL() formatter'ı (uygulamanın
+// GERİ KALANINDA hâlâ ₺ gösteriyor) kasıtlı olarak DEĞİŞTİRİLMEDİ — bu
+// yerel yardımcı fonksiyon sadece YTD TL&KUTU sayfasına özeldir.
+function _ytdTlFmtTL(n) {
+  if (n == null || isNaN(n)) return '—';
+  const abs = Math.abs(n); const sign = n < 0 ? '-' : '';
+  return sign + Math.round(abs).toLocaleString('tr-TR');
+}
+function _ytdTlValFmt(n)      { return ytdTlBirim === 'KUTU' ? (typeof fK === 'function' ? fK(n) : n) : _ytdTlFmtTL(n); }
 function _ytdTlColLabel()     { return ytdTlBirim === 'KUTU' ? 'Kutu' : 'TL'; }
 
 // ─── ÜST FİLTRE BARI (mf-select kutuları) — Eczane ile aynı desen ───
