@@ -288,27 +288,33 @@ function parseGenelCSV(csvText) {
     // prim_pct) okunuyor — GENEL[] satırlarındaki mantığın AYNISI.
     if (!ttt) {
       if (rawName) {
-        // BUG DÜZELTMESİ — "Bölge Sıralaması" tablosunda 8'den fazla
-        // satır görünmesi: GENEL_TABLO.csv'de bölge/ulusal satırları da
-        // (NATIONAL, DİYARBAKIR, KONYA, BURSA...) normal TTT satırları
-        // gibi ÜRÜN bazında tekrarlanabiliyor (PANOCER, FAMTREC, ... ve
-        // en sonda GENEL TOPLAM). Eski kod ürün ayrımı yapmadan, TR SIRA
-        // veya TL% dolu olan HER satırı ayrı bir bölge kaydı sayıyordu —
-        // bu yüzden aynı bölge (örn. "NATIONAL") CSV'de kaç ürün satırı
-        // varsa o kadar kez regions[]'a ekleniyor, sonuçta tabloda aynı
-        // bölge birden fazla kez (ve olması gerekenden fazla toplam
-        // satır) görünüyordu. Düzeltme: normal TTT satırlarındaki AYNI
-        // kural uygulanıyor — sadece o bölgenin TOPLAM satırı (ürün
-        // kolonu boş VEYA "GENEL TOPLAM") dikkate alınıyor.
+        // BUG DÜZELTMESİ v2 — "Bölge Sıralaması" tablosunda 8'den fazla
+        // satır görünmesi VE NATIONAL satırının hiç görünmemesi:
+        //  1) GENEL_TABLO.csv'nin alt kısmında bölge/ulusal verisiyle HİÇ
+        //     ilgisi olmayan bir "kompanzasyon lookup" tablosu daha var;
+        //     orada ÜRÜN kolonu hep BOŞ ama TR SIRA kolonunda 100/110/120…
+        //     gibi rakamlar bulunuyor. Önceki kod "ürün kolonu boşsa da
+        //     kabul et" esnekliği bıraktığı için bu çöp satırları da bölge
+        //     sanıp listeye ekliyordu (ekranda "#100", "69.300" gibi
+        //     anlamsız satırlar). Artık SADECE ürün kolonu tam olarak
+        //     "GENEL TOPLAM" olan satırlar bölge sayılıyor.
+        //  2) Bölge satırı kabul şartı önceden "TR SIRA>0 VEYA TL%>0"
+        //     idi — ama NATIONAL satırının TR SIRA'sı ve TL%'i CSV'de her
+        //     ikisi de "0" olduğunda (henüz veri girilmemiş dönemlerde)
+        //     bu şart hiç sağlanmıyor ve NATIONAL satırı tamamen
+        //     düşüyordu. Bu şart kaldırıldı; artık "ÜRÜN=GENEL TOPLAM +
+        //     isim harf içeriyor" tek başına yeterli, sıfır değerli
+        //     bölgeler de (NATIONAL dahil) listede yer alıyor.
         const regionUrun = (c[14] || '').trim().toUpperCase();
-        const isRegionTotalRow = !regionUrun || regionUrun === 'GENEL TOPLAM';
-        if (isRegionTotalRow) {
-          const regionTrSira = Math.round(parseN(c[9]));  // J: TR SIRA
-          const regionTlPct  = normPct(c[18]);             // S: TL%
+        const isRegionTotalRow = regionUrun === 'GENEL TOPLAM';
+        const looksLikeName = /[A-ZÇĞİÖŞÜ]/i.test(rawName); // salt rakam/'-' olan hücreler bölge OLAMAZ
+        if (isRegionTotalRow && looksLikeName) {
           // Ek güvenlik: aynı bölge adı CSV'de (beklenmedik bir sebeple)
           // birden fazla kez geçse bile, sadece İLK geçerli satır alınır.
           const alreadyHave = regions.some(r => r.bolge === rawName.toUpperCase());
-          if (!alreadyHave && (regionTrSira > 0 || regionTlPct > 0)) {
+          if (!alreadyHave) {
+            const regionTrSira = Math.round(parseN(c[9]));  // J: TR SIRA
+            const regionTlPct  = normPct(c[18]);             // S: TL%
             const regionHedefTl = parseN(c[15]); // P
             const regionSatisTl = parseN(c[16]); // Q
             const regionKalanTl = parseN(c[17]) || (regionHedefTl - regionSatisTl); // R (fallback: hedef-satis)
