@@ -766,21 +766,36 @@ function calcPrim() {
   const mi = parseFloat(document.getElementById('primMI')?.value) || 100;
   const gi = parseFloat(document.getElementById('primGI')?.value) || 100;
 
-  // KULLANICI İŞ KURALI: TL Realizasyon primi (çarpan tablosu), %100'ün
-  // üzerine SADECE Kompanzasyon döneminde (3. ve 6. dönemler / k1,k2)
-  // çıkabilir. Normal dönemlerde (1,2,4,5.Dönem) %100 üstü realizasyon
-  // çarpanı ARTIRMAZ — bkz. js/core/date-utils.js isKompanzasyonDonemi().
+  // RESMİ KURAL DÜZELTMESİ (2026 İLKO TTT Prim Sunumu): "Dönemler %100
+  // realizasyona göre hesaplanır" — bu HER dönemde (normal veya
+  // kompanzasyon fark etmeksizin) geçerlidir. %100 üzeri kısım bu
+  // dönemlik hesaba DEĞİL, ayrı "Kompanzasyon Ek Primi"ne (3 dönemlik
+  // geriye dönük mahsuplaşma) yansır — bkz. calcKompanzasyonEkPrimi()
+  // (js/core/prim-calc.js).
   const _curPeriod  = (typeof getEffectivePeriod === 'function') ? getEffectivePeriod() : null;
   const _isKompDonem = (typeof isKompanzasyonDonemi === 'function') ? isKompanzasyonDonemi(_curPeriod) : false;
-  const effRealCarpan = _isKompDonem ? effReal : Math.min(effReal, 100);
+  const effRealCarpan = Math.min(effReal, 100);
 
   const carpan       = effReal >= 91 ? getCarpan(effRealCarpan) : 0;
   const migiKatsayi  = effReal >= 70 ? getMiGiKatsayi(mi, gi) : 0;
 
   const BAZ_TL_REAL  = 55000;
   const BAZ_MIGI     = 14000;
-  const tlRealPrim   = carpan * BAZ_TL_REAL;
-  const portfoyPrim  = (effReal >= 91 && primPuani >= 91) ? 0.20 * BAZ_TL_REAL * carpan : 0;
+  const tlRealPrimDonemlik = carpan * BAZ_TL_REAL;
+  // Kompanzasyon Ek Primi — SADECE 3./6. dönemde (k1/k2), koşulları
+  // sağlarsa (bkz. calcKompanzasyonEkPrimi: kendi real ≥%95, kümülatif
+  // 6 aylık real ≥%91, önceki 2 dönemin arşiv verisi mevcutsa).
+  const _komp = (typeof calcKompanzasyonEkPrimi === 'function')
+    ? calcKompanzasyonEkPrimi(ttt, GENEL)
+    : { ekPrim: 0, eligible: false, reason: 'Modül yüklü değil' };
+  const tlRealPrim   = tlRealPrimDonemlik + (_komp.ekPrim || 0);
+  // RESMİ KURAL (2026 İLKO TTT Prim Sunumu, "Portföy Primi Nasıl Hak
+  // Edilir?" — "%20 ek ödeme EN FAZLA %100 REAL'E GÖRE yapılır"):
+  // Portföy Primi HER ZAMAN %100'lük karşılıkla (çarpan=1.0) hesaplanır;
+  // TL Real Primi Kompanzasyon Ek Primi ile artsa bile Portföy bundan
+  // etkilenmeyip sabit kalır.
+  const carpanPortfoy100 = getCarpan(100); // her zaman 1.0
+  const portfoyPrim  = (effReal >= 91 && primPuani >= 91) ? 0.20 * BAZ_TL_REAL * carpanPortfoy100 : 0;
   const migiPrim     = migiKatsayi * BAZ_MIGI;
   const toplamPrim   = tlRealPrim + portfoyPrim + migiPrim;
 
@@ -808,11 +823,11 @@ function calcPrim() {
         <div style="font-size:11px;display:grid;gap:5px">
           <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
             <span>Dönem</span>
-            <strong style="${_isKompDonem?'color:#D97706':'color:var(--text)'}">${_curPeriod?_curPeriod.label:'—'} ${_isKompDonem?'🏆 (Kompanzasyon — %100 üstü işlenir)':'(Normal — %100 üstü işlenmez)'}</strong>
+            <strong style="${_isKompDonem?'color:#D97706':'color:var(--text)'}">${_curPeriod?_curPeriod.label:'—'} ${_isKompDonem?'🏆 (Kompanzasyon)':'(Normal)'}</strong>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
             <span>TL Realizasyon</span>
-            <strong style="${effReal>=91?'color:#16A34A':'color:#DC2626'}">${effReal.toFixed(1)}% ${effReal>=91?'✅ (≥91%)':'❌ (<91%)'}${(!_isKompDonem && effReal>100)?' <span style=\"color:#D97706;font-weight:600\">→ prim için %100 sayılır</span>':''}</strong>
+            <strong style="${effReal>=91?'color:#16A34A':'color:#DC2626'}">${effReal.toFixed(1)}% ${effReal>=91?'✅ (≥91%)':'❌ (<91%)'}${effReal>100?' <span style=\"color:#D97706;font-weight:600\">→ dönemlik prim için %100 sayılır</span>':''}</strong>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
             <span>Prim Puanı</span>
@@ -832,9 +847,13 @@ function calcPrim() {
         <div style="font-size:10px;color:var(--dim);font-weight:600;margin-bottom:6px">PRİM HESABI (DÖNEMLİK)</div>
         <table style="width:100%;font-size:11px;border-collapse:collapse">
           <tr style="border-bottom:1px solid var(--border)">
-            <td style="padding:5px">TL Real Primi <span style="color:var(--dim);font-size:9px">(${carpan>0?'çarpan: '+carpan.toFixed(2):'TL %<91'})</span></td>
-            <td style="text-align:right"><span style="${okStyle(tlRealPrim)}">${tlRealPrim.toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺</span></td>
+            <td style="padding:5px">TL Real Primi (dönemlik) <span style="color:var(--dim);font-size:9px">(${carpan>0?'çarpan: '+carpan.toFixed(2):'TL %<91'})</span></td>
+            <td style="text-align:right"><span style="${okStyle(tlRealPrimDonemlik)}">${tlRealPrimDonemlik.toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺</span></td>
           </tr>
+          ${_isKompDonem ? `<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:5px">Kompanzasyon Ek Primi <span style="color:var(--dim);font-size:9px" title="${_komp.reason}">(${_komp.eligible?'çarpan: '+(_komp.detail?.carpanKumulatif||0).toFixed(2)+'x — kümülatif %'+(_komp.detail?.kumulatifReal||0).toFixed(1):_komp.reason})</span></td>
+            <td style="text-align:right"><span style="${okStyle(_komp.ekPrim)}">${(_komp.ekPrim||0).toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺</span></td>
+          </tr>` : ''}
           <tr style="border-bottom:1px solid var(--border)">
             <td style="padding:5px">Portföy Primi <span style="color:var(--dim);font-size:9px">(+%20${primPuani<91?' — Prim puan <91':''})</span></td>
             <td style="text-align:right"><span style="${okStyle(portfoyPrim)}">${portfoyPrim.toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺</span></td>
@@ -850,7 +869,7 @@ function calcPrim() {
         </table>
       </div>
       <div style="font-size:9px;color:var(--dim);background:var(--surf2);padding:8px;border-radius:6px;border:1px solid var(--border)">
-        * Dönemlik hesaplama. %100 üzeri realizasyonlar ${_isKompDonem?'<strong style="color:#D97706">bu Kompanzasyon döneminde işleniyor</strong> (çarpan %100 üzerine çıkabilir).':'<strong>sadece Kompanzasyon dönemlerinde (3. ve 6. dönemler) işlenir</strong> — bu normal dönemde çarpan %100\'de sabitlenir.'}<br>
+        * Dönemlik TL Real Primi HER dönemde %100 sınırlıdır. %100 üzeri realizasyon, sadece <strong>3. ve 6. dönemlerde (Kompanzasyon)</strong>, geçmiş 3 dönemin (6 aylık) kümülatif sonucuna göre ayrı bir "Kompanzasyon Ek Primi" olarak değerlendirilir${_isKompDonem?(_komp.eligible?' — <strong style="color:#16A34A">bu dönem hak ediliyor.</strong>':' — <strong style="color:#D97706">bu dönem henüz hak edilmiyor: '+_komp.reason+'</strong>'):''}.<br>
         * MI &amp; GI değerleri manuel girilir — dönem bitiminde kesinleşir.
       </div>
     </div>

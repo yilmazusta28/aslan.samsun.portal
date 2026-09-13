@@ -80,12 +80,17 @@
   function _calcPrimForReal(ttt, targetReal) {
     if (targetReal < 91) return 0;
 
-    // KULLANICI İŞ KURALI: %100 üzeri realizasyon, prim çarpanını SADECE
-    // Kompanzasyon döneminde (3. ve 6. dönemler / k1,k2) artırır. Normal
-    // dönemlerde (1,2,4,5.Dönem) bu senaryo simülasyonu bile %100'ü
-    // aşamaz — bkz. js/core/date-utils.js isKompanzasyonDonemi().
-    var _isKompDonem = (typeof isKompanzasyonDonemi === 'function') ? isKompanzasyonDonemi() : false;
-    var targetRealCarpan = _isKompDonem ? targetReal : Math.min(targetReal, 100);
+    // RESMİ KURAL DÜZELTMESİ: "Dönemler %100 realizasyona göre
+    // hesaplanır" — bu HER dönem (normal veya kompanzasyon fark
+    // etmeksizin) geçerlidir; %100 üzeri kısım bu dönemlik hesaba değil,
+    // ayrı ve 3 dönemlik geriye dönük mahsuplaşma gerektiren
+    // "Kompanzasyon Ek Primi"ne yansır (bkz. js/core/prim-calc.js
+    // calcKompanzasyonEkPrimi). Bu basit senaryo simülatörü geçmiş
+    // dönem arşivine dayalı o mahsuplaşmayı MODELLEMEZ — bu yüzden
+    // burada da her zaman %100 sınırı uygulanır; kompanzasyon senaryosu
+    // simüle etmek isteyenler Prim Hesaplama sayfasındaki gerçek
+    // hesaplayıcıyı (Kompanzasyon Ek Primi dahil) kullanmalıdır.
+    var targetRealCarpan = Math.min(targetReal, 100);
 
     var carpan      = (typeof getCarpan === 'function') ? getCarpan(targetRealCarpan) : 1;
     var migi        = _getMiGiAvg(ttt);
@@ -95,8 +100,13 @@
     var primPuani   = _scaledPrimPuani(ttt, targetReal);
 
     var tlRealPrim  = carpan * BAZ_TL_REAL;
+    // RESMİ KURAL: Portföy Primi'nin %20 ek ödemesi HER ZAMAN %100'lük
+    // karşılıkla (çarpan=1.0) hesaplanır — TL Real Primi kompanzasyon
+    // döneminde %100'ü aşsa bile Portföy bundan etkilenmez (bkz.
+    // js/core/prim-calc.js'deki aynı düzeltme).
+    var carpanPortfoy100 = (typeof getCarpan === 'function') ? getCarpan(100) : 1;
     var portfoyPrim = (targetReal >= 91 && primPuani >= 91)
-      ? 0.20 * BAZ_TL_REAL * carpan : 0;
+      ? 0.20 * BAZ_TL_REAL * carpanPortfoy100 : 0;
     var migiPrim    = migiKatsayi * BAZ_MIGI;
 
     return Math.round(tlRealPrim + portfoyPrim + migiPrim);

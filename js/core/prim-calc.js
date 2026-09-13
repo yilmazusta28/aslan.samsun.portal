@@ -49,6 +49,123 @@ const URUN_AGIRLIK = {
   'GRİPORT COLD': 0.20, 'MOKSEFEN': 0.15, 'FAMTREC': 0.15  // sıra: PANOCER·ACİDPASS·GRİPORT·MOKSEFEN·FAMTREC
 };
 
+// ══════════════════════════════════════════════════════════════
+//  KOMPANZASYON EK PRİMİ (1.A) — Resmi kural (2026 İLKO TTT Prim
+//  Sunumu, "Kompansasyon [TL Real] Primi Nasıl Hak Edilir?"):
+//
+//  ÖNEMLİ DÜZELTME (bu fonksiyon eklenmeden önceki hatalı varsayım):
+//  Kompanzasyon dönemlerinde (k1/k2) o dönemin KENDİ TL Real Primi
+//  DOĞRUDAN %100 sınırını AŞMAZ — normal dönemlerle AYNI şekilde
+//  %100'de sınırlıdır (bkz. calcPrimForTTT). %100 üzeri kısım, SADECE
+//  bu ayrı "Kompanzasyon Ek Primi" kalemiyle, 3 dönemlik (6 aylık)
+//  GERİYE DÖNÜK bir mahsuplaşmayla ödenir:
+//
+//    KOŞUL-1: Kompanzasyon döneminin (3. veya 6.) KENDİ TL
+//             realizasyonu >= %95 olmalı.
+//    KOŞUL-2: Geçmiş 3 dönemin (6 aylık) KÜMÜLATİF toplam TL
+//             realizasyonu >= %91 olmalı.
+//    HESAPLAMA: 3 × getCarpan(kümülatif_real) × BAZ_TL_REAL tutarından,
+//             3 dönemde ZATEN ÖDENMİŞ olan (her biri kendi %100
+//             sınırlı normal) TL Real Primi toplamı düşülür; kalan
+//             fark bu dönemin "Kompanzasyon Ek Primi"dir (negatifse 0
+//             kabul edilir — bu bir telafi mekanizmasıdır, geri alım
+//             değildir).
+//    EK ŞART: "Kompansasyon priminden yararlanmak için en az 2 dönem
+//             çalışma şartı aranmaktadır" — önceki 2 dönemin arşiv
+//             verisi (period-archive-manager.js) bulunamazsa bu ek
+//             prim hesaplanmaz.
+//    KAPSAM: SADECE "1-TL Real Primi" için geçerlidir — Portföy ve
+//             MI&GIGI primlerini ETKİLEMEZ (PDF: "Kompansasyon hesabı
+//             yapılmaz" o iki kalem için).
+//
+//  Veri kaynağı: js/core/period-archive-manager.js (H1={1d,2d,k1},
+//  H2={4d,5d,k2}) — her dönem geçişinde otomatik arşivlenir.
+//
+//  @param {string} ttt
+//  @param {Array}  currentGenel — o anki (canlı) GENEL verisi
+//  @param {string} [periodKeyOverride] — verilmezse bugünün tarihinden
+//         (PeriodArchiveManager.getCurrentPeriodKey()) hesaplanır.
+//  @returns {{ekPrim:number, eligible:boolean, reason:string, detail:object|null}}
+// ══════════════════════════════════════════════════════════════
+function calcKompanzasyonEkPrimi(ttt, currentGenel, periodKeyOverride) {
+  const BAZ_TL_REAL = 55000;
+  const PM = (typeof window !== 'undefined' && window.PeriodArchiveManager) ? window.PeriodArchiveManager : null;
+
+  const curKey = periodKeyOverride || (PM && typeof PM.getCurrentPeriodKey === 'function' ? PM.getCurrentPeriodKey() : null);
+  if (!curKey || (curKey !== 'k1' && curKey !== 'k2')) {
+    return { ekPrim: 0, eligible: false, reason: 'Kompanzasyon dönemi değil (sadece 3. ve 6. dönemlerde uygulanır).', detail: null };
+  }
+  if (!PM) {
+    return { ekPrim: 0, eligible: false, reason: 'Arşiv modülü (period-archive-manager.js) yüklü değil.', detail: null };
+  }
+
+  const siblingKeys = curKey === 'k1' ? ['1d', '2d'] : ['4d', '5d'];
+
+  function _findGenelToplam(genelArr, tttName) {
+    return (genelArr || []).find(r => r.ttt === tttName && r.urun === 'GENEL TOPLAM') || null;
+  }
+
+  const priorRows = siblingKeys.map(k => {
+    const arch = PM.getArchivedPeriod(k);
+    return { key: k, row: arch ? _findGenelToplam(arch.genel, ttt) : null };
+  });
+
+  const missing = priorRows.filter(p => !p.row);
+  if (missing.length) {
+    return {
+      ekPrim: 0, eligible: false,
+      reason: 'Kompanzasyon primi için en az 2 dönem çalışma şartı aranıyor — ' +
+              missing.map(m => m.key).join(', ') + ' dönemi(nin) arşiv verisi bulunamadı.',
+      detail: null
+    };
+  }
+
+  const curRow = _findGenelToplam(currentGenel, ttt);
+  if (!curRow) {
+    return { ekPrim: 0, eligible: false, reason: 'Bu dönemin GENEL TOPLAM satırı bulunamadı.', detail: null };
+  }
+
+  // KOŞUL-1: kompanzasyon döneminin kendi realizasyonu >= %95
+  const kendiReal = curRow.tl_pct || 0;
+  if (kendiReal < 95) {
+    return {
+      ekPrim: 0, eligible: false,
+      reason: `Bu dönemin kendi TL realizasyonu (%${kendiReal.toFixed(1)}) %95'in altında.`,
+      detail: { kendiReal }
+    };
+  }
+
+  // KOŞUL-2: 3 dönemin kümülatif (6 aylık) TL real'i >= %91
+  const all3 = priorRows.map(p => p.row).concat([curRow]);
+  const sumHedef = all3.reduce((s, r) => s + (r.hedef_tl || 0), 0);
+  const sumSatis = all3.reduce((s, r) => s + (r.satis_tl || 0), 0);
+  const kumulatifReal = sumHedef > 0 ? (sumSatis / sumHedef * 100) : 0;
+  if (kumulatifReal < 91) {
+    return {
+      ekPrim: 0, eligible: false,
+      reason: `6 aylık kümülatif TL realizasyonu (%${kumulatifReal.toFixed(1)}) %91'in altında.`,
+      detail: { kendiReal, kumulatifReal }
+    };
+  }
+
+  // HESAPLAMA: kümülatif sonuca göre 3 dönem "yeniden kapatılmış" gibi ödeme,
+  // eksi 3 dönemde zaten ödenmiş (her biri kendi %100 sınırlı) TL Real Primi.
+  const carpanKumulatif = getCarpan(kumulatifReal);
+  const yeniToplamOdeme = 3 * carpanKumulatif * BAZ_TL_REAL;
+  const zatenOdenen = all3.reduce((s, r) => {
+    const kendiCarpan = (r.tl_pct >= 91) ? getCarpan(Math.min(r.tl_pct || 0, 100)) : 0;
+    return s + kendiCarpan * BAZ_TL_REAL;
+  }, 0);
+  const ekPrim = Math.max(0, yeniToplamOdeme - zatenOdenen);
+
+  return {
+    ekPrim,
+    eligible: true,
+    reason: 'Kompanzasyon primi hak edildi.',
+    detail: { kendiReal, kumulatifReal, carpanKumulatif, yeniToplamOdeme, zatenOdenen, sumHedef, sumSatis, periods: siblingKeys.concat([curKey]) }
+  };
+}
+
 // ── TSB bar için: herhangi bir TTT'nin prim toplamını GENEL'den hesapla ──
 function calcPrimForTTT(ttt) {
   // Eğer prim hesaplama sayfasında bu temsilci zaten hesaplandıysa onu kullan
@@ -84,15 +201,25 @@ function calcPrimForTTT(ttt) {
   const migiKatsayi = effReal >= 70 ? getMiGiKatsayi(Math.round(miAvg), Math.round(giAvg)) : 0;
   const BAZ_TL_REAL = 55000;
   const BAZ_MIGI    = 14000;
-  // KULLANICI İŞ KURALI: TL Realizasyon primi (çarpan tablosu), %100'ün
-  // üzerine SADECE Kompanzasyon döneminde (3. ve 6. dönemler / k1,k2)
-  // çıkabilir. Normal dönemlerde (1,2,4,5.Dönem) %100 üstü realizasyon
-  // çarpanı artırmaz — bkz. js/core/date-utils.js isKompanzasyonDonemi().
-  const _isKompDonem = typeof isKompanzasyonDonemi === 'function' ? isKompanzasyonDonemi() : false;
-  const effRealCarpan = _isKompDonem ? effReal : Math.min(effReal, 100);
+  // RESMİ KURAL DÜZELTMESİ: TL Real Primi HER dönemde (normal veya
+  // kompanzasyon fark etmeksizin) kendi %100 sınırıyla hesaplanır —
+  // "Dönemler %100 realizasyona göre hesaplanır" (PDF). %100 üzeri kısım
+  // bu dönemlik hesaba DEĞİL, ayrı "Kompanzasyon Ek Primi"ne yansır
+  // (bkz. calcKompanzasyonEkPrimi — 3 dönemlik geriye dönük mahsuplaşma).
+  const effRealCarpan = Math.min(effReal, 100);
   const carpan    = effReal >= 91 ? getCarpan(effRealCarpan) : 0;
-  const tlRealPrim  = carpan * BAZ_TL_REAL;
-  const portfoyPrim = (effReal >= 91 && primPuani >= 91) ? 0.20 * BAZ_TL_REAL * carpan : 0;
+  const tlRealPrimDonemlik = carpan * BAZ_TL_REAL;
+  // Kompanzasyon Ek Primi (SADECE k1/k2 döneminde, koşulları sağlarsa)
+  const _komp = (typeof calcKompanzasyonEkPrimi === 'function') ? calcKompanzasyonEkPrimi(ttt, GENEL) : { ekPrim: 0 };
+  const tlRealPrim  = tlRealPrimDonemlik + (_komp.ekPrim || 0);
+  // RESMİ KURAL (2026 İLKO TTT Prim Sunumu — "Portföy Primi Nasıl Hak
+  // Edilir?"): "%20 ek ödeme EN FAZLA %100 REAL'E GÖRE yapılır." Yani
+  // Portföy Primi, TL Real Primi %100'ün üzerine çıksa bile (kompanzasyon
+  // döneminde olduğu gibi) HER ZAMAN %100'lük karşılıkla (çarpan=1.0)
+  // hesaplanır — yukarıdaki `carpan` (kompanzasyon döneminde >1 olabilir)
+  // burada KULLANILMAZ, ayrı bir sabit %100 çarpanı kullanılır.
+  const carpanPortfoy100 = getCarpan(100); // her zaman 1.0 — iş kuralı gereği sabit
+  const portfoyPrim = (effReal >= 91 && primPuani >= 91) ? 0.20 * BAZ_TL_REAL * carpanPortfoy100 : 0;
   const migiPrim    = migiKatsayi * BAZ_MIGI;
   return tlRealPrim + portfoyPrim + migiPrim;
 }
