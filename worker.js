@@ -61,7 +61,8 @@ export default {
     }
 
     // ── GÜVENLİK: tüm route'lardan ÖNCE kimlik doğrulama ────────────────
-    // (rota-sync, gozlem-sync, stok-sync, sartlar-sync, haber-sync, AI proxy)
+    // (rota-sync, gozlem-sync, stok-sync, sartlar-sync, haber-sync,
+    //  dosyalar-sync, AI proxy)
     if (!(await _verifyPvAuth(request, env))) {
       return new Response(JSON.stringify({ error: 'yetkisiz erişim — X-PV-Auth geçersiz veya eksik' }), {
         status: 401,
@@ -106,6 +107,19 @@ export default {
         listKey: 'girisler',
         requiredFields: ['pharmacy'],
         commitPrefix: 'stok',
+      });
+    }
+    // ── FAZ 19.0: "Dosyalar" sayfası — temsilcinin manuel girdiği saha
+    // sunum/toplantı kayıtları. stok-sync ile AYNI append deseni: her
+    // istek data/dosyalar_kayitlari.json'daki "kayitlar" dizisine EKLENİR,
+    // üzerine yazılmaz — böylece tüm temsilcilerin kayıtları GitHub'da
+    // tek dosyada birikir ve Şenol Yılmaz (Bölge Müdürü) hepsini görebilir.
+    if (url.pathname === '/dosyalar-sync') {
+      return handleAppendSync(request, env, ALLOWED, {
+        path: 'data/dosyalar_kayitlari.json',
+        listKey: 'kayitlar',
+        requiredFields: ['ttt', 'tarih', 'brick'],
+        commitPrefix: 'dosyalar',
       });
     }
     if (url.pathname === '/sartlar-sync') {
