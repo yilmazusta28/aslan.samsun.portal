@@ -1,28 +1,42 @@
 // ══════════════════════════════════════════════════════════════════════
 //  js/ui/dosyalar-page.js
-//  FAZ 19.0 — "Dosyalar" Sayfası (Sayfa 9)
+//  FAZ 20.0 — "Dosyalar" Sayfası (Sayfa 9) — GENİŞLETİLMİŞ SÜRÜM
 //
-//  Amaç: Her temsilci, sahada yaptığı sunum/toplantı bilgisini kendi
-//  adına manuel girer. Şenol Yılmaz (Bölge Müdürü) TÜM temsilcilerin
-//  kayıtlarını tek sayfada görür ve Excel olarak indirebilir; her
-//  temsilci de yalnızca KENDİ kayıtlarını görür ve kendi Excel'ini
-//  indirebilir.
+//  FAZ 19.0'ın yerini alır. Artık TEK bir form yerine, orijinal
+//  SAMSUN_AYLIK_MASRAF_DOSYASI.xlsx (3 sayfa) + Kongre_Katılımcı_Bilgileri.xlsx
+//  yapısına birebir karşılık gelen 4 sekme var:
 //
-//  Depolama deseni: stock-entry-adapter.js / route-plan-input.js İLE
-//  AYNI — localStorage (anlık yerel önbellek) + GitHub'a fire-and-forget
-//  POST (worker.js → /dosyalar-sync → data/dosyalar_kayitlari.json,
-//  APPEND). Sayfa açıldığında GitHub'daki dosya doğrudan (raw.
-//  githubusercontent.com) çekilip yerel önbellekle birleştirilir —
-//  böylece Şenol Yılmaz farklı bir cihazdan girilen kayıtları da görür.
+//    "Masraf Dosyası" (ana başlık)
+//      ├─ Temsil Masraf Detay
+//      ├─ Planlanan Merkez Ödeme
+//      └─ Gerçekleşen Merkez Ödeme
+//    "Kongre Katılımcı Bilgileri" (ana başlık, tek sekme)
 //
-//  Alanlar:
-//    Bölge (oto=SAMSUN), Grup (oto=ASLAN),
-//    Tarih (takvim), BM (oto=ŞENOL YILMAZ), TTT (oto=giriş yapan),
-//    Brick (temsilcinin kendi brick'leri + her zaman "333"),
-//    Ünite (manuel), Hekim Sayısı (manuel), Bütçe (manuel),
-//    Branş, Sunum Temsil Şekli, Sunumu Yapılan Ürün, Klinik,
-//    Gerçekleşen Maliyet (manuel), Kişi Sayısı (manuel),
-//    Kişi Başı Maliyet (OTOMATİK = Maliyet / Kişi Sayısı)
+//  Ortak otomatik alanlar (kullanıcı isteği, FAZ 20.0):
+//    Bölge = SAMSUN, Grup = ASLAN (Kongre hariç), BM = ŞENOL YILMAZ
+//    (Kongre hariç — Kongre'de "TTT Adı" tek başına yeterli),
+//    TTT / Sunum Yapan-Yapacak Kişi / TTT Adı = giriş yapan kullanıcı
+//    (LOGGED_IN_USER) — OTOMATİK, salt-okunur.
+//    Brick / Brik = giriş yapan TTT'nin IMS'teki kendi brickleri
+//    (+ her zaman ortak "333" seçeneği) — mevcut getTTTBricks() İLE AYNI.
+//    Kongre'de ayrıca "İlk 333 Brick Sıra" seçilen bricke göre
+//    MIGI_BRICK_TL_RAW (MI_GI-TL.csv) üzerinden OTOMATİK dolar.
+//    Planlanan/Gerçekleşen'de "Kişi Başı" = Maliyet ÷ Katılımcı, OTOMATİK.
+//
+//  NOT (Kongre "Kongre Tarihi" alanı): orijinal Kongre_Katılımcı_Bilgileri.xlsx
+//  dosyasında tarih sütunu yoktu. worker.js /dosyalar-sync endpoint'i HER
+//  kayıt için ttt+tarih+brick alanlarını zorunlu tuttuğundan (bkz. worker.js
+//  satır ~117) ve bu üçü GERÇEKTEN de "hangi kongre/ne zaman" sorusuna
+//  faydalı bir cevap olduğundan, forma "Kongre Tarihi" eklendi. Bunun
+//  dışında worker.js'de HİÇBİR değişiklik yapılmadı/gerekmedi — bu endpoint
+//  zaten herhangi bir kayıt şeklini (record shape) kabul ediyor, sadece bu
+//  3 alanın dolu olmasını istiyor.
+//
+//  Depolama: FAZ 19.0 ile AYNI — tek dosya (data/dosyalar_kayitlari.json),
+//  tek "kayitlar" dizisi, artık her kayıtta bir "tip" alanı var
+//  ('temsil' | 'planlanan' | 'gerceklesen' | 'kongre'). "tip" alanı
+//  olmayan ESKİ (FAZ 19.0 döneminde girilmiş) kayıtlar geriye dönük
+//  uyumluluk için 'gerceklesen' sekmesinde gösterilir (en yakın şema).
 //
 //  GitHub Pages compatible: classic script, no ES modules.
 // ══════════════════════════════════════════════════════════════════════
@@ -36,11 +50,14 @@
   }
   window._DOSYALAR_PAGE_LOADED = true;
 
-  // ── Sabitler (kullanıcı isteğiyle tanımlanan seçenek listeleri) ───────
-  var BRANS_OPTIONS   = ['A.HEK', 'ACİL', 'DAHİLİYE', 'FTR', 'ORTOPEDİ', 'GASTRO'];
-  var KLINIK_OPTIONS  = ['A.HEK', 'ACİL', 'DAHİLİYE', 'FTR', 'ORTOPEDİ', 'GASTRO'];
-  var TEMSIL_OPTIONS  = ['K.K', 'NAKİT', 'MERKEZİ ÖDEME'];
-  var URUN_OPTIONS    = ['PANOCER', 'ACİDPASS', 'FAMTREC', 'MOKSEFEN', 'GRİPORT COLD'];
+  // ── Sabit seçenek listeleri (kullanıcı isteğiyle FAZ 20.0'da tanımlandı) ──
+  var PRODUCT_OPTIONS      = ['ACİDPASS', 'PANOCER', 'FAMTREC', 'MOKSEFEN', 'GRİPORT COLD'];
+  var BRANS_KLINIK_OPTIONS = ['A.HEK', 'DAHİLİYE', 'FTR', 'ORTOPEDİ', 'ACİL'];
+  var SUNUM_TEMSIL_OPTIONS = ['K.K', 'NAKİT'];
+  var YEMEK_OPTIONS        = ['ALKOLSÜZ ÖĞLE YEMEĞİ', 'ALKOLSÜZ AKŞAM YEMEĞİ', 'ALKOLLÜ AKŞAM YEMEĞİ'];
+  var UNVAN_OPTIONS        = ['Pratisyen', 'Asistan', 'Uzman', 'Öğretim Üyesi', 'Doç.Dr.', 'Prof.Dr.'];
+  var SINGLE_DOUBLE_OPTIONS = ['SINGLE', 'DOUBLE'];
+  var AY_ADLARI = ['OCAK','ŞUBAT','MART','NİSAN','MAYIS','HAZİRAN','TEMMUZ','AĞUSTOS','EYLÜL','EKİM','KASIM','ARALIK'];
 
   // Bölge/Grup/BM sabit — uygulama genelinde tek bölge (SAMSUN), tek grup
   // (ASLAN) ve tek Bölge Müdürü (ŞENOL YILMAZ) var. Değişirse SADECE
@@ -49,12 +66,117 @@
   var GRUP_ADI  = (window.PV_DOSYALAR_GRUP_ADI) || 'ASLAN';
   var BM_ADI    = 'ŞENOL YILMAZ';
 
-  var STORAGE_KEY   = 'pv_dosyalar_kayitlari_v1';
-  var _RAW_URL       = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/data/dosyalar_kayitlari.json';
-  var _remoteCache   = null;  // son çekilen GitHub kayıtları (dizi) — null: henüz çekilmedi
+  var STORAGE_KEY = 'pv_dosyalar_kayitlari_v1';
+  var _RAW_URL     = 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/data/dosyalar_kayitlari.json';
+  var _remoteCache = null;
   var _workerSyncQueue = Promise.resolve();
 
-  // ── Yerel (localStorage) okuma/yazma ──────────────────────────────────
+  var TIPLER = ['temsil', 'planlanan', 'gerceklesen', 'kongre'];
+
+  var TIP_LABELS = {
+    temsil:      'Temsil Masraf Detay',
+    planlanan:   'Planlanan Merkez Ödeme',
+    gerceklesen: 'Gerçekleşen Merkez Ödeme',
+    kongre:      'Kongre Katılımcı Bilgileri'
+  };
+
+  // ortak (Bölge/Grup/BM/TTT/Tarih) alanların her tipe göre etiketi
+  var COMMON_LABELS = {
+    temsil:      { ttt: 'TTT',                    tarih: 'Tarih',          showGrupBm: true  },
+    planlanan:   { ttt: 'Sunum Yapacak Kişi',      tarih: 'Tarihi',         showGrupBm: true  },
+    gerceklesen: { ttt: 'Sunum Yapan Kişi',        tarih: 'Tarih',          showGrupBm: true  },
+    kongre:      { ttt: 'TTT Adı',                 tarih: 'Kongre Tarihi',  showGrupBm: false }
+  };
+
+  // tipe özel alanlar (Bölge/Grup/BM/TTT/Tarih/Brick hariç — onlar ortak/özel işlenir)
+  var TIP_FIELDS = {
+    temsil: [
+      { key: 'urun',        label: 'Ürün',              type: 'select', options: PRODUCT_OPTIONS },
+      { key: 'unite',       label: 'Ünite',              type: 'text' },
+      { key: 'brick',       label: 'Bulunduğu Brick',    type: 'brick' },
+      { key: 'hekimSayisi', label: 'Hekim Sayısı',       type: 'number' },
+      { key: 'butce',       label: 'Bütçe (₺)',          type: 'number' },
+      { key: 'brans',       label: 'Branş',              type: 'select', options: BRANS_KLINIK_OPTIONS },
+      { key: 'sunumTemsil', label: 'Sunum / Temsil',     type: 'select', options: SUNUM_TEMSIL_OPTIONS }
+    ],
+    planlanan: [
+      { key: 'urun',       label: 'Sunum Yapılacak Ürün', type: 'select', options: PRODUCT_OPTIONS },
+      { key: 'unite',      label: 'Sunum Yapılacak Ünite', type: 'text' },
+      { key: 'klinik',     label: 'Klinik',                type: 'select', options: BRANS_KLINIK_OPTIONS },
+      { key: 'brick',      label: 'Bulunduğu Brik',        type: 'brick' },
+      { key: 'katilimci',  label: 'Tahmini Katılımcı',     type: 'number', recalc: true },
+      { key: 'maliyet',    label: 'Tahmini Maliyet (₺)',   type: 'number', recalc: true },
+      { key: 'kisiBasi',   label: 'Kişi Başı (otomatik)',  type: 'computed' },
+      { key: 'yemek',      label: 'Akşam/Öğle Yemeği',     type: 'select', options: YEMEK_OPTIONS }
+    ],
+    gerceklesen: [
+      { key: 'urun',       label: 'Sunum Yapılan Ürün',    type: 'select', options: PRODUCT_OPTIONS },
+      { key: 'unite',      label: 'Sunum Yapılan Ünite',   type: 'text' },
+      { key: 'klinik',     label: 'Klinik',                type: 'select', options: BRANS_KLINIK_OPTIONS },
+      { key: 'brick',      label: 'Bulunduğu Brik',        type: 'brick' },
+      { key: 'katilimci',  label: 'Gerçekleşen Katılımcı', type: 'number', recalc: true },
+      { key: 'maliyet',    label: 'Gerçekleşen Maliyet (₺)', type: 'number', recalc: true },
+      { key: 'kisiBasi',   label: 'Kişi Başı (otomatik)',  type: 'computed' },
+      { key: 'yemek',      label: 'Akşam/Öğle Yemeği',     type: 'select', options: YEMEK_OPTIONS }
+    ],
+    kongre: [
+      { key: 'kisiSayisi',   label: 'Kişi Sayısı',                        type: 'number' },
+      { key: 'singleDouble', label: 'Single/Double',                      type: 'select', options: SINGLE_DOUBLE_OPTIONS },
+      { key: 'odaSayisi',    label: 'Oda Sayısı',                         type: 'number' },
+      { key: 'unite',        label: 'Ünite',                              type: 'text' },
+      { key: 'brick',        label: 'Brick',                              type: 'brick' },
+      { key: 'ilk333Sira',   label: 'İlk 333 Brick Sıra',                 type: 'sira' },
+      { key: 'unvan',        label: 'Unvan',                              type: 'select', options: UNVAN_OPTIONS },
+      { key: 'adSoyad',      label: 'Ad-Soyad',                           type: 'text' },
+      { key: 'tc',           label: 'TC',                                 type: 'text' },
+      { key: 'dogumTarihi',  label: 'Doğum Tarihi',                       type: 'date' },
+      { key: 'telefon',      label: 'Telefon',                            type: 'text' },
+      { key: 'email',        label: 'Email',                              type: 'text' },
+      { key: 'sicilNo',      label: 'Sicil No',                           type: 'text' },
+      { key: 'hekiminIli',   label: 'Hekimin Bulunduğu İl',               type: 'text' },
+      { key: 'ucakIli',      label: 'Uçağa Bineceği İl',                  type: 'text' },
+      { key: 'notUcus',      label: 'Not / Talep Edilen Uçuş Bilgisi',    type: 'text' }
+    ]
+  };
+
+  // dışa aktarımda görünecek sütunlar (sıra önemli — orijinal Excel sırası)
+  var TABLE_COLS = {
+    temsil: [
+      { key: 'ttt', label: 'TTT', managerOnly: true },
+      { key: 'bolge', label: 'Bölge' }, { key: 'grup', label: 'Grup' }, { key: 'urun', label: 'Ürün' },
+      { key: 'tarih', label: 'Tarih' }, { key: 'unite', label: 'Ünite' }, { key: 'brick', label: 'Bulunduğu Brick' },
+      { key: 'hekimSayisi', label: 'Hekim Sayısı' }, { key: 'butce', label: 'Bütçe', money: true },
+      { key: 'brans', label: 'Branş' }, { key: 'sunumTemsil', label: 'Sunum/Temsil' }, { key: 'ay', label: 'AY' }
+    ],
+    planlanan: [
+      { key: 'ttt', label: 'Sunum Yapacak Kişi', managerOnly: true },
+      { key: 'bolge', label: 'Bölge' }, { key: 'grup', label: 'Grup' }, { key: 'urun', label: 'Ürün' },
+      { key: 'tarih', label: 'Tarihi' }, { key: 'unite', label: 'Ünite' }, { key: 'klinik', label: 'Klinik' },
+      { key: 'brick', label: 'Brik' }, { key: 'katilimci', label: 'Tahmini Katılımcı' },
+      { key: 'kisiBasi', label: 'Kişi Başı', money: true }, { key: 'maliyet', label: 'Tahmini Maliyet', money: true },
+      { key: 'yemek', label: 'Yemek' }
+    ],
+    gerceklesen: [
+      { key: 'ttt', label: 'Sunum Yapan Kişi', managerOnly: true },
+      { key: 'bolge', label: 'Bölge' }, { key: 'grup', label: 'Grup' }, { key: 'urun', label: 'Ürün' },
+      { key: 'tarih', label: 'Tarih' }, { key: 'unite', label: 'Ünite' }, { key: 'klinik', label: 'Klinik' },
+      { key: 'brick', label: 'Brik' }, { key: 'katilimci', label: 'Gerçekleşen Katılımcı' },
+      { key: 'kisiBasi', label: 'Kişi Başı', money: true }, { key: 'maliyet', label: 'Gerçekleşen Maliyet', money: true },
+      { key: 'yemek', label: 'Yemek' }
+    ],
+    kongre: [
+      { key: 'ttt', label: 'TTT Adı', managerOnly: true },
+      { key: 'kisiSayisi', label: 'Kişi Sayısı' }, { key: 'singleDouble', label: 'Single/Double' },
+      { key: 'odaSayisi', label: 'Oda Sayısı' }, { key: 'bolge', label: 'Bölge' }, { key: 'unite', label: 'Ünite' },
+      { key: 'brick', label: 'Brick' }, { key: 'ilk333Sira', label: 'İlk 333 Brick Sıra' }, { key: 'unvan', label: 'Unvan' },
+      { key: 'adSoyad', label: 'Ad-Soyad' }, { key: 'tc', label: 'TC' }, { key: 'dogumTarihi', label: 'Doğum Tarihi' },
+      { key: 'telefon', label: 'Telefon' }, { key: 'email', label: 'Email' }, { key: 'sicilNo', label: 'Sicil No' },
+      { key: 'hekiminIli', label: 'Hekimin Bulunduğu İl' }, { key: 'ucakIli', label: 'Uçağa Bineceği İl' },
+      { key: 'notUcus', label: 'Not / Talep Edilen Uçuş Bilgisi' }, { key: 'tarih', label: 'Kongre Tarihi' }
+    ]
+  };
+
+  // ── Yerel (localStorage) okuma/yazma — FAZ 19.0 İLE AYNI ──────────────
   function _loadLocal() {
     try {
       var raw = localStorage.getItem(STORAGE_KEY);
@@ -65,7 +187,6 @@
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list || [])); } catch (e) { /* yoksay */ }
   }
 
-  // ── GitHub'dan tüm kayıtları oku (rota-sync/fetchTeamPlans deseniyle aynı) ─
   function _fetchRemote() {
     return fetch(_RAW_URL + '?_=' + Date.now(), { cache: 'no-store' })
       .then(function (res) {
@@ -81,8 +202,6 @@
       });
   }
 
-  // Yerel + uzak birleşimi — id'ye göre tekilleştirilir (yerel kayıt daha
-  // güncel kabul edilir; henüz senkronlanmamış olabilir).
   function _mergedRecords(remote) {
     var local = _loadLocal();
     var byId = {};
@@ -97,7 +216,6 @@
     return 'dsy_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8) + '_' + (ttt || '').slice(0, 3);
   }
 
-  // ── Worker'a fire-and-forget senkron (stok/route ile aynı desen) ─────
   function _syncToWorker(record) {
     if (!window.DOSYALAR_SYNC_WORKER_URL || !record) return;
     _workerSyncQueue = _workerSyncQueue.then(function () {
@@ -118,9 +236,7 @@
     }).catch(function () {});
   }
 
-  // ── Temsilcinin kendi brick'lerini bul (IMS verisinden) ───────────────
-  // Her zaman "333" (ortak/paylaşımlı brick) listeye eklenir — kullanıcı
-  // isteği: "brick yanında 333 brick sırasını da görebilsin".
+  // ── Temsilcinin kendi brick'lerini bul (IMS verisinden) — FAZ 19.0 İLE AYNI ─
   function getTTTBricks(ttt) {
     var set = {};
     try {
@@ -135,6 +251,32 @@
     return list;
   }
 
+  // ── FAZ 20.0 YENİ: seçilen bricke ait "İlk 333 Brick Sıra" değerini
+  // MIGI_BRICK_TL_RAW (MI_GI-TL.csv, brick-ranking-engine.js İLE AYNI
+  // veri kaynağı) üzerinden bul. "333" ortak brick'i veya veri henüz
+  // yüklenmemişse boş döner (kullanıcı gerekirse manuel bakar).
+  function getBrickSira(ttt, brick) {
+    if (!brick || brick === '333') return '';
+    try {
+      if (typeof MIGI_BRICK_TL_RAW === 'undefined' || !Array.isArray(MIGI_BRICK_TL_RAW)) return '';
+      var rows = MIGI_BRICK_TL_RAW.filter(function (r) {
+        return r && r.person === ttt && String(r.brick || '').trim().toUpperCase() === String(brick).trim().toUpperCase();
+      });
+      if (!rows.length) return '';
+      function donemNum(d) { var p = String(d || '').split('/'); return p.length === 2 ? (+p[1] * 100 + +p[0]) : 0; }
+      var latest = rows.reduce(function (max, r) { return Math.max(max, donemNum(r.donem)); }, 0);
+      var latestRows = rows.filter(function (r) { return donemNum(r.donem) === latest; });
+      var sira = latestRows.reduce(function (min, r) { return (r.sira && r.sira < min) ? r.sira : min; }, 999999);
+      return (sira && sira < 999999) ? sira : '';
+    } catch (e) { return ''; }
+  }
+
+  function _ayFromTarih(tarih) {
+    if (!tarih) return '';
+    var m = parseInt(String(tarih).split('-')[1], 10);
+    return (m >= 1 && m <= 12) ? AY_ADLARI[m - 1] : '';
+  }
+
   function _currentTTT() {
     return (typeof LOGGED_IN_USER !== 'undefined' && LOGGED_IN_USER) ? LOGGED_IN_USER : (window.LOGGED_IN_USER || '');
   }
@@ -142,146 +284,128 @@
     return _currentTTT() === 'ŞENOL YILMAZ';
   }
 
-  // ── Form HTML ──────────────────────────────────────────────────────
+  // ── Form HTML yardımcıları ─────────────────────────────────────────
   function _optionsHtml(list, selected) {
     return list.map(function (o) {
       return '<option value="' + o + '"' + (o === selected ? ' selected' : '') + '>' + o + '</option>';
     }).join('');
   }
-
-  function _buildFormHtml() {
-    var ttt = _currentTTT();
-    var bricks = getTTTBricks(ttt);
-
-    return '' +
-    '<div class="card mb16">' +
-      '<div class="card-hd">' +
-        '<span class="card-title">📁 Yeni Saha Kaydı</span>' +
-        '<span class="card-badge">' + ttt + '</span>' +
-      '</div>' +
-      '<div class="card-body">' +
-        '<div class="g2">' +
-          '<div>' +
-            '<div class="section-h">Otomatik Bilgiler</div>' +
-            '<div class="g2" style="gap:10px">' +
-              _roField('Bölge', BOLGE_ADI, 'dsyBolge') +
-              _roField('Grup', GRUP_ADI, 'dsyGrup') +
-              _roField('BM', BM_ADI, 'dsyBM') +
-              _roField('TTT', ttt, 'dsyTTT') +
-            '</div>' +
-            '<div style="margin-top:10px">' +
-              '<label class="dsy-lbl">Tarih</label>' +
-              '<input type="date" class="inp" id="dsyTarih" style="width:100%">' +
-            '</div>' +
-            '<div style="margin-top:10px">' +
-              '<label class="dsy-lbl">Brick</label>' +
-              '<select class="inp" id="dsyBrick" style="width:100%">' + _optionsHtml(bricks, bricks[0]) + '</select>' +
-              '<div style="font-size:9px;color:var(--dim);margin-top:3px">Kendi brick\'lerin listelenir — 333 (ortak brick) her zaman seçenekler arasındadır.</div>' +
-            '</div>' +
-            '<div style="margin-top:10px">' +
-              '<label class="dsy-lbl">Ünite</label>' +
-              '<input type="text" class="inp" id="dsyUnite" style="width:100%" placeholder="Ünite adı...">' +
-            '</div>' +
-          '</div>' +
-          '<div>' +
-            '<div class="section-h">Manuel Girilenler</div>' +
-            '<div class="g2" style="gap:10px">' +
-              '<div><label class="dsy-lbl">Hekim Sayısı</label><input type="number" min="0" class="inp" id="dsyHekimSayisi" style="width:100%" placeholder="0"></div>' +
-              '<div><label class="dsy-lbl">Bütçe (₺)</label><input type="number" min="0" class="inp" id="dsyButce" style="width:100%" placeholder="0"></div>' +
-            '</div>' +
-            '<div class="g2" style="gap:10px;margin-top:10px">' +
-              '<div><label class="dsy-lbl">Branş</label><select class="inp" id="dsyBrans" style="width:100%">' + _optionsHtml(BRANS_OPTIONS) + '</select></div>' +
-              '<div><label class="dsy-lbl">Klinik</label><select class="inp" id="dsyKlinik" style="width:100%">' + _optionsHtml(KLINIK_OPTIONS) + '</select></div>' +
-            '</div>' +
-            '<div class="g2" style="gap:10px;margin-top:10px">' +
-              '<div><label class="dsy-lbl">Sunum Temsil Şekli</label><select class="inp" id="dsyTemsil" style="width:100%">' + _optionsHtml(TEMSIL_OPTIONS) + '</select></div>' +
-              '<div><label class="dsy-lbl">Sunumu Yapılan Ürün</label><select class="inp" id="dsyUrun" style="width:100%">' + _optionsHtml(URUN_OPTIONS) + '</select></div>' +
-            '</div>' +
-            '<div class="g2" style="gap:10px;margin-top:10px">' +
-              '<div><label class="dsy-lbl">Gerçekleşen Maliyet (₺)</label><input type="number" min="0" class="inp" id="dsyMaliyet" oninput="_dsyUpdateKisiBasi()" style="width:100%" placeholder="0"></div>' +
-              '<div><label class="dsy-lbl">Kişi Sayısı</label><input type="number" min="0" class="inp" id="dsyKisiSayisi" oninput="_dsyUpdateKisiBasi()" style="width:100%" placeholder="0"></div>' +
-            '</div>' +
-            '<div style="margin-top:10px;background:#F7F9FC;border-radius:8px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between">' +
-              '<span style="font-size:10px;font-weight:600;color:var(--dim)">Kişi Başı Maliyet (otomatik)</span>' +
-              '<span id="dsyKisiBasi" style="font-size:14px;font-weight:700;color:var(--c1)">—</span>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-        '<div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
-          '<button onclick="_dsySubmit()" style="padding:8px 18px;border-radius:8px;border:none;background:var(--c1);color:#fff;font-size:12px;font-weight:700;cursor:pointer">💾 Kaydet</button>' +
-          '<span id="dsyFormStatus" style="font-size:11px;color:var(--dim)"></span>' +
-        '</div>' +
-      '</div>' +
-    '</div>';
-  }
-
   function _roField(label, value, id) {
     return '<div><label class="dsy-lbl">' + label + '</label>' +
       '<input type="text" class="inp" id="' + id + '" value="' + value + '" readonly ' +
       'style="width:100%;background:#F1F3F8;color:var(--dim);cursor:not-allowed"></div>';
   }
+  function _val(tip, key) {
+    var el = document.getElementById('dsy_' + tip + '_' + key);
+    return el ? el.value : '';
+  }
 
-  // ── Kişi başı maliyeti canlı hesapla (global — oninput'tan çağrılır) ──
-  window._dsyUpdateKisiBasi = function () {
-    var maliyetEl = document.getElementById('dsyMaliyet');
-    var kisiEl    = document.getElementById('dsyKisiSayisi');
-    var outEl     = document.getElementById('dsyKisiBasi');
-    if (!outEl) return;
-    var maliyet = parseFloat(maliyetEl && maliyetEl.value) || 0;
-    var kisi    = parseFloat(kisiEl && kisiEl.value) || 0;
-    if (kisi > 0) {
-      outEl.textContent = (typeof fTL === 'function') ? fTL(maliyet / kisi) : (Math.round(maliyet / kisi).toLocaleString('tr-TR') + ' ₺');
-    } else {
-      outEl.textContent = '—';
+  function _fieldHtml(tip, f, ttt) {
+    var id = 'dsy_' + tip + '_' + f.key;
+    if (f.type === 'select') {
+      return '<div><label class="dsy-lbl">' + f.label + '</label>' +
+        '<select class="inp" id="' + id + '" style="width:100%">' + _optionsHtml(f.options) + '</select></div>';
     }
+    if (f.type === 'brick') {
+      var bricks = getTTTBricks(ttt);
+      var onchange = (tip === 'kongre') ? ' onchange="_dsyBrickChanged(\'' + tip + '\')"' : '';
+      return '<div><label class="dsy-lbl">' + f.label + '</label>' +
+        '<select class="inp" id="' + id + '" style="width:100%"' + onchange + '>' + _optionsHtml(bricks) + '</select>' +
+        '<div style="font-size:9px;color:var(--dim);margin-top:3px">Kendi brick\'lerin listelenir — 333 (ortak brick) her zaman seçenekler arasındadır.</div></div>';
+    }
+    if (f.type === 'computed' || f.type === 'sira') {
+      return '<div><label class="dsy-lbl">' + f.label + '</label>' +
+        '<input type="text" class="inp" id="' + id + '" value="" readonly style="width:100%;background:#F1F3F8;color:var(--dim);cursor:not-allowed"></div>';
+    }
+    var extra = f.recalc ? ' oninput="_dsyRecalcKisiBasi(\'' + tip + '\')"' : '';
+    return '<div><label class="dsy-lbl">' + f.label + '</label>' +
+      '<input type="' + f.type + '" min="0" class="inp" id="' + id + '" style="width:100%"' + extra + '></div>';
+  }
+
+  window._dsyRecalcKisiBasi = function (tip) {
+    var k = parseFloat(_val(tip, 'katilimci')) || 0;
+    var m = parseFloat(_val(tip, 'maliyet')) || 0;
+    var out = document.getElementById('dsy_' + tip + '_kisiBasi');
+    if (!out) return;
+    out.value = k > 0 ? Math.round(m / k) : '';
+  };
+  window._dsyBrickChanged = function (tip) {
+    var out = document.getElementById('dsy_' + tip + '_ilk333Sira');
+    if (!out) return;
+    out.value = getBrickSira(_currentTTT(), _val(tip, 'brick'));
   };
 
-  // ── Kayıt gönder ───────────────────────────────────────────────────
-  window._dsySubmit = function () {
-    var statusEl = document.getElementById('dsyFormStatus');
+  function _buildTipFormHtml(tip) {
     var ttt = _currentTTT();
-    var val = function (id) { var el = document.getElementById(id); return el ? el.value : ''; };
+    var lbl = COMMON_LABELS[tip];
+    var html = '' +
+    '<div class="card mb16">' +
+      '<div class="card-hd">' +
+        '<span class="card-title">➕ ' + TIP_LABELS[tip] + ' — Yeni Kayıt</span>' +
+        '<span class="card-badge">' + ttt + '</span>' +
+      '</div>' +
+      '<div class="card-body">' +
+        '<div class="section-h">Otomatik Bilgiler</div>' +
+        '<div class="g2" style="gap:10px">' +
+          _roField('Bölge', BOLGE_ADI, 'dsy_' + tip + '_bolge') +
+          (lbl.showGrupBm ? _roField('Grup', GRUP_ADI, 'dsy_' + tip + '_grup') : '') +
+          (lbl.showGrupBm ? _roField('BM', BM_ADI, 'dsy_' + tip + '_bm') : '') +
+          _roField(lbl.ttt, ttt, 'dsy_' + tip + '_ttt') +
+        '</div>' +
+        '<div style="margin-top:10px">' +
+          '<label class="dsy-lbl">' + lbl.tarih + '</label>' +
+          '<input type="date" class="inp" id="dsy_' + tip + '_tarih" style="width:100%">' +
+        '</div>' +
+        '<div class="section-h" style="margin-top:14px">Kayıt Bilgileri</div>' +
+        '<div class="g2" style="gap:10px">' +
+          TIP_FIELDS[tip].map(function (f) { return _fieldHtml(tip, f, ttt); }).join('') +
+        '</div>' +
+        '<div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
+          '<button onclick="_dsySubmit(\'' + tip + '\')" style="padding:8px 18px;border-radius:8px;border:none;background:var(--c1);color:#fff;font-size:12px;font-weight:700;cursor:pointer">💾 Kaydet</button>' +
+          '<span id="dsy_' + tip + '_status" style="font-size:11px;color:var(--dim)"></span>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+    return html;
+  }
 
-    var tarih   = val('dsyTarih');
-    var brick   = val('dsyBrick');
-    var unite   = (val('dsyUnite') || '').trim();
-    var hekim   = parseFloat(val('dsyHekimSayisi')) || 0;
-    var butce   = parseFloat(val('dsyButce')) || 0;
-    var brans   = val('dsyBrans');
-    var klinik  = val('dsyKlinik');
-    var temsil  = val('dsyTemsil');
-    var urun    = val('dsyUrun');
-    var grup    = val('dsyGrup');
-    var maliyet = parseFloat(val('dsyMaliyet')) || 0;
-    var kisi    = parseFloat(val('dsyKisiSayisi')) || 0;
+  // ── Kayıt gönder ───────────────────────────────────────────────────
+  window._dsySubmit = function (tip) {
+    var statusEl = document.getElementById('dsy_' + tip + '_status');
+    var ttt = _currentTTT();
+    var tarih = _val(tip, 'tarih');
+    var brick = _val(tip, 'brick');
 
-    if (!tarih) { if (statusEl) statusEl.textContent = '⚠ Tarih seçilmedi.'; return; }
+    if (!tarih) { if (statusEl) statusEl.textContent = '⚠ ' + COMMON_LABELS[tip].tarih + ' seçilmedi.'; return; }
     if (!brick) { if (statusEl) statusEl.textContent = '⚠ Brick seçilmedi.'; return; }
-    if (!unite) { if (statusEl) statusEl.textContent = '⚠ Ünite alanı boş olamaz.'; return; }
-    if (kisi <= 0) { if (statusEl) statusEl.textContent = '⚠ Kişi sayısı 0\'dan büyük olmalı.'; return; }
-
-    var kisiBasi = kisi > 0 ? (maliyet / kisi) : 0;
 
     var record = {
-      id: _makeId(ttt),
-      bolge: BOLGE_ADI,
-      grup: grup,
-      tarih: tarih,
-      bm: BM_ADI,
-      ttt: ttt,
-      brick: brick,
-      unite: unite,
-      hekimSayisi: hekim,
-      butce: butce,
-      brans: brans,
-      klinik: klinik,
-      sunumTemsil: temsil,
-      urun: urun,
-      maliyet: maliyet,
-      kisiSayisi: kisi,
-      kisiBasi: kisiBasi,
+      id: _makeId(ttt), tip: tip,
+      bolge: BOLGE_ADI, ttt: ttt, brick: brick, tarih: tarih,
       enteredAt: new Date().toISOString()
     };
+    if (COMMON_LABELS[tip].showGrupBm) { record.grup = GRUP_ADI; record.bm = BM_ADI; }
+
+    var hataVar = false;
+    TIP_FIELDS[tip].forEach(function (f) {
+      if (f.key === 'brick') return;
+      var raw = _val(tip, f.key);
+      record[f.key] = (f.type === 'number') ? (parseFloat(raw) || 0) : raw;
+    });
+
+    if (tip === 'temsil') {
+      record.ay = _ayFromTarih(tarih);
+      if (!record.unite) { if (statusEl) statusEl.textContent = '⚠ Ünite alanı boş olamaz.'; hataVar = true; }
+    }
+    if (tip === 'planlanan' || tip === 'gerceklesen') {
+      var k = parseFloat(record.katilimci) || 0, m = parseFloat(record.maliyet) || 0;
+      record.kisiBasi = k > 0 ? (m / k) : 0;
+      if (k <= 0) { if (statusEl) statusEl.textContent = '⚠ Katılımcı sayısı 0\'dan büyük olmalı.'; hataVar = true; }
+    }
+    if (tip === 'kongre') {
+      if (!record.adSoyad) { if (statusEl) statusEl.textContent = '⚠ Ad-Soyad alanı boş olamaz.'; hataVar = true; }
+    }
+    if (hataVar) return;
 
     var local = _loadLocal();
     local.push(record);
@@ -295,46 +419,32 @@
 
     // Formu kısmen sıfırla (Bölge/Grup/BM/TTT/Brick/Tarih kalıcı kalabilir,
     // tekrarlayan girişte hız için sadece değişken alanlar temizlenir)
-    ['dsyUnite', 'dsyHekimSayisi', 'dsyButce', 'dsyMaliyet', 'dsyKisiSayisi'].forEach(function (id) {
-      var el = document.getElementById(id); if (el) el.value = '';
+    TIP_FIELDS[tip].forEach(function (f) {
+      if (f.type === 'brick' || f.type === 'computed' || f.type === 'sira') return;
+      var el = document.getElementById('dsy_' + tip + '_' + f.key);
+      if (el) el.value = '';
     });
-    var kb = document.getElementById('dsyKisiBasi'); if (kb) kb.textContent = '—';
+    var kb = document.getElementById('dsy_' + tip + '_kisiBasi'); if (kb) kb.value = '';
 
-    _renderTableFromSource();
+    _renderAllTables();
   };
 
-  // ── Tablo + Excel export ──────────────────────────────────────────
-  var TABLE_COLS = [
-    { key: 'ttt',         label: 'TTT',              managerOnly: true },
-    { key: 'bolge',       label: 'Bölge' },
-    { key: 'grup',        label: 'Grup' },
-    { key: 'tarih',       label: 'Tarih' },
-    { key: 'bm',          label: 'BM' },
-    { key: 'brick',       label: 'Brick' },
-    { key: 'unite',       label: 'Ünite' },
-    { key: 'hekimSayisi', label: 'Hekim Sayısı' },
-    { key: 'butce',       label: 'Bütçe' },
-    { key: 'brans',       label: 'Branş' },
-    { key: 'klinik',      label: 'Klinik' },
-    { key: 'sunumTemsil', label: 'Sunum Temsil' },
-    { key: 'urun',        label: 'Ürün' },
-    { key: 'maliyet',     label: 'Gerçekleşen Maliyet' },
-    { key: 'kisiSayisi',  label: 'Kişi Sayısı' },
-    { key: 'kisiBasi',    label: 'Kişi Başı Maliyet' }
-  ];
+  // ── Tablo + Excel export ────────────────────────────────────────────
+  function _recordTip(r) { return r && r.tip ? r.tip : 'gerceklesen'; } // geriye dönük uyumluluk (FAZ 19.0 kayıtları)
 
-  function _visibleRecords(all) {
+  function _visibleRecordsForTip(tip, all) {
     var manager = _isManager();
     var ttt = _currentTTT();
-    return manager ? all : all.filter(function (r) { return r.ttt === ttt; });
+    return all.filter(function (r) { return _recordTip(r) === tip; })
+              .filter(function (r) { return manager || r.ttt === ttt; });
   }
 
-  function _renderTable(all) {
-    var el = document.getElementById('dsyTableWrap');
+  function _renderTipTable(tip, all) {
+    var el = document.getElementById('dsyTableWrap_' + tip);
     if (!el) return;
     var manager = _isManager();
-    var rows = _visibleRecords(all);
-    var cols = TABLE_COLS.filter(function (c) { return manager || !c.managerOnly; });
+    var rows = _visibleRecordsForTip(tip, all);
+    var cols = TABLE_COLS[tip].filter(function (c) { return manager || !c.managerOnly; });
 
     var head = '<tr>' + cols.map(function (c) { return '<th>' + c.label + '</th>'; }).join('') + '</tr>';
     var body = rows.length === 0
@@ -342,86 +452,159 @@
       : rows.map(function (r) {
           return '<tr>' + cols.map(function (c) {
             var v = r[c.key];
-            if (c.key === 'butce' || c.key === 'maliyet' || c.key === 'kisiBasi') {
-              v = (typeof fTL === 'function') ? fTL(v) : v;
-            }
-            return '<td>' + (v == null ? '—' : v) + '</td>';
+            if (c.money) v = (typeof fTL === 'function') ? fTL(v) : v;
+            return '<td>' + (v == null || v === '' ? '—' : v) + '</td>';
           }).join('') + '</tr>';
         }).join('');
 
-    el.innerHTML =
-      '<div style="overflow-x:auto"><table class="tbl" id="dsyTable"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>';
+    el.innerHTML = '<div style="overflow-x:auto"><table class="tbl"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>';
 
-    var countEl = document.getElementById('dsyRecordCount');
+    var countEl = document.getElementById('dsyCount_' + tip);
     if (countEl) countEl.textContent = rows.length + ' kayıt' + (manager ? ' (tüm temsilciler)' : '');
   }
 
-  function _renderTableFromSource() {
-    // Önce yerelle hızlıca göster, arka planda GitHub'dan tazele
-    _renderTable(_mergedRecords(_remoteCache));
+  function _renderAllTables() {
+    var merged = _mergedRecords(_remoteCache);
+    TIPLER.forEach(function (tip) { _renderTipTable(tip, merged); });
     _fetchRemote().then(function (remote) {
-      if (remote) { _remoteCache = remote; _renderTable(_mergedRecords(remote)); }
+      if (remote) {
+        _remoteCache = remote;
+        var m2 = _mergedRecords(remote);
+        TIPLER.forEach(function (tip) { _renderTipTable(tip, m2); });
+      }
     });
   }
 
-  window.exportDosyalarExcel = function () {
+  // "Masraf Dosyası" → tek dosya, orijinal SAMSUN_AYLIK_MASRAF_DOSYASI.xlsx
+  // düzeninde 3 sayfa (Temsil Masraf Detay / Planlanan Merkez Ödeme /
+  // Gerçekleşen Merkez Ödeme).
+  window.exportMasrafExcel = function () {
     if (typeof XLSX === 'undefined') { alert('Excel kütüphanesi yüklenemedi.'); return; }
     var manager = _isManager();
-    var ttt = _currentTTT();
-    var rows = _visibleRecords(_mergedRecords(_remoteCache));
-    var cols = TABLE_COLS.filter(function (c) { return manager || !c.managerOnly; });
+    var all = _mergedRecords(_remoteCache);
+    var wb = XLSX.utils.book_new();
 
+    ['temsil', 'planlanan', 'gerceklesen'].forEach(function (tip) {
+      var rows = _visibleRecordsForTip(tip, all);
+      var cols = TABLE_COLS[tip].filter(function (c) { return manager || !c.managerOnly; });
+      var sheetData = rows.map(function (r) {
+        var row = {};
+        cols.forEach(function (c) { row[c.label] = r[c.key] == null ? '' : r[c.key]; });
+        return row;
+      });
+      var ws = XLSX.utils.json_to_sheet(sheetData);
+      XLSX.utils.book_append_sheet(wb, ws, TIP_LABELS[tip]);
+    });
+
+    var fname = 'SAMSUN_AYLIK_MASRAF_DOSYASI_' + (manager ? 'TUM_TEMSILCILER' : _currentTTT().replace(/\s+/g, '_')) + '_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+    XLSX.writeFile(wb, fname);
+  };
+
+  window.exportKongreExcel = function () {
+    if (typeof XLSX === 'undefined') { alert('Excel kütüphanesi yüklenemedi.'); return; }
+    var manager = _isManager();
+    var all = _mergedRecords(_remoteCache);
+    var rows = _visibleRecordsForTip('kongre', all);
+    var cols = TABLE_COLS.kongre.filter(function (c) { return manager || !c.managerOnly; });
     var sheetData = rows.map(function (r) {
       var row = {};
       cols.forEach(function (c) { row[c.label] = r[c.key] == null ? '' : r[c.key]; });
       return row;
     });
-
     var ws = XLSX.utils.json_to_sheet(sheetData);
     var wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Dosyalar');
-    var fname = 'Dosyalar_' + (manager ? 'TUM_TEMSILCILER' : ttt.replace(/\s+/g, '_')) + '_' + new Date().toISOString().slice(0, 10) + '.xlsx';
-    XLSX.writeFile(wb, fname);
+    XLSX.utils.book_append_sheet(wb, ws, 'kongre');
+    XLSX.writeFile(wb, 'Kongre_Katilimci_Bilgileri_' + new Date().toISOString().slice(0, 10) + '.xlsx');
   };
 
-  // ── Sayfa render (goPage(9) tarafından çağrılır) ──────────────────
-  window.renderDosyalarPage = function () {
-    var page = document.getElementById('page9');
-    if (!page) return;
-    var manager = _isManager();
-    var ttt = _currentTTT();
+  // ── Sekme geçişleri (mevcut .eczsub-bar / .eczsub-tab deseniyle aynı —
+  // bkz. Eczane Satış sayfası, style.css satır ~640) ────────────────────
+  window._dsyShowMain = function (name) {
+    ['masraf', 'kongre'].forEach(function (n) {
+      var sec = document.getElementById('dsyMain_' + n);
+      var tab = document.getElementById('dsyMainTab_' + n);
+      if (sec) sec.style.display = (n === name) ? '' : 'none';
+      if (tab) tab.classList.toggle('active', n === name);
+    });
+  };
+  window._dsyShowSub = function (name) {
+    ['temsil', 'planlanan', 'gerceklesen'].forEach(function (n) {
+      var sec = document.getElementById('dsySub_' + n);
+      var tab = document.getElementById('dsySubTab_' + n);
+      if (sec) sec.style.display = (n === name) ? '' : 'none';
+      if (tab) tab.classList.toggle('active', n === name);
+    });
+  };
 
+  function _tipPanelHtml(tip, manager) {
     var html = '';
-    if (!manager) {
-      html += _buildFormHtml();
-    } else {
+    if (!manager) html += _buildTipFormHtml(tip);
+    else {
       html += '<div class="card mb16"><div class="card-body" style="font-size:12px;color:var(--dim)">' +
-        '📋 Bölge Müdürü görünümü — tüm temsilcilerin girdiği saha kayıtları aşağıda listelenir. Kendi kaydını girmek bu görünümde yoktur (yalnızca temsilciler girer).' +
-        '</div></div>';
+        '📋 Bölge Müdürü görünümü — bu sekmedeki tüm temsilci kayıtları aşağıda listelenir.</div></div>';
     }
-
     html += '' +
       '<div class="card">' +
         '<div class="card-hd">' +
           '<span class="card-title">🗂️ ' + (manager ? 'Tüm Temsilci Kayıtları' : 'Girdiğim Kayıtlar') + '</span>' +
-          '<span class="card-badge" id="dsyRecordCount">—</span>' +
+          '<span class="card-badge" id="dsyCount_' + tip + '">—</span>' +
         '</div>' +
         '<div class="card-body">' +
-          '<div style="margin-bottom:10px">' +
-            '<button onclick="exportDosyalarExcel()" style="padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surf);font-size:11px;font-weight:600;cursor:pointer;color:var(--c1)">📥 Excel Olarak İndir</button>' +
-          '</div>' +
-          '<div id="dsyTableWrap"></div>' +
+          '<div id="dsyTableWrap_' + tip + '"></div>' +
         '</div>' +
       '</div>';
+    return html;
+  }
+
+  // ── Ana sayfa render (goPage(9) tarafından çağrılır) ────────────────
+  window.renderDosyalarPage = function () {
+    var page = document.getElementById('page9');
+    if (!page) return;
+    var manager = _isManager();
+
+    var html = '';
+
+    // Ana başlıklar: Masraf Dosyası / Kongre Katılımcı Bilgileri
+    html += '<div class="eczsub-bar">' +
+      '<div class="eczsub-tab active" id="dsyMainTab_masraf" onclick="_dsyShowMain(\'masraf\')">💰 Masraf Dosyası</div>' +
+      '<div class="eczsub-tab" id="dsyMainTab_kongre" onclick="_dsyShowMain(\'kongre\')">🎪 Kongre Katılımcı Bilgileri</div>' +
+    '</div>';
+
+    // ── Masraf Dosyası bölümü ──
+    html += '<div id="dsyMain_masraf">';
+    html += '<div class="eczsub-bar">' +
+      '<div class="eczsub-tab active" id="dsySubTab_temsil" onclick="_dsyShowSub(\'temsil\')">Temsil Masraf Detay</div>' +
+      '<div class="eczsub-tab" id="dsySubTab_planlanan" onclick="_dsyShowSub(\'planlanan\')">Planlanan Merkez Ödeme</div>' +
+      '<div class="eczsub-tab" id="dsySubTab_gerceklesen" onclick="_dsyShowSub(\'gerceklesen\')">Gerçekleşen Merkez Ödeme</div>' +
+    '</div>';
+    html += '<div class="card mb16"><div class="card-body">' +
+      '<button onclick="exportMasrafExcel()" style="padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surf);font-size:11px;font-weight:600;cursor:pointer;color:var(--c1)">📥 Excel İndir (3 sayfa, tek dosya)</button>' +
+    '</div></div>';
+    html += '<div id="dsySub_temsil">' + _tipPanelHtml('temsil', manager) + '</div>';
+    html += '<div id="dsySub_planlanan" style="display:none">' + _tipPanelHtml('planlanan', manager) + '</div>';
+    html += '<div id="dsySub_gerceklesen" style="display:none">' + _tipPanelHtml('gerceklesen', manager) + '</div>';
+    html += '</div>'; // /dsyMain_masraf
+
+    // ── Kongre Katılımcı Bilgileri bölümü ──
+    html += '<div id="dsyMain_kongre" style="display:none">';
+    html += '<div class="card mb16"><div class="card-body">' +
+      '<button onclick="exportKongreExcel()" style="padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surf);font-size:11px;font-weight:600;cursor:pointer;color:var(--c1)">📥 Excel İndir</button>' +
+    '</div></div>';
+    html += _tipPanelHtml('kongre', manager);
+    html += '</div>'; // /dsyMain_kongre
 
     page.innerHTML = html;
 
-    // Bugünün tarihi varsayılan olsun (temsilci formu varsa)
-    var tarihEl = document.getElementById('dsyTarih');
-    if (tarihEl && !tarihEl.value) tarihEl.value = new Date().toISOString().slice(0, 10);
+    // Bugünün tarihi varsayılan olsun (form varsa)
+    TIPLER.forEach(function (tip) {
+      var t = document.getElementById('dsy_' + tip + '_tarih');
+      if (t && !t.value) t.value = new Date().toISOString().slice(0, 10);
+    });
+    // Kongre bricki varsayılan seçiliyken sıra otomatik dolsun
+    if (!manager) window._dsyBrickChanged('kongre');
 
-    _renderTableFromSource();
+    _renderAllTables();
   };
 
-  console.debug('[dosyalar-page] FAZ 19.0 yüklendi.');
+  console.debug('[dosyalar-page] FAZ 20.0 yüklendi (Masraf Dosyası 3 sekme + Kongre Katılımcı Bilgileri).');
 })();
