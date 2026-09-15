@@ -1,24 +1,4 @@
 {
-  "kayitlar": [
-    {
-      "id": "dsy_mu3578fx_xrp7qd_YIL",
-      "tip": "temsil",
-      "bolge": "SAMSUN",
-      "ttt": "YILMAZ USTA",
-      "brick": "GIRESUN BULANCAK+PIRAZIZ",
-      "tarih": "2026-09-15",
-      "enteredAt": "2026-09-15T20:46:54.333Z",
-      "grup": "ASLAN",
-      "bm": "ÃÂENOL YILMAZ",
-      "urun": "ACÃÂ°DPASS",
-      "unite": "sdSD",
-      "hekimSayisi": 2,
-      "butce": 1222,
-      "brans": "A.HEK",
-      "sunumTemsil": "K.K",
-      "ay": "EYLÃÂL",
-      "syncedAt": "2026-09-15T20:46:58.006Z"
-    }
-  ],
-  "updatedAt": "2026-09-15T20:49:00.806Z"
+  "kayitlar": [],
+  "updatedAt": "2026-09-15T20:49:04.331Z"
 }
