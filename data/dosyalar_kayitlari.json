@@ -9,35 +9,16 @@
       "tarih": "2026-09-15",
       "enteredAt": "2026-09-15T20:46:54.333Z",
       "grup": "ASLAN",
-      "bm": "ÅENOL YILMAZ",
-      "urun": "ACÄ°DPASS",
+      "bm": "ÃÂENOL YILMAZ",
+      "urun": "ACÃÂ°DPASS",
       "unite": "sdSD",
       "hekimSayisi": 2,
       "butce": 1222,
       "brans": "A.HEK",
       "sunumTemsil": "K.K",
-      "ay": "EYLÃL",
+      "ay": "EYLÃÂL",
       "syncedAt": "2026-09-15T20:46:58.006Z"
-    },
-    {
-      "id": "dsy_mu3591yz_q6tfe4_YIL",
-      "tip": "temsil",
-      "bolge": "SAMSUN",
-      "ttt": "YILMAZ USTA",
-      "brick": "GIRESUN BULANCAK+PIRAZIZ",
-      "tarih": "2026-09-15",
-      "enteredAt": "2026-09-15T20:48:19.259Z",
-      "grup": "ASLAN",
-      "bm": "ŞENOL YILMAZ",
-      "urun": "FAMTREC",
-      "unite": "tree",
-      "hekimSayisi": 2,
-      "butce": 3333,
-      "brans": "DAHİLİYE",
-      "sunumTemsil": "K.K",
-      "ay": "EYLÜL",
-      "syncedAt": "2026-09-15T20:48:22.939Z"
     }
   ],
-  "updatedAt": "2026-09-15T20:48:22.939Z"
+  "updatedAt": "2026-09-15T20:49:00.806Z"
 }
