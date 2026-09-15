@@ -1,4 +1,24 @@
 {
-  "kayitlar": [],
-  "updatedAt": "2026-09-15T20:54:05.015Z"
+  "kayitlar": [
+    {
+      "id": "dsy_mu35ije7_odzn2x_YIL",
+      "tip": "temsil",
+      "bolge": "SAMSUN",
+      "ttt": "YILMAZ USTA",
+      "brick": "GIRESUN BULANCAK+PIRAZIZ",
+      "tarih": "2026-09-15",
+      "enteredAt": "2026-09-15T20:55:41.743Z",
+      "grup": "ASLAN",
+      "bm": "ŞENOL YILMAZ",
+      "urun": "MOKSEFEN",
+      "unite": "errer",
+      "hekimSayisi": 0,
+      "butce": 3333,
+      "brans": "DAHİLİYE",
+      "sunumTemsil": "K.K",
+      "ay": "EYLÜL",
+      "syncedAt": "2026-09-15T20:55:45.685Z"
+    }
+  ],
+  "updatedAt": "2026-09-15T20:55:45.685Z"
 }
