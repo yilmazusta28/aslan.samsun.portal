@@ -122,6 +122,25 @@ export default {
         commitPrefix: 'dosyalar',
       });
     }
+    // ── FAZ 21.0: "Dosyalar" sayfasında düzenleme/silme desteği ─────────
+    // /dosyalar-update: id'si eşleşen kaydı günceller (yoksa ekler — upsert).
+    // /dosyalar-delete: id'si eşleşen kaydı listeden çıkarır.
+    if (url.pathname === '/dosyalar-update') {
+      return handleUpdateSync(request, env, ALLOWED, {
+        path: 'data/dosyalar_kayitlari.json',
+        listKey: 'kayitlar',
+        requiredFields: ['id', 'ttt', 'tarih', 'brick'],
+        commitPrefix: 'dosyalar-guncelle',
+      });
+    }
+    if (url.pathname === '/dosyalar-delete') {
+      return handleDeleteSync(request, env, ALLOWED, {
+        path: 'data/dosyalar_kayitlari.json',
+        listKey: 'kayitlar',
+        requiredFields: ['id'],
+        commitPrefix: 'dosyalar-sil',
+      });
+    }
     if (url.pathname === '/sartlar-sync') {
       return handleOverwriteSync(request, env, ALLOWED, {
         path: 'data/satis_sartlari.json',
@@ -252,6 +271,115 @@ async function handleAppendSync(request, env, ALLOWED, cfg) {
         data.updatedAt = new Date().toISOString();
         return { data, sha };
       })
+    );
+
+    if (!putRes.ok) {
+      const errBody = await putRes.text();
+      return new Response(JSON.stringify({ error: 'github write failed', detail: errBody }), { status: 502, headers: corsHeaders });
+    }
+    return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+  } catch (e) {
+    return new Response(JSON.stringify({ error: 'sync failed', detail: e && e.message }), { status: 502, headers: corsHeaders });
+  }
+}
+
+// ── /dosyalar-update: id'si eşleşen kaydı günceller (yoksa ekler) ───────
+async function handleUpdateSync(request, env, ALLOWED, cfg) {
+  const corsHeaders = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED };
+
+  if (request.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'method not allowed' }), { status: 405, headers: corsHeaders });
+  }
+  if (!env.GITHUB_TOKEN) {
+    return new Response(JSON.stringify({ error: 'GITHUB_TOKEN ortam değişkeni tanımlı değil' }), { status: 500, headers: corsHeaders });
+  }
+
+  let payload;
+  try {
+    payload = await request.json();
+  } catch (e) {
+    return new Response(JSON.stringify({ error: 'invalid json' }), { status: 400, headers: corsHeaders });
+  }
+  const missing = (cfg.requiredFields || []).filter((f) => !payload || !payload[f]);
+  if (missing.length) {
+    return new Response(JSON.stringify({ error: 'eksik alan(lar): ' + missing.join(', ') }), { status: 400, headers: corsHeaders });
+  }
+
+  const { BRANCH, ghHeaders, apiBaseFor } = _ghContext(env);
+  const apiBase = apiBaseFor(cfg.path);
+  const fallback = { [cfg.listKey]: [], updatedAt: null };
+
+  function _applyUpdate(data) {
+    if (!Array.isArray(data[cfg.listKey])) data[cfg.listKey] = [];
+    const list = data[cfg.listKey];
+    const idx = list.findIndex((r) => r && r.id === payload.id);
+    const updated = Object.assign({}, payload, { syncedAt: new Date().toISOString() });
+    if (idx >= 0) list[idx] = updated; else list.push(updated);
+    data.updatedAt = new Date().toISOString();
+    return data;
+  }
+
+  try {
+    let { data: current, sha } = await _ghReadJson(apiBase, BRANCH, ghHeaders, fallback);
+    current = _applyUpdate(current);
+
+    const putRes = await _ghWriteJson(
+      apiBase, BRANCH, ghHeaders, current, sha,
+      `${cfg.commitPrefix}: kayıt güncellendi (${payload.id})`,
+      () => _ghReadJson(apiBase, BRANCH, ghHeaders, fallback).then(({ data, sha }) => ({ data: _applyUpdate(data), sha }))
+    );
+
+    if (!putRes.ok) {
+      const errBody = await putRes.text();
+      return new Response(JSON.stringify({ error: 'github write failed', detail: errBody }), { status: 502, headers: corsHeaders });
+    }
+    return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+  } catch (e) {
+    return new Response(JSON.stringify({ error: 'sync failed', detail: e && e.message }), { status: 502, headers: corsHeaders });
+  }
+}
+
+// ── /dosyalar-delete: id'si eşleşen kaydı listeden çıkarır ──────────────
+async function handleDeleteSync(request, env, ALLOWED, cfg) {
+  const corsHeaders = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED };
+
+  if (request.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'method not allowed' }), { status: 405, headers: corsHeaders });
+  }
+  if (!env.GITHUB_TOKEN) {
+    return new Response(JSON.stringify({ error: 'GITHUB_TOKEN ortam değişkeni tanımlı değil' }), { status: 500, headers: corsHeaders });
+  }
+
+  let payload;
+  try {
+    payload = await request.json();
+  } catch (e) {
+    return new Response(JSON.stringify({ error: 'invalid json' }), { status: 400, headers: corsHeaders });
+  }
+  const missing = (cfg.requiredFields || []).filter((f) => !payload || !payload[f]);
+  if (missing.length) {
+    return new Response(JSON.stringify({ error: 'eksik alan(lar): ' + missing.join(', ') }), { status: 400, headers: corsHeaders });
+  }
+
+  const { BRANCH, ghHeaders, apiBaseFor } = _ghContext(env);
+  const apiBase = apiBaseFor(cfg.path);
+  const fallback = { [cfg.listKey]: [], updatedAt: null };
+
+  function _applyDelete(data) {
+    if (!Array.isArray(data[cfg.listKey])) data[cfg.listKey] = [];
+    data[cfg.listKey] = data[cfg.listKey].filter((r) => !(r && r.id === payload.id));
+    data.updatedAt = new Date().toISOString();
+    return data;
+  }
+
+  try {
+    let { data: current, sha } = await _ghReadJson(apiBase, BRANCH, ghHeaders, fallback);
+    current = _applyDelete(current);
+
+    const putRes = await _ghWriteJson(
+      apiBase, BRANCH, ghHeaders, current, sha,
+      `${cfg.commitPrefix}: kayıt silindi (${payload.id})`,
+      () => _ghReadJson(apiBase, BRANCH, ghHeaders, fallback).then(({ data, sha }) => ({ data: _applyDelete(data), sha }))
     );
 
     if (!putRes.ok) {

@@ -40,11 +40,10 @@
 //  TÜM dosyalardan ÖNCESİ.
 // ══════════════════════════════════════════════════════════════════════
 
-// TODO(deploy): aşağıdaki değeri `openssl rand -hex 32` ile üretilen
-// rastgele bir dizeyle değiştir ve AYNI değeri worker secret'ı olarak
-// (PORTAL_PASSWORD) tanımla. Bu placeholder ile ÇALIŞMAZ — bilinçli
-// olarak worker.js'teki değerle eşleşmeyecek şekilde bırakıldı.
-const _PV_WORKER_KEY = '91a10ba4125a31b7e4dbde096661c9f58af32413818a773e4e734f62fcaeda80';
+// GÜNCELLENDİ: openssl rand -hex 32 ile üretilen gerçek anahtar. Cloudflare
+// Worker tarafında `wrangler secret put PORTAL_PASSWORD` ile AYNI değer
+// tanımlanmalı — ikisi eşleşmezse worker tüm istekleri 401 ile reddeder.
+const _PV_WORKER_KEY = '7b2b3bc61f9ee32200e191a4190ececd8be1ee299eb10936aa95f305d4af615f';
 
 const _PV_AUTH_WINDOW_SEC = 300; // worker.js'teki PV_AUTH_WINDOW_SEC ile AYNI olmalı
 

@@ -130,7 +130,7 @@
      artık X-PV-Auth doğrulaması istiyor. Bu dosya, worker'a istek atan
      TÜM dosyalardan (aşağıdaki ai/, pharmacy/sales-conditions.js) ÖNCE
      yüklenmeli. -->
-<script src="js/core/pv-auth.js?v=20260801"></script>
+<script src="js/core/pv-auth.js?v=20260915"></script>
 <!-- AI MİMARİ STABİLİZASYONU: IMS Adapter Katmanı
      Gerçek parseIMSCSV() çıktısını (ttt, brick, ilac, is_mkt, toplam, h1..h9)
      tüm AI motorlarının kullandığı ORTAK, NORMALİZE EDİLMİŞ bir modele
@@ -442,8 +442,12 @@
      bu URL'e (varsa) fire-and-forget POST atılır.
      Rollback: bu satırı sil — dosyalar-page.js tanımsız bulursa sessizce
      eski (yalnızca localStorage) davranışa döner. -->
-<script>window.DOSYALAR_SYNC_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/dosyalar-sync';</script>
-<script src="js/ui/dosyalar-page.js?v=20260913"></script>
+<script>
+window.DOSYALAR_SYNC_WORKER_URL   = 'https://samsun.yilmazusta28.workers.dev/dosyalar-sync';
+window.DOSYALAR_UPDATE_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/dosyalar-update';
+window.DOSYALAR_DELETE_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/dosyalar-delete';
+</script>
+<script src="js/ui/dosyalar-page.js?v=20260915"></script>
 <!-- END FAZ 19.0 -->
 <!-- FAZ 10.4: Rakip Intelligence ↔ Outcome Köprüsü
      competitive-adapter.js (CSV kampanya) ile outcome-tracker.js arasında
