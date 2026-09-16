@@ -38,7 +38,27 @@
       "kisiBasi": 787.5,
       "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
       "syncedAt": "2026-09-16T17:51:44.396Z"
+    },
+    {
+      "id": "dsy_mu2ecusx_39lxs6_YIL",
+      "tip": "gerceklesen",
+      "bolge": "SAMSUN",
+      "ttt": "YILMAZ USTA",
+      "brick": "ORDU MERKEZ -2",
+      "tarih": "2026-09-08",
+      "enteredAt": "2026-09-15T08:15:26.961Z",
+      "updatedAt": "2026-09-16T17:52:10.204Z",
+      "grup": "ASLAN",
+      "bm": "ŞENOL YILMAZ",
+      "urun": "FAMTREC",
+      "unite": "ORDU ÜNİ.EĞT. ARAŞ. HAST.",
+      "klinik": "FTR",
+      "katilimci": 4,
+      "maliyet": 2600,
+      "kisiBasi": 650,
+      "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
+      "syncedAt": "2026-09-16T17:52:11.122Z"
     }
   ],
-  "updatedAt": "2026-09-16T17:51:44.396Z"
+  "updatedAt": "2026-09-16T17:52:11.122Z"
 }
