@@ -58,7 +58,27 @@
       "kisiBasi": 650,
       "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
       "syncedAt": "2026-09-16T17:52:11.122Z"
+    },
+    {
+      "id": "dsy_mu2eeeqk_oyonyb_YIL",
+      "tip": "gerceklesen",
+      "bolge": "SAMSUN",
+      "ttt": "YILMAZ USTA",
+      "brick": "GIRESUN BULANCAK+PIRAZIZ",
+      "tarih": "2026-09-14",
+      "enteredAt": "2026-09-15T08:16:39.452Z",
+      "updatedAt": "2026-09-16T17:52:20.913Z",
+      "grup": "ASLAN",
+      "bm": "ŞENOL YILMAZ",
+      "urun": "GRİPORT COLD",
+      "unite": "PİRAZİZ ASM",
+      "klinik": "A.HEK",
+      "katilimci": 5,
+      "maliyet": 4250,
+      "kisiBasi": 850,
+      "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
+      "syncedAt": "2026-09-16T17:52:21.795Z"
     }
   ],
-  "updatedAt": "2026-09-16T17:52:11.122Z"
+  "updatedAt": "2026-09-16T17:52:21.795Z"
 }
