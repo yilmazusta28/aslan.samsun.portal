@@ -1,25 +1,6 @@
 {
   "kayitlar": [
     {
-      "id": "dsy_mu3z4r00_e4sg43_YIL",
-      "tip": "temsil",
-      "bolge": "SAMSUN",
-      "ttt": "YILMAZ USTA",
-      "brick": "GIRESUN BULANCAK+PIRAZIZ",
-      "tarih": "2026-09-16",
-      "enteredAt": "2026-09-16T10:44:46.897Z",
-      "grup": "ASLAN",
-      "bm": "ÅENOL YILMAZ",
-      "urun": "FAMTREC",
-      "unite": "JÃ¶leli",
-      "hekimSayisi": 4,
-      "butce": 2000,
-      "brans": "A.HEK",
-      "sunumTemsil": "NAKÄ°T",
-      "ay": "EYLÃL",
-      "syncedAt": "2026-09-16T10:44:48.359Z"
-    },
-    {
       "id": "dsy_mu4bvlh0_ntqckt_YIL",
       "tip": "gerceklesen",
       "bolge": "SAMSUN",
@@ -28,16 +9,16 @@
       "tarih": "2026-09-16",
       "enteredAt": "2026-09-16T16:41:34.836Z",
       "grup": "ASLAN",
-      "bm": "ŞENOL YILMAZ",
+      "bm": "ÅENOL YILMAZ",
       "urun": "FAMTREC",
-      "unite": "GİRESUN ÜNİ. EĞT. ARAŞ. HAST",
+      "unite": "GÄ°RESUN ÃNÄ°. EÄT. ARAÅ. HAST",
       "klinik": "FTR",
       "katilimci": 16,
       "maliyet": 13150,
       "kisiBasi": 821.875,
-      "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
+      "yemek": "ALKOLSÃZ ÃÄLE YEMEÄÄ°",
       "syncedAt": "2026-09-16T16:41:39.095Z"
     }
   ],
-  "updatedAt": "2026-09-16T16:41:39.095Z"
+  "updatedAt": "2026-09-16T16:43:35.908Z"
 }
