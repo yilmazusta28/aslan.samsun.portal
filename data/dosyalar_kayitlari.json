@@ -1,24 +1,24 @@
 {
   "kayitlar": [
     {
-      "id": "dsy_mu3z4r00_e4sg43_YIL",
-      "tip": "temsil",
+      "id": "dsy_mu4bvlh0_ntqckt_YIL",
+      "tip": "gerceklesen",
       "bolge": "SAMSUN",
       "ttt": "YILMAZ USTA",
       "brick": "GIRESUN BULANCAK+PIRAZIZ",
       "tarih": "2026-09-16",
-      "enteredAt": "2026-09-16T10:44:46.897Z",
+      "enteredAt": "2026-09-16T16:41:34.836Z",
       "grup": "ASLAN",
       "bm": "ŞENOL YILMAZ",
       "urun": "FAMTREC",
-      "unite": "Jöleli",
-      "hekimSayisi": 4,
-      "butce": 2000,
-      "brans": "A.HEK",
-      "sunumTemsil": "NAKİT",
-      "ay": "EYLÜL",
-      "syncedAt": "2026-09-16T10:44:48.359Z"
+      "unite": "GİRESUN ÜNİ. EĞT. ARAŞ. HAST",
+      "klinik": "FTR",
+      "katilimci": 16,
+      "maliyet": 13150,
+      "kisiBasi": 821.875,
+      "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
+      "syncedAt": "2026-09-16T16:41:39.095Z"
     }
   ],
-  "updatedAt": "2026-09-16T10:44:48.359Z"
+  "updatedAt": "2026-09-16T16:43:35.908Z"
 }

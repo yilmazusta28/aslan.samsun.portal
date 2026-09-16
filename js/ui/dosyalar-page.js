@@ -239,44 +239,127 @@
     return 'dsy_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8) + '_' + (ttt || '').slice(0, 3);
   }
 
-  function _syncToWorker(record) {
-    if (!window.DOSYALAR_SYNC_WORKER_URL || !record) return;
-    _workerSyncQueue = _workerSyncQueue.then(function () {
-      return (typeof pvAuthHeaders === 'function' ? pvAuthHeaders() : Promise.resolve({}))
-        .then(function (authHeaders) {
-          return fetch(window.DOSYALAR_SYNC_WORKER_URL, {
-            method: 'POST',
-            headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders || {}),
-            body: JSON.stringify(record)
-          });
-        })
-        .then(function (res) {
-          if (res && !res.ok) console.warn('[dosyalar-page] worker senkron HTTP hatası:', res.status);
-        })
-        .catch(function (e) {
-          console.warn('[dosyalar-page] worker senkron hatası (yoksayıldı, yerel kayıt geçerli):', e && e.message);
-        });
-    }).catch(function () {});
+  // ── FAZ 22.0: senkron durumu (kayıt bazında) ──────────────────────────
+  // ESKİ DAVRANIŞ: worker'a atılan POST "fire-and-forget"ti; hata SADECE
+  // console.warn'a yazılıyordu. Kullanıcı "✓ Kaydedildi" görüyor, kayıt
+  // localStorage'da duruyor ama GitHub'a HİÇ yazılmamış olabiliyordu —
+  // bu yüzden Bölge Müdürü kayıtları göremiyordu. Artık her kaydın
+  // yerel kopyasında `_sync` alanı var ('ok' | 'pending') ve başarısız
+  // kayıtlar sayfanın üstündeki uyarı şeridinden tek tuşla tekrar
+  // gönderilebiliyor.
+  function _setSyncState(id, state) {
+    var local = _loadLocal();
+    var changed = false;
+    local.forEach(function (r) { if (r && r.id === id) { r._sync = state; changed = true; } });
+    if (changed) _saveLocal(local);
   }
 
-  function _syncUpdateToWorker(record) {
-    if (!window.DOSYALAR_UPDATE_WORKER_URL || !record) return;
+  function _pendingRecords() {
+    return _loadLocal().filter(function (r) { return r && r._sync === 'pending'; });
+  }
+
+  // worker'a gönderilecek temiz kopya — yalnızca istemciyi ilgilendiren
+  // `_sync` alanı GitHub'daki JSON'a sızmasın diye ayıklanır.
+  function _wireRecord(record) {
+    var copy = {};
+    Object.keys(record || {}).forEach(function (k) { if (k !== '_sync') copy[k] = record[k]; });
+    return copy;
+  }
+
+  function _setStatus(statusEl, text, color) {
+    if (!statusEl) return;
+    statusEl.textContent = text;
+    statusEl.style.color = color || 'var(--dim)';
+  }
+
+  // Ortak POST — hem yeni kayıt hem güncelleme için. Promise döner.
+  function _postToWorker(url, record, statusEl, etiket) {
+    if (!url || !record) {
+      _setStatus(statusEl, '⚠ Senkron adresi tanımlı değil — kayıt sadece bu cihazda.', '#D97706');
+      return Promise.resolve(false);
+    }
+    _setSyncState(record.id, 'pending');
+    _setStatus(statusEl, '⏳ GitHub\'a yazılıyor…');
     _workerSyncQueue = _workerSyncQueue.then(function () {
       return (typeof pvAuthHeaders === 'function' ? pvAuthHeaders() : Promise.resolve({}))
         .then(function (authHeaders) {
-          return fetch(window.DOSYALAR_UPDATE_WORKER_URL, {
+          return fetch(url, {
             method: 'POST',
             headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders || {}),
-            body: JSON.stringify(record)
+            body: JSON.stringify(_wireRecord(record))
           });
         })
         .then(function (res) {
-          if (res && !res.ok) console.warn('[dosyalar-page] güncelleme senkron HTTP hatası:', res.status);
+          if (res && res.ok) {
+            _setSyncState(record.id, 'ok');
+            _setStatus(statusEl, '✓ ' + etiket + ' — GitHub\'a yazıldı (yönetici görebilir)', '#059669');
+            setTimeout(function () { _setStatus(statusEl, ''); }, 4000);
+            _renderSyncBanner();
+            return true;
+          }
+          var kod = res ? res.status : '?';
+          return (res ? res.text() : Promise.resolve('')).then(function (txt) {
+            console.warn('[dosyalar-page] worker senkron HTTP hatası:', kod, txt);
+            _setStatus(statusEl, '⚠ GitHub\'a YAZILAMADI (HTTP ' + kod + ') — kayıt bu cihazda duruyor, yukarıdaki "Tekrar Dene" ile gönder.', '#DC2626');
+            _renderSyncBanner();
+            return false;
+          });
         })
         .catch(function (e) {
-          console.warn('[dosyalar-page] güncelleme senkron hatası (yoksayıldı, yerel kayıt geçerli):', e && e.message);
+          console.warn('[dosyalar-page] worker senkron hatası:', e && e.message);
+          _setStatus(statusEl, '⚠ GitHub\'a YAZILAMADI (ağ hatası) — kayıt bu cihazda duruyor, yukarıdaki "Tekrar Dene" ile gönder.', '#DC2626');
+          _renderSyncBanner();
+          return false;
         });
-    }).catch(function () {});
+    });
+    return _workerSyncQueue;
+  }
+
+  function _syncToWorker(record, statusEl) {
+    return _postToWorker(window.DOSYALAR_SYNC_WORKER_URL, record, statusEl, 'Kaydedildi');
+  }
+
+  function _syncUpdateToWorker(record, statusEl) {
+    return _postToWorker(window.DOSYALAR_UPDATE_WORKER_URL, record, statusEl, 'Güncellendi');
+  }
+
+  // ── FAZ 22.0: bekleyen (GitHub'a yazılamamış) kayıtları tekrar gönder ──
+  window._dsyRetrySync = function () {
+    var pending = _pendingRecords();
+    if (!pending.length) { _renderSyncBanner(); return; }
+    var banner = document.getElementById('dsySyncBannerMsg');
+    if (banner) banner.textContent = '⏳ ' + pending.length + ' kayıt tekrar gönderiliyor…';
+    var chain = Promise.resolve();
+    pending.forEach(function (rec) {
+      chain = chain.then(function () {
+        // Kayıt GitHub'da olabilir de olmayabilir de → upsert yapan
+        // /dosyalar-update kullanılır (id eşleşirse günceller, yoksa ekler).
+        return _syncUpdateToWorker(rec, null);
+      });
+    });
+    chain.then(function () {
+      _renderSyncBanner();
+      _renderAllTables();
+      var b2 = document.getElementById('dsySyncBannerMsg');
+      if (b2 && _pendingRecords().length === 0) b2.textContent = '✓ Tüm kayıtlar GitHub ile senkron.';
+    });
+  };
+
+  function _renderSyncBanner() {
+    var el = document.getElementById('dsySyncBanner');
+    if (!el) return;
+    var pending = _pendingRecords();
+    if (!pending.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    el.style.display = '';
+    el.innerHTML =
+      '<div class="card mb16" style="border:1px solid #FCA5A5;background:#FEF2F2">' +
+        '<div class="card-body" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">' +
+          '<span id="dsySyncBannerMsg" style="font-size:12px;font-weight:600;color:#DC2626">' +
+            '⚠ ' + pending.length + ' kayıt GitHub\'a yazılamadı — şu an sadece bu cihazda duruyor, Bölge Müdürü göremez.' +
+          '</span>' +
+          '<button onclick="_dsyRetrySync()" style="padding:6px 14px;border-radius:8px;border:none;background:#DC2626;color:#fff;font-size:11px;font-weight:700;cursor:pointer">🔄 Tekrar Dene</button>' +
+        '</div>' +
+      '</div>';
   }
 
   function _syncDeleteToWorker(id, ttt) {
@@ -482,17 +565,16 @@
       local.forEach(function (r, i) { if (r && r.id === editingId) idx = i; });
       if (idx >= 0) local[idx] = record; else local.push(record);
       _saveLocal(local);
-      _syncUpdateToWorker(record);
+      _syncUpdateToWorker(record, statusEl);
     } else {
       local.push(record);
       _saveLocal(local);
-      _syncToWorker(record);
+      _syncToWorker(record, statusEl);
     }
-
-    if (statusEl) {
-      statusEl.textContent = editingId ? '✓ Güncellendi' : '✓ Kaydedildi';
-      setTimeout(function () { if (statusEl) statusEl.textContent = ''; }, 3000);
-    }
+    // NOT: "✓ Kaydedildi" mesajı artık BURADA yazılmıyor — GitHub yanıtı
+    // gelene kadar bekleniyor (bkz. _postToWorker). Eskiden yanıt
+    // beklenmeden başarı yazıldığı için başarısız senkronlar fark
+    // edilmiyordu.
 
     if (editingId) {
       // Düzenleme bitti — formu tamamen sıfırla ve normal (yeni kayıt) moda dön
@@ -662,6 +744,7 @@
   }
 
   function _renderAllTables() {
+    _renderSyncBanner();
     var merged = _mergedRecords(_remoteCache);
     TIPLER.forEach(function (tip) { _renderTipTable(tip, merged); });
     _fetchRemote().then(function (remote) {
@@ -764,6 +847,10 @@
     var manager = _isManager();
 
     var html = '';
+
+    // FAZ 22.0 — GitHub'a yazılamamış kayıt uyarı şeridi (içeriği
+    // _renderSyncBanner() doldurur; bekleyen kayıt yoksa gizli kalır).
+    html += '<div id="dsySyncBanner" style="display:none"></div>';
 
     // Ana başlıklar: Masraf Dosyası / Kongre Katılımcı Bilgileri
     html += '<div class="eczsub-bar">' +
