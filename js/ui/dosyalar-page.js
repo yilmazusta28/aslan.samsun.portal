@@ -894,5 +894,19 @@
     _renderAllTables();
   };
 
+  // ── FAZ 22.1: Yönetici paneli (page7) için salt-okunur veri köprüsü ──
+  // Amaç: "📁 Dosyalar Özeti" kartı (js/ui/dosyalar-manager-summary.js)
+  // kayıtları AYNI kaynaktan ve AYNI birleştirme mantığıyla okusun —
+  // GitHub (raw) + yerel localStorage + silinenler. Burada sadece mevcut
+  // private fonksiyonlar dışarı açılıyor; hiçbir davranış değişmedi.
+  window.PV_DOSYALAR_API = {
+    fetchRemote: function () { return _fetchRemote(); },
+    merged: function (remote) { return _mergedRecords(remote === undefined ? _remoteCache : remote); },
+    setRemoteCache: function (r) { if (r) _remoteCache = r; },
+    tipOf: function (r) { return _recordTip(r); },
+    TIP_LABELS: TIP_LABELS,
+    TIPLER: TIPLER
+  };
+
   console.debug('[dosyalar-page] FAZ 20.0 yüklendi (Masraf Dosyası 3 sekme + Kongre Katılımcı Bilgileri).');
 })();

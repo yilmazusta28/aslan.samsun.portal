@@ -448,6 +448,11 @@ window.DOSYALAR_UPDATE_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/dos
 window.DOSYALAR_DELETE_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/dosyalar-delete';
 </script>
 <script src="js/ui/dosyalar-page.js?v=20260915"></script>
+<!-- FAZ 22.1: Yönetici paneli (page7) "📁 Dosyalar Özeti" kartı.
+     dosyalar-page.js'in PV_DOSYALAR_API köprüsünü kullanır — bu yüzden
+     ONDAN SONRA yüklenmeli. Rollback: bu satırı sil; page7'deki
+     #mgrDosyalarOzet kartı boş kalır, başka hiçbir şey etkilenmez. -->
+<script src="js/ui/dosyalar-manager-summary.js?v=20260916"></script>
 <!-- END FAZ 19.0 -->
 <!-- FAZ 10.4: Rakip Intelligence ↔ Outcome Köprüsü
      competitive-adapter.js (CSV kampanya) ile outcome-tracker.js arasında
@@ -3272,7 +3277,7 @@ function goPage(i){
   else if(i===5){ if(typeof renderAiAsistan==='function') renderAiAsistan(); }
   else if(i===6)renderEczane();
   // FAZ 8.2 — Yönetici sekmesi
-  else if(i===7){ if(typeof renderManagerHeroBanner==='function') renderManagerHeroBanner(); if(typeof renderManagerExtra==='function') renderManagerExtra(); }
+  else if(i===7){ if(typeof renderManagerHeroBanner==='function') renderManagerHeroBanner(); if(typeof renderManagerExtra==='function') renderManagerExtra(); /* FAZ 22.1 */ if(typeof renderDosyalarManagerSummary==='function') renderDosyalarManagerSummary(); }
   // YTD TL&KUTU sayfası (Satış Takibi'nden sonra eklendi — bkz. js/ui/ytd-tl-page.js)
   else if(i===8){ if(typeof initYtdTlPage==='function') initYtdTlPage(); }
   // FAZ 19.0 — Dosyalar sayfası (bkz. js/ui/dosyalar-page.js)
@@ -7403,6 +7408,23 @@ function _buildEczaneDrawerRefresh(){
         <span id="sgStatus" style="font-size:10px;color:var(--dim)"></span>
       </div>
       <div id="sgList" style="margin-top:12px"></div>
+    </div>
+
+    <!-- ═══ FAZ 22.1 — Dosyalar Özeti (page9 › Dosyalar sayfası kayıtları) ═══
+         Temsilcilerin "Dosyalar" sayfasından girdiği Temsil Masraf / Planlanan
+         & Gerçekleşen Merkez Ödeme / Kongre kayıtlarının temsilci bazında
+         adet + toplam masraf özeti. Salt okunur; "Detay →" Dosyalar sayfasına
+         geçirir (yönetici orada tüm kayıtları satır satır görür/düzenler).
+         Doldurulması: js/ui/dosyalar-manager-summary.js →
+         renderDosyalarManagerSummary() (goPage(7) içinde çağrılır). -->
+    <div class="card mb16" style="border:1.5px solid rgba(79,0,140,.15)">
+      <div class="card-hd">
+        <span class="card-title">📁 Dosyalar Özeti</span>
+        <span class="card-badge" style="font-size:9px">Masraf &amp; Kongre Kayıtları — Tüm Temsilciler</span>
+      </div>
+      <div class="card-body" id="mgrDosyalarOzet">
+        <div style="font-size:11px;color:var(--dim)">Yükleniyor…</div>
+      </div>
     </div>
 
     <!-- ═══ FAZ 12.2 — AI Eğitim Girdileri Özeti (GÜNCELLEME: artık gerçek
