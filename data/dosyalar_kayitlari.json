@@ -18,7 +18,27 @@
       "kisiBasi": 821.875,
       "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
       "syncedAt": "2026-09-16T16:41:39.095Z"
+    },
+    {
+      "id": "dsy_mu2e9gzc_1bbq3j_YIL",
+      "tip": "gerceklesen",
+      "bolge": "SAMSUN",
+      "ttt": "YILMAZ USTA",
+      "brick": "GIRESUN MERKEZ -2",
+      "tarih": "2026-09-07",
+      "enteredAt": "2026-09-15T08:12:49.080Z",
+      "updatedAt": "2026-09-16T17:51:42.944Z",
+      "grup": "ASLAN",
+      "bm": "ŞENOL YILMAZ",
+      "urun": "FAMTREC",
+      "unite": "GİRESUN TEYYAREDÜZÜ ASM",
+      "klinik": "A.HEK",
+      "katilimci": 4,
+      "maliyet": 3150,
+      "kisiBasi": 787.5,
+      "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
+      "syncedAt": "2026-09-16T17:51:44.396Z"
     }
   ],
-  "updatedAt": "2026-09-16T16:46:28.074Z"
+  "updatedAt": "2026-09-16T17:51:44.396Z"
 }
