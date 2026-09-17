@@ -217,7 +217,26 @@
       "sunumTemsil": "K.K",
       "ay": "EYLÜL",
       "syncedAt": "2026-09-17T15:56:29.053Z"
+    },
+    {
+      "id": "dsy_mu5veyrc_me0an0_YIL",
+      "tip": "gerceklesen",
+      "bolge": "SAMSUN",
+      "ttt": "YILMAZ USTA",
+      "brick": "GIRESUN BULANCAK+PIRAZIZ",
+      "tarih": "2026-09-15",
+      "enteredAt": "2026-09-17T18:36:17.400Z",
+      "grup": "ASLAN",
+      "bm": "ŞENOL YILMAZ",
+      "urun": "FAMTREC",
+      "unite": "ORDU CİVİL ASM",
+      "klinik": "A.HEK",
+      "katilimci": 3,
+      "maliyet": 2250,
+      "kisiBasi": 750,
+      "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
+      "syncedAt": "2026-09-17T18:36:17.857Z"
     }
   ],
-  "updatedAt": "2026-09-17T18:34:37.480Z"
+  "updatedAt": "2026-09-17T18:36:17.857Z"
 }
