@@ -226,17 +226,18 @@
       "brick": "GIRESUN BULANCAK+PIRAZIZ",
       "tarih": "2026-09-15",
       "enteredAt": "2026-09-17T18:36:17.400Z",
+      "updatedAt": "2026-09-17T18:37:04.354Z",
       "grup": "ASLAN",
       "bm": "ŞENOL YILMAZ",
       "urun": "FAMTREC",
       "unite": "ORDU CİVİL ASM",
       "klinik": "A.HEK",
       "katilimci": 3,
-      "maliyet": 2250,
-      "kisiBasi": 750,
+      "maliyet": 2550,
+      "kisiBasi": 850,
       "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
-      "syncedAt": "2026-09-17T18:36:17.857Z"
+      "syncedAt": "2026-09-17T18:37:04.958Z"
     }
   ],
-  "updatedAt": "2026-09-17T18:36:17.857Z"
+  "updatedAt": "2026-09-17T18:37:04.958Z"
 }
