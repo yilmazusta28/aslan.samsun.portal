@@ -147,17 +147,17 @@
       "brick": "ORDU MERKEZ -2",
       "tarih": "2026-09-15",
       "enteredAt": "2026-09-15T08:25:42.239Z",
-      "updatedAt": "2026-09-16T17:53:06.943Z",
+      "updatedAt": "2026-09-17T15:57:54.231Z",
       "grup": "ASLAN",
       "bm": "ŞENOL YILMAZ",
-      "urun": "FAMTREC",
+      "urun": "GRİPORT COLD",
       "unite": "ORDU ALTINORDU CİVİL ASM.",
       "klinik": "A.HEK",
       "katilimci": 3,
       "maliyet": 2550,
       "kisiBasi": 850,
       "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
-      "syncedAt": "2026-09-16T17:53:07.820Z"
+      "syncedAt": "2026-09-17T15:57:54.940Z"
     },
     {
       "id": "dsy_mu2erks8_e9yki9_YIL",
@@ -219,5 +219,5 @@
       "syncedAt": "2026-09-17T15:56:29.053Z"
     }
   ],
-  "updatedAt": "2026-09-17T15:56:29.053Z"
+  "updatedAt": "2026-09-17T15:57:54.940Z"
 }
