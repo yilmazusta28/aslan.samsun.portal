@@ -8,16 +8,17 @@
       "brick": "GIRESUN BULANCAK+PIRAZIZ",
       "tarih": "2026-09-16",
       "enteredAt": "2026-09-16T16:41:34.836Z",
+      "updatedAt": "2026-09-17T18:38:06.272Z",
       "grup": "ASLAN",
       "bm": "ŞENOL YILMAZ",
       "urun": "FAMTREC",
       "unite": "GİRESUN ÜNİ. EĞT. ARAŞ. HAST",
       "klinik": "FTR",
       "katilimci": 16,
-      "maliyet": 13150,
-      "kisiBasi": 821.875,
+      "maliyet": 13130,
+      "kisiBasi": 820.625,
       "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
-      "syncedAt": "2026-09-16T16:41:39.095Z"
+      "syncedAt": "2026-09-17T18:38:09.003Z"
     },
     {
       "id": "dsy_mu2e9gzc_1bbq3j_YIL",
@@ -239,5 +240,5 @@
       "syncedAt": "2026-09-17T18:37:04.958Z"
     }
   ],
-  "updatedAt": "2026-09-17T18:37:04.958Z"
+  "updatedAt": "2026-09-17T18:38:09.003Z"
 }
