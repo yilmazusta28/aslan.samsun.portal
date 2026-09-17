@@ -433,6 +433,48 @@
     }).join('');
   }
 
+  // ── FAZ 23 — "Ekip Performans Sıralaması (Tümü)" kolon açıklamaları ──
+  // Kullanıcı isteği: tablo başlıklarına tıklanınca kolonun ne anlama
+  // geldiğini anlatan bir balon çıksın. Metinler team-ranking-engine.js
+  // içindeki gerçek hesaplama mantığıyla (Skor Formülü: %30 Real + %25
+  // Forecast + %20 Büyüme + %15 Pazar Payı + Risk) birebir uyumludur.
+  var RANK_INFO_TEXTS = {
+    real: {
+      title: 'Real % nedir?',
+      html: 'Temsilcinin GENEL TOPLAM satırındaki gerçekleşen TL hedef yüzdesidir (satış TL ÷ hedef TL × 100).<br><br>Skora <strong>%30 ağırlıkla</strong> katılır (130% üzeri tavanlanarak 0–100 puana normalize edilir).'
+    },
+    forecast: {
+      title: 'Forecast % nedir?',
+      html: 'Mevcut satış hızına (run-rate) göre dönem sonunda ulaşılması beklenen hedef gerçekleşme yüzdesidir.<br><br>Skora <strong>%25 ağırlıkla</strong> katılır. Run-rate hesaplanamazsa geçici olarak güncel Real % kullanılır.'
+    },
+    buyume: {
+      title: 'Büyüme nedir?',
+      html: 'Son 3 haftalık kutu hacmi ortalamasının, ondan önceki 3 haftaya göre değişim oranından türetilen 0–100 arası bir puandır (IMS haftalık h1–h9 kolonları, sadece kendi ürünleri).<br><br>50 = yatay seyir, 50 üstü = büyüme, 50 altı = düşüş trendi.<br><br>Skora <strong>%20 ağırlıkla</strong> katılır.'
+    },
+    pazarPayi: {
+      title: 'Pazar Payı (skor kolonu) nedir?',
+      html: 'Temsilcinin kendi ürünlerindeki ortalama pazar payı yüzdesinden (IMS "TOPLAM PPI%") türetilen 0–100 arası bir puandır (0–50% pazar payı aralığı 0–100 puana ölçeklenir).<br><br>Skora <strong>%15 ağırlıkla</strong> katılır.'
+    },
+    skor: {
+      title: 'Skor nasıl hesaplanır?',
+      html: 'Genel performans skoru: <strong>%30 Real + %25 Forecast + %20 Büyüme + %15 Pazar Payı</strong> + Risk düzeltmesi (yüksek riskli her bulgu için −10, orta riskli için −5 puan).<br><br>0–100 arası, 100 en yüksek performans.'
+    },
+    kategori: {
+      title: 'Kategori nedir?',
+      html: 'Real % ve Skor birlikte değerlendirilerek atanan yönetim kategorisidir:<br><br>🟢 <strong>STAR</strong>: Real ≥100 ve Skor ≥80<br>🟢 <strong>STABLE</strong>: Real ≥91 ve Skor ≥60<br>🟠 <strong>WATCHLIST</strong>: Real ≥70 ve Skor ≥40<br>🔴 <strong>RISK</strong>: bu eşiklerin altı'
+    },
+    prim: {
+      title: 'Tahmini Prim nedir?',
+      html: 'Temsilcinin güncel gerçekleşme yüzdesine göre prim hesaplama mantığı (prim-calc.js) kullanılarak öngörülen prim tutarıdır (TL).<br><br>Dönem henüz kapanmadığı için bu bir TAHMİNdir, kesin prim tutarı değildir.'
+    }
+  };
+  function showRankInfo(key, el) {
+    var info = RANK_INFO_TEXTS[key];
+    if (!info || typeof window.showInfoPopover !== 'function') return;
+    window.showInfoPopover(el, info.title, info.html);
+  }
+  window.showRankInfo = showRankInfo;
+
   // ── 2) TÜM EKİP SIRALAMASI (buildTeamRanking'in TAM listesi) ─────────
   function renderManagerRankingFull(containerId) {
     var body = document.getElementById(containerId || 'mgrRankingBody');

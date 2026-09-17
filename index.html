@@ -111,6 +111,7 @@
 <!-- PHASE23: UI Component Layer — extracted from index.html inline script -->
 <!-- Rollback: remove these 6 lines; PHASE23-STUB blocks in inline script reactivate -->
 <script src="js/ui/ui-helpers.js?v=20260705"></script>
+<script src="js/ui/info-popover.js?v=20260917"></script>
 <script src="js/ui/drawer-system.js?v=20260705"></script>
 <script src="js/ui/modal-system.js?v=20260705"></script>
 <script src="js/ui/tab-system.js?v=20260705"></script>
@@ -3595,6 +3596,30 @@ function computeHedefOranlari(ttt) {
   return { hedefTl, nationalPct, bolgePct, pazarBuyuklukTl, pazarPct };
 }
 
+// ── FAZ 23 — Hedef Payı Oranları için açıklama metinleri ──────────
+// Kullanıcı isteği: "TL National Payı" / "TL Bölge Payı" (ve "Gerekli
+// Pazar Payı") etiketlerine tıklanınca ne anlama geldiğini anlatan bir
+// balon çıksın. Metinler burada, tek yerden yönetiliyor.
+const AIS_INFO_TEXTS = {
+  national: {
+    title: 'TL National Payı nedir?',
+    html: 'Temsilcinin TL hedefinin, Türkiye genelinde "eşit pay" varsayımına göre alması beklenen paya oranıdır.<br><br>Hesap: <strong>National hedefi ÷ Türkiye genelindeki toplam TTT sayısı</strong> = eşit pay. Temsilcinin hedefi bu eşit paya bölünüp yüzdeye çevrilir.<br><br>%100 üstü, temsilcinin ortalamadan daha yüksek hedef taşıdığını gösterir.'
+  },
+  bolge: {
+    title: 'TL Bölge Payı nedir?',
+    html: 'Aynı mantığın Samsun BÖLGESİ ölçeğinde uygulanmış halidir.<br><br>Hesap: <strong>Bölge (Şenol Yılmaz) toplam hedefi ÷ Samsun bölgesindeki temsilci sayısı</strong> = eşit pay. Temsilcinin hedefi bu eşit paya bölünüp yüzdeye çevrilir.<br><br>%100 üstü, temsilcinin bölge ortalamasından daha yüksek hedef taşıdığını gösterir.'
+  },
+  pazar: {
+    title: 'Gerekli Pazar Payı nedir?',
+    html: 'Temsilcinin TL hedefinin, ürün grubundaki TOPLAM pazar büyüklüğüne (tüm ürünler + rakipler dahil, GENEL_TABLO.csv "TOP.PAZAR TL" kolonu) oranıdır.<br><br>Hesap: <strong>Hedef TL ÷ Toplam Pazar TL</strong> × 100.<br><br>Bu oran, hedefe ulaşmak için pazardan alınması gereken minimum payı gösterir.'
+  }
+};
+function showAisInfo(key, el) {
+  const info = AIS_INFO_TEXTS[key];
+  if (!info || typeof showInfoPopover !== 'function') return;
+  showInfoPopover(el, info.title, info.html);
+}
+
 function renderAnaInsight(){
   const ekip=GENEL.filter(r=>r.urun==='GENEL TOPLAM'&&r.ttt!=='ŞENOL YILMAZ');
   const sorted=[...ekip].sort((a,b)=>b.tl_pct-a.tl_pct);
@@ -3620,16 +3645,20 @@ function renderAnaInsight(){
     // ── YENİ: Hedef Payı Oranları (National / Bölge / Gerekli Pazar Payı) ──
     if (statsEl) {
       const o = computeHedefOranlari(selTTT);
-      const chip = (label, val, isPct) => {
+      // FAZ 23: her chip'e opsiyonel infoKey verilirse tıklanınca
+      // AIS_INFO_TEXTS'ten açıklama balonu açılır (showAisInfo()).
+      const chip = (label, val, isPct, infoKey) => {
         const shown = val==null ? '—' : (isPct ? val.toFixed(0)+'%' : val);
         const cls = val==null ? '' : (typeof pCls==='function' ? pCls(val) : '');
-        return `<div class="ais-chip"><span class="ais-label">${label}</span><span class="ais-val bdg ${cls}">${shown}</span></div>`;
+        const clickable = infoKey ? ' info-chip" onclick="showAisInfo(\'' + infoKey + '\',this)' : '';
+        const pin = infoKey ? '<span class="info-pin">ⓘ</span>' : '';
+        return `<div class="ais-chip${clickable}"><span class="ais-label">${label}${pin}</span><span class="ais-val bdg ${cls}">${shown}</span></div>`;
       };
       statsEl.innerHTML = `
-        ${chip('National Payı', o.nationalPct, true)}
-        ${chip('Bölge Payı', o.bolgePct, true)}
-        <div class="ais-chip">
-          <span class="ais-label">Gerekli Pazar Payı</span>
+        ${chip('TL National Payı', o.nationalPct, true, 'national')}
+        ${chip('TL Bölge Payı', o.bolgePct, true, 'bolge')}
+        <div class="ais-chip info-chip" onclick="showAisInfo('pazar',this)">
+          <span class="ais-label">Gerekli Pazar Payı<span class="info-pin">ⓘ</span></span>
           <span class="ais-val bdg ${o.pazarPct!=null?pCls(o.pazarPct):''}">${o.pazarPct!=null?o.pazarPct.toFixed(1)+'%':'Veri yok'}</span>
           ${o.pazarBuyuklukTl>0?`<span class="ais-sub">Pazar: ${fTL(o.pazarBuyuklukTl)} · Hedef: ${fTL(o.hedefTl)}</span>`:''}
         </div>
@@ -7180,6 +7209,7 @@ function _buildEczaneDrawerRefresh(){
       <a href="#mgr-sec-temsilci"   style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(14,116,144,.08);color:#0E7490;text-decoration:none;white-space:nowrap">🔍 Temsilci Analizi</a>
       <a href="#mgr-sec-saha"       style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(217,119,6,.08);color:#D97706;text-decoration:none;white-space:nowrap">📋 Saha Yönetimi</a>
       <a href="#mgr-sec-kritik"     style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(220,38,38,.08);color:#DC2626;text-decoration:none;white-space:nowrap">🚨 Kritik Aksiyonlar</a>
+      <a href="#mgr-sec-dosyalar"   style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(79,0,140,.08);color:#4F008C;text-decoration:none;white-space:nowrap">📁 Dosyalar Özeti</a>
     </div>
 
     <!-- ═══ FAZ 13.0 — BÖLGE GENELİ (ŞENOL YILMAZ) KARTI KALDIRILDI ═══
@@ -7291,8 +7321,14 @@ function _buildEczaneDrawerRefresh(){
       <div class="card-body-0 scroll-x">
         <table class="tbl" id="mgrRankingTable" style="min-width:760px">
           <thead><tr>
-            <th>#</th><th>Temsilci</th><th>Real %</th><th>Forecast %</th>
-            <th>Büyüme</th><th>Pazar Payı</th><th>Skor</th><th>Kategori</th><th>Tahmini Prim</th>
+            <th>#</th><th>Temsilci</th>
+            <th class="info-th" onclick="showRankInfo('real',this)">Real %<span class="info-pin">ⓘ</span></th>
+            <th class="info-th" onclick="showRankInfo('forecast',this)">Forecast %<span class="info-pin">ⓘ</span></th>
+            <th class="info-th" onclick="showRankInfo('buyume',this)">Büyüme<span class="info-pin">ⓘ</span></th>
+            <th class="info-th" onclick="showRankInfo('pazarPayi',this)">Pazar Payı<span class="info-pin">ⓘ</span></th>
+            <th class="info-th" onclick="showRankInfo('skor',this)">Skor<span class="info-pin">ⓘ</span></th>
+            <th class="info-th" onclick="showRankInfo('kategori',this)">Kategori<span class="info-pin">ⓘ</span></th>
+            <th class="info-th" onclick="showRankInfo('prim',this)">Tahmini Prim<span class="info-pin">ⓘ</span></th>
           </tr></thead>
           <tbody id="mgrRankingBody"></tbody>
         </table>
@@ -7418,7 +7454,10 @@ function _buildEczaneDrawerRefresh(){
          adet + toplam masraf özeti. Salt okunur; "Detay →" Dosyalar sayfasına
          geçirir (yönetici orada tüm kayıtları satır satır görür/düzenler).
          Doldurulması: js/ui/dosyalar-manager-summary.js →
-         renderDosyalarManagerSummary() (goPage(7) içinde çağrılır). -->
+         renderDosyalarManagerSummary() (goPage(7) içinde çağrılır).
+         FAZ 23: #mgr-sec-dosyalar anchor'ı, üstteki hızlı gezinme
+         çubuğundaki "📁 Dosyalar Özeti" pilinin hedefi olarak eklendi. -->
+    <div id="mgr-sec-dosyalar" style="scroll-margin-top:12px"></div>
     <div class="card mb16" style="border:1.5px solid rgba(79,0,140,.15)">
       <div class="card-hd">
         <span class="card-title">📁 Dosyalar Özeti</span>
