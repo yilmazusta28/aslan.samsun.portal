@@ -198,7 +198,26 @@
       "kisiBasi": 850,
       "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
       "syncedAt": "2026-09-16T17:53:44.277Z"
+    },
+    {
+      "id": "dsy_mu5ppd5m_2dxc6l_YIL",
+      "tip": "temsil",
+      "bolge": "SAMSUN",
+      "ttt": "YILMAZ USTA",
+      "brick": "ORDU GUNEY ILCELER -1",
+      "tarih": "2026-09-17",
+      "enteredAt": "2026-09-17T15:56:24.922Z",
+      "grup": "ASLAN",
+      "bm": "ŞENOL YILMAZ",
+      "urun": "PANOCER",
+      "unite": "KABATAŞ ASM",
+      "hekimSayisi": 3,
+      "butce": 1800,
+      "brans": "A.HEK",
+      "sunumTemsil": "K.K",
+      "ay": "EYLÜL",
+      "syncedAt": "2026-09-17T15:56:29.053Z"
     }
   ],
-  "updatedAt": "2026-09-17T15:54:59.751Z"
+  "updatedAt": "2026-09-17T15:56:29.053Z"
 }
