@@ -38,8 +38,11 @@
     kongre:      'Kongre'
   };
   // Hangi tipte hangi alan "masraf" sayılır:
-  //   temsil → butce, planlanan/gerceklesen → maliyet, kongre → (parasal alan yok)
-  var TIP_TUTAR_ALANI = { temsil: 'butce', planlanan: 'maliyet', gerceklesen: 'maliyet' };
+  //   temsil → butce, gerceklesen → maliyet, kongre → (parasal alan yok)
+  //   "planlanan" (Planlanan Merkez Ödeme) kasıtlı olarak DIŞARIDA bırakılır:
+  //   bu bir plan/tahmindir, henüz gerçekleşmiş bir masraf değildir — toplama
+  //   dahil edilirse Toplam Masraf Tutarı olduğundan yüksek görünür.
+  var TIP_TUTAR_ALANI = { temsil: 'butce', gerceklesen: 'maliyet' };
 
   function _fmtTL(v) {
     if (typeof fTL === 'function') return fTL(v || 0);
@@ -128,7 +131,8 @@
 
     html += '</tbody></table></div>' +
       '<div style="font-size:10px;color:var(--dim);margin-top:8px">' +
-        'Masraf toplamı = Temsil \"Bütçe\" + Planlanan/Gerçekleşen \"Maliyet\". ' +
+        'Masraf toplamı = Temsil \"Bütçe\" + Gerçekleşen Merkez Ödeme \"Maliyet\". ' +
+        'Planlanan Merkez Ödeme henüz gerçekleşmediği için toplama dahil edilmez, yalnızca adet olarak gösterilir. ' +
         'Kongre kayıtlarında parasal alan yoktur, yalnızca adet sayılır.' +
       '</div>';
     return html;

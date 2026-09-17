@@ -176,12 +176,34 @@ export default {
   }
 };
 
+// ── FAZ 22.0 BUG DÜZELTMESİ — UTF-8 base64 çözümü ──────────────────────
+// ESKİ KOD: `atob(meta.content)` → atob() her baytı Latin-1 karakteri gibi
+// döndürür. GitHub'daki JSON UTF-8 kodlu olduğundan, Türkçe karakterlerin
+// 2 baytı iki ayrı karaktere dönüşüyordu ("ŞENOL" → "ÅENOL"). Bu bozuk
+// metin sonra `encodeURIComponent` ile TEKRAR UTF-8'e kodlanıp yazıldığı
+// için bozulma HER yazma turunda katlanarak büyüyordu (bkz. canlı
+// data/rota_planlari.json: "ÃÂÃÂÃÂ..."). Artık okuma TextDecoder,
+// yazma TextEncoder ile yapılıyor — tam tur (round-trip) kayıpsız.
+function _b64ToUtf8(b64) {
+  const bin = atob(String(b64 || '').replace(/\s/g, ''));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder('utf-8').decode(bytes);
+}
+
+function _utf8ToB64(str) {
+  const bytes = new TextEncoder().encode(String(str));
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
 // ── Ortak: GitHub Contents API'den mevcut dosyayı oku ────────────────────
 async function _ghReadJson(apiBase, branch, ghHeaders, fallback) {
   const getRes = await fetch(`${apiBase}?ref=${branch}`, { headers: ghHeaders });
   if (getRes.status === 200) {
     const meta = await getRes.json();
-    const decoded = atob((meta.content || '').replace(/\n/g, ''));
+    const decoded = _b64ToUtf8(meta.content || '');
     try {
       return { data: JSON.parse(decoded), sha: meta.sha };
     } catch (e) {
@@ -196,7 +218,7 @@ async function _ghReadJson(apiBase, branch, ghHeaders, fallback) {
 
 // ── Ortak: GitHub Contents API'ye yaz (409 çakışmasında bir kez retry) ──
 async function _ghWriteJson(apiBase, branch, ghHeaders, content, sha, message, retryOnConflict) {
-  const newContentB64 = btoa(unescape(encodeURIComponent(JSON.stringify(content, null, 2))));
+  const newContentB64 = _utf8ToB64(JSON.stringify(content, null, 2));
   let putRes = await fetch(apiBase, {
     method: 'PUT',
     headers: { ...ghHeaders, 'Content-Type': 'application/json' },
@@ -205,7 +227,7 @@ async function _ghWriteJson(apiBase, branch, ghHeaders, content, sha, message, r
 
   if (putRes.status === 409 && retryOnConflict) {
     const { data: freshData, sha: freshSha } = await retryOnConflict();
-    const retryB64 = btoa(unescape(encodeURIComponent(JSON.stringify(freshData, null, 2))));
+    const retryB64 = _utf8ToB64(JSON.stringify(freshData, null, 2));
     putRes = await fetch(apiBase, {
       method: 'PUT',
       headers: { ...ghHeaders, 'Content-Type': 'application/json' },
@@ -478,7 +500,7 @@ async function handleRotaSync(request, env, ALLOWED) {
     if (getRes.status === 200) {
       const meta = await getRes.json();
       sha = meta.sha;
-      const decoded = atob((meta.content || '').replace(/\n/g, ''));
+      const decoded = _b64ToUtf8(meta.content || '');
       current = JSON.parse(decoded);
       if (!current.plans) current.plans = {};
     } else if (getRes.status !== 404) {
@@ -493,7 +515,7 @@ async function handleRotaSync(request, env, ALLOWED) {
   current.plans[representative][weekday] = bricks;
   current.updatedAt = new Date().toISOString();
 
-  const newContentB64 = btoa(unescape(encodeURIComponent(JSON.stringify(current, null, 2))));
+  const newContentB64 = _utf8ToB64(JSON.stringify(current, null, 2));
 
   // 3) GitHub'a yaz (yeni bir commit oluşur)
   let putRes = await fetch(apiBase, {
@@ -513,12 +535,12 @@ async function handleRotaSync(request, env, ALLOWED) {
       const retryGet = await fetch(`${apiBase}?ref=${BRANCH}`, { headers: ghHeaders });
       if (retryGet.status === 200) {
         const meta2 = await retryGet.json();
-        const decoded2 = JSON.parse(atob((meta2.content || '').replace(/\n/g, '')));
+        const decoded2 = JSON.parse(_b64ToUtf8(meta2.content || ''));
         if (!decoded2.plans) decoded2.plans = {};
         if (!decoded2.plans[representative]) decoded2.plans[representative] = {};
         decoded2.plans[representative][weekday] = bricks;
         decoded2.updatedAt = new Date().toISOString();
-        const retryContentB64 = btoa(unescape(encodeURIComponent(JSON.stringify(decoded2, null, 2))));
+        const retryContentB64 = _utf8ToB64(JSON.stringify(decoded2, null, 2));
         putRes = await fetch(apiBase, {
           method: 'PUT',
           headers: { ...ghHeaders, 'Content-Type': 'application/json' },

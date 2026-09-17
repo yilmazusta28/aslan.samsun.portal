@@ -4441,10 +4441,11 @@ function renderMarketDetailTable(grpData,drugs,bricks,ownIlac){
                       : (typeof MIGI_BRICK_KUTU_RAW!=='undefined' && MIGI_BRICK_KUTU_RAW.length) ? MIGI_BRICK_KUTU_RAW : [];
   const _brickSiraMap = new Map();
   _brickSiraSrc.forEach(r=>{ if(r.brick && !_brickSiraMap.has(r.brick)) _brickSiraMap.set(r.brick, r.sira); });
-  const brickSiraTag = (brick)=>{
+  const brickSiraCell = (brick)=>{
     const s = _brickSiraMap.get(brick);
-    if (!s && s!==0) return '';
-    return ` <span class="mono" style="font-size:9px;font-weight:700;${s<=333?'color:#0891B2':'color:var(--dim)'}" title="Ulusal Brick Sırası">#${s}</span>`;
+    if (s===undefined || s===null) return `<td class="mono" style="font-size:10px;color:var(--dim)">—</td>`;
+    const inTop333 = s<=333;
+    return `<td class="mono" style="font-size:10px;font-weight:700;${inTop333?'color:#16A34A':'color:#DC2626'}" title="Ulusal Brick Sırası">${s}</td>`;
   };
   let rows=[];
   bricks.forEach(brick=>{
@@ -4460,7 +4461,8 @@ function renderMarketDetailTable(grpData,drugs,bricks,ownIlac){
     const brickStyle=newBrick?'font-weight:700;color:#334155':'color:var(--dim)';
     return `<tr style="${rowBorder}">
       <td><span class="${isOwn?'tag-own':'tag-comp'}">${isOwn?'KENDİ':'RAKİP'}</span> <strong style="${isOwn?'color:#0E7490':''}">${drugLabel(drug)}</strong></td>
-      <td style="font-size:10px;${brickStyle}">${brick}${brickSiraTag(brick)}</td>
+      ${brickSiraCell(brick)}
+      <td style="font-size:10px;${brickStyle}">${brick}</td>
       <td class="mono">${fK(r.toplam)}</td>
       <td><span class="bdg ${pCls(r.toplam_ppi||0)}">${(r.toplam_ppi||0).toFixed(1)}%</span></td>
       ${['h1','h2','h3','h4','h5','h6','h7','h8','h9'].map(w=>`<td style="font-size:10px;${r[w]>0?'font-weight:600':r[w]<0?'color:#DC2626;font-weight:600':'color:#A0AEC0'}">${r[w]!==0?fK(r[w]):'—'}</td>`).join('')}
@@ -6370,7 +6372,7 @@ function _buildEczaneDrawerRefresh(){
     <div class="card-hd"><span class="card-title">İlaç &amp; Brick Detay</span><span class="card-badge" id="tbl_badge">Kutu</span></div>
     <div class="card-body-0 scroll-x">
       <table class="tbl" id="marketDetailTable">
-        <thead><tr><th>Ürün</th><th>Brick</th><th>Toplam</th><th>PPI %</th><th>1.H</th><th>2.H</th><th>3.H</th><th>4.H</th><th>5.H</th><th>6.H</th><th>7.H</th><th>8.H</th><th>9.H</th></tr></thead>
+        <thead><tr><th>Ürün</th><th>Sıra</th><th>Brick</th><th>Toplam</th><th>PPI %</th><th>1.H</th><th>2.H</th><th>3.H</th><th>4.H</th><th>5.H</th><th>6.H</th><th>7.H</th><th>8.H</th><th>9.H</th></tr></thead>
         <tbody id="marketDetailBody"></tbody>
       </table>
     </div>
