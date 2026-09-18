@@ -627,6 +627,44 @@
   }
 
   // ── 4) AI PAZAR ANALİZİ ÖZETİ (bölge müdürüne) ───────────────────────
+  // FAZ 24.0 — Toplam Pazar Payı + Ürün Bazlı Pazar Payı (kullanıcı talebi).
+  // market-share-engine.js zaten brick × ilac_grubu bazında gerçek
+  // ourShare üretiyordu (bkz. o dosyanın başlığı) ama bu panelde hiç
+  // gösterilmiyordu — buradaki "Pazar Payı (PP%)" kolonu FARKLI bir alan
+  // (IMS toplam_ppi, brick bazlı). Bu fonksiyon MarketShareEngine'i
+  // TTT bazında özetler: (a) tüm brick+ürün kırılımlarının ortalaması
+  // ("Toplam Pazar Payı") ve (b) OWN_DRUG_BY_GRP üzerinden ürün adına
+  // (PANOCER/ACİDPASS/MOKSEFEN/GRİPORT COLD/FAMTREC) göre gruplanmış
+  // ortalama ("Ürün Bazlı Pazar Payı"). dataQuality!=='OK' satırlar
+  // (NO_MARKET_DATA / NO_OWN_DATA / ANOMALY_*) hariç tutulur — aynı
+  // renderMarketShareCard() index.html mantığı.
+  function buildManagerMarketShareSummary(ttt) {
+    if (!window.MarketShareEngine || typeof window.MarketShareEngine.analyzeMarketShare !== 'function') return null;
+    var records = (window.MarketShareEngine.analyzeMarketShare(ttt) || []).filter(function (r) { return r.dataQuality === 'OK'; });
+    if (!records.length) return { overall: null, byProduct: [] };
+
+    var overall = records.reduce(function (s, r) { return s + r.ourShare; }, 0) / records.length;
+
+    var byGrp = {};
+    records.forEach(function (r) {
+      var key = r.ilacGrubu || '—';
+      if (!byGrp[key]) byGrp[key] = [];
+      byGrp[key].push(r.ourShare);
+    });
+    var byProduct = Object.keys(byGrp).map(function (grp) {
+      var vals = byGrp[grp];
+      var avg = vals.reduce(function (s, v) { return s + v; }, 0) / vals.length;
+      var urun = (typeof OWN_DRUG_BY_GRP !== 'undefined' && OWN_DRUG_BY_GRP[grp]) ? OWN_DRUG_BY_GRP[grp].urun : grp;
+      return { urun: urun, avgShare: avg, brickCount: vals.length };
+    }).sort(function (a, b) { return b.avgShare - a.avgShare; });
+
+    return { overall: overall, byProduct: byProduct };
+  }
+
+  function _shareColor(v) {
+    return v >= 30 ? '#059669' : v >= 15 ? '#D97706' : '#DC2626';
+  }
+
   function _lastActiveWeek(row) {
     var weeks = [row.h1, row.h2, row.h3, row.h4, row.h5, row.h6, row.h7, row.h8, row.h9];
     for (var i = weeks.length - 1; i >= 0; i--) {
@@ -653,6 +691,29 @@
     if (gt) html += '<div style="font-size:11px;color:var(--dim)">Genel Realizasyon: <strong style="color:var(--fg)">%' + (gt.tl_pct || 0).toFixed(1) + '</strong></div>';
     if (own) html += '<div style="font-size:11px;color:var(--dim)">Ekip Sırası: <strong style="color:var(--fg)">#' + own.rank + '</strong> · Kategori: <strong style="color:var(--fg)">' + own.category + '</strong></div>';
     html += '</div>';
+
+    // FAZ 24.0 — Toplam Pazar Payı + Ürün Bazlı Pazar Payı
+    var shareSummary = buildManagerMarketShareSummary(ttt);
+    if (shareSummary && (shareSummary.overall != null || shareSummary.byProduct.length)) {
+      html += '<div style="background:var(--surf2);border-radius:8px;padding:8px 10px;margin-bottom:10px">';
+      html += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:' + (shareSummary.byProduct.length ? '6px' : '0') + '">';
+      html += '<div style="font-size:10px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.4px">Toplam Pazar Payı</div>';
+      html += '<div style="font-size:15px;font-weight:800;color:' + (shareSummary.overall != null ? _shareColor(shareSummary.overall) : 'var(--dim)') + '">' +
+        (shareSummary.overall != null ? '%' + shareSummary.overall.toFixed(1) : '—') + '</div>';
+      html += '</div>';
+      if (shareSummary.byProduct.length) {
+        html += '<div style="font-size:9px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Ürün Bazlı Pazar Payı</div>';
+        html += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+        shareSummary.byProduct.forEach(function (p) {
+          html += '<span style="background:' + _shareColor(p.avgShare) + '18;color:' + _shareColor(p.avgShare) + ';border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700" title="' + p.brickCount + ' brick ortalaması">' +
+            p.urun + ': %' + p.avgShare.toFixed(1) + '</span>';
+        });
+        html += '</div>';
+      }
+      html += '</div>';
+    } else if (!window.MarketShareEngine) {
+      html += '<div style="font-size:10px;color:var(--dim);margin-bottom:10px">Pazar payı verisi için market-share-engine.js yüklenmedi.</div>';
+    }
 
     // Riskler (varsa)
     try {
