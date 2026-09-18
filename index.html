@@ -3347,7 +3347,7 @@ function toggleDarkMode(){
 // pv-hidden-ui ile işaretli (MI & GI Takibi, AI & Görev Motoru gibi)
 // sayfa/sekme/kolonları toplu göster/gizle. Varsayılan: KAPALI (gizli).
 function _applyHiddenUi(show){
-  document.body.classList.toggle('pv-show-hidden', !!show);
+  document.documentElement.classList.toggle('pv-show-hidden', !!show);
   const icon=document.getElementById('sidebarHiddenUiIcon');
   const toggle=document.getElementById('sidebarHiddenUiToggle');
   const knob=document.getElementById('sidebarHiddenUiKnob');
@@ -3356,7 +3356,7 @@ function _applyHiddenUi(show){
   if(knob) knob.style.transform = show?'translateX(16px)':'translateX(0)';
 }
 function toggleHiddenPages(){
-  const isShown = document.body.classList.contains('pv-show-hidden');
+  const isShown = document.documentElement.classList.contains('pv-show-hidden');
   const next = !isShown;
   _applyHiddenUi(next);
   try{ localStorage.setItem('samsun_show_hidden_ui', next?'1':'0'); }catch(e){}
@@ -5886,7 +5886,7 @@ function toggleAcc(el){
 //  AI GÖREV MOTORU
 // ════════════════════════════════════════════════════════════
 
-let engineSelTTT = '';
+var engineSelTTT = '';
 
 // PHASE2-STUB: renderEngine → js/ai/ai-engine.js
 // function renderEngine() { ... } — ai-engine.js içinde
@@ -6291,8 +6291,8 @@ function _buildEczaneDrawerRefresh(){
          sayfa/sekme/kolonlar (MI & GI Takibi, AI & Görev Motoru, Ürün
          Sipariş Analizi, AI Tahmin Performansı vb.) varsayılan olarak
          KAPALI (gizli) gelir — bkz. css/style.css
-         "body:not(.pv-show-hidden) .pv-hidden-ui{display:none!important}".
-         Anahtar açıldığında body'ye .pv-show-hidden sınıfı eklenir ve tüm
+         "html:not(.pv-show-hidden) .pv-hidden-ui{display:none!important}".
+         Anahtar açıldığında &lt;html&gt; öğesine .pv-show-hidden sınıfı eklenir ve tüm
          bu öğeler tekrar görünür olur. Tercih localStorage'da saklanır. -->
     <button onclick="toggleHiddenPages()" id="sidebarHiddenUiBtn"
       style="width:100%;display:flex;align-items:center;justify-content:space-between;
