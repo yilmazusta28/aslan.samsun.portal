@@ -1984,18 +1984,28 @@ function renderMarketShareCard() {
         </div>
       </div>
       <div style="font-size:10px;font-weight:700;color:var(--dim);margin-bottom:6px">BRICK × PAZAR PAYI (${records.length})</div>
-      <div style="max-height:360px;overflow-y:auto;padding-right:4px">
-      ${records.map(r => {
-        const trendIcon = r.trend === 'up' ? '📈' : r.trend === 'down' ? '📉' : '➡️';
-        const payClr = r.ourShare >= 30 ? '#059669' : r.ourShare >= 15 ? '#D97706' : '#DC2626';
-        return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)" title="Ham veri: kendi=${r.ownTotal} kutu / pazar toplamı=${r.mktTotal} kutu">
-          <span style="font-size:11px;font-weight:600;min-width:50px">${r.brick}</span>
-          <span style="font-size:10px;color:var(--dim);flex:1">${r.ilacGrubu}</span>
-          <span style="font-size:9px;color:var(--dim)">(${r.ownTotal}/${r.mktTotal})</span>
-          <span style="font-size:11px;font-weight:700;color:${payClr}">${r.ourShare.toFixed(1)}%</span>
-          <span>${trendIcon}</span>
-        </div>`;
-      }).join('')}
+      <div class="scroll-x">
+        <table class="tbl" id="marketShareDetailTable" style="min-width:760px">
+          <thead><tr>
+            <th>Brick</th><th>İlaç Grubu</th><th>Kendi (Kutu)</th><th>Toplam Pazar (Kutu)</th>
+            <th>Toplam Pazar (TL)</th><th>Pazar Payı %</th><th>Trend</th>
+          </tr></thead>
+          <tbody>
+          ${records.slice().sort((a,b)=>(a.brick||'').localeCompare(b.brick||'')||(a.ilacGrubu||'').localeCompare(b.ilacGrubu||'')).map(r => {
+            const trendIcon = r.trend === 'up' ? '📈' : r.trend === 'down' ? '📉' : '➡️';
+            const payClr = r.ourShare >= 30 ? '#059669' : r.ourShare >= 15 ? '#D97706' : '#DC2626';
+            return `<tr title="Ham veri: kendi=${r.ownTotal} kutu / pazar toplamı=${r.mktTotal} kutu">
+              <td style="font-size:10px;font-weight:700;color:#334155">${r.brick}</td>
+              <td style="font-size:10px;color:var(--dim)">${r.ilacGrubu}</td>
+              <td class="mono">${fK(r.ownTotal)}</td>
+              <td class="mono">${fK(r.mktTotal)}</td>
+              <td class="mono" style="font-weight:700">${fTL(r.mktTotalTL)}</td>
+              <td><span class="bdg" style="color:${payClr};background:${payClr}18">${r.ourShare.toFixed(1)}%</span></td>
+              <td>${trendIcon}</td>
+            </tr>`;
+          }).join('')}
+          </tbody>
+        </table>
       </div>
       ${anomalyCount ? '<div style="color:#D97706;font-size:10px;margin-top:8px">⚠️ ' + anomalyCount + ' brick veri tutarsızlığı nedeniyle listeden çıkarıldı (kendi satış > pazar toplamı) — konsolu kontrol edin.</div>' : ''}
     </div>`;
@@ -3332,6 +3342,31 @@ function toggleDarkMode(){
   document.documentElement.setAttribute('data-theme',saved);
   _applyDarkUI(saved==='dark');
 })();
+
+// ── GİZLİ SAYFA/SEKME GÖSTER-GİZLE ─────────────────────────
+// pv-hidden-ui ile işaretli (MI & GI Takibi, AI & Görev Motoru gibi)
+// sayfa/sekme/kolonları toplu göster/gizle. Varsayılan: KAPALI (gizli).
+function _applyHiddenUi(show){
+  document.body.classList.toggle('pv-show-hidden', !!show);
+  const icon=document.getElementById('sidebarHiddenUiIcon');
+  const toggle=document.getElementById('sidebarHiddenUiToggle');
+  const knob=document.getElementById('sidebarHiddenUiKnob');
+  if(icon) icon.textContent = show?'📂':'🗂️';
+  if(toggle) toggle.style.background = show?'rgba(139,92,246,.7)':'rgba(255,255,255,.2)';
+  if(knob) knob.style.transform = show?'translateX(16px)':'translateX(0)';
+}
+function toggleHiddenPages(){
+  const isShown = document.body.classList.contains('pv-show-hidden');
+  const next = !isShown;
+  _applyHiddenUi(next);
+  try{ localStorage.setItem('samsun_show_hidden_ui', next?'1':'0'); }catch(e){}
+}
+(function initHiddenUi(){
+  let show=false; // genel olarak KAPALI gelir
+  try{ show = localStorage.getItem('samsun_show_hidden_ui')==='1'; }catch(e){}
+  _applyHiddenUi(show);
+})();
+
 function selectTTT(ttt){
   selTTT=selTTT===ttt?'':ttt;
   SoundFX.secim();
@@ -3922,7 +3957,15 @@ function renderTTTDetail(){
     <td><span class="bdg ${pCls(r.tl_pct)}">${fPct(r.tl_pct)}</span></td>
     <td><div class="prog" style="width:80px"><div class="prog-fill ${barCls(r.tl_pct)}" style="width:${Math.min(r.tl_pct,100)}%;background:${URUN_CLR[r.urun]||'var(--c3)'}"></div></div></td>
     <td class="mono">${fPct(r.prim_pct)}</td>
-  </tr>`).join('');
+  </tr>`).join('') + `<tr class="toplam-row" style="border-top:2px solid var(--border);background:var(--surf2,#F7F9FC)">
+    <td style="font-weight:800">Σ Alt Toplam</td>
+    <td class="mono" style="font-weight:800">${fTL(gen.hedef_tl)}</td>
+    <td class="mono" style="font-weight:800">${fTL(gen.satis_tl)}</td>
+    <td class="mono ${gen.kalan_tl<0?'negative':'positive'}" style="font-weight:800">${fTL(gen.kalan_tl)}</td>
+    <td><span class="bdg ${pCls(gen.tl_pct)}">${fPct(gen.tl_pct)}</span></td>
+    <td></td>
+    <td class="mono" style="font-weight:800">${fPct(gen.prim_pct)}</td>
+  </tr>`;
 
   document.getElementById('hftTlBadge').textContent=selTTT;
   document.getElementById('hftUrunBadge').textContent=selTTT;
@@ -6242,6 +6285,35 @@ function _buildEczaneDrawerRefresh(){
           border-radius:50%;background:#fff;transition:transform .25s;display:block"></span>
       </span>
     </button>
+
+    <!-- FAZ — Gizli Sayfa/Sekme Göster-Gizle Anahtarı — Gece/Gündüz Modu
+         butonunun HEMEN ALTINA eklendi. pv-hidden-ui sınıfı taşıyan tüm
+         sayfa/sekme/kolonlar (MI & GI Takibi, AI & Görev Motoru, Ürün
+         Sipariş Analizi, AI Tahmin Performansı vb.) varsayılan olarak
+         KAPALI (gizli) gelir — bkz. css/style.css
+         "body:not(.pv-show-hidden) .pv-hidden-ui{display:none!important}".
+         Anahtar açıldığında body'ye .pv-show-hidden sınıfı eklenir ve tüm
+         bu öğeler tekrar görünür olur. Tercih localStorage'da saklanır. -->
+    <button onclick="toggleHiddenPages()" id="sidebarHiddenUiBtn"
+      style="width:100%;display:flex;align-items:center;justify-content:space-between;
+      background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);
+      border-radius:11px;padding:10px 14px;cursor:pointer;
+      font-family:'Poppins',sans-serif;font-size:11px;font-weight:600;
+      color:rgba(255,255,255,.7);margin-bottom:10px;
+      transition:background .2s,border-color .2s">
+      <span style="display:flex;align-items:center;gap:8px">
+        <span id="sidebarHiddenUiIcon">🗂️</span>
+        <span id="sidebarHiddenUiLabel">Gizli Sayfaları Göster</span>
+      </span>
+      <span id="sidebarHiddenUiToggle"
+        style="width:36px;height:20px;border-radius:10px;background:rgba(255,255,255,.2);
+        position:relative;transition:background .25s;flex-shrink:0">
+        <span id="sidebarHiddenUiKnob"
+          style="position:absolute;top:2px;left:2px;width:16px;height:16px;
+          border-radius:50%;background:#fff;transition:transform .25s;display:block"></span>
+      </span>
+    </button>
+
     <div class="sidebar-user">
       <div class="sidebar-avatar-wrap" id="sidebarAvatarWrap">?</div>
       <div>

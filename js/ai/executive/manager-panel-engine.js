@@ -206,7 +206,7 @@
       body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--dim);padding:14px">Veri yok — CSV yüklenmemiş olabilir.</td></tr>';
       return;
     }
-    body.innerHTML = rows.map(function (r) {
+    var html = rows.map(function (r) {
       var pct = Math.min(r.tl_pct || 0, 100);
       var barColor = URUN_CLR[r.urun] || 'var(--c3)';
       return '<tr>' +
@@ -219,6 +219,20 @@
         '<td class="mono">' + fPct(r.prim_pct) + '</td>' +
         '</tr>';
     }).join('');
+
+    // Alt toplam satırı — GENEL'deki ŞENOL YILMAZ / GENEL TOPLAM satırından
+    // (bölge resmi toplamı, tek tek ürünlerin manuel toplanmasına gerek yok).
+    var gen = (GENEL || []).find(function (r) { return r.ttt === MANAGER_NAME && r.urun === 'GENEL TOPLAM'; }) || {};
+    html += '<tr class="toplam-row" style="border-top:2px solid var(--border);background:var(--surf2,#F7F9FC)">' +
+      '<td style="font-weight:800">Σ Alt Toplam</td>' +
+      '<td class="mono" style="font-weight:800">' + fTL(gen.hedef_tl) + '</td>' +
+      '<td class="mono" style="font-weight:800">' + fTL(gen.satis_tl) + '</td>' +
+      '<td class="mono ' + (gen.kalan_tl < 0 ? 'negative' : 'positive') + '" style="font-weight:800">' + fTL(gen.kalan_tl) + '</td>' +
+      '<td><span class="bdg ' + pCls(gen.tl_pct) + '">' + fPct(gen.tl_pct) + '</span></td>' +
+      '<td></td>' +
+      '<td class="mono" style="font-weight:800">' + fPct(gen.prim_pct) + '</td>' +
+      '</tr>';
+    body.innerHTML = html;
   }
 
   // ── 0d) BÖLGE HAFTALIK TL SATIŞ TRENDİ (grafik) ──────────────────────

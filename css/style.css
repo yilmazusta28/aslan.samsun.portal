@@ -964,7 +964,7 @@ body{
    Başka hiçbir dosyada/yerde değişiklik gerekmez — class'lar HTML'de
    kalabilir, hiçbir işlevi yoktur bu kural olmadan.
    ══════════════════════════════════════════════════════════════════════ */
-.pv-hidden-ui{display:none!important}
+body:not(.pv-show-hidden) .pv-hidden-ui{display:none!important}
 
 /* ══════════════════════════════════════════════════════════════════════
    YTD TL SAYFASI (Satış Takibi'nden sonra eklenen sayfa)

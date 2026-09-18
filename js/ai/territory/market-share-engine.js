@@ -204,6 +204,16 @@
 
       var trendInfo = dataQuality === 'OK' ? _weeklyShareTrend(g.own, g.mkt) : { trend: 'stable', changePct: 0 };
 
+      // FAZ — brick'in TOPLAM PAZAR TL'si: mktTotal kutu cinsindendir (IMS_TABLO
+      // kutu bazlı), TL'ye çevirmek için kendi ürünümüzün IMS_TL_MAP birim
+      // fiyatı (autonomous-planning-engine.js / index.html'deki AYNI yaklaşım
+      // — pazar geneli için tek fiyat kaynağı yok, kendi ürün fiyatımız proxy
+      // olarak kullanılıyor) ile çarpılır. OWN_DRUG_BY_GRP üzerinden ilaç
+      // grubu → düz ürün adı (IMS_TL_MAP anahtarı) eşlemesi alınır.
+      var _ownInfo = (typeof OWN_DRUG_BY_GRP !== 'undefined') ? OWN_DRUG_BY_GRP[g.ilacGrubu] : null;
+      var _boxPrice = (_ownInfo && typeof IMS_TL_MAP !== 'undefined') ? (IMS_TL_MAP[_ownInfo.urun] || 0) : 0;
+      var mktTotalTL = Math.round(mktTotal * _boxPrice);
+
       return {
         brick:           g.brick,
         ilacGrubu:       g.ilacGrubu,
@@ -215,7 +225,9 @@
         // TEŞHİS: ham sayılar — kullanıcı arayüzde doğrudan görebilsin diye
         // (konsol açmaya gerek kalmadan). ownTotal/mktTotal kutu cinsinden.
         ownTotal:        Math.round(ownTotal),
-        mktTotal:         Math.round(mktTotal)
+        mktTotal:         Math.round(mktTotal),
+        // Toplam pazar TL'si (tahmini — kendi ürün birim fiyatı ile kutu→TL)
+        mktTotalTL:       mktTotalTL
       };
     });
 

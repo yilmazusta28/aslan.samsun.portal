@@ -8,17 +8,16 @@
       "brick": "GIRESUN BULANCAK+PIRAZIZ",
       "tarih": "2026-09-16",
       "enteredAt": "2026-09-16T16:41:34.836Z",
-      "updatedAt": "2026-09-17T18:38:06.272Z",
       "grup": "ASLAN",
       "bm": "ŞENOL YILMAZ",
       "urun": "FAMTREC",
       "unite": "GİRESUN ÜNİ. EĞT. ARAŞ. HAST",
       "klinik": "FTR",
       "katilimci": 16,
-      "maliyet": 13130,
-      "kisiBasi": 820.625,
+      "maliyet": 13150,
+      "kisiBasi": 821.875,
       "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
-      "syncedAt": "2026-09-17T18:38:09.003Z"
+      "syncedAt": "2026-09-16T16:41:39.095Z"
     },
     {
       "id": "dsy_mu2e9gzc_1bbq3j_YIL",
@@ -106,9 +105,9 @@
       "bolge": "SAMSUN",
       "ttt": "YILMAZ USTA",
       "brick": "ORDU MERKEZ -2",
-      "tarih": "2026-09-08",
+      "tarih": "2026-09-07",
       "enteredAt": "2026-09-15T08:22:39.551Z",
-      "updatedAt": "2026-09-17T18:34:36.849Z",
+      "updatedAt": "2026-09-16T17:52:51.382Z",
       "grup": "ASLAN",
       "bm": "ŞENOL YILMAZ",
       "urun": "FAMTREC",
@@ -118,7 +117,7 @@
       "maliyet": 2800,
       "kisiBasi": 700,
       "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
-      "syncedAt": "2026-09-17T18:34:37.480Z"
+      "syncedAt": "2026-09-16T17:52:52.274Z"
     },
     {
       "id": "dsy_mu2eokbx_kk8oaj_YIL",
@@ -218,27 +217,7 @@
       "sunumTemsil": "K.K",
       "ay": "EYLÜL",
       "syncedAt": "2026-09-17T15:56:29.053Z"
-    },
-    {
-      "id": "dsy_mu5veyrc_me0an0_YIL",
-      "tip": "gerceklesen",
-      "bolge": "SAMSUN",
-      "ttt": "YILMAZ USTA",
-      "brick": "GIRESUN BULANCAK+PIRAZIZ",
-      "tarih": "2026-09-15",
-      "enteredAt": "2026-09-17T18:36:17.400Z",
-      "updatedAt": "2026-09-17T18:37:04.354Z",
-      "grup": "ASLAN",
-      "bm": "ŞENOL YILMAZ",
-      "urun": "FAMTREC",
-      "unite": "ORDU CİVİL ASM",
-      "klinik": "A.HEK",
-      "katilimci": 3,
-      "maliyet": 2550,
-      "kisiBasi": 850,
-      "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
-      "syncedAt": "2026-09-17T18:37:04.958Z"
     }
   ],
-  "updatedAt": "2026-09-17T18:38:09.003Z"
+  "updatedAt": "2026-09-17T15:57:54.940Z"
 }
