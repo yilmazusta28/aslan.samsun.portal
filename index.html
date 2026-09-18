@@ -4902,6 +4902,17 @@ window.addEventListener('DOMContentLoaded',()=>{
   if(window._pendingLogin){ window._pendingLogin=false; initApp(); }
   // Phase 2.2: UI runtime stabilization patches
   if(typeof installRuntimePatches === 'function') installRuntimePatches();
+  // FAZ — initHiddenUi() <head> içinde (sidebar DOM'u henüz yokken) çalıştığı
+  // için anahtarın görsel durumu (ikon/knob) o an senkronize edilemiyordu —
+  // işlevsel taraf (html.pv-show-hidden sınıfı) doğruydu ama switch görseli
+  // sayfa her yeniden yüklendiğinde "kapalı" görünüp kullanıcıyı yanıltıyor,
+  // bu da bir sonraki tıklamanın (aslında halihazırda AÇIK olan) anahtarı
+  // ters yönde KAPATMASINA ve "bir kere çalıştı, artık çalışmıyor" hissine
+  // yol açıyordu. Sidebar DOM'u artık hazır olduğuna göre görseli gerçek
+  // duruma göre burada tekrar senkronize ediyoruz.
+  if(typeof _applyHiddenUi === 'function'){
+    _applyHiddenUi(document.documentElement.classList.contains('pv-show-hidden'));
+  }
 });
 
 // (CARPAN_TABLE, MIGI_MATRIX, URUN_AGIRLIK — blok 1'de tanımlı)
