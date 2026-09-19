@@ -72,6 +72,7 @@
       icon: '📝',
       label: 'DAF Formu',
       sub: 'Değer Aktarım Formu (.docx)',
+      fileName: 'DEĞER AKTARIM FORMU.docx',
       url: 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/DEG%CC%86ER%20AKTARIM%20FORMU.docx'
     },
     {
@@ -79,9 +80,52 @@
       icon: '🩺',
       label: 'Medikal Talep',
       sub: 'Medikal Talep Formu (.xls)',
+      fileName: 'MEDİKAL TALEP FORMU.xls',
       url: 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MED%C4%B0KAL%20TALEP%20FORMU.xls'
     }
   ];
+
+  // BUG DÜZELTMESİ (kullanıcı bildirimi: "Medikal Talep dosyası inmiyor"):
+  // raw.githubusercontent.com bu dosyaları "Content-Disposition: attachment"
+  // BAŞLIĞI OLMADAN, content-type: application/octet-stream ile servis
+  // ediyor (curl ile doğrulandı — dosyanın kendisi SAĞLAM, GitHub'daki
+  // orijinaliyle bayt bayt AYNI). Bu durumda tarayıcılar CROSS-ORIGIN bir
+  // <a download> linkinde "download" özniteliğini YOK SAYABİLİR (özellikle
+  // bazı mobil/uygulama-içi tarayıcılarda) ve linki normal bir navigasyon
+  // gibi ele alıp hiçbir şey yapmayabilir. Kalıcı çözüm: dosyayı fetch()
+  // ile indirip (raw.githubusercontent.com "access-control-allow-origin: *"
+  // gönderdiğinden CORS engeli YOK) bir Blob'a çevirip AYNI ORİJİNDEN
+  // (data: değil, blob: — tüm modern tarayıcılarda çalışır) geçici bir
+  // indirme linki oluşturuyoruz. Bu, tarayıcı/menşe farkı gözetmeksizin
+  // her zaman gerçek bir "Farklı Kaydet" indirmesi tetikler.
+  window._dsyDownloadForm = function (url, fileName, btnEl) {
+    var originalHtml = btnEl ? btnEl.innerHTML : null;
+    if (btnEl) { btnEl.innerHTML = '⏳ İndiriliyor…'; btnEl.disabled = true; }
+    fetch(url)
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.blob();
+      })
+      .then(function (blob) {
+        var blobUrl = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = fileName || 'form';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(blobUrl); }, 4000);
+      })
+      .catch(function (err) {
+        console.warn('[dosyalar-page] form indirme hatası, sekmede açılıyor:', err.message);
+        // Son çare: en azından yeni sekmede aç, kullanıcı oradan "Farklı
+        // Kaydet" ile indirebilsin.
+        window.open(url, '_blank');
+      })
+      .finally(function () {
+        if (btnEl) { btnEl.innerHTML = originalHtml; btnEl.disabled = false; }
+      });
+  };
 
   // Tarayıcı .docx/.xls dosyalarını sayfa içinde gösteremediği için
   // "Yazdır", dosyayı Google Docs Viewer'da (tam araç çubuğu — içinde
@@ -106,8 +150,8 @@
           '<div style="font-size:10px;color:var(--dim)">' + f.sub + '</div></div>' +
           '</div>' +
           '<div style="display:flex;gap:8px">' +
-          '<a href="' + f.url + '" target="_blank" rel="noopener" download' +
-          ' style="flex:1;text-align:center;text-decoration:none;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surf);font-size:11px;font-weight:600;color:var(--c1)">📥 İndir</a>' +
+          '<button type="button" onclick="_dsyDownloadForm(\'' + f.url + '\',\'' + f.fileName.replace(/'/g, "\\'") + '\',this)"' +
+          ' style="flex:1;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surf);font-size:11px;font-weight:600;color:var(--c1);cursor:pointer">📥 İndir</button>' +
           '<button type="button" onclick="_dsyPrintForm(\'' + f.url + '\')"' +
           ' style="flex:1;padding:7px 10px;border-radius:8px;border:none;background:linear-gradient(90deg,#7C3AED,#6D28D9);color:#fff;font-size:11px;font-weight:600;cursor:pointer">🖨️ Yazdır</button>' +
           '</div>' +
