@@ -984,6 +984,13 @@
             document.getElementById('ape-sim-result').innerHTML = _renderSimResult(result);
           });
         }
+
+        var refreshBtn = document.getElementById('ape-refresh-btn');
+        if (refreshBtn) {
+          refreshBtn.addEventListener('click', function () {
+            renderAutonomousDashboard(containerId, ttt);
+          });
+        }
       } catch (err) {
         el.innerHTML = '<div class="ape-error">Hata: ' + (err.message || 'Bilinmeyen hata') + '</div>';
         console.error('[APE] render hata:', err);
@@ -991,195 +998,193 @@
     }, 50);
   }
 
-  // ── HTML Oluşturucular ─────────────────────────────────────────────────
+  // ── HTML Oluşturucular ── "AI Satış Koçu" görsel yapısı ile hizalı ─────
+  //  (ai-sales-coach-v2.js ile aynı .card / .card-hd / .card-badge sistemi
+  //   ve yazı üslubu kullanılır — ayrı bir .ape-* stil sayfası YOK)
+
+  function _gauge(val, label, color) {
+    var v = Math.max(0, Math.min(100, val || 0));
+    return '<div style="flex:1;text-align:center;padding:8px 4px">' +
+      '<div style="font-size:18px;font-weight:900;color:' + color + '">' + Math.round(val || 0) + '</div>' +
+      '<div style="font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:1px">' + label + '</div>' +
+      '<div style="height:4px;background:#E2E8F0;border-radius:2px;margin-top:4px">' +
+        '<div style="height:100%;width:' + v + '%;background:' + color + ';border-radius:2px"></div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function _miniCard(card) {
+    if (!card) return '';
+    var rows = (card.items || []).slice(0, 4).map(function (it) {
+      return '<div style="font-size:9px;color:var(--text);padding:3px 0;border-bottom:1px solid var(--border);line-height:1.4">' + it + '</div>';
+    }).join('');
+    return '<div style="background:var(--surf2);border-radius:8px;padding:8px 10px">' +
+      '<div style="font-size:9px;font-weight:700;color:var(--c1);margin-bottom:5px;text-transform:uppercase;letter-spacing:1px">' +
+        card.icon + ' ' + card.title +
+      '</div>' +
+      (rows || '<div style="font-size:9px;color:var(--dim)">Veri yok</div>') +
+    '</div>';
+  }
 
   function _renderHTML(daily, weekly, cards, gap, ttt) {
-    var prob      = daily.successProbability;
-    var probMeta  = _probLabel(prob);
+    var prob        = daily.successProbability;
+    var probMeta    = _probLabel(prob);
+    var progressPct = daily.targetTL > 0 ? Math.min(100, Math.round(daily.expectedTL / daily.targetTL * 100)) : 0;
+    var visitLoad   = Math.min(100, daily.visits.length * 10);
+
+    var visitRows = daily.visits.length ? daily.visits.map(function (v, i) {
+      return '<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">' +
+        '<span style="font-size:13px;font-weight:800;color:var(--c1);min-width:18px">' + (i + 1) + '.</span>' +
+        '<div style="flex:1">' +
+          '<div style="font-size:11px;font-weight:700">' + v.eczane +
+            ' <span style="font-size:9px;background:rgba(167,139,250,.15);color:#a78bfa;border-radius:4px;padding:1px 6px;margin-left:4px">' + (v.brick || '') + '</span>' +
+          '</div>' +
+          v.products.map(function (p) {
+            var kutuTxt = p.sart
+              ? p.sart + ' kutu <span style="font-size:9px;font-weight:700;color:#D97706;background:#FEF3C7;border-radius:4px;padding:1px 5px">MF +' + p.bonusBoxes + '</span> (toplam ' + p.totalWithMF + ')'
+              : p.boxes + ' kutu';
+            return '<div style="font-size:9px;color:var(--dim);padding:1px 0">→ ' + p.urun + ' <b style="color:var(--text)">' + kutuTxt + '</b></div>';
+          }).join('') +
+          '<div style="font-size:9px;color:var(--text);margin-top:1px">' + v.why.join(' · ') + '</div>' +
+        '</div>' +
+        '<div style="font-weight:800;font-size:11px;color:#15803D;white-space:nowrap">' + _fTL(v.expectedTL) + '</div>' +
+      '</div>';
+    }).join('') : '<div style="font-size:11px;color:var(--dim);padding:8px 0">⏳ Ziyaret listesi hazırlanıyor…</div>';
+
+    var weeklyBlock = (weekly && weekly.days && weekly.days.length) ? (
+      '<div class="card">' +
+        '<div class="card-hd" style="flex-wrap:wrap;gap:6px">' +
+          '<span class="card-title">🗓️ Haftalık Rota Planı</span>' +
+          '<span class="card-badge">' + weekly.days.reduce(function (s, d) { return s + d.count; }, 0) + ' eczane</span>' +
+        '</div>' +
+        '<div class="card-body-0" style="padding:12px 16px">' +
+          '<div style="display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px">' +
+            weekly.days.map(function (d) {
+              return '<div style="flex:1;min-width:120px;background:var(--surf2);border-radius:10px;padding:12px;border:1px solid var(--border);text-align:center">' +
+                '<div style="font-size:12px;font-weight:700;color:var(--c2);margin-bottom:6px">' + d.dayLabel + '</div>' +
+                '<div style="font-size:11px;color:var(--text);margin-bottom:4px">' + (d.brick || '—') + '</div>' +
+                '<div style="font-size:11px;color:var(--dim)">' + d.count + ' eczane</div>' +
+              '</div>';
+            }).join('') +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    ) : '';
 
     return [
-      // ── Hero ─────────────────────────────────────────────────────────
-      '<div class="ape-hero">',
-      '  <div class="ape-hero-left">',
-      '    <div class="ape-hero-label">AI SAHA PLANI · ' + daily.dateLabel + '</div>',
-      '    <div class="ape-hero-ttt">' + ttt + '</div>',
-      '    <div class="ape-hero-period">' + daily.period + ' · ' + daily.remainingDays + ' iş günü kaldı</div>',
+
+      // ══ AI Saha Koçu — Günlük Görev Planı ═══════════════════════════
+      '<div class="card">',
+      '  <div class="card-hd" style="flex-wrap:wrap;gap:6px">',
+      '    <span class="card-title">🧭 AI Saha Koçu — Günlük Görev Planı</span>',
+      '    <span class="card-badge" style="background:' + probMeta.color + '22;color:' + probMeta.color + ';font-weight:800">' + probMeta.icon + ' %' + prob + ' ' + probMeta.text + '</span>',
+      '    <span class="card-badge" style="background:#EFF6FF;color:#1D4ED8">' + daily.dateLabel + '</span>',
+      '    <span class="card-badge" style="background:#FEF3C7;color:#D97706">' + ttt + ' · ' + daily.period + ' · ' + daily.remainingDays + ' iş günü kaldı</span>',
       '  </div>',
-      '  <div class="ape-hero-right">',
-      '    <div class="ape-prob-ring" style="--prob-color:' + probMeta.color + '">',
-      '      <div class="ape-prob-val">%' + prob + '</div>',
-      '      <div class="ape-prob-lbl">' + probMeta.text + '</div>',
+      '  <div class="card-body-0" style="padding:12px 16px">',
+
+      '    <div style="display:flex;gap:4px;background:var(--surf2);border-radius:10px;margin-bottom:12px">',
+             _gauge(prob, 'Başarı %', probMeta.color),
+      '      <div style="width:1px;background:var(--border);margin:8px 0"></div>',
+             _gauge(progressPct, 'Hedefe İlerleme', '#0891B2'),
+      '      <div style="width:1px;background:var(--border);margin:8px 0"></div>',
+             _gauge(visitLoad, 'Ziyaret Yükü', '#4F008C'),
+      '    </div>',
+
+      '    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">',
+      '      <div style="background:var(--surf2);border-radius:8px;padding:8px 10px">',
+      '        <div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px">Günlük Hedef</div>',
+      '        <div style="font-size:13px;font-weight:800;color:var(--text)">' + _fTL(daily.targetTL) + '</div>',
+      '      </div>',
+      '      <div style="background:var(--surf2);border-radius:8px;padding:8px 10px">',
+      '        <div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px">Beklenen Katkı</div>',
+      '        <div style="font-size:13px;font-weight:800;color:#15803D">' + _fTL(daily.expectedTL) + '</div>',
+      '      </div>',
+      '      <div style="background:var(--surf2);border-radius:8px;padding:8px 10px">',
+      '        <div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px">Kalan Gap</div>',
+      '        <div style="font-size:13px;font-weight:800;color:#D97706">' + _fTL(daily.kalanGap) + '</div>',
+      '      </div>',
+      '      <div style="background:var(--surf2);border-radius:8px;padding:8px 10px">',
+      '        <div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px">Bugünkü Ziyaret</div>',
+      '        <div style="font-size:13px;font-weight:800;color:var(--text)">' + daily.visits.length + ' eczane</div>',
+      '      </div>',
+      '    </div>',
+
+      '    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-bottom:14px">',
+             _miniCard(cards.goToday),
+             _miniCard(cards.sellToday),
+             _miniCard(cards.primActions),
+             _miniCard(cards.risks),
+             _miniCard(cards.opportunities),
+      '    </div>',
+
+      '    <div style="font-size:9px;font-weight:700;color:var(--c1);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px">📋 BUGÜN YAP — Ziyaret Planı</div>',
+      visitRows,
+      '    <div style="margin-top:8px;font-size:11px;color:var(--dim);text-align:right">Tahmini toplam katkı: <b style="color:var(--text)">' + _fTL(daily.expectedTL) + '</b></div>',
+
+      '    <button id="ape-refresh-btn" class="btn-calc" style="margin-top:12px;font-size:10px;padding:7px 14px;border-radius:8px;width:100%">🔄 Planı Yenile</button>',
+
+      '  </div>',
+      '</div>',
+
+      // ══ Haftalık Rota (varsa) ════════════════════════════════════════
+      weeklyBlock,
+
+      // ══ Gap Kapama Stratejisi ════════════════════════════════════════
+      '<div class="card">',
+      '  <div class="card-hd" style="flex-wrap:wrap;gap:6px">',
+      '    <span class="card-title">🎯 Gap Kapama Stratejisi</span>',
+      '    <span class="card-badge">' + (gap.remainingDays || 0) + ' iş günü kaldı</span>',
+      '  </div>',
+      '  <div class="card-body-0" style="padding:12px 16px">',
+      '    <div style="font-size:12px;color:var(--text);margin-bottom:10px;line-height:1.5">' + (gap.strategy || '') + '</div>',
+      '    <div style="display:flex;gap:8px;flex-wrap:wrap">',
+      '      <div style="flex:1;min-width:130px;background:var(--surf2);border-radius:8px;padding:8px 10px">',
+      '        <div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px">Kalan Gap</div>',
+      '        <div style="font-size:13px;font-weight:800;color:#D97706">' + _fTL(gap.kalanGap) + '</div>',
+      '      </div>',
+      '      <div style="flex:1;min-width:130px;background:var(--surf2);border-radius:8px;padding:8px 10px">',
+      '        <div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px">Günlük İhtiyaç</div>',
+      '        <div style="font-size:13px;font-weight:800;color:var(--text)">' + _fTL(gap.dailyNeed) + '</div>',
+      '      </div>',
       '    </div>',
       '  </div>',
       '</div>',
 
-      // ── KPI Şeridi ────────────────────────────────────────────────────
-      '<div class="ape-kpi-row">',
-      '  <div class="ape-kpi"><div class="ape-kpi-val">' + _fTL(daily.targetTL) + '</div><div class="ape-kpi-lbl">Günlük Hedef</div></div>',
-      '  <div class="ape-kpi"><div class="ape-kpi-val ape-kpi-green">' + _fTL(daily.expectedTL) + '</div><div class="ape-kpi-lbl">Beklenen Katkı</div></div>',
-      '  <div class="ape-kpi"><div class="ape-kpi-val ape-kpi-warn">' + _fTL(daily.kalanGap) + '</div><div class="ape-kpi-lbl">Kalan Gap</div></div>',
-      '  <div class="ape-kpi"><div class="ape-kpi-val">' + daily.visits.length + ' eczane</div><div class="ape-kpi-lbl">Bugünkü Ziyaret</div></div>',
-      '</div>',
-
-      // ── 5 Aksiyon Kartı ───────────────────────────────────────────────
-      '<div class="ape-cards-row">',
-      _renderCard(cards.goToday),
-      _renderCard(cards.sellToday),
-      _renderCard(cards.primActions),
-      _renderCard(cards.risks),
-      _renderCard(cards.opportunities),
-      '</div>',
-
-      // ── Günlük Ziyaret Listesi ────────────────────────────────────────
-      '<div class="ape-section">',
-      '  <div class="ape-section-title">📋 BUGÜNÜN GÖREVİ</div>',
-      daily.visits.map(function (v, i) {
-        return '<div class="ape-visit-item">' +
-          '<div class="ape-visit-num">' + (i + 1) + '</div>' +
-          '<div class="ape-visit-body">' +
-            '<div class="ape-visit-name">' + v.eczane + ' <span class="ape-brick-badge">' + (v.brick || '') + '</span></div>' +
-            v.products.map(function (p) {
-              var kutuTxt = p.sart
-                ? p.sart + ' kutu <span style="font-size:9px;font-weight:700;color:#D97706;background:#FEF3C7;border-radius:4px;padding:1px 5px">MF +' + p.bonusBoxes + '</span> (toplam ' + p.totalWithMF + ')'
-                : p.boxes + ' kutu';
-              return '<div class="ape-visit-prod">→ ' + p.urun + ' <b>' + kutuTxt + '</b></div>';
-            }).join('') +
-            '<div class="ape-visit-why">' + v.why.join(' · ') + '</div>' +
-          '</div>' +
-          '<div class="ape-visit-tl">' + _fTL(v.expectedTL) + '</div>' +
-          '</div>';
-      }).join(''),
-      '  <div class="ape-visit-total">Tahmini toplam katkı: <b>' + _fTL(daily.expectedTL) + '</b></div>',
-      '</div>',
-
-      // ── Haftalık Rota ─────────────────────────────────────────────────
-      (weekly && weekly.days && weekly.days.length) ? [
-        '<div class="ape-section">',
-        '  <div class="ape-section-title">🗓️ HAFTALIK ROTA</div>',
-        '  <div class="ape-weekly-grid">',
-        weekly.days.map(function (d) {
-          return '<div class="ape-day-card">' +
-            '<div class="ape-day-name">' + d.dayLabel + '</div>' +
-            '<div class="ape-day-brick">' + (d.brick || '—') + '</div>' +
-            '<div class="ape-day-count">' + d.count + ' eczane</div>' +
-            '</div>';
-        }).join(''),
-        '  </div>',
-        '</div>'
-      ].join('') : '',
-
-      // ── Gap Closure ───────────────────────────────────────────────────
-      '<div class="ape-section">',
-      '  <div class="ape-section-title">🎯 GAP KAPAMA STRATEJİSİ</div>',
-      '  <div class="ape-gap-strategy">' + (gap.strategy || '') + '</div>',
-      '  <div class="ape-gap-meta">',
-      '    Kalan Gap: <b>' + _fTL(gap.kalanGap) + '</b> · ',
-      '    ' + (gap.remainingDays || 0) + ' iş günü · ',
-      '    Günlük ihtiyaç: <b>' + _fTL(gap.dailyNeed) + '</b>',
+      // ══ Senaryo Simülatörü ═══════════════════════════════════════════
+      '<div class="card">',
+      '  <div class="card-hd">',
+      '    <span class="card-title">🔮 Senaryo Simülatörü</span>',
       '  </div>',
-      '</div>',
-
-      // ── Senaryo Simülatörü ────────────────────────────────────────────
-      '<div class="ape-section">',
-      '  <div class="ape-section-title">🔮 SENARYO SİMÜLATÖRÜ</div>',
-      '  <div class="ape-sim-form">',
-      '    <select id="ape-sim-urun" class="ape-sim-select">',
-      PRODUCTS.map(function (u) { return '<option value="' + u + '">' + u + '</option>'; }).join(''),
-      '    </select>',
-      '    <input id="ape-sim-boxes" type="number" class="ape-sim-input" placeholder="Kutu sayısı" min="1" max="100" value="10">',
-      '    <button id="ape-sim-btn" class="ape-sim-btn">Hesapla</button>',
+      '  <div class="card-body-0" style="padding:12px 16px">',
+      '    <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center">',
+      '      <select id="ape-sim-urun" class="inp" style="flex:2;min-width:140px">',
+             PRODUCTS.map(function (u) { return '<option value="' + u + '">' + u + '</option>'; }).join(''),
+      '      </select>',
+      '      <input id="ape-sim-boxes" type="number" class="inp" style="flex:1;min-width:100px" placeholder="Kutu sayısı" min="1" max="100" value="10">',
+      '      <button id="ape-sim-btn" class="btn-calc" style="font-size:12px;padding:8px 18px">Hesapla</button>',
+      '    </div>',
+      '    <div id="ape-sim-result"></div>',
       '  </div>',
-      '  <div id="ape-sim-result"></div>',
       '</div>',
 
     ].join('\n');
-  }
-
-  function _renderCard(card) {
-    return '<div class="ape-card">' +
-      '<div class="ape-card-header"><span class="ape-card-icon">' + card.icon + '</span>' + card.title + '</div>' +
-      '<ul class="ape-card-list">' +
-      (card.items || []).map(function (it) {
-        return '<li>' + it + '</li>';
-      }).join('') +
-      '</ul>' +
-      '</div>';
   }
 
   function _renderSimResult(r) {
-    if (!r.extraTL) return '<div class="ape-sim-empty">Sonuç hesaplanamadı.</div>';
-    return '<div class="ape-sim-result-box">' +
-      '<div class="ape-sim-row"><span>Ek satış:</span><b>' + _fTL(r.extraTL) + '</b></div>' +
-      '<div class="ape-sim-row"><span>Yeni realizasyon:</span><b>%' + r.newReal + '</b></div>' +
-      '<div class="ape-sim-row"><span>Yeni gap:</span><b>' + _fTL(r.newGap) + '</b></div>' +
-      (r.newPrim ? '<div class="ape-sim-row"><span>Yeni prim:</span><b>' + _fTL(r.newPrim) + '</b></div>' : '') +
-      '<div class="ape-sim-row"><span>Başarı ihtimali:</span><b>%' + r.newProb + '</b></div>' +
-      '</div>';
-  }
-
-  // ── CSS Enjeksiyonu ────────────────────────────────────────────────────
-  function _injectCSS() {
-    if (document.getElementById('ape-styles')) return;
-    var style = document.createElement('style');
-    style.id = 'ape-styles';
-    style.textContent = [
-      '.ape-loading,.ape-error{padding:24px;text-align:center;color:var(--dim,#6B7280);font-size:14px}',
-      '.ape-hero{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#4F008C,#7B2FBE);border-radius:12px;padding:20px 24px;margin-bottom:16px;color:#fff}',
-      '.ape-hero-label{font-size:11px;opacity:.8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}',
-      '.ape-hero-ttt{font-size:22px;font-weight:700;margin-bottom:2px}',
-      '.ape-hero-period{font-size:13px;opacity:.9}',
-      '.ape-prob-ring{text-align:center;background:rgba(255,255,255,.15);border-radius:50%;width:88px;height:88px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:3px solid var(--prob-color,#22c55e)}',
-      '.ape-prob-val{font-size:22px;font-weight:800;line-height:1}',
-      '.ape-prob-lbl{font-size:10px;opacity:.85;margin-top:3px}',
-      '.ape-kpi-row{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}',
-      '.ape-kpi{flex:1;min-width:120px;background:var(--surf2,#F8F7FF);border-radius:10px;padding:14px 16px;border:1px solid var(--border,#2d2d4e)}',
-      '.ape-kpi-val{font-size:18px;font-weight:700;color:var(--text,#1F2937)}',
-      '.ape-kpi-green{color:#22c55e}',
-      '.ape-kpi-warn{color:#f59e0b}',
-      '.ape-kpi-lbl{font-size:11px;color:var(--dim,#6B7280);margin-top:4px}',
-      '.ape-cards-row{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}',
-      '.ape-card{flex:1;min-width:180px;background:var(--surf2,#F8F7FF);border-radius:10px;padding:14px;border:1px solid var(--border,#2d2d4e)}',
-      '.ape-card-header{font-size:13px;font-weight:700;color:var(--text,#1F2937);margin-bottom:10px;display:flex;align-items:center;gap:6px}',
-      '.ape-card-icon{font-size:16px}',
-      '.ape-card-list{margin:0;padding:0 0 0 4px;list-style:none}',
-      '.ape-card-list li{font-size:12px;color:var(--dim,#6B7280);padding:3px 0;border-bottom:1px solid rgba(255,255,255,.05)}',
-      '.ape-section{background:var(--surf2,#F8F7FF);border-radius:10px;padding:16px 20px;margin-bottom:14px;border:1px solid var(--border,#2d2d4e)}',
-      '.ape-section-title{font-size:13px;font-weight:700;color:var(--c2,#7B2FBE);margin-bottom:12px;text-transform:uppercase;letter-spacing:.4px}',
-      '.ape-visit-item{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06)}',
-      '.ape-visit-num{min-width:26px;height:26px;background:#4F008C;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}',
-      '.ape-visit-body{flex:1}',
-      '.ape-visit-name{font-size:14px;font-weight:600;color:var(--text,#1F2937);margin-bottom:4px}',
-      '.ape-brick-badge{font-size:11px;background:rgba(167,139,250,.15);color:#a78bfa;border-radius:4px;padding:1px 6px;margin-left:6px}',
-      '.ape-visit-prod{font-size:12px;color:#94a3b8;padding:1px 0}',
-      '.ape-visit-why{font-size:11px;color:#64748b;margin-top:4px}',
-      '.ape-visit-tl{font-size:14px;font-weight:700;color:#22c55e;white-space:nowrap;padding-top:2px}',
-      '.ape-visit-total{margin-top:10px;font-size:13px;color:var(--dim,#6B7280);text-align:right}',
-      '.ape-gap-strategy{font-size:14px;color:var(--text,#1F2937);margin-bottom:8px}',
-      '.ape-gap-meta{font-size:13px;color:var(--dim,#6B7280)}',
-      '.ape-weekly-grid{display:flex;gap:10px;flex-wrap:wrap}',
-      '.ape-day-card{flex:1;min-width:100px;background:rgba(79,0,140,.15);border-radius:8px;padding:12px;border:1px solid rgba(79,0,140,.3);text-align:center}',
-      '.ape-day-name{font-size:13px;font-weight:700;color:#a78bfa;margin-bottom:6px}',
-      '.ape-day-brick{font-size:12px;color:var(--text,#1F2937);margin-bottom:4px}',
-      '.ape-day-count{font-size:12px;color:var(--dim,#6B7280)}',
-      '.ape-sim-form{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center}',
-      '.ape-sim-select,.ape-sim-input{background:var(--surf,#fff);border:1px solid var(--border,#2d2d4e);border-radius:8px;padding:8px 12px;color:var(--text,#1F2937);font-size:13px}',
-      '.ape-sim-select{flex:2;min-width:140px}',
-      '.ape-sim-input{flex:1;min-width:100px}',
-      '.ape-sim-btn{background:#4F008C;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer}',
-      '.ape-sim-btn:hover{background:#7B2FBE}',
-      '.ape-sim-result-box{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:8px;padding:14px}',
-      '.ape-sim-row{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;color:var(--dim,#6B7280)}',
-      '.ape-sim-row b{color:var(--text,#1F2937)}',
-      '.ape-sim-empty{font-size:13px;color:#888;padding:8px 0}',
-    ].join('\n');
-    document.head.appendChild(style);
+    if (!r.extraTL) return '<div style="font-size:11px;color:var(--dim);padding:8px 0">Sonuç hesaplanamadı.</div>';
+    return '<div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:8px;padding:12px">' +
+      '<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;color:var(--dim)"><span>Ek satış:</span><b style="color:var(--text)">' + _fTL(r.extraTL) + '</b></div>' +
+      '<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;color:var(--dim)"><span>Yeni realizasyon:</span><b style="color:var(--text)">%' + r.newReal + '</b></div>' +
+      '<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;color:var(--dim)"><span>Yeni gap:</span><b style="color:var(--text)">' + _fTL(r.newGap) + '</b></div>' +
+      (r.newPrim ? '<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;color:var(--dim)"><span>Yeni prim:</span><b style="color:var(--text)">' + _fTL(r.newPrim) + '</b></div>' : '') +
+      '<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;color:var(--dim)"><span>Başarı ihtimali:</span><b style="color:var(--text)">%' + r.newProb + '</b></div>' +
+    '</div>';
   }
 
   // ══════════════════════════════════════════════════════════════════════
   //  BÖLÜM 15: Public API
   // ══════════════════════════════════════════════════════════════════════
-
-  _injectCSS();
 
   window.generateDailyPlan           = generateDailyPlan;
   window.generateWeeklyPlan          = generateWeeklyPlan;
