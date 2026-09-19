@@ -1969,11 +1969,15 @@ function renderMarketShareCard() {
             <th>Toplam Pazar (TL)</th><th>Pazar Payı %</th><th>Trend</th>
           </tr></thead>
           <tbody>
-          ${records.slice().sort((a,b)=>(a.brick||'').localeCompare(b.brick||'')||(a.ilacGrubu||'').localeCompare(b.ilacGrubu||'')).map(r => {
+          ${(() => { let _lastBrick = ''; return records.slice().sort((a,b)=>(a.brick||'').localeCompare(b.brick||'')||(a.ilacGrubu||'').localeCompare(b.ilacGrubu||'')).map(r => {
+            // İlaç & Brick Detay tablosuyla aynı: brick değişince kalın ayırıcı çizgi
+            const newBrick = r.brick !== _lastBrick; _lastBrick = r.brick;
+            const rowBorder = newBrick ? 'border-top:2px solid #94A3B8' : '';
+            const brickStyle = newBrick ? 'font-weight:700;color:#334155' : 'color:var(--dim)';
             const trendIcon = r.trend === 'up' ? '📈' : r.trend === 'down' ? '📉' : '➡️';
             const payClr = r.ourShare >= 30 ? '#059669' : r.ourShare >= 15 ? '#D97706' : '#DC2626';
-            return `<tr title="Ham veri: kendi=${r.ownTotal} kutu / pazar toplamı=${r.mktTotal} kutu">
-              <td style="font-size:10px;font-weight:700;color:#334155">${r.brick}</td>
+            return `<tr style="${rowBorder}" title="Ham veri: kendi=${r.ownTotal} kutu / pazar toplamı=${r.mktTotal} kutu">
+              <td style="font-size:10px;${brickStyle}">${r.brick}</td>
               <td style="font-size:10px;color:var(--dim)">${r.ilacGrubu}</td>
               <td class="mono">${fK(r.ownTotal)}</td>
               <td class="mono">${fK(r.mktTotal)}</td>
@@ -1981,7 +1985,7 @@ function renderMarketShareCard() {
               <td><span class="bdg" style="color:${payClr};background:${payClr}18">${r.ourShare.toFixed(1)}%</span></td>
               <td>${trendIcon}</td>
             </tr>`;
-          }).join('')}
+          }).join(''); })()}
           </tbody>
         </table>
       </div>
