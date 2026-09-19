@@ -127,8 +127,16 @@
 
   function renderManualFeedbackButtons(visitContext) {
     // Encode context for safe inline onclick (no quotes in values expected, but escape anyway)
+    // ÖNEMLİ: onclick niteliği ÇİFT TIRNAK ile sınırlı, bu yüzden JSON
+    // içindeki her " karakteri &quot; olarak HTML-escape edilmeli — aksi
+    // halde tarayıcı özniteliği JSON'daki ilk " karakterinde erken kapatıyor
+    // ve geri kalan JS kodu bozuluyor (butonlar tıklamaya tepki vermiyor).
     var ctxJson = JSON.stringify(visitContext || {})
-      .replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'")
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
     var btns = _FEEDBACK_BTNS.map(function (fb) {
       return (
         '<button onclick="(function(){\n' +
