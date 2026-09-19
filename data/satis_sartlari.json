@@ -97,7 +97,12 @@
       ]
     },
     "FAMTREC": {
-      "standart": [],
+      "standart": [
+        {
+          "min": 7,
+          "bonus": 1
+        }
+      ],
       "kampanya": []
     }
   },
@@ -108,5 +113,5 @@
     "MOKSEFEN": true,
     "FAMTREC": true
   },
-  "updatedAt": "2026-08-11T16:52:01.471Z"
+  "updatedAt": "2026-09-19T19:33:03.375Z"
 }
