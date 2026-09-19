@@ -213,6 +213,9 @@
       var _ownInfo = (typeof OWN_DRUG_BY_GRP !== 'undefined') ? OWN_DRUG_BY_GRP[g.ilacGrubu] : null;
       var _boxPrice = (_ownInfo && typeof IMS_TL_MAP !== 'undefined') ? (IMS_TL_MAP[_ownInfo.urun] || 0) : 0;
       var mktTotalTL = Math.round(mktTotal * _boxPrice);
+      // Kendi ürünümüzün TL karşılığı — GERÇEK fiyat (proxy değil, bu satır
+      // zaten bizim kendi ürünümüzün kutu hacmi × kendi birim fiyatı).
+      var ownTotalTL = Math.round(ownTotal * _boxPrice);
 
       return {
         brick:           g.brick,
@@ -227,7 +230,9 @@
         ownTotal:        Math.round(ownTotal),
         mktTotal:         Math.round(mktTotal),
         // Toplam pazar TL'si (tahmini — kendi ürün birim fiyatı ile kutu→TL)
-        mktTotalTL:       mktTotalTL
+        mktTotalTL:       mktTotalTL,
+        // Kendi ürün TL'si (aynı birim fiyatla kutu→TL)
+        ownTotalTL:       ownTotalTL
       };
     });
 

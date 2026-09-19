@@ -38,6 +38,62 @@
 
   var MANAGER_NAME = 'ŞENOL YILMAZ';
 
+  // FAZ 25.0 — Temsilci Brick Detayı tablosuna ürünsel (PANOCER/ACİDPASS/
+  // GRİPORT COLD/MOKSEFEN/FAMTREC) brick bazlı pazar payı kolonları +
+  // TL/Kutu birim filtresi. Birim seçimi sadece kendi/pazar HAM
+  // değerlerinin (alt metin) hangi birimde gösterileceğini belirler —
+  // payı % HER ZAMAN kutu oranından gelir (bkz. dosya başındaki not:
+  // TL karşılığı aynı birim fiyatla hesaplandığından oran matematiksel
+  // olarak DEĞİŞMEZ, sadece görüntüleme birimi değişir).
+  var mgrBrickUnit = 'TL'; // 'TL' | 'KUTU'
+
+  // ilac_grubu → kendi ürün adı (OWN_DRUG_BY_GRP) haritasının TERSİ:
+  // ürün adı → ilac_grubu. URUN_ORDER sırasıyla kolonları oluşturmak için.
+  function _urunToGrubuMap() {
+    var map = {};
+    if (typeof OWN_DRUG_BY_GRP === 'undefined') return map;
+    Object.keys(OWN_DRUG_BY_GRP).forEach(function (grp) {
+      map[OWN_DRUG_BY_GRP[grp].urun] = grp;
+    });
+    return map;
+  }
+
+  // Seçilen temsilcinin TÜM brick × ürün pazar payı kayıtlarını
+  // brick → { URUN: record } şeklinde gruplar. Sadece dataQuality==='OK'
+  // kayıtlar tutulur (renderMarketShareCard() ile AYNI konvansiyon —
+  // anomalili/veri eksik kombinasyonlar "—" olarak gösterilir).
+  function _buildBrickProductShareMap(ttt) {
+    var out = {};
+    if (!window.MarketShareEngine || typeof window.MarketShareEngine.analyzeMarketShare !== 'function') return out;
+    var u2g = _urunToGrubuMap();
+    var g2u = {};
+    Object.keys(u2g).forEach(function (u) { g2u[u2g[u]] = u; });
+    var records = window.MarketShareEngine.analyzeMarketShare(ttt) || [];
+    records.forEach(function (r) {
+      if (r.dataQuality !== 'OK') return;
+      var urun = g2u[r.ilacGrubu];
+      if (!urun) return;
+      var key = (r.brick || '').trim().toUpperCase();
+      if (!out[key]) out[key] = {};
+      out[key][urun] = r;
+    });
+    return out;
+  }
+
+  function setMgrBrickUnit(u) {
+    mgrBrickUnit = (u === 'KUTU') ? 'KUTU' : 'TL';
+    var tlBtn = document.getElementById('mgrBrickUnitTL');
+    var kutuBtn = document.getElementById('mgrBrickUnitKutu');
+    var activeCss = 'font-size:11px;font-weight:700;padding:6px 12px;border:none;cursor:pointer;background:linear-gradient(90deg,#7C3AED,#6D28D9);color:#fff';
+    var inactiveCss = 'font-size:11px;font-weight:700;padding:6px 12px;border:none;cursor:pointer;background:var(--surf);color:var(--dim)';
+    if (tlBtn) tlBtn.style.cssText = (mgrBrickUnit === 'TL') ? activeCss : inactiveCss;
+    if (kutuBtn) kutuBtn.style.cssText = (mgrBrickUnit === 'KUTU') ? activeCss : inactiveCss;
+    var sel = document.getElementById('mgrTttSelect');
+    var ttt = sel ? sel.value : '';
+    if (ttt) renderManagerBrickDetail(ttt, 'mgrBrickDetailBody');
+  }
+  window.setMgrBrickUnit = setMgrBrickUnit;
+
   // ── 0) BÖLGE GENELİ KPI ŞERİDİ (ŞENOL YILMAZ resmi GENEL TOPLAM satırı) ──
   function renderManagerRegionKpi(containerId) {
     var el = document.getElementById(containerId || 'mgrRegionKpi');
@@ -581,6 +637,7 @@
 
     var keys = Object.keys(brickMap);
     var estTotal = keys.reduce(function (s, k) { return s + brickMap[k].estTL; }, 0);
+    var productShareMap = _buildBrickProductShareMap(ttt);
 
     var rows = keys.map(function (key) {
       var b = brickMap[key];
@@ -589,13 +646,26 @@
       var hedefTL = hedefTotal * weight;
       var kalanTL = Math.max(0, hedefTL - satisTL);
       var pp = b.ppiVals.length ? (b.ppiVals.reduce(function (s, v) { return s + v; }, 0) / b.ppiVals.length) : null;
+      // Ürünsel pazar payı — URUN_ORDER sırasıyla, bu brick için varsa
+      // MarketShareEngine kaydı (yoksa null → tabloda "—").
+      var brickShares = productShareMap[key] || {};
+      var products = (URUN_ORDER || []).map(function (urun) {
+        var rec = brickShares[urun];
+        return rec ? {
+          urun: urun,
+          ourShare: rec.ourShare,
+          ownTotal: rec.ownTotal, mktTotal: rec.mktTotal,
+          ownTotalTL: rec.ownTotalTL, mktTotalTL: rec.mktTotalTL
+        } : { urun: urun, ourShare: null };
+      });
       return {
         brick: key,
         sira: siraMap[key] || 9999,
         hedefTL: hedefTL,
         satisTL: satisTL,
         kalanTL: kalanTL,
-        pp: pp
+        pp: pp,
+        products: products
       };
     });
 
@@ -606,12 +676,26 @@
     return rows;
   }
 
+  // Bir ürünün tek hücresini (payı % + kendi/pazar alt metni, seçili
+  // birimde) render eder. rec=null ise "—".
+  function _renderProductShareCell(rec) {
+    if (!rec || rec.ourShare == null) return '<td class="mono" style="text-align:center;color:var(--dim)">—</td>';
+    var shareColor = rec.ourShare >= 30 ? '#059669' : rec.ourShare >= 15 ? '#D97706' : '#DC2626';
+    var kendi = mgrBrickUnit === 'KUTU' ? fK(rec.ownTotal) : fTL(rec.ownTotalTL);
+    var pazar = mgrBrickUnit === 'KUTU' ? fK(rec.mktTotal) : fTL(rec.mktTotalTL);
+    return '<td style="text-align:center">' +
+      '<div style="font-weight:700;color:' + shareColor + '">%' + rec.ourShare.toFixed(1) + '</div>' +
+      '<div style="font-size:9px;color:var(--dim)">' + kendi + ' / ' + pazar + '</div>' +
+      '</td>';
+  }
+
   function renderManagerBrickDetail(ttt, containerId) {
     var body = document.getElementById(containerId || 'mgrBrickDetailBody');
     if (!body) return;
     var rows = buildManagerBrickDetail(ttt);
+    var colCount = 6 + (URUN_ORDER || []).length;
     if (!rows.length) {
-      body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--dim);padding:14px">Bu temsilci için brick verisi bulunamadı.</td></tr>';
+      body.innerHTML = '<tr><td colspan="' + colCount + '" style="text-align:center;color:var(--dim);padding:14px">Bu temsilci için brick verisi bulunamadı.</td></tr>';
       return;
     }
     var html = rows.map(function (r) {
@@ -631,6 +715,7 @@
       var hedefCell = noVolume ? '<span style="color:var(--dim);font-style:italic;font-size:10px">bu dönem hacim yok</span>' : fTL(r.hedefTL);
       var satisCell = noVolume ? '<span style="color:var(--dim);font-style:italic;font-size:10px">bu dönem hacim yok</span>' : fTL(r.satisTL);
       var kalanCell = noVolume ? '—' : fTL(r.kalanTL);
+      var productCells = (r.products || []).map(function (p) { return _renderProductShareCell(p); }).join('');
       return '<tr>' +
         '<td class="mono" style="' + (top333 ? 'font-weight:700;color:var(--c1)' : 'color:var(--dim)') + '">' + (r.sira >= 9999 ? '—' : r.sira) + '</td>' +
         '<td style="font-weight:600">' + r.brick + '</td>' +
@@ -638,6 +723,7 @@
         '<td class="mono">' + satisCell + '</td>' +
         '<td class="mono" style="color:var(--c2);font-weight:700">' + kalanCell + '</td>' +
         '<td>' + (perf == null ? '<span class="mono">—</span>' : '<span class="bdg ' + pCls(perf) + '">' + fPct(perf) + '</span>') + '</td>' +
+        productCells +
         '</tr>';
     }).join('');
 
@@ -648,12 +734,32 @@
     // DEĞİL, Σ(satış)/Σ(hedef) — yani "Genel Realizasyon" ile AYNI oran —
     // kullanılıyor (bkz. kullanıcı bildirimi: 495.210/2.537.349 = %19,5,
     // brick yüzdelerinin basit ortalaması ise farklı — ve YANLIŞ — bir
-    // sonuç verir).
+    // sonuç verir). Ürün payı alt toplamları da AYNI mantıkla — brick
+    // yüzdelerinin ortalaması DEĞİL, Σ(kendi)/Σ(pazar) — AĞIRLIKLI
+    // hesaplanıyor.
     var gt = (GENEL || []).find(function (r) { return r.ttt === ttt && r.urun === 'GENEL TOPLAM'; }) || {};
     var hedefTotal = gt.hedef_tl || 0;
     var satisTotal = gt.satis_tl || 0;
     var kalanTotal = Math.max(0, hedefTotal - satisTotal);
     var perfTotal = hedefTotal > 0 ? (satisTotal / hedefTotal * 100) : null;
+
+    var productTotalCells = (URUN_ORDER || []).map(function (urun, idx) {
+      var ownSum = 0, mktSum = 0, ownTLSum = 0, mktTLSum = 0, has = false;
+      rows.forEach(function (r) {
+        var p = r.products && r.products[idx];
+        if (p && p.ourShare != null) { has = true; ownSum += p.ownTotal; mktSum += p.mktTotal; ownTLSum += p.ownTotalTL; mktTLSum += p.mktTotalTL; }
+      });
+      if (!has || mktSum <= 0) return '<td class="mono" style="text-align:center;color:var(--dim)">—</td>';
+      var share = (ownSum / mktSum) * 100;
+      var shareColor = share >= 30 ? '#059669' : share >= 15 ? '#D97706' : '#DC2626';
+      var kendi = mgrBrickUnit === 'KUTU' ? fK(ownSum) : fTL(ownTLSum);
+      var pazar = mgrBrickUnit === 'KUTU' ? fK(mktSum) : fTL(mktTLSum);
+      return '<td style="text-align:center">' +
+        '<div style="font-weight:800;color:' + shareColor + '">%' + share.toFixed(1) + '</div>' +
+        '<div style="font-size:9px;color:var(--dim)">' + kendi + ' / ' + pazar + '</div>' +
+        '</td>';
+    }).join('');
+
     html += '<tr class="toplam-row" style="border-top:2px solid var(--border);background:var(--surf2,#F7F9FC)">' +
       '<td></td>' +
       '<td style="font-weight:800">Σ Alt Toplam</td>' +
@@ -661,6 +767,7 @@
       '<td class="mono" style="font-weight:800">' + fTL(satisTotal) + '</td>' +
       '<td class="mono" style="font-weight:800;color:var(--c2)">' + fTL(kalanTotal) + '</td>' +
       '<td>' + (perfTotal == null ? '<span class="mono">—</span>' : '<span class="bdg ' + pCls(perfTotal) + '" style="font-weight:800">' + fPct(perfTotal) + '</span>') + '</td>' +
+      productTotalCells +
       '</tr>';
     body.innerHTML = html;
   }

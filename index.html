@@ -7463,16 +7463,32 @@ function _buildEczaneDrawerRefresh(){
               style="font-size:11px;font-weight:700;padding:7px 14px;border:none;border-radius:8px;background:linear-gradient(90deg,#7C3AED,#6D28D9);color:#fff;cursor:pointer;white-space:nowrap">
               🎭 Bu Temsilci Adına İşlem Yap
             </button>
+            <!-- FAZ 25.0 — Ürünsel brick pazar payı kolonlarının kendi/pazar
+                 alt metnini TL veya Kutu biriminde göstermek için filtre.
+                 Payı % oranı birimden ETKİLENMEZ (bkz. manager-panel-engine.js
+                 _renderProductShareCell notu) — sadece görüntüleme birimi. -->
+            <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+              <span style="font-size:10px;font-weight:700;color:var(--dim)">Birim:</span>
+              <div style="display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+                <button id="mgrBrickUnitTL" onclick="setMgrBrickUnit('TL')"
+                  style="font-size:11px;font-weight:700;padding:6px 12px;border:none;cursor:pointer;background:linear-gradient(90deg,#7C3AED,#6D28D9);color:#fff">TL</button>
+                <button id="mgrBrickUnitKutu" onclick="setMgrBrickUnit('KUTU')"
+                  style="font-size:11px;font-weight:700;padding:6px 12px;border:none;cursor:pointer;background:var(--surf);color:var(--dim)">Kutu</button>
+              </div>
+            </div>
           </div>
         </div>
 
         <div class="scroll-x" style="margin-bottom:14px">
-          <table class="tbl" id="mgrBrickDetailTable" style="min-width:620px">
+          <table class="tbl" id="mgrBrickDetailTable" style="min-width:1180px">
             <thead><tr>
               <th>Brick Sıra</th><th>Brick</th><th>Hedef TL</th><th>Satış TL</th><th>Kalan TL</th><th>Performans%</th>
+              <th style="color:#16A34A">PANOCER PP</th><th style="color:#1BCED8">ACİDPASS PP</th>
+              <th style="color:#FF375E">GRİPORT COLD PP</th><th style="color:#521FD1">MOKSEFEN PP</th>
+              <th style="color:#E07B39">FAMTREC PP</th>
             </tr></thead>
             <tbody id="mgrBrickDetailBody">
-              <tr><td colspan="6" style="text-align:center;color:var(--dim);padding:14px">Bir temsilci seçin.</td></tr>
+              <tr><td colspan="11" style="text-align:center;color:var(--dim);padding:14px">Bir temsilci seçin.</td></tr>
             </tbody>
           </table>
         </div>
