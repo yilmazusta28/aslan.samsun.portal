@@ -1609,9 +1609,11 @@ function renderEczaneContent() {
     console.warn('[SatisKosullari] render hata (sessiz):', _saErr.message);
   }
 
-  // DÜZELTME: "AI Karar Önerisi", "Pazar Payı Analizi" ve "Lansman Hazırlık"
+  // DÜZELTME: "AI Karar Önerisi" ve "Lansman Hazırlık"
   // kartları sadece ilk açılışta bir kez render ediliyordu (bkz.
   // goEczaneSubTab() içindeki window._pvDecisionRendered vb. bayrakları) —
+  // (Pazar Payı Analizi kartı Pazar Analizi sayfasına (page1) taşındı;
+  //  orada renderPazarCharts() her çağrıldığında yenilenir.)
   // yukarıdaki satis_sartlari/urun_analiz bloğunun aksine buraya hiç
   // eklenmemişlerdi, bu yüzden temsilci değiştirildiğinde (selEczaneTTT)
   // içerik yenilenmiyordu. urun_analiz ile aynı desen: sadece daha önce en
@@ -1621,14 +1623,11 @@ function renderEczaneContent() {
     if (typeof renderAIDecisionCard === 'function' && window._pvDecisionRendered) {
       renderAIDecisionCard();
     }
-    if (typeof renderMarketShareCard === 'function' && window._pvMarketShareRendered) {
-      renderMarketShareCard();
-    }
     if (typeof renderLaunchReadinessCard === 'function' && window._pvLaunchRendered) {
       renderLaunchReadinessCard();
     }
   } catch (_decErr) {
-    console.warn('[AIDecision/MarketShare/LaunchReadiness] render hata (sessiz):', _decErr.message);
+    console.warn('[AIDecision/LaunchReadiness] render hata (sessiz):', _decErr.message);
   }
 
   // PHASE 4.7 NOTU: "Bugünkü Akıllı Rota" bloğu buradan kaldırıldı —
@@ -1742,7 +1741,7 @@ function toggleEczaneAcc(id) {
 const ECZ_SUBTABS = [
   'detay', 'urun_analiz', 'route_plan_input',
   'satis_sartlari', 'haber_takibi', 'ai_perf', 'ai_decision',
-  'market_share', 'launch_readiness'
+  'launch_readiness'
 ];
 let _eczActiveSubTab = 0;
 
@@ -1799,12 +1798,6 @@ function goEczaneSubTab(idx) {
         if (!window._pvDecisionRendered) {
           window._pvDecisionRendered = true;
           if (typeof renderAIDecisionCard === 'function') renderAIDecisionCard();
-        }
-        break;
-      case 'market_share':
-        if (!window._pvMarketShareRendered) {
-          window._pvMarketShareRendered = true;
-          if (typeof renderMarketShareCard === 'function') renderMarketShareCard();
         }
         break;
       case 'launch_readiness':
@@ -1925,6 +1918,11 @@ function renderAIDecisionCard() {
 }
 
 // FAZ 6.3.5 — Pazar Payı Analizi Kartı
+// TAŞINDI: Eczane Satış sayfasındaki alt sekmeden Pazar Analizi (page1)
+// sayfasının en altına. Temsilci artık bu sayfanın kendi filtresinden
+// (selTTT_p1) okunur; renderPazarCharts() her çağrıldığında yenilenir.
+// Rollback: kartı eczsub_market_share paneline geri koy + ttt satırını
+// selEczaneTTT'ye döndür (eski sürüm için orijinal index.html).
 function renderMarketShareCard() {
   const el = document.getElementById('marketShareCard');
   if (!el) return;
@@ -1932,7 +1930,7 @@ function renderMarketShareCard() {
     el.innerHTML = '<p style="color:var(--dim);font-size:12px;padding:12px">MarketShareEngine yüklenmedi.</p>';
     return;
   }
-  const ttt = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
+  const ttt = (typeof selTTT_p1 !== 'undefined' && selTTT_p1 && selTTT_p1 !== 'TÜMÜ') ? selTTT_p1 : null;
   if (!ttt) {
     el.innerHTML = '<p style="color:var(--dim);font-size:12px;padding:12px">Temsilci seçin.</p>';
     return;
@@ -4330,6 +4328,11 @@ function renderPazarCharts(){
   const growDir=trend4.length>=2&&trend4[trend4.length-1]>trend4[0]?'📈 artış':'📉 azalış';
   document.getElementById('pazarInsightBody').innerHTML=`<strong>${selTTT_p1}</strong> | <strong>${GRP_LBL[selGroup]}</strong> pazar payı: <strong>${ppi.toFixed(1)}%</strong>. Toplam pazar: <strong>${fK(totMkt)}</strong> kutu. Kendi: <strong>${fK(totOwn)}</strong>. 4 hft. trend: <strong>${growDir}</strong>.`;
 
+  // Pazar Payı Analizi kartı (sayfanın en altı) — temsilci filtresiyle senkron.
+  // MarketShareEngine kendi cache'ini kullanır; hata kalan grafikleri etkilemesin.
+  try { if (typeof renderMarketShareCard === 'function') renderMarketShareCard(); }
+  catch (_msErr) { console.warn('[MarketShare] render hata (sessiz):', _msErr.message); }
+
   setTimeout(()=>{
     // Brick grouped bar — values rotated on top, no Y axis
     const brickShort=bricks.map(b=>b.length>14?b.substr(0,14)+'…':b);
@@ -6469,6 +6472,20 @@ function _buildEczaneDrawerRefresh(){
       </table>
     </div>
   </div>
+
+  <!-- Pazar Payı Analizi (Eczane Satış sayfasından buraya taşındı).
+       İç içerik id'leri (marketShareCard, acc_market_share_badge/body) AYNEN
+       korundu; renderMarketShareCard() temsilciyi bu sayfanın filtresinden
+       (selTTT_p1) alır ve renderPazarCharts() sonunda çağrılır. -->
+  <div class="card">
+    <div class="card-hd">
+      <span class="card-title">📊 Pazar Payı Analizi</span>
+      <span class="card-badge" id="acc_market_share_badge" style="margin-left:auto;background:#ECFDF5;color:#065F46">Market Share</span>
+    </div>
+    <div class="card-body-0" id="acc_market_share_body">
+      <div id="marketShareCard"></div>
+    </div>
+  </div>
 </div>
 
 <!-- ══════ PAGE 2: SATIŞ TAKİBİ ══════ -->
@@ -7051,13 +7068,13 @@ function _buildEczaneDrawerRefresh(){
   <!-- FAZ 13.x: Eczane Sayfası Alt Sekmeleri (sub-tabs)
        Eskiden bu sayfada 8 accordion art arda dizili duruyordu + her zaman
        açık "Eczane Detay Listesi" tablosu. Kullanıcı isteğiyle (çok fazla
-       veri tek sayfada) hepsi 10 ayrı alt sayfaya (tab) bölündü. Masaüstünde
+       veri tek sayfada) hepsi ayrı alt sayfalara (tab) bölündü. Masaüstünde
        yatay sekme çubuğu (.eczsub-bar), mobilde (≤768px, bkz. css/style.css
        @media(max-width:768px)) açılır seçici (#eczSubSelect) gösterilir —
        ikisi de goEczaneSubTab(idx)'i çağırır (index.html: goEczaneSubTab).
        Her panelin İÇ İÇERİĞİ (id'ler: satisKosullariPanel, haberTakibiPanel,
        aiPerfDashboard, eczaneUrunAnalizKarti,
-       routePlanFormContainer, aiDecisionCard, marketShareCard,
+       routePlanFormContainer, aiDecisionCard,
        launchReadinessCard, eczaneTable/eczaneBrickChart/eczaneUrunChart)
        DEĞİŞMEDİ — render fonksiyonları ve renderEczaneContent()'teki
        filtre-değişince-yenile mantığı (window._pvXRendered bayrakları,
@@ -7074,8 +7091,7 @@ function _buildEczaneDrawerRefresh(){
     <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(4)">📰 Piyasa Haberleri</button>
     <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(5)">🧠 AI Tahmin Performansı</button>
     <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(6)">🎯 AI Karar Önerisi</button>
-    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(7)">📊 Pazar Payı Analizi</button>
-    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(8)">🚀 Lansman Hazırlık</button>
+    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(7)">🚀 Lansman Hazırlık</button>
   </div>
   <div class="eczsub-select-wrap">
     <select class="eczsub-select" id="eczSubSelect" onchange="goEczaneSubTab(parseInt(this.value,10))">
@@ -7086,8 +7102,7 @@ function _buildEczaneDrawerRefresh(){
       <option value="4">📰 Piyasa Haberleri ve Özel Durumlar</option>
       <option value="5" class="pv-hidden-ui">🧠 AI Tahmin Performansı</option>
       <option value="6" class="pv-hidden-ui">🎯 AI Karar Önerisi</option>
-      <option value="7">📊 Pazar Payı Analizi</option>
-      <option value="8" class="pv-hidden-ui">🚀 Lansman Hazırlık</option>
+      <option value="7" class="pv-hidden-ui">🚀 Lansman Hazırlık</option>
     </select>
   </div>
 
@@ -7223,20 +7238,7 @@ function _buildEczaneDrawerRefresh(){
     </div>
   </div>
 
-  <!-- ═══ 9. Pazar Payı Analizi ═══ -->
-  <div class="eczsub-panel" id="eczsub_market_share" style="display:none">
-    <div class="card mb16">
-      <div class="card-hd">
-        <span class="card-title">📊 Pazar Payı Analizi</span>
-        <span class="card-badge" id="acc_market_share_badge" style="margin-left:auto;background:#ECFDF5;color:#065F46">Market Share</span>
-      </div>
-      <div class="card-body-0" id="acc_market_share_body">
-        <div id="marketShareCard"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ 10. Lansman Hazırlık ═══ -->
+  <!-- ═══ 9. Lansman Hazırlık ═══ -->
   <div class="eczsub-panel" id="eczsub_launch_readiness" style="display:none">
     <div class="card mb16">
       <div class="card-hd">
