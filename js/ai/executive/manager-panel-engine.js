@@ -616,7 +616,9 @@
     }
     var html = rows.map(function (r) {
       var top333 = r.sira <= 333;
-      var ppColor = r.pp == null ? 'var(--dim)' : (r.pp >= 50 ? '#16A34A' : r.pp >= 30 ? '#D97706' : '#DC2626');
+      // Performans% = brick bazlı hedef gerçekleşme oranı (satış TL / hedef TL)
+      // — pazar payı (IMS PPI) ile KARIŞTIRILMASIN diye ayrı hesaplanıyor.
+      var perf = r.hedefTL > 0 ? (r.satisTL / r.hedefTL * 100) : null;
       // NOT (0₺ vs "veri yok"): hedef/satış, o brickteki KENDİ ÜRÜN kutu
       // hacminin (bu dönem, IMS toplam alanı) TTT toplamı içindeki payına
       // göre TAHMİN ediliyor (bkz. dosya başı NOT). PP değeri ayrı bir
@@ -635,30 +637,30 @@
         '<td class="mono">' + hedefCell + '</td>' +
         '<td class="mono">' + satisCell + '</td>' +
         '<td class="mono" style="color:var(--c2);font-weight:700">' + kalanCell + '</td>' +
-        '<td class="mono" style="color:' + ppColor + ';font-weight:700">' + (r.pp == null ? '—' : '%' + r.pp.toFixed(1)) + '</td>' +
+        '<td>' + (perf == null ? '<span class="mono">—</span>' : '<span class="bdg ' + pCls(perf) + '">' + fPct(perf) + '</span>') + '</td>' +
         '</tr>';
     }).join('');
 
     // Alt toplam satırı — Hedef/Satış/Kalan TL, TTT'nin GENEL TOPLAM
     // kaydından (gt) alınır (brick'lere orantılı dağıtılmış tahmini
-    // değerlerin manuel toplanmasına gerek yok, yuvarlama farkı olmaz).
-    // Pazar Payı (PP%) kolonunda ise brick'ler arası basit ortalama
-    // gösterilir (buildManagerMarketShareSummary'deki "Toplam Pazar Payı"
-    // ile AYNI yöntem — ağırlıksız ortalama).
+    // değerlerin tek tek toplanmasına gerek kalmadan, yuvarlama farkı
+    // olmaz). Performans% kolonunda ise brick bazlı yüzdelerin ortalaması
+    // DEĞİL, Σ(satış)/Σ(hedef) — yani "Genel Realizasyon" ile AYNI oran —
+    // kullanılıyor (bkz. kullanıcı bildirimi: 495.210/2.537.349 = %19,5,
+    // brick yüzdelerinin basit ortalaması ise farklı — ve YANLIŞ — bir
+    // sonuç verir).
     var gt = (GENEL || []).find(function (r) { return r.ttt === ttt && r.urun === 'GENEL TOPLAM'; }) || {};
     var hedefTotal = gt.hedef_tl || 0;
     var satisTotal = gt.satis_tl || 0;
     var kalanTotal = Math.max(0, hedefTotal - satisTotal);
-    var ppVals = rows.map(function (r) { return r.pp; }).filter(function (v) { return v != null; });
-    var ppAvg = ppVals.length ? (ppVals.reduce(function (s, v) { return s + v; }, 0) / ppVals.length) : null;
-    var ppAvgColor = ppAvg == null ? 'var(--dim)' : (ppAvg >= 50 ? '#16A34A' : ppAvg >= 30 ? '#D97706' : '#DC2626');
+    var perfTotal = hedefTotal > 0 ? (satisTotal / hedefTotal * 100) : null;
     html += '<tr class="toplam-row" style="border-top:2px solid var(--border);background:var(--surf2,#F7F9FC)">' +
       '<td></td>' +
       '<td style="font-weight:800">Σ Alt Toplam</td>' +
       '<td class="mono" style="font-weight:800">' + fTL(hedefTotal) + '</td>' +
       '<td class="mono" style="font-weight:800">' + fTL(satisTotal) + '</td>' +
       '<td class="mono" style="font-weight:800;color:var(--c2)">' + fTL(kalanTotal) + '</td>' +
-      '<td class="mono" style="font-weight:800;color:' + ppAvgColor + '">' + (ppAvg == null ? '—' : '%' + ppAvg.toFixed(1)) + '</td>' +
+      '<td>' + (perfTotal == null ? '<span class="mono">—</span>' : '<span class="bdg ' + pCls(perfTotal) + '" style="font-weight:800">' + fPct(perfTotal) + '</span>') + '</td>' +
       '</tr>';
     body.innerHTML = html;
   }
