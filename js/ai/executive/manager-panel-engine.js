@@ -614,7 +614,7 @@
       body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--dim);padding:14px">Bu temsilci için brick verisi bulunamadı.</td></tr>';
       return;
     }
-    body.innerHTML = rows.map(function (r) {
+    var html = rows.map(function (r) {
       var top333 = r.sira <= 333;
       var ppColor = r.pp == null ? 'var(--dim)' : (r.pp >= 50 ? '#16A34A' : r.pp >= 30 ? '#D97706' : '#DC2626');
       // NOT (0₺ vs "veri yok"): hedef/satış, o brickteki KENDİ ÜRÜN kutu
@@ -638,6 +638,29 @@
         '<td class="mono" style="color:' + ppColor + ';font-weight:700">' + (r.pp == null ? '—' : '%' + r.pp.toFixed(1)) + '</td>' +
         '</tr>';
     }).join('');
+
+    // Alt toplam satırı — Hedef/Satış/Kalan TL, TTT'nin GENEL TOPLAM
+    // kaydından (gt) alınır (brick'lere orantılı dağıtılmış tahmini
+    // değerlerin manuel toplanmasına gerek yok, yuvarlama farkı olmaz).
+    // Pazar Payı (PP%) kolonunda ise brick'ler arası basit ortalama
+    // gösterilir (buildManagerMarketShareSummary'deki "Toplam Pazar Payı"
+    // ile AYNI yöntem — ağırlıksız ortalama).
+    var gt = (GENEL || []).find(function (r) { return r.ttt === ttt && r.urun === 'GENEL TOPLAM'; }) || {};
+    var hedefTotal = gt.hedef_tl || 0;
+    var satisTotal = gt.satis_tl || 0;
+    var kalanTotal = Math.max(0, hedefTotal - satisTotal);
+    var ppVals = rows.map(function (r) { return r.pp; }).filter(function (v) { return v != null; });
+    var ppAvg = ppVals.length ? (ppVals.reduce(function (s, v) { return s + v; }, 0) / ppVals.length) : null;
+    var ppAvgColor = ppAvg == null ? 'var(--dim)' : (ppAvg >= 50 ? '#16A34A' : ppAvg >= 30 ? '#D97706' : '#DC2626');
+    html += '<tr class="toplam-row" style="border-top:2px solid var(--border);background:var(--surf2,#F7F9FC)">' +
+      '<td></td>' +
+      '<td style="font-weight:800">Σ Alt Toplam</td>' +
+      '<td class="mono" style="font-weight:800">' + fTL(hedefTotal) + '</td>' +
+      '<td class="mono" style="font-weight:800">' + fTL(satisTotal) + '</td>' +
+      '<td class="mono" style="font-weight:800;color:var(--c2)">' + fTL(kalanTotal) + '</td>' +
+      '<td class="mono" style="font-weight:800;color:' + ppAvgColor + '">' + (ppAvg == null ? '—' : '%' + ppAvg.toFixed(1)) + '</td>' +
+      '</tr>';
+    body.innerHTML = html;
   }
 
   // ── 4) AI PAZAR ANALİZİ ÖZETİ (bölge müdürüne) ───────────────────────
