@@ -80,6 +80,48 @@
     return out;
   }
 
+  // FAZ 26.0 — ŞENOL YILMAZ'ın (Bölge Müdürü) kendi brick verisi YOK —
+  // GENEL_TABLO'daki satırı zaten TÜM EKİBİN toplamı. Bu yüzden onu
+  // "Temsilci Seçin" filtresine eklemek yerine, tüm temsilcilerin
+  // brick × ürün pazar payı kayıtlarını TOPLAYIP (ağırlıklı — brick
+  // yüzdelerinin basit ortalaması DEĞİL, Σ(kendi)/Σ(pazar)) bölge geneli
+  // bir özet üretiyoruz; bu özet sabit (filtre dışı) gösterilecek.
+  function buildRegionMarketShareSummary() {
+    if (!window.MarketShareEngine || typeof window.MarketShareEngine.analyzeMarketShare !== 'function') return null;
+    var reps = (typeof ALL_TTTS !== 'undefined') ? ALL_TTTS : [];
+    var u2g = _urunToGrubuMap();
+    var g2u = {};
+    Object.keys(u2g).forEach(function (u) { g2u[u2g[u]] = u; });
+
+    var agg = {}; // urun -> {own,mkt,ownTL,mktTL}
+    reps.forEach(function (ttt) {
+      var records = window.MarketShareEngine.analyzeMarketShare(ttt) || [];
+      records.forEach(function (r) {
+        if (r.dataQuality !== 'OK') return;
+        var urun = g2u[r.ilacGrubu];
+        if (!urun) return;
+        if (!agg[urun]) agg[urun] = { own: 0, mkt: 0, ownTL: 0, mktTL: 0 };
+        agg[urun].own += r.ownTotal;
+        agg[urun].mkt += r.mktTotal;
+        agg[urun].ownTL += r.ownTotalTL;
+        agg[urun].mktTL += r.mktTotalTL;
+      });
+    });
+
+    var byProduct = (URUN_ORDER || []).map(function (urun) {
+      var a = agg[urun];
+      if (!a || a.mkt <= 0) return { urun: urun, share: null };
+      return { urun: urun, share: (a.own / a.mkt * 100), own: a.own, mkt: a.mkt, ownTL: a.ownTL, mktTL: a.mktTL };
+    }).filter(function (p) { return p.share != null; });
+
+    var totalOwn = 0, totalMkt = 0;
+    byProduct.forEach(function (p) { totalOwn += p.own; totalMkt += p.mkt; });
+    var overall = totalMkt > 0 ? (totalOwn / totalMkt * 100) : null;
+
+    return { overall: overall, byProduct: byProduct };
+  }
+
+
   function setMgrBrickUnit(u) {
     mgrBrickUnit = (u === 'KUTU') ? 'KUTU' : 'TL';
     var tlBtn = document.getElementById('mgrBrickUnitTL');
@@ -91,6 +133,7 @@
     var sel = document.getElementById('mgrTttSelect');
     var ttt = sel ? sel.value : '';
     if (ttt) renderManagerBrickDetail(ttt, 'mgrBrickDetailBody');
+    renderManagerBrickRegionFixed('mgrBrickRegionFixed');
   }
   window.setMgrBrickUnit = setMgrBrickUnit;
 
@@ -950,17 +993,16 @@
     // seçenek sayısı (placeholder hariç) ile ALL_TTTS uzunluğu her çağrıda
     // karşılaştırılıyor — liste değiştiyse (örn. boştan dolduysa) select
     // güncel seçim korunarak yeniden oluşturuluyor.
-    // FAZ 26.0 — kullanıcı talebi: "Temsilci Seçin" listesine Bölge Müdürü
-    // (ŞENOL YILMAZ) de eklensin. Global ALL_TTTS'e DOKUNULMUYOR (diğer
-    // birçok yerde "sadece temsilciler" varsayımıyla kullanılıyor) — sadece
-    // bu select için yerel bir kopya oluşturulup sona ekleniyor.
-    var list = (typeof ALL_TTTS !== 'undefined') ? ALL_TTTS.slice() : [];
-    if (list.indexOf(MANAGER_NAME) === -1) list.push(MANAGER_NAME);
+    // Not: Bölge Müdürü (ŞENOL YILMAZ) burada YOK — kendi brick verisi
+    // olmadığından bu filtreye eklenmiyor; onun bölge geneli özeti kartın
+    // en üstünde SABİT olarak gösteriliyor (bkz. buildRegionMarketShareSummary
+    // + renderManagerBrickDetail çağrısından önceki sabit blok).
+    var list = (typeof ALL_TTTS !== 'undefined') ? ALL_TTTS : [];
     var currentCount = sel.options.length - 1; // placeholder hariç
     if (currentCount === list.length && sel.dataset.populated === '1') return;
     var prevVal = sel.value;
     sel.innerHTML = '<option value="">— Temsilci Seçin —</option>' +
-      list.map(function (t) { return '<option value="' + t + '">' + (t === MANAGER_NAME ? t + ' (Bölge Müdürü)' : t) + '</option>'; }).join('');
+      list.map(function (t) { return '<option value="' + t + '">' + t + '</option>'; }).join('');
     if (list.indexOf(prevVal) !== -1) sel.value = prevVal;
     if (list.length) sel.dataset.populated = '1';
   }
@@ -1213,9 +1255,51 @@
       '</tbody></table>';
   }
 
+  // ── FAZ 26.0 — ŞENOL YILMAZ (Bölge Müdürü) SABİT özet paneli ─────────
+  // "Temsilci Seçin" filtresinin ÜSTÜNDE, filtreden bağımsız her zaman
+  // görünür: Toplam Hedef/Satış/Performans + ürün bazlı bölge pazar payı.
+  function renderManagerBrickRegionFixed(containerId) {
+    var el = document.getElementById(containerId || 'mgrBrickRegionFixed');
+    if (!el) return;
+    var gt = (GENEL || []).find(function (r) { return r.ttt === MANAGER_NAME && r.urun === 'GENEL TOPLAM'; }) || {};
+    var hedefTotal = gt.hedef_tl || 0;
+    var satisTotal = gt.satis_tl || 0;
+    var perfTotal = hedefTotal > 0 ? (satisTotal / hedefTotal * 100) : null;
+    var share = buildRegionMarketShareSummary();
+
+    var html = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
+      '<span style="font-size:13px">🏢</span>' +
+      '<span style="font-size:12px;font-weight:800">' + MANAGER_NAME + ' — Bölge Geneli</span>' +
+      '<span style="font-size:9px;font-weight:700;color:var(--dim);background:var(--surf2);border-radius:5px;padding:2px 6px">SABİT · tüm ekip toplamı</span>' +
+      '</div>';
+    html += '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:' + (share && share.byProduct.length ? '10px' : '0') + '">';
+    html += '<div><div style="font-size:9px;font-weight:700;color:var(--dim);text-transform:uppercase">Toplam Hedef TL</div><div class="mono" style="font-size:14px;font-weight:800">' + fTL(hedefTotal) + '</div></div>';
+    html += '<div><div style="font-size:9px;font-weight:700;color:var(--dim);text-transform:uppercase">Toplam Satış TL</div><div class="mono" style="font-size:14px;font-weight:800">' + fTL(satisTotal) + '</div></div>';
+    html += '<div><div style="font-size:9px;font-weight:700;color:var(--dim);text-transform:uppercase">Performans%</div><div>' +
+      (perfTotal == null ? '<span class="mono">—</span>' : '<span class="bdg ' + pCls(perfTotal) + '" style="font-size:13px">' + fPct(perfTotal) + '</span>') + '</div></div>';
+    if (share && share.overall != null) {
+      html += '<div><div style="font-size:9px;font-weight:700;color:var(--dim);text-transform:uppercase">Toplam Pazar Payı</div><div style="font-size:14px;font-weight:800;color:' + _shareColor(share.overall) + '">%' + share.overall.toFixed(1) + '</div></div>';
+    }
+    html += '</div>';
+    if (share && share.byProduct.length) {
+      html += '<div style="font-size:9px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Ürün Bazlı Pazar Payı (bölge geneli — tüm bricklerin ağırlıklı toplamı)</div>';
+      html += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+      share.byProduct.forEach(function (p) {
+        var kendi = mgrBrickUnit === 'KUTU' ? fK(p.own) : fTL(p.ownTL);
+        var pazar = mgrBrickUnit === 'KUTU' ? fK(p.mkt) : fTL(p.mktTL);
+        html += '<span style="background:' + _shareColor(p.share) + '18;color:' + _shareColor(p.share) + ';border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700" title="' + kendi + ' / ' + pazar + '">' +
+          p.urun + ': %' + p.share.toFixed(1) + '</span>';
+      });
+      html += '</div>';
+    } else if (!share) {
+      html += '<div style="font-size:10px;color:var(--dim)">Pazar payı motoru yüklü değil.</div>';
+    }
+    el.innerHTML = html;
+  }
+
+
   function renderManagerExtra() {
     try {
-      // FAZ 13.4-DÜZELTME: renderManagerRegionKpi() artık çağrılmıyor —
       // "Bölge Geneli — ŞENOL YILMAZ" kartı kaldırıldı (mgrHeroBanner ile
       // aynı bilgiyi tekrar ediyordu). Fonksiyon rollback için dosyada durur.
       renderRegionRanking('mgrRegionRankBody');
@@ -1229,6 +1313,7 @@
       renderManagerRankingFull('mgrRankingBody');
       renderManagerTeamRoutePlans('mgrTeamRouteBody');
       _populateTttSelect('mgrTttSelect');
+      renderManagerBrickRegionFixed('mgrBrickRegionFixed');
       var sel = document.getElementById('mgrTttSelect');
       var ttt = sel ? sel.value : '';
       renderManagerBrickDetail(ttt, 'mgrBrickDetailBody');
@@ -1267,6 +1352,8 @@
   window.renderManagerAiAnaliz      = renderManagerAiAnaliz;
   window.renderManagerTeamRoutePlans= renderManagerTeamRoutePlans;
   window.renderManagerExtra         = renderManagerExtra;
+  window.renderManagerBrickRegionFixed = renderManagerBrickRegionFixed;
+  window.buildRegionMarketShareSummary = buildRegionMarketShareSummary;
 
   console.debug('[manager-panel-engine] FAZ 13.0 yüklendi.');
 })();
