@@ -950,12 +950,17 @@
     // seçenek sayısı (placeholder hariç) ile ALL_TTTS uzunluğu her çağrıda
     // karşılaştırılıyor — liste değiştiyse (örn. boştan dolduysa) select
     // güncel seçim korunarak yeniden oluşturuluyor.
-    var list = (typeof ALL_TTTS !== 'undefined') ? ALL_TTTS : [];
+    // FAZ 26.0 — kullanıcı talebi: "Temsilci Seçin" listesine Bölge Müdürü
+    // (ŞENOL YILMAZ) de eklensin. Global ALL_TTTS'e DOKUNULMUYOR (diğer
+    // birçok yerde "sadece temsilciler" varsayımıyla kullanılıyor) — sadece
+    // bu select için yerel bir kopya oluşturulup sona ekleniyor.
+    var list = (typeof ALL_TTTS !== 'undefined') ? ALL_TTTS.slice() : [];
+    if (list.indexOf(MANAGER_NAME) === -1) list.push(MANAGER_NAME);
     var currentCount = sel.options.length - 1; // placeholder hariç
     if (currentCount === list.length && sel.dataset.populated === '1') return;
     var prevVal = sel.value;
     sel.innerHTML = '<option value="">— Temsilci Seçin —</option>' +
-      list.map(function (t) { return '<option value="' + t + '">' + t + '</option>'; }).join('');
+      list.map(function (t) { return '<option value="' + t + '">' + (t === MANAGER_NAME ? t + ' (Bölge Müdürü)' : t) + '</option>'; }).join('');
     if (list.indexOf(prevVal) !== -1) sel.value = prevVal;
     if (list.length) sel.dataset.populated = '1';
   }
