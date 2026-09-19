@@ -1631,20 +1631,9 @@ function renderEczaneContent() {
     console.warn('[AIDecision/MarketShare/LaunchReadiness] render hata (sessiz):', _decErr.message);
   }
 
-  // PHASE 4.7: Smart Route Optimizer — Bugünkü Akıllı Rota
-  // Rollback: bu try bloğunu sil + todayRouteCard + weeklyRouteCard div'lerini kaldır
-  try {
-    if (typeof renderTodayRouteCard === 'function' && window._ROUTE_OPTIMIZER_READY) {
-      const _roTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
-      renderTodayRouteCard('todayRouteCard', _roTTT);
-      renderWeeklyRouteCard('weeklyRouteCard', _roTTT);
-      const _roBadge = document.getElementById('acc_todayroute_badge');
-      const _dow = ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
-      if (_roBadge) _roBadge.textContent = _dow[new Date().getDay()];
-    }
-  } catch(_roErr) {
-    console.warn('[RouteOptimizer] render hata (sessiz):', _roErr.message);
-  }
+  // PHASE 4.7 NOTU: "Bugünkü Akıllı Rota" bloğu buradan kaldırıldı —
+  // kart artık AI & Görev Motoru sayfasına (page5) taşındı, bkz.
+  // js/ai/ai-engine.js _runEngineCore() içindeki renderTodayRouteCard çağrısı.
 
   // PHASE 4.8: AI Sales Coach V2 — Koç + Senaryo kartları
   // Rollback: bu try bloğunu sil + salesCoachSummaryCard + salesCoachScenarioCard div'lerini kaldır
@@ -1751,7 +1740,7 @@ function toggleEczaneAcc(id) {
 // sadece "hangi panel görünür" ve "ilk açılışta bir kez render et" mantığı
 // var — eskiden accordion'un onclick'inde duran kod buraya taşındı.
 const ECZ_SUBTABS = [
-  'detay', 'urun_analiz', 'route_plan_input', 'todayroute',
+  'detay', 'urun_analiz', 'route_plan_input',
   'satis_sartlari', 'haber_takibi', 'ai_perf', 'ai_decision',
   'market_share', 'launch_readiness'
 ];
@@ -1786,15 +1775,6 @@ function goEczaneSubTab(idx) {
         if (typeof window.RoutePlanInput === 'object') {
           const _rpTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
           window.RoutePlanInput.renderRoutePlanForm('routePlanFormContainer', { representative: _rpTTT });
-        }
-        break;
-      case 'todayroute':
-        // renderEczaneContent() zaten her filtre değişiminde bunu dolduruyor;
-        // ilk açılış garantisi için burada da bir kez tetikleriz.
-        if (typeof renderTodayRouteCard === 'function' && window._ROUTE_OPTIMIZER_READY) {
-          const _roTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
-          renderTodayRouteCard('todayRouteCard', _roTTT);
-          renderWeeklyRouteCard('weeklyRouteCard', _roTTT);
         }
         break;
       case 'satis_sartlari':
@@ -6881,6 +6861,26 @@ function _buildEczaneDrawerRefresh(){
       <!-- ═══ GÜNÜN ÖNCELİKLİ ECZANELERİ (FAZ 12.0 / FAZ 10.3) ═══ -->
       <div id="gunununOncelikliEczaneleriCard" style="margin-bottom:16px"></div>
 
+      <!-- PHASE 4.7 → AI & Görev Motoru'na TAŞINDI (eskiden Eczane Satış
+           sayfasının "Bugünkü Akıllı Rota" alt sekmesindeydi). Render
+           çağrısı js/ai/ai-engine.js _runEngineCore() içinde, "Günün
+           Öncelikli Eczaneleri" kartının hemen ardından yapılır; kullanılan
+           temsilci bu sayfanın kendi "Temsilci Seç" çubuğu (engineSelTTT).
+           Rollback: bu kartı silip Eczane Satış sayfasındaki eski
+           eczsub_todayroute panelini (PATCH_GUIDE.md / git geçmişi) geri
+           yapıştırmak yeterli; renderTodayRouteCard/renderWeeklyRouteCard
+           fonksiyonlarının kendisi değişmedi. -->
+      <div class="card mb16">
+        <div class="card-hd">
+          <span class="card-title">🗺️ Bugünkü Akıllı Rota</span>
+          <span class="card-badge" id="acc_todayroute_engine_badge" style="margin-left:auto">Rota Planı</span>
+        </div>
+        <div class="card-body-0" id="acc_todayroute_engine_body">
+          <div id="todayRouteCardEngine"></div>
+          <div id="weeklyRouteCardEngine"></div>
+        </div>
+      </div>
+
       <!-- PHASE 4.8: AI Satış Koçu Kartı -->
       <div id="salesCoachSummaryCard" style="margin:0 0 16px"></div>
 
@@ -7056,7 +7056,7 @@ function _buildEczaneDrawerRefresh(){
        @media(max-width:768px)) açılır seçici (#eczSubSelect) gösterilir —
        ikisi de goEczaneSubTab(idx)'i çağırır (index.html: goEczaneSubTab).
        Her panelin İÇ İÇERİĞİ (id'ler: satisKosullariPanel, haberTakibiPanel,
-       aiPerfDashboard, eczaneUrunAnalizKarti, todayRouteCard/weeklyRouteCard,
+       aiPerfDashboard, eczaneUrunAnalizKarti,
        routePlanFormContainer, aiDecisionCard, marketShareCard,
        launchReadinessCard, eczaneTable/eczaneBrickChart/eczaneUrunChart)
        DEĞİŞMEDİ — render fonksiyonları ve renderEczaneContent()'teki
@@ -7070,26 +7070,24 @@ function _buildEczaneDrawerRefresh(){
     <button type="button" class="eczsub-tab active" onclick="goEczaneSubTab(0)">📋 Eczane Detay Listesi</button>
     <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(1)">📦 Ürün Sipariş Analizi</button>
     <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(2)">📝 Haftalık Rota Planım</button>
-    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(3)">🗺️ Bugünkü Akıllı Rota</button>
-    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(4)">⚙️ Satış Şartları Yönetimi</button>
-    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(5)">📰 Piyasa Haberleri</button>
-    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(6)">🧠 AI Tahmin Performansı</button>
-    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(7)">🎯 AI Karar Önerisi</button>
-    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(8)">📊 Pazar Payı Analizi</button>
-    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(9)">🚀 Lansman Hazırlık</button>
+    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(3)">⚙️ Satış Şartları Yönetimi</button>
+    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(4)">📰 Piyasa Haberleri</button>
+    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(5)">🧠 AI Tahmin Performansı</button>
+    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(6)">🎯 AI Karar Önerisi</button>
+    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(7)">📊 Pazar Payı Analizi</button>
+    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(8)">🚀 Lansman Hazırlık</button>
   </div>
   <div class="eczsub-select-wrap">
     <select class="eczsub-select" id="eczSubSelect" onchange="goEczaneSubTab(parseInt(this.value,10))">
       <option value="0">📋 Eczane Detay Listesi</option>
       <option value="1" class="pv-hidden-ui">📦 Eczane Ürün Sipariş Analizi</option>
       <option value="2">📝 Haftalık Rota Planım (Manuel)</option>
-      <option value="3">🗺️ Bugünkü Akıllı Rota</option>
-      <option value="4">⚙️ Satış Şartları Yönetimi</option>
-      <option value="5">📰 Piyasa Haberleri ve Özel Durumlar</option>
-      <option value="6" class="pv-hidden-ui">🧠 AI Tahmin Performansı</option>
-      <option value="7" class="pv-hidden-ui">🎯 AI Karar Önerisi</option>
-      <option value="8">📊 Pazar Payı Analizi</option>
-      <option value="9" class="pv-hidden-ui">🚀 Lansman Hazırlık</option>
+      <option value="3">⚙️ Satış Şartları Yönetimi</option>
+      <option value="4">📰 Piyasa Haberleri ve Özel Durumlar</option>
+      <option value="5" class="pv-hidden-ui">🧠 AI Tahmin Performansı</option>
+      <option value="6" class="pv-hidden-ui">🎯 AI Karar Önerisi</option>
+      <option value="7">📊 Pazar Payı Analizi</option>
+      <option value="8" class="pv-hidden-ui">🚀 Lansman Hazırlık</option>
     </select>
   </div>
 
@@ -7169,20 +7167,6 @@ function _buildEczaneDrawerRefresh(){
       </div>
       <div class="card-body-0" id="acc_route_plan_input_body">
         <div id="routePlanFormContainer"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ 4. Bugünkü Akıllı Rota ═══ -->
-  <div class="eczsub-panel" id="eczsub_todayroute" style="display:none">
-    <div class="card mb16">
-      <div class="card-hd">
-        <span class="card-title">🗺️ Bugünkü Akıllı Rota</span>
-        <span class="card-badge" id="acc_todayroute_badge" style="margin-left:auto">Rota Planı</span>
-      </div>
-      <div class="card-body-0" id="acc_todayroute_body">
-        <div id="todayRouteCard"></div>
-        <div id="weeklyRouteCard"></div>
       </div>
     </div>
   </div>

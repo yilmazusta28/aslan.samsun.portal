@@ -547,6 +547,26 @@ function _runEngineCore() {
   // ── FAZ 12.0: Günün Öncelikli Eczaneleri (FAZ 10.3 / 5-kademe, max 5) ──
   _renderGununEczaneleri('gunununOncelikliEczaneleriCard', ttt);
 
+  // ── PHASE 4.7 → AI & Görev Motoru'na TAŞINDI: Bugünkü Akıllı Rota ──────
+  // Eskiden Eczane Satış sayfasının (page6) "Bugünkü Akıllı Rota" alt
+  // sekmesindeydi (selEczaneTTT bağlamında); kullanıcı isteğiyle bu
+  // sayfaya (page5), "Günün Öncelikli Eczaneleri" kartının hemen altına
+  // taşındı — burada bu sayfanın kendi temsilcisi (engineSelTTT / ttt)
+  // kullanılır. renderTodayRouteCard/renderWeeklyRouteCard fonksiyonları
+  // (js/route/route-optimizer.js) değişmedi, sadece hedef container id'leri
+  // (todayRouteCardEngine/weeklyRouteCardEngine) ve tetikleme yeri değişti.
+  try {
+    if (typeof renderTodayRouteCard === 'function' && window._ROUTE_OPTIMIZER_READY) {
+      renderTodayRouteCard('todayRouteCardEngine', ttt);
+      renderWeeklyRouteCard('weeklyRouteCardEngine', ttt);
+      var _roEngineBadge = document.getElementById('acc_todayroute_engine_badge');
+      var _dowEngine = ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
+      if (_roEngineBadge) _roEngineBadge.textContent = _dowEngine[new Date().getDay()];
+    }
+  } catch(e) {
+    console.warn('[FAZ6.9] renderTodayRouteCard/renderWeeklyRouteCard hata:', e.message);
+  }
+
   console.debug('[FAZ6.9] Headless motor render tamamlandı. TTT:', ttt);
 }
 
