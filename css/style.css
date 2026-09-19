@@ -497,7 +497,8 @@ body{
 .drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:998;display:none;backdrop-filter:blur(2px)}
 .drawer-overlay.show{display:block}
 .drawer-title{font-size:18px;font-weight:800;color:var(--c1);margin-bottom:20px;display:flex;align-items:center;gap:8px}
-.drawer-group{margin-bottom:16px}
+.drawer-group{margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.drawer-group:last-of-type{margin-bottom:0;padding-bottom:0;border-bottom:none}
 .drawer-group label{display:block;font-size:10px;font-weight:700;color:var(--dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px}
 .drawer-group select,.drawer-group .drawer-btns{width:100%}
 .drawer-group select{border:1.5px solid var(--border);border-radius:11px;padding:10px 12px;font-size:12px;font-weight:600;background:#fff;font-family:'Poppins',sans-serif;outline:none;transition:border-color .2s}
