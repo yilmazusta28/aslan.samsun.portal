@@ -99,6 +99,19 @@
       return;
     }
 
+    // BUG DÜZELTMESİ: farklı bir anchor'a (başka bir info-pin'e) tıklandıysa
+    // önce ESKİ "dışarı tıklama" dinleyicisini HEMEN (senkron) kaldır.
+    // Aksi halde: bu tıklamanın event'i, th'nin kendi onclick'i (yeni
+    // balonu açan) çalıştıktan SONRA document'a kadar kabarcıklanmaya
+    // devam ediyor ve orada hâlâ duran ESKİ dinleyici tetiklenip az önce
+    // açılan yeni balonu aynı tıklamada anında kapatıyordu — "bir balon
+    // açıkken başka bir başlığa tıklayınca açıklama bazen açılmıyor"
+    // şikâyetinin kök nedeni buydu.
+    document.removeEventListener('click', _onOutsideClick);
+    window.removeEventListener('resize', _onReposition);
+    window.removeEventListener('scroll', _onReposition, true);
+    document.removeEventListener('keydown', _onKeydown);
+
     pop.querySelector('.info-popover-title').textContent = title || '';
     pop.querySelector('.info-popover-body').innerHTML = html || '';
     _openAnchor = anchor;
