@@ -115,11 +115,11 @@
     }
   },
   "kampanyaModes": {
-    "PANOCER": false,
+    "PANOCER": true,
     "ACİDPASS": true,
     "GRİPORT COLD": true,
     "MOKSEFEN": true,
     "FAMTREC": true
   },
-  "updatedAt": "2026-09-19T19:33:35.264Z"
+  "updatedAt": "2026-09-19T19:33:42.232Z"
 }
