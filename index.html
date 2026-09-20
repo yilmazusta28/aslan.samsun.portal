@@ -1763,7 +1763,7 @@ function toggleEczaneAcc(id) {
 // sadece "hangi panel görünür" ve "ilk açılışta bir kez render et" mantığı
 // var — eskiden accordion'un onclick'inde duran kod buraya taşındı.
 const ECZ_SUBTABS = [
-  'detay', 'urun_analiz', 'route_plan_input',
+  'detay', 'top15_forecast', 'urun_analiz', 'route_plan_input',
   'satis_sartlari', 'haber_takibi', 'ai_perf', 'ai_decision',
   'launch_readiness'
 ];
@@ -7113,24 +7113,26 @@ function _buildEczaneDrawerRefresh(){
        fonksiyonu veya veri motoru değişmedi. -->
   <div class="eczsub-bar" role="tablist">
     <button type="button" class="eczsub-tab active" onclick="goEczaneSubTab(0)">📋 Eczane Detay Listesi</button>
-    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(1)">📦 Ürün Sipariş Analizi</button>
-    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(2)">📝 Haftalık Rota Planım</button>
-    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(3)">⚙️ Satış Şartları Yönetimi</button>
-    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(4)">📰 Piyasa Haberleri</button>
-    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(5)">🧠 AI Tahmin Performansı</button>
-    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(6)">🎯 AI Karar Önerisi</button>
-    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(7)">🚀 Lansman Hazırlık</button>
+    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(1)">📦 Top 15 Sipariş Tahmini</button>
+    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(2)">📦 Ürün Sipariş Analizi</button>
+    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(3)">📝 Haftalık Rota Planım</button>
+    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(4)">⚙️ Satış Şartları Yönetimi</button>
+    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(5)">📰 Piyasa Haberleri</button>
+    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(6)">🧠 AI Tahmin Performansı</button>
+    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(7)">🎯 AI Karar Önerisi</button>
+    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(8)">🚀 Lansman Hazırlık</button>
   </div>
   <div class="eczsub-select-wrap">
     <select class="eczsub-select" id="eczSubSelect" onchange="goEczaneSubTab(parseInt(this.value,10))">
       <option value="0">📋 Eczane Detay Listesi</option>
-      <option value="1" class="pv-hidden-ui">📦 Eczane Ürün Sipariş Analizi</option>
-      <option value="2">📝 Haftalık Rota Planım (Manuel)</option>
-      <option value="3">⚙️ Satış Şartları Yönetimi</option>
-      <option value="4">📰 Piyasa Haberleri ve Özel Durumlar</option>
-      <option value="5" class="pv-hidden-ui">🧠 AI Tahmin Performansı</option>
-      <option value="6" class="pv-hidden-ui">🎯 AI Karar Önerisi</option>
-      <option value="7" class="pv-hidden-ui">🚀 Lansman Hazırlık</option>
+      <option value="1">📦 Top 15 Sipariş Tahmini</option>
+      <option value="2" class="pv-hidden-ui">📦 Eczane Ürün Sipariş Analizi</option>
+      <option value="3">📝 Haftalık Rota Planım (Manuel)</option>
+      <option value="4">⚙️ Satış Şartları Yönetimi</option>
+      <option value="5">📰 Piyasa Haberleri ve Özel Durumlar</option>
+      <option value="6" class="pv-hidden-ui">🧠 AI Tahmin Performansı</option>
+      <option value="7" class="pv-hidden-ui">🎯 AI Karar Önerisi</option>
+      <option value="8" class="pv-hidden-ui">🚀 Lansman Hazırlık</option>
     </select>
   </div>
 
@@ -7175,21 +7177,6 @@ function _buildEczaneDrawerRefresh(){
       <div id="eczanePagination" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;justify-content:center;padding:12px 10px;border-top:1px solid var(--border)"></div>
     </div>
 
-    <!-- FAZ 12.x (kullanıcı isteği): Top 15 Sipariş Tahmini — Eczane Detay
-         Listesi'nin yanına, ürün bazlı ve bugüne-en-yakın tahmini sipariş
-         tarihine göre sıralı, kompakt (max 440px, iç scroll) bir kart.
-         Eski Top30 kartının aksine (bkz. AUDIT2 Bulgu 1 — kaldırılma
-         sebebi "çok yer kaplıyor") her zaman görünür ama sabit yükseklikte,
-         sayfayı büyütmez. renderEczaneContent() içinde her filtre
-         değişiminde renderTop15OrderForecastCard() ile yenilenir. -->
-    <div class="card mb16">
-      <div class="card-hd">
-        <span class="card-title">📦 Top 15 Sipariş Tahmini</span>
-        <span class="card-badge" style="margin-left:auto;font-weight:400;opacity:.75">Ürün bazlı, alış zamanına göre</span>
-      </div>
-      <div id="top15OrderForecastCard"></div>
-    </div>
-
     <!-- Brick özet grafiği -->
     <div class="g2">
       <div class="card">
@@ -7200,6 +7187,26 @@ function _buildEczaneDrawerRefresh(){
         <div class="card-hd"><span class="card-title">💊 Ürün Dağılımı</span></div>
         <div class="card-body"><div class="ch-md"><canvas id="eczaneUrunChart"></canvas></div></div>
       </div>
+    </div>
+  </div>
+
+  <!-- ═══ 1b. Top 15 Sipariş Tahmini (kullanıcı isteği: Eczane Detay Listesi'nin
+       yanına, Haftalık Rota Planım'dan önce, ayrı bir sayfa/sekme olarak
+       taşındı — önceden eczsub_detay panelinin içinde gömülüydü) ═══
+       FAZ 12.x: Top30'un aksine (bkz. AUDIT2 Bulgu 1 — kaldırılma sebebi
+       "çok yer kaplıyor") sabit/kompakt yükseklikte, sayfayı büyütmez.
+       Render tetiklemesi DEĞİŞMEDİ: renderEczaneContent() içindeki
+       top15OrderForecastCard bloğu, bu div hangi panelde olursa olsun
+       document.getElementById ile bulup her filtre değişiminde yeniliyor —
+       bu taşıma sadece görünüm/konum değişikliği, veri/render mantığına
+       dokunmadı. -->
+  <div class="eczsub-panel" id="eczsub_top15_forecast" style="display:none">
+    <div class="card mb16">
+      <div class="card-hd">
+        <span class="card-title">📦 Top 15 Sipariş Tahmini</span>
+        <span class="card-badge" style="margin-left:auto;font-weight:400;opacity:.75">Ürün bazlı, alış zamanına göre</span>
+      </div>
+      <div id="top15OrderForecastCard"></div>
     </div>
   </div>
 
