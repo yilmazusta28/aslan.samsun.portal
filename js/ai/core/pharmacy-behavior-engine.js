@@ -541,6 +541,21 @@
       var effectiveCycle  = Math.round(avgCycle * stockMultiplier);
       var daysToNext = Math.max(0, effectiveCycle - daysSince);
 
+      // BUG DÜZELTMESİ: daysToNext zaten hesaplanıyordu ama hiçbir zaman
+      // takvim tarihine çevrilip expectedOrderDate'e yazılmıyordu (hep null
+      // kalıyordu). digital-twin-builder.js bu alanı estimatedOrderDate'e
+      // taşıyor, decision-engine.js'in VISIT_NOW mantığı bu tarihi 30 gün
+      // penceresiyle karşılaştırmak üzere yazılmış — ama tarih hiç
+      // gelmediği için o kontrol hep atlanıp sadece ham reorderProbability
+      // eşiğine düşülüyordu. Veri çok azsa (<2 aktif ay) güvenilir bir
+      // tarih üretilemeyeceğinden null bırakılıyor.
+      var expectedOrderDate = null;
+      if (activeMonths >= 2) {
+        var _eod = new Date();
+        _eod.setDate(_eod.getDate() + daysToNext);
+        expectedOrderDate = _eod.toISOString().slice(0, 10);
+      }
+
       // Reorder olasılığı — stok-ayarlı döngü (effectiveCycle) kullanılıyor
       var reorderProb = _reorderProb(activeMonths, vals.length, daysSince, effectiveCycle, growthRate);
 
@@ -601,7 +616,7 @@
         daysSinceLastOrder:      daysSince,
         avgOrderCycle:           effectiveCycle,
         daysToNextOrder:         daysToNext,
-        expectedOrderDate:       null
+        expectedOrderDate:       expectedOrderDate
       };
     });
 
