@@ -270,11 +270,36 @@
     if (!twins || !twins.length) return [];
     return twins.map(function (t, i) {
       // Tip: stok uyarısı → sipariş yakını → bekle
+      //
+      // BUG DÜZELTMESİ (kullanıcı bulgusu — Top 30/decision-engine senkron
+      // sorunu): iki ayrı öneri hattı vardı: pharmacy-ranking.js'in
+      // canonicalScore'u (Top 30 tablosu) ile buradaki orderDiscipline
+      // eşiği (tekli "ziyaret et" önerisi). orderDiscipline aslında
+      // behaviorProfile.reorderProbability'nin birebir aynısı (bkz.
+      // digital-twin-builder.js) — yani "düzensiz ama sırası gelmiş"
+      // eczaneleri elemek için yanlış bir isimlendirme/varsayımla ekstra
+      // sıkı davranıyorduk. Asıl kırık nokta: eşik %65 VE estimatedOrderDate
+      // ZORUNLU birlikte isteniyordu — behaviorProfile bir tarih tahmin
+      // edemediğinde (düzensiz alım deseni, tarih hesaplanamıyor) reorderProbability
+      // %90 bile olsa VISIT_NOW hiç tetiklenmiyor, sessizce WAIT'e düşüyordu.
+      //
+      // Düzeltme: tarih varsa (30 gün içindeyse) eşiği %50'ye indiriyoruz —
+      // somut bir tarih zaten ek güven sağlıyor. Tarih hiç hesaplanamamışsa
+      // (null), tek başına yüksek reorderProbability (>=%65) de VISIT_NOW
+      // için yeterli sayılıyor — eskiden bu durum hep WAIT'e düşüyordu.
+      var _nearDate  = t.estimatedOrderDate && t.estimatedOrderDate <= _dateStr30Days();
+      var _nearDeplete = t.estimatedDepletionDate && t.estimatedDepletionDate <= _dateStr7Days();
       var type;
-      if (t.lastKnownStock != null && t.lastKnownStock === 0) {
+      if ((t.lastKnownStock != null && t.lastKnownStock === 0) || _nearDeplete) {
+        // BUG DÜZELTMESİ: eskiden sadece stok TAM 0 ise tetikleniyordu —
+        // "2 kutu kaldı, birkaç gün içinde bitecek" durumunu hiç yakalamıyordu.
+        // estimatedDepletionDate (Digital Twin'in kendi stok tükenme tahmini)
+        // 7 gün içindeyse de artık STOCK_ALERT sayılıyor.
         type = 'STOCK_ALERT';
-      } else if (t.orderDiscipline != null && t.orderDiscipline >= 0.65 &&
-                 t.estimatedOrderDate && t.estimatedOrderDate <= _dateStr30Days()) {
+      } else if (t.orderDiscipline != null && (
+                   (_nearDate && t.orderDiscipline >= 0.50) ||
+                   (!t.estimatedOrderDate && t.orderDiscipline >= 0.65)
+                 )) {
         type = 'VISIT_NOW';
       } else {
         type = 'WAIT';
@@ -309,8 +334,18 @@
     return d.toISOString().slice(0, 10);
   }
 
+  // BUG DÜZELTMESİ: near-depletion (yakında tükenecek stok) kontrolü için.
+  function _dateStr7Days() {
+    var d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().slice(0, 10);
+  }
+
   function _pharmacyReason(t, type) {
-    if (type === 'STOCK_ALERT') return 'Stok bitti — acil ziyaret';
+    if (type === 'STOCK_ALERT') {
+      if (t.lastKnownStock === 0) return 'Stok bitti — acil ziyaret';
+      return 'Stok kritik seviyede (' + (t.estimatedDepletionDate || 'yakın zamanda') + ' tükenecek) — acil ziyaret';
+    }
     if (type === 'VISIT_NOW') {
       return 'Sipariş zamanı yaklaşıyor' +
         (t.estimatedOrderDate ? ' (' + t.estimatedOrderDate + ')' : '');

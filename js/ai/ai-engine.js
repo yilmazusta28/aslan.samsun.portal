@@ -454,7 +454,18 @@ function _runEngineCore() {
 
   // ── Prim Optimizasyon Senaryosu ─────────────────────────
   const hedefReal = 91;
-  const gerekliKalanTL = gt && gt.hedef_tl ? gt.hedef_tl * hedefReal/100 - gt.satis_tl : 0;
+  // BUG DÜZELTMESİ (docs/PHASE_303_FORENSIC_AUDIT.md — BUG-2): bu satır
+  // hedef_tl/satis_tl'den BAĞIMSIZ bir şekilde yeniden hesaplanıyordu; oysa
+  // yukarıdaki `kalanTL` (satır ~176-181) zaten CSV kalan_tl → yoksa
+  // hedef-satis hesabı → Math.max(0,...) zincirini uygulayıp GÜVENİLİR bir
+  // "kalan TL" üretiyor. İki farklı formül aynı anda "Kalan: 0₺" (kalanTL)
+  // ile "972.456₺ daha satmalı" (gerekliKalanTL) gösterebiliyordu — aynı
+  // ekranda birbirini yalanlayan iki sayı. kalanTL zaten 0 ise (hedefin
+  // %100'ü tutmuş demektir), %91 alt-hedefi de kesinlikle tutmuştur; bu
+  // durumda gerekliKalanTL'i ayrıca hesaplamadan doğrudan 0 kabul ediyoruz.
+  const gerekliKalanTL = (kalanTL <= 0)
+    ? 0
+    : (gt && gt.hedef_tl ? Math.max(0, gt.hedef_tl * hedefReal/100 - (gt.satis_tl || 0)) : 0);
   // Kapalı dönem kontrolü: kalan gün 0 ise artık "daha satmalı" gösterme
   const gerekliTLStr = remDays <= 0
     ? (gerekliKalanTL > 0 ? '🔒 Dönem Kapandı' : '✅ Hedef Aşıldı')
