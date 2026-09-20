@@ -324,6 +324,14 @@ function analyzePharmacyHistory(tttFilter) {
       });
     } catch (_delegateErr) {
       console.warn('[ReorderEngine] PharmacyBehaviorEngine delege hata, legacy hesaba düşülüyor:', _delegateErr.message);
+      // BUG DÜZELTMESİ (kullanıcı bulgusu — sessiz fallback riski): console.warn
+      // sadece DevTools açıksa görülüyor, sahadaki kimse fark etmiyor. Artık
+      // ayrıca window._PV_FALLBACK_LOG'a da yazılıyor — bkz. pharmacy-ranking.js
+      // içindeki window.getPharmacyFallbackLog().
+      (window._PV_FALLBACK_LOG = window._PV_FALLBACK_LOG || []).push({
+        module: 'ReorderEngine', dependency: 'PharmacyBehaviorEngine',
+        error: _delegateErr.message, ts: Date.now()
+      });
       // aşağı düş — legacy hesaba devam
     }
   }
@@ -511,6 +519,10 @@ function buildTop30Reorder(tttFilter) {
       });
     } catch (_e) {
       console.warn('[ReorderEngine] PharmacyRanking delege hata, legacy hesaba düşülüyor:', _e.message);
+      (window._PV_FALLBACK_LOG = window._PV_FALLBACK_LOG || []).push({
+        module: 'ReorderEngine', dependency: 'PharmacyRanking',
+        error: _e.message, ts: Date.now()
+      });
     }
   }
   var all = analyzePharmacyHistory(tttFilter);

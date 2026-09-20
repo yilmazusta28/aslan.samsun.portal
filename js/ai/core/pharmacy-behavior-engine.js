@@ -106,6 +106,37 @@
     return 60;
   }
 
+  // MM/YYYY → Date (ayın 28'i referans alınır, _daysSinceMonth ile tutarlı)
+  function _monthToDate(monthStr) {
+    if (!monthStr || monthStr.indexOf('/') === -1) return null;
+    var parts = monthStr.split('/');
+    return new Date(parseInt(parts[1], 10), parseInt(parts[0], 10) - 1, 28);
+  }
+
+  // BUG DÜZELTMESİ (kullanıcı bulgusu — gerçek 20 aylık veriyle test edilerek
+  // bulundu): eski avgCycle formülü `30 * (vals.length / activeMonths)`
+  // idi. Ama r.sortedMonths (ve dolayısıyla vals) SADECE satış olan ayları
+  // içerir — sıfır aylar diziye hiç girmez (bkz. pharmacy-adapter.js
+  // _buildRecords: e.months sadece dolu aylarla dolduruluyor). Bu yüzden
+  // vals.length neredeyse HER ZAMAN activeMonths'a eşit çıkıyordu, oran
+  // hep ~1 oluyordu ve avgCycle SETTİRME DEĞİL SABİT 30 GÜN döndürüyordu
+  // — eczane 20 ayda sadece 3 kez sipariş verse bile. Gerçek dağıtım
+  // döngüsünü, ardışık AKTİF aylar arasındaki gerçek takvim gününü
+  // ortalayarak hesaplıyoruz.
+  function _calcAvgCycleFromCalendar(sortedMonths) {
+    if (!sortedMonths || sortedMonths.length < 2) return 30;
+    var gaps = [];
+    for (var i = 1; i < sortedMonths.length; i++) {
+      var d1 = _monthToDate(sortedMonths[i - 1]);
+      var d2 = _monthToDate(sortedMonths[i]);
+      if (!d1 || !d2) continue;
+      var days = Math.round((d2.getTime() - d1.getTime()) / 86400000);
+      if (days > 0) gaps.push(days);
+    }
+    if (!gaps.length) return 30;
+    return Math.round(gaps.reduce(function (s, v) { return s + v; }, 0) / gaps.length);
+  }
+
   // ── Yardımcı: Mevsimsel sıçrama tespiti ──────────────────────────────
   // 12+ aylık veri olmalı. Aynı takvim ayının birden fazla yıldaki değeri
   // diğer aylara göre tutarlı yüksekse mevsimsel kabul edilir.
@@ -514,7 +545,7 @@
       // Sipariş döngüsü
       var lastMonth  = r.sortedMonths && r.sortedMonths[r.sortedMonths.length - 1];
       var daysSince  = lastMonth ? _daysSinceMonth(lastMonth) : 60;
-      var avgCycle   = activeMonths > 1 ? Math.round(30 * (vals.length / activeMonths)) : 30;
+      var avgCycle   = _calcAvgCycleFromCalendar(r.sortedMonths);
 
       // BUG DÜZELTMESİ (kullanıcı bulgusu): avgCycle SADECE sipariş SIKLIĞINA
       // (kaç ayda bir sipariş verildiğine) bakıyordu — sipariş BÜYÜKLÜĞÜNE

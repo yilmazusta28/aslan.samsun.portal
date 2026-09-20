@@ -182,11 +182,23 @@
 
   function clearCache() { _cache = {}; }
 
+  // BUG DÜZELTMESİ (kullanıcı bulgusu — sessiz fallback riski): pharmacy-intelligence.js,
+  // pharmacy-data-manager.js, reorder-engine.js ve reorder-classifier.js'in dördü de
+  // PharmacyRanking/PharmacyBehaviorEngine'e delege edemezse (hata veya henüz
+  // yüklenmemişse) kendi eski formülüne düşüyor — bu artık console.warn'a EK
+  // olarak window._PV_FALLBACK_LOG'a da yazılıyor. Bu, o kaydı sorgulamak için
+  // tek, merkezi API — DevTools konsolundan `getPharmacyFallbackLog()` çağırarak
+  // "kanonik sıralama ne zaman/nerede devre dışı kaldı" sorusu cevaplanabilir.
+  function getPharmacyFallbackLog() {
+    return (window._PV_FALLBACK_LOG || []).slice();
+  }
+
   window.PharmacyRanking = {
     rankPharmacies: rankPharmacies,
     clearCache:     clearCache,
     version:        '8.2'
   };
+  window.getPharmacyFallbackLog = getPharmacyFallbackLog;
 
   console.debug('[pharmacy-ranking] FAZ 8.2 yüklendi — imza-tabanlı cache, boş sonuç artık cache\'lenmiyor.');
 

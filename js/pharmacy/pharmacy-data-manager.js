@@ -590,6 +590,10 @@
         });
       } catch (_e) {
         console.warn('[PDM] PharmacyRanking delege hata, legacy hesaba düşülüyor:', _e.message);
+        (window._PV_FALLBACK_LOG = window._PV_FALLBACK_LOG || []).push({
+          module: 'PharmacyDataManager', dependency: 'PharmacyRanking',
+          error: _e.message, ts: Date.now()
+        });
       }
     }
     var scores = buildReorderPredictionScores(ttt);

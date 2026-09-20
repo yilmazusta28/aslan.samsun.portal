@@ -618,9 +618,15 @@
         var bonusBoxes  = oneri ? oneri.bonusKutu : 0;          // MF ile gelen bedava kutu
         var totalWithMF = oneri ? oneri.toplam : rawBoxes;      // eczanenin fiilen alacağı toplam
         var sart        = oneri && oneri.sart ? oneri.sart : null; // örn. "20+3"
+        // BUG DÜZELTMESİ: sales-conditions.js artık küçük hedeflerde büyük
+        // kampanya basamağını zorlamıyor, bunun yerine erken:true ile
+        // düşük güvenli bir tahmin döndürüyor — bunu UI'ya taşıyoruz ki
+        // saha ekibi bunun bir "satış şartı" değil, tahmini bir hatırlatma
+        // olduğunu görebilsin.
+        var erken       = !!(oneri && oneri.erken);
 
         var tl = totalTL > 0 ? Math.round(totalTL * share) : boxes * price;
-        return { urun: u, boxes: boxes, bonusBoxes: bonusBoxes, totalWithMF: totalWithMF, sart: sart, tl: tl };
+        return { urun: u, boxes: boxes, bonusBoxes: bonusBoxes, totalWithMF: totalWithMF, sart: sart, erken: erken, tl: tl };
       });
 
       // Ürün afinitesi hiç yoksa ama toplam beklenen kutu/TL varsa yine de
@@ -634,6 +640,7 @@
           bonusBoxes: _fbOneri ? _fbOneri.bonusKutu : 0,
           totalWithMF: _fbOneri ? _fbOneri.toplam : totalBoxes,
           sart: _fbOneri && _fbOneri.sart ? _fbOneri.sart : null,
+          erken: !!(_fbOneri && _fbOneri.erken),
           tl: totalTL
         });
       }
@@ -703,6 +710,7 @@
           bonusBoxes:  oneri ? oneri.bonusKutu : 0,
           totalWithMF: oneri ? oneri.toplam : rawBoxes,
           sart:        oneri && oneri.sart ? oneri.sart : null,
+          erken:       !!(oneri && oneri.erken),
           tl:          tl,
           gapDriven:   true // hedef açığı nedeniyle eklendi (afiniteye dayanmıyor)
         });
@@ -859,7 +867,8 @@
           ? (daily.visits || []).flatMap(function (v) {
               return (v.products || []).map(function (p) {
                 var kutuTxt = p.sart ? (p.sart + ' kutu (toplam ' + p.totalWithMF + ')') : (p.boxes + ' kutu');
-                return v.eczane + ' → ' + p.urun + ' ' + kutuTxt + (p.gapDriven ? ' (hedef açığı)' : '');
+                var etiket = (p.erken ? ' (tahmini — erken)' : '') + (p.gapDriven ? ' (hedef açığı)' : '');
+                return v.eczane + ' → ' + p.urun + ' ' + kutuTxt + etiket;
               });
             }).slice(0, 15)
           : []
@@ -1069,9 +1078,19 @@
             ' <span style="font-size:9px;background:rgba(167,139,250,.15);color:#a78bfa;border-radius:4px;padding:1px 6px;margin-left:4px">' + (v.brick || '') + '</span>' +
           '</div>' +
           v.products.map(function (p) {
-            var kutuTxt = p.sart
-              ? p.sart + ' kutu <span style="font-size:9px;font-weight:700;color:#D97706;background:#FEF3C7;border-radius:4px;padding:1px 5px">MF +' + p.bonusBoxes + '</span> (toplam ' + p.totalWithMF + ')'
-              : p.boxes + ' kutu';
+            // BUG DÜZELTMESİ (kullanıcı bulgusu): p.erken===true demek,
+            // sales-conditions.js bu hedef için bir MF basamağını ZORLAMADI —
+            // orantılı, düşük güvenli bir tahmin döndürdü (bkz. getSiparisOnerisi).
+            // Bunu turuncu/kesin "MF" rozetiyle karıştırmamak için ayrı,
+            // soluk/kesikli bir "tahmini" rozeti kullanıyoruz.
+            var kutuTxt;
+            if (p.sart) {
+              kutuTxt = p.sart + ' kutu <span style="font-size:9px;font-weight:700;color:#D97706;background:#FEF3C7;border-radius:4px;padding:1px 5px">MF +' + p.bonusBoxes + '</span> (toplam ' + p.totalWithMF + ')';
+            } else if (p.erken) {
+              kutuTxt = p.boxes + ' kutu <span style="font-size:9px;font-weight:700;color:#6B7280;background:transparent;border:1px dashed #9CA3AF;border-radius:4px;padding:0px 5px">tahmini</span>';
+            } else {
+              kutuTxt = p.boxes + ' kutu';
+            }
             return '<div style="font-size:9px;color:var(--dim);padding:1px 0">→ ' + p.urun + ' <b style="color:var(--text)">' + kutuTxt + '</b></div>';
           }).join('') +
           '<div style="font-size:9px;color:var(--text);margin-top:1px">' + v.why.join(' · ') + '</div>' +

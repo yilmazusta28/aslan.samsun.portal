@@ -527,6 +527,10 @@
         return behaviorProfiles.map(_fromBehaviorProfile);
       } catch (_delegateErr) {
         console.warn('[PharmacyIntelligence] PharmacyBehaviorEngine delege hata, legacy hesaba düşülüyor:', _delegateErr.message);
+        (window._PV_FALLBACK_LOG = window._PV_FALLBACK_LOG || []).push({
+          module: 'PharmacyIntelligence', dependency: 'PharmacyBehaviorEngine',
+          error: _delegateErr.message, ts: Date.now()
+        });
         // aşağı düş — legacy hesaba devam
       }
     }
@@ -748,6 +752,10 @@
         });
       } catch (_e) {
         console.warn('[PharmacyIntelligence] PharmacyRanking delege hata, legacy hesaba düşülüyor:', _e.message);
+        (window._PV_FALLBACK_LOG = window._PV_FALLBACK_LOG || []).push({
+          module: 'PharmacyIntelligence', dependency: 'PharmacyRanking',
+          error: _e.message, ts: Date.now()
+        });
       }
     }
     var all = buildPharmacyProfiles(tttFilter);

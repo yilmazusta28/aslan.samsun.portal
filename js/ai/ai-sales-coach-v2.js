@@ -180,6 +180,7 @@
         sart:          _oneri && _oneri.sart ? _oneri.sart : null,
         bonusBoxes:    _oneri ? _oneri.bonusKutu : 0,
         totalWithMF:   _oneri ? _oneri.toplam : _rawBoxes,
+        erken:         !!(_oneri && _oneri.erken), // bkz. autonomous-planning-engine.js aynı düzeltme
         product:       product,
         reason:        reason,
         priority:      p.priority,
@@ -626,7 +627,7 @@
           '<div style="font-size:9px;color:var(--text);margin-top:1px">' + a.reason + '</div>' +
         '</div>' +
         '<div style="font-weight:800;font-size:11px;color:#15803D;white-space:nowrap">' +
-          (a.expectedValue > 0 ? a.expectedValue.toLocaleString('tr-TR') + '₺' : (a.sart ? a.sart + ' kts' : a.expectedBoxes + ' kts')) +
+          (a.expectedValue > 0 ? a.expectedValue.toLocaleString('tr-TR') + '₺' : (a.sart ? a.sart + ' kts' : (a.erken ? '~' + a.expectedBoxes + ' kts' : a.expectedBoxes + ' kts'))) +
         '</div>' +
       '</div>';
     }).join('');
