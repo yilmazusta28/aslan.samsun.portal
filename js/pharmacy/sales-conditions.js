@@ -417,6 +417,29 @@
       }
     }
 
+    // BUG DÜZELTMESİ (kullanıcı bulgusu — KAAN ASLAN GİRESUN MERKEZ-2 örneği):
+    // yukarıdaki döngü "min >= hedef × 0.7" olan İLK basamağı seçiyor — ama
+    // kampanyası tek basamaklı ürünlerde (örn. PANOCER kampanya: sadece
+    // {min:165, bonus:135}) bu tek basamak, hedef 5 kutu bile olsa (5×0.7=3.5,
+    // 165>=3.5) seçiliyordu. Yani ham hedefle seçilen basamak arasında hiçbir
+    // orantı sınırı yoktu. Düzeltme: seçilen basamağın min'i, gerçek hedefin
+    // 2 katından fazlaysa bu basamağı ZORLAMIYORUZ — bunun yerine "henüz bu
+    // kampanya basamağı için erken" diyen, hedefe orantılı serbest bir miktar
+    // döndürüyoruz. `erken:true` alanı UI'da bu satırı "sistem şartı" değil
+    // "düşük güvenli tahmini" olarak ayırt etmek için kullanılabilir.
+    if (hedef > 0 && secilenSart.min > hedef * 2) {
+      var erkenMiktar = Math.max(1, Math.round(hedef));
+      return {
+        miktar:     erkenMiktar,
+        bonusKutu:  0,
+        toplam:     erkenMiktar,
+        sart:       null,
+        aciklama:   'Henüz ' + secilenSart.min + '+' + secilenSart.bonus + ' basamağı için erken (mevcut hacim çok düşük) — orantılı serbest miktar önerildi',
+        kampanya:   false,
+        erken:      true
+      };
+    }
+
     var bonusOranPct = secilenSart.min > 0
       ? Math.round((secilenSart.bonus / secilenSart.min) * 100)
       : 0;

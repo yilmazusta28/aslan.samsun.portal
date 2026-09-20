@@ -587,10 +587,23 @@
       // anlamsız görünmesine yol açardı.
       var scoreSum = topProducts.reduce(function (s, u) { return s + (combinedScore[u] || 0); }, 0);
 
+      // BUG DÜZELTMESİ (kullanıcı bulgusu — KAAN ASLAN GİRESUN MERKEZ-2 örneği):
+      // rawBoxes = totalBoxes × share formülü, totalBoxes'ı (expectedOrderBoxes)
+      // TEMSİLCİNİN/ziyaret planının ürettiği bir rakamdan alıyordu — eczanenin
+      // KENDİ geçmişiyle sınırlı değildi. Sonuç: 1 aylık, sadece 42 kutu PANOCER
+      // almış "Yeni Müşteri" bir eczaneye 165+135 (kampanya basamağı) kutu PANOCER
+      // önerilebiliyordu — eczanenin şimdiye kadar hiç ulaşmadığı bir hacim.
+      // Düzeltme: rawBoxes, eczanenin KENDİ tarihsel tavanının (historicalMaxBoxes)
+      // ya da aylık ortalamasının (avgMonthlyBoxes) 1.5 katını asla aşamaz. Bu
+      // eczane-özel bir tavan olduğundan gerçekten büyüyen/talep eden eczanelerde
+      // hiçbir kısıtlama yaratmaz — sadece rep-hedefinden sızan aşırı büyütmeyi keser.
+      var _histCap = Math.max(fullProfile.historicalMaxBoxes || 0, fullProfile.avgMonthlyBoxes || 0) * 1.5;
+
       var products = topProducts.map(function (u) {
         var share = scoreSum > 0 ? (combinedScore[u] / scoreSum) : (1 / topProducts.length);
         var price = (typeof IMS_TL_MAP !== 'undefined' && IMS_TL_MAP[u]) ? IMS_TL_MAP[u] : 100;
         var rawBoxes = totalBoxes > 0 ? Math.max(1, Math.round(totalBoxes * share)) : Math.max(1, Math.round(affinity[u] || 5));
+        if (_histCap > 0) rawBoxes = Math.min(rawBoxes, Math.max(1, Math.round(_histCap)));
 
         // BUG DÜZELTMESİ (kullanıcı bulgusu): eczaneler kutu sayısını
         // rastgele/ham bir sayıyla değil, satış şartı (MF — mal fazlası)
@@ -633,7 +646,11 @@
         score:    Math.round(p.visitScore || p._visitScore || fullProfile.visitPriorityScore || 0),
         products: products,
         why:      _explainVisit(fullProfile),
-        expectedTL: expectedTL
+        expectedTL: expectedTL,
+        // BUG DÜZELTMESİ: _fillMissingProducts()'ın "yeni müşteri"ye zorla ürün
+        // eklemesini engellemek için — bkz. aşağıdaki tanım.
+        _behaviorType:  fullProfile.behaviorType  || null,
+        _activeMonths:  fullProfile.activeMonths  || 0
       };
     });
 
@@ -655,9 +672,21 @@
         .sort(function (a, b) { return (gapWeight[b] || 0) - (gapWeight[a] || 0); });
       if (!missing.length || !visits.length) return;
 
+      // BUG DÜZELTMESİ (kullanıcı bulgusu): bu eklenti eczanenin HİÇ almadığı
+      // bir ürünü sabit "5 kutu" ile öneriyordu — eczane 1 aylık "Yeni Müşteri"
+      // olsa bile ("KAAN ASLAN" örneği: sadece PANOCER+ACİDPASS almış, hiç
+      // GRİPORT COLD/FAMTREC almamış). Yeni müşteri veya çok az geçmişi olan
+      // (activeMonths < 3) eczanelere bu "hedef açığı hatırlatması" hiç
+      // uygulanmaz — onlar için henüz hiçbir ürün için gerçek bir tercih
+      // sinyali yok, tahmin yerine sessizce atlanır.
+      var _fillEligible = visits.filter(function (v) {
+        return v._behaviorType !== 'YENI_MUSTERI' && (v._activeMonths || 0) >= 3;
+      });
+      if (!_fillEligible.length) return;
+
       missing.forEach(function (u) {
-        // En az ürünü olan (henüz kalabalıklaşmamış) ziyareti seç.
-        var target = visits.slice().sort(function (a, b) {
+        // En az ürünü olan (henüz kalabalıklaşmamış) uygun ziyareti seç.
+        var target = _fillEligible.slice().sort(function (a, b) {
           return (a.products || []).length - (b.products || []).length;
         })[0];
         if (!target || target.products.length >= 4) return; // ziyaret başına makul üst sınır
