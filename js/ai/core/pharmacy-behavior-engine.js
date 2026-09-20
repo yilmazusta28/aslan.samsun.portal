@@ -131,7 +131,11 @@
       var d2 = _monthToDate(sortedMonths[i]);
       if (!d1 || !d2) continue;
       var days = Math.round((d2.getTime() - d1.getTime()) / 86400000);
-      if (days > 0) gaps.push(days);
+      // pharmacy-intelligence.js::_orderCycle (legacy) ile tutarlılık:
+      // 200 günden uzun tek bir boşluk (ör. eczane ~1 yıl sipariş
+      // vermeyip sonra tekrar başlamışsa) aykırı değer sayılıp dışlanır
+      // — yoksa tek bir uzun boşluk ortalamayı anlamsızca şişirir.
+      if (days > 0 && days < 200) gaps.push(days);
     }
     if (!gaps.length) return 30;
     return Math.round(gaps.reduce(function (s, v) { return s + v; }, 0) / gaps.length);
