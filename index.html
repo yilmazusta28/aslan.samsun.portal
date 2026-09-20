@@ -403,6 +403,15 @@
 <script src="js/ai/core/pharmacy-behavior-engine.js?v=20260705"></script>
 <!-- END FAZ 6.1 Pharmacy Behavior Engine -->
 
+<!-- FAZ 12.x (kullanıcı isteği): Ürün Bazlı Sipariş Zamanlaması Motoru
+     "Eczane Detay Listesi" yanındaki Top 15 Sipariş Tahmini kartını besler.
+     pharmacy-adapter.js ve pharmacy-behavior-engine.js SONRASI yüklenmeli
+     (calcAvgCycleFromCalendar / daysSinceMonth'u onlardan devralır).
+     Rollback: bu satırı silmek + aşağıdaki #top15OrderForecastCard render
+     çağrısını kaldırmak yeterli — başka hiçbir motor buna bağımlı değil. -->
+<script src="js/ai/core/order-forecast-engine.js?v=20260705"></script>
+<!-- END FAZ 12.x Order Forecast Engine -->
+
 <!-- FAZ 9.x: Pharmacy Intelligence Layer
      Yükleme sırası: pharma-db → sales-memory → coverage-selection →
      stock-entry-adapter → digital-twin-builder
@@ -1580,6 +1589,21 @@ function renderEczaneContent() {
   // reorderClassifierCard) accordion'larla birlikte kaldırıldığı için bu
   // çağrılar da kaldırıldı. Veri fonksiyonlarının kendisi (buildTop30Pharmacies
   // vb.) SİLİNMEDİ, sadece bu UI render bağlantısı kesildi.
+
+  // FAZ 12.x (kullanıcı isteği): Top 15 Sipariş Tahmini kartı — Top30'un
+  // aksine sabit/kompakt yükseklikte olduğu için accordion'a alınmadan
+  // her zaman render edilir. tttFilter: 'TÜMÜ' ise tüm eczaneler, değilse
+  // sadece seçili temsilci.
+  // Rollback: bu try bloğunu sil — kart konteyneri boş kalır, başka
+  // hiçbir şeyi etkilemez (order-forecast-engine.js bağımsız).
+  try {
+    if (typeof OrderForecastEngine !== 'undefined' && document.getElementById('top15OrderForecastCard')) {
+      var _ofTtt = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
+      OrderForecastEngine.renderTop15OrderForecastCard('top15OrderForecastCard', _ofTtt);
+    }
+  } catch (_ofErr) {
+    console.warn('[OrderForecastEngine] render hata:', _ofErr.message);
+  }
 
   // PHASE 4.7: Satış Şartları & Sipariş Analizi — filtre değişiminde yenile
   // Rollback: bu try bloğunu sil
@@ -7149,6 +7173,21 @@ function _buildEczaneDrawerRefresh(){
       </div>
       <!-- Sayfalama — 20 eczane/sayfa, tıklanınca goToEczanePage() çağrılır -->
       <div id="eczanePagination" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;justify-content:center;padding:12px 10px;border-top:1px solid var(--border)"></div>
+    </div>
+
+    <!-- FAZ 12.x (kullanıcı isteği): Top 15 Sipariş Tahmini — Eczane Detay
+         Listesi'nin yanına, ürün bazlı ve bugüne-en-yakın tahmini sipariş
+         tarihine göre sıralı, kompakt (max 440px, iç scroll) bir kart.
+         Eski Top30 kartının aksine (bkz. AUDIT2 Bulgu 1 — kaldırılma
+         sebebi "çok yer kaplıyor") her zaman görünür ama sabit yükseklikte,
+         sayfayı büyütmez. renderEczaneContent() içinde her filtre
+         değişiminde renderTop15OrderForecastCard() ile yenilenir. -->
+    <div class="card mb16">
+      <div class="card-hd">
+        <span class="card-title">📦 Top 15 Sipariş Tahmini</span>
+        <span class="card-badge" style="margin-left:auto;font-weight:400;opacity:.75">Ürün bazlı, alış zamanına göre</span>
+      </div>
+      <div id="top15OrderForecastCard"></div>
     </div>
 
     <!-- Brick özet grafiği -->

@@ -676,6 +676,13 @@
     classifyBehavior:      classifyBehavior,
     BEHAVIOR_TYPES:        BEHAVIOR_TYPES,
     clearCache:            clearCache,
+    // eczane-seviyesi döngü hesabında kullanılan (avgCycle bug-fix'i) takvim
+    // bazlı yardımcılar — order-forecast-engine.js gibi başka motorların
+    // AYNI mantığı ürün bazında da uygulayabilmesi için dışa açıldı (kopya
+    // kod yerine tek gerçek kaynak).
+    calcAvgCycleFromCalendar: _calcAvgCycleFromCalendar,
+    monthToDate:              _monthToDate,
+    daysSinceMonth:           _daysSinceMonth,
     version:               '9.1'
   };
 
