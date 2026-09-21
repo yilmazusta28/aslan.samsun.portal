@@ -63,7 +63,9 @@
         "ORDU FATSA"
       ],
       "4": [
-        "ORDU FATSA"
+        "ORDU BATI ILCELER",
+        "ORDU GUNEY ILCELER -1",
+        "ORDU MERKEZ -3"
       ],
       "5": [
         "GIRESUN BULANCAK+PIRAZIZ",
@@ -72,5 +74,5 @@
       ]
     }
   },
-  "updatedAt": "2026-09-21T07:52:59.353Z"
+  "updatedAt": "2026-09-21T07:53:00.728Z"
 }
