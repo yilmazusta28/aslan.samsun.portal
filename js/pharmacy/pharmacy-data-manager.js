@@ -641,7 +641,7 @@
   // ── İlk Init ──────────────────────────────────────────────────────────
   // Strateji: Eczane sayfasına ilk girildiğinde (renderEczane çağrısı)
   // discoverPharmacyFiles() tetiklenir; tamamlanınca filtreler doldurulur.
-  // Sayfa zaten açıksa (curPage===6) anında renderEczane tekrar çağrılır.
+  // Sayfa zaten açıksa (curPage===5) anında renderEczane tekrar çağrılır.
   async function initPharmacyDataManager() {
     console.log('[PDM52] Init başlıyor…');
 
@@ -659,7 +659,7 @@
           console.log('[PDM52] Aktif data hazır:', rows.length, 'satır');
         }
         // Eczane sayfası açıksa ekranı güncelle
-        if (typeof curPage !== 'undefined' && curPage === 6) {
+        if (typeof curPage !== 'undefined' && curPage === 5) {
           if (typeof buildEczaneFilters==='function')  buildEczaneFilters();
           if (typeof renderEczaneContent==='function') renderEczaneContent();
         }
@@ -960,7 +960,7 @@ function getFilteredData(filters) {
       }
 
       // Eczane sayfası açıksa ekranı güncelle
-      if (typeof curPage !== 'undefined' && curPage === 6 && typeof renderEczaneContent === 'function') {
+      if (typeof curPage !== 'undefined' && curPage === 5 && typeof renderEczaneContent === 'function') {
         renderEczaneContent();
       }
     }

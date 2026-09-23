@@ -2,14 +2,14 @@
 //  js/ui/dosyalar-manager-summary.js
 //  FAZ 22.1 — Yönetici Paneli (page7) › "📁 Dosyalar Özeti" kartı
 //
-//  SORUN: "Dosyalar" sayfasına (page9) girilen masraf/kongre kayıtları
+//  SORUN: "Dosyalar" sayfasına (page8) girilen masraf/kongre kayıtları
 //  yalnızca o sayfada listeleniyordu. ŞENOL YILMAZ girişinde uygulama
 //  doğrudan Yönetici sayfasına (page7) düştüğü için (bkz. index.html
 //  LOGIN bloğu, goPage(7)) Bölge Müdürü bu kayıtları hiç görmüyordu.
 //
 //  ÇÖZÜM: Yönetici panelinin "Saha Yönetimi" bölümüne, temsilci bazında
 //  kayıt sayısı + toplam masraf gösteren salt-okunur bir özet kartı.
-//  "Detay" butonu ilgili Dosyalar sekmesine geçirir (goPage(9)).
+//  "Detay" butonu ilgili Dosyalar sekmesine geçirir (goPage(8)).
 //
 //  Veri kaynağı: js/ui/dosyalar-page.js › window.PV_DOSYALAR_API
 //  (GitHub raw + localStorage birleşimi — AYNI mantık, veri kopyalanmadı).
@@ -141,7 +141,7 @@
   // "Detay" → Dosyalar sayfası (yönetici orada tüm temsilci kayıtlarını
   // satır satır görür, düzenleyebilir ve Excel indirebilir).
   window._mgrDosyalarDetay = function () {
-    if (typeof goPage === 'function') goPage(9);
+    if (typeof goPage === 'function') goPage(8);
   };
 
   // ── Ana render — goPage(7) tarafından çağrılır ────────────────────────

@@ -941,9 +941,9 @@
     return html;
   }
 
-  // ── Ana sayfa render (goPage(9) tarafından çağrılır) ────────────────
+  // ── Ana sayfa render (goPage(8) tarafından çağrılır) ────────────────
   window.renderDosyalarPage = function () {
-    var page = document.getElementById('page9');
+    var page = document.getElementById('page8');
     if (!page) return;
     var manager = _isManager();
 

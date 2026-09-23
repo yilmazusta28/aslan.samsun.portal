@@ -259,12 +259,20 @@ async function syncData(forceFresh) {
         }
         if (loadMsg) loadMsg.textContent = 'Önbellekten yüklendi, güncelleniyor…';
         if (curPage === 0)      renderAna();
-        else if (curPage === 1) renderPazar();
-        else if (curPage === 2) renderTakip();
-        else if (curPage === 3) { initMigi1(); initMigi2(); }
-        else if (curPage === 4) buildPrimInputs();
-        else if (curPage === 5) renderAiAsistan();
-        else if (curPage === 6) renderEczane();
+        // SAYFA YAPISI KONSOLİDASYONU: Performans (eski Pazar+Takip+YTD)
+        // artık tek sayfa (1), 3 alt-sekme. Arka planda hangi alt-sekmenin
+        // AKTİF olduğunu burada ayrıca takip etmek yerine (ek karmaşıklık),
+        // Top15 kartındaki desenle aynı mantıkla üçünü de güvenle/ucuz
+        // şekilde yeniliyoruz — hangisi görünürse görünsün güncel olsun.
+        else if (curPage === 1) { renderPazar(); renderTakip(); if (typeof initYtdTlPage === 'function') initYtdTlPage(); }
+        else if (curPage === 2) { initMigi1(); initMigi2(); }
+        else if (curPage === 3) buildPrimInputs();
+        else if (curPage === 4) renderAiAsistan();
+        else if (curPage === 5) renderEczane();
+        // SAYFA YAPISI KONSOLİDASYONU ADIM 3: Eczane'nin konfigürasyon/
+        // referans alt-sekmeleri (Satış Şartları, Piyasa Haberleri, Lansman
+        // Hazırlık) yeni "Ayarlar & Referans" sayfasına (6) taşındı.
+        else if (curPage === 6) { if (typeof goAyarSubTab === 'function') goAyarSubTab(typeof _ayarActiveSubTab !== 'undefined' ? _ayarActiveSubTab : 0); }
         // FAZ 13.4-DÜZELTME: page7 (Yönetici) burada da eksikti — banner
         // (mgrHeroBanner) ilk açılışta cache'ten anında dolması gerekirken
         // hiç render edilmiyordu; kullanıcı başka sayfaya gezinip page7'ye
@@ -274,7 +282,6 @@ async function syncData(forceFresh) {
           if (typeof renderManagerHeroBanner === 'function') renderManagerHeroBanner();
           if (typeof renderManagerExtra === 'function') renderManagerExtra();
         }
-        else if (curPage === 8) { if (typeof initYtdTlPage === 'function') initYtdTlPage(); }
         const _loadingEl = document.getElementById('loading');
         if (_loadingEl) _loadingEl.style.display = 'none';
       }
@@ -508,12 +515,19 @@ async function syncData(forceFresh) {
       window._autoTTT = null;
     }
     if (curPage === 0)      renderAna();
-    else if (curPage === 1) renderPazar();
-    else if (curPage === 2) renderTakip();
-    else if (curPage === 3) { initMigi1(); initMigi2(); }
-    else if (curPage === 4) buildPrimInputs();
-    else if (curPage === 5) renderAiAsistan();
-    else if (curPage === 6) renderEczane();
+    // SAYFA YAPISI KONSOLİDASYONU: Performans (eski Pazar+Takip+YTD) artık
+    // tek sayfa (1), 3 alt-sekme — hangisi görünürse görünsün güncel kalsın
+    // diye üçü de yenileniyor (Top15 kartındaki "her zaman yenile" deseniyle
+    // aynı mantık).
+    else if (curPage === 1) { renderPazar(); renderTakip(); if (typeof initYtdTlPage === 'function') initYtdTlPage(); }
+    else if (curPage === 2) { initMigi1(); initMigi2(); }
+    else if (curPage === 3) buildPrimInputs();
+    else if (curPage === 4) renderAiAsistan();
+    else if (curPage === 5) renderEczane();
+    // SAYFA YAPISI KONSOLİDASYONU ADIM 3: Eczane'nin konfigürasyon/referans
+    // alt-sekmeleri yeni "Ayarlar & Referans" sayfasına (6) taşındı — bu da
+    // Yönetici'yi 6'dan 7'ye, Dosyalar'ı 7'den 8'e kaydırdı.
+    else if (curPage === 6) { if (typeof goAyarSubTab === 'function') goAyarSubTab(typeof _ayarActiveSubTab !== 'undefined' ? _ayarActiveSubTab : 0); }
     // FAZ 13.1 DÜZELTMESİ: bu dispatch'te page7 (Yönetici) eksikti — Şenol
     // Yılmaz girişinde artık varsayılan sayfa page7 olduğundan (bkz.
     // index.html doLogin()), veri senkronize OLDUKTAN SONRA panel

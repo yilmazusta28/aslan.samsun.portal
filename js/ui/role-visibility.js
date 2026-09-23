@@ -12,8 +12,8 @@
 //    Diğerleri    → TEMSILCI
 //
 //  Rol Kuralları:
-//    TEMSILCI: snav5 (AI Analiz), snav6 (Eczane Yönetimi), kendi verisi
-//    YONETICI: snav5, snav6, snav7 (Yönetici + Sayfa 3 / FAZ 12.2)
+//    TEMSILCI: snav4 (AI Analiz), snav5 (Eczane Yönetimi), kendi verisi
+//    YONETICI: snav4, snav5, snav7 (Yönetici + Sayfa 3 / FAZ 12.2)
 //
 //  Public API:
 //    getCurrentRole()      → 'TEMSILCI' | 'YONETICI'
@@ -61,6 +61,10 @@
   // hiç yoktu (index.html'de ayrıca eklendi) hem de burada unutulmuştu.
   // ntab7 de eklendi (tutarlılık için — o bar CSS'te her zaman gizli ama
   // ileride açılırsa rol kuralı hazır olsun).
+  // SAYFA YAPISI KONSOLİDASYONU ADIM 3: Eczane'nin konfigürasyon/referans
+  // alt-sekmeleri (Satış Şartları, Piyasa Haberleri, Lansman Hazırlık) yeni
+  // "Ayarlar & Referans" sayfasına (6) taşındı — bu da Yönetici'yi 6'dan
+  // 7'ye, Dosyalar'ı 7'den 8'e kaydırdı.
   var YONETICI_ONLY_IDS = ['snav7', 'mtb7', 'ntab7'];
 
   function applyRoleVisibility() {

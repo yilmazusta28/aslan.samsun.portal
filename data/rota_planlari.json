@@ -48,29 +48,7 @@
         "TRABZON MERKEZ -2",
         "RIZE MERKEZ"
       ]
-    },
-    "YILMAZ USTA": {
-      "1": [
-        "GIRESUN MERKEZ -1",
-        "GIRESUN MERKEZ -2"
-      ],
-      "2": [
-        "ORDU MERKEZ -1",
-        "ORDU MERKEZ -2",
-        "ORDU MERKEZ -3"
-      ],
-      "3": [
-        "ORDU FATSA"
-      ],
-      "4": [
-        "ORDU BATI ILCELER",
-        "ORDU GUNEY ILCELER -1",
-        "ORDU MERKEZ -3"
-      ],
-      "5": [
-        "GIRESUN BULANCAK+PIRAZIZ"
-      ]
     }
   },
-  "updatedAt": "2026-09-21T07:53:01.958Z"
+  "updatedAt": "2026-07-29T22:24:57.524Z"
 }

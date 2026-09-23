@@ -393,7 +393,7 @@
   // ŞENOL YILMAZ (bölge) seçili biçimde açar. Motor ÇOĞALTILMADI —
   // AI Asistan sayfasındaki GERÇEK motora bağlanılır (tek kaynak, tek doğruluk).
   function openBolgeGeneliMotoru() {
-    if (typeof goPage === 'function') goPage(5);
+    if (typeof goPage === 'function') goPage(4);
     setTimeout(function () {
       try {
         if (typeof setAiTTT === 'function') setAiTTT(MANAGER_NAME);
@@ -1206,8 +1206,8 @@
         '</div>' +
         '<div style="font-size:10px;color:var(--dim);margin-bottom:10px">Geri bildirim dağılımı (son 7 gün): ' + fbBreakdown + '</div>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-          '<button onclick="goPage(6)" style="font-size:11px;padding:6px 12px;border:1px solid rgba(79,0,140,.2);background:rgba(79,0,140,.06);color:var(--c1);border-radius:8px;cursor:pointer">☑ Ziyaret Planı (FAZ 9.2)</button>' +
-          '<button onclick="goPage(6)" style="font-size:11px;padding:6px 12px;border:1px solid rgba(5,150,105,.2);background:rgba(5,150,105,.06);color:#059669;border-radius:8px;cursor:pointer">✓ Gün Sonu Geri Bildirimi (FAZ 11.2)</button>' +
+          '<button onclick="goPage(5)" style="font-size:11px;padding:6px 12px;border:1px solid rgba(79,0,140,.2);background:rgba(79,0,140,.06);color:var(--c1);border-radius:8px;cursor:pointer">☑ Ziyaret Planı (FAZ 9.2)</button>' +
+          '<button onclick="goPage(5)" style="font-size:11px;padding:6px 12px;border:1px solid rgba(5,150,105,.2);background:rgba(5,150,105,.06);color:#059669;border-radius:8px;cursor:pointer">✓ Gün Sonu Geri Bildirimi (FAZ 11.2)</button>' +
         '</div>';
     }).catch(function (e) {
       el.innerHTML = '<div style="font-size:11px;color:var(--dim)">Yüklenemedi: ' + e.message + '</div>';

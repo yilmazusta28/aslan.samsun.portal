@@ -331,7 +331,7 @@
      Tam Ekip Sıralaması, Temsilci Brick Detayı, AI Pazar Analizi Özeti)
      Bağımlılık: team-ranking-engine.js (yukarıda), risk-engine.js (aşağıda,
      opsiyonel — yoksa risk bloğu sessizce atlanır çünkü typeof ile kontrol edilir).
-     Rollback: bu satırı silmek page7'deki 4 yeni bloğu boş bırakır,
+     Rollback: bu satırı silmek page6'deki 4 yeni bloğu boş bırakır,
      başka hiçbir sayfa/motor etkilenmez. -->
 <script src="js/ai/executive/manager-panel-engine.js?v=20260918"></script>
 <!-- END FAZ 13.0 -->
@@ -458,9 +458,9 @@ window.DOSYALAR_UPDATE_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/dos
 window.DOSYALAR_DELETE_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/dosyalar-delete';
 </script>
 <script src="js/ui/dosyalar-page.js?v=20260915"></script>
-<!-- FAZ 22.1: Yönetici paneli (page7) "📁 Dosyalar Özeti" kartı.
+<!-- FAZ 22.1: Yönetici paneli (page6) "📁 Dosyalar Özeti" kartı.
      dosyalar-page.js'in PV_DOSYALAR_API köprüsünü kullanır — bu yüzden
-     ONDAN SONRA yüklenmeli. Rollback: bu satırı sil; page7'deki
+     ONDAN SONRA yüklenmeli. Rollback: bu satırı sil; page6'deki
      #mgrDosyalarOzet kartı boş kalır, başka hiçbir şey etkilenmez. -->
 <script src="js/ui/dosyalar-manager-summary.js?v=20260916"></script>
 <!-- END FAZ 19.0 -->
@@ -667,8 +667,8 @@ function getPrimRealId(u) {
 // ── HESAPLAYICI → PRİM SENKRON ─────────────────────────────
 // Prim sayfası açıkken hesaplayıcıdan gelen verileri yansıtır
 function syncPrimFromCalc() {
-  const page4 = document.getElementById('page4');
-  if (!page4 || !page4.classList.contains('active')) return;
+  const page3 = document.getElementById('page3');
+  if (!page3 || !page3.classList.contains('active')) return;
   if (!CALC_SYNC.timestamp) return;
 
   // Prim TTT seçimini hesaplayıcıyla eşleştir
@@ -946,6 +946,24 @@ function renderAiAsistan() {
       renderAutonomousDashboard('autonomousPlanningCard', _apeTtt);
     }
   } catch (_apeErr) { console.warn('[AI Saha Koçu] otomatik render hatası:', _apeErr.message); }
+
+  // AI KONSOLİDASYONU (kullanıcı isteği): bu iki kart eskiden Eczane
+  // sayfasının goEczaneSubTab() switch'inde, o alt-sekmeye tıklanınca lazy
+  // render ediliyordu — kartlar buraya taşındığı için tetikleme de buraya
+  // taşındı. Aynı window._pvAiPerfRendered / _pvDecisionRendered bayrakları
+  // kullanılıyor, render fonksiyonlarının kendisi değişmedi.
+  try {
+    if (!window._pvAiPerfRendered) {
+      window._pvAiPerfRendered = true;
+      if (window.LearningEngine) LearningEngine.renderAIPerformanceDashboard('aiPerfDashboard');
+    }
+  } catch (_apErr) { console.warn('[AI Tahmin Performansı] render hatası:', _apErr.message); }
+  try {
+    if (!window._pvDecisionRendered) {
+      window._pvDecisionRendered = true;
+      if (typeof renderAIDecisionCard === 'function') renderAIDecisionCard();
+    }
+  } catch (_adErr) { console.warn('[AI Karar Önerisi] render hatası:', _adErr.message); }
 }
 
 // PHASE2-STUB: buildTTTContext → js/ai/ai-context.js
@@ -1321,8 +1339,7 @@ function actAsRepresentative() {
   selEczaneTTT = ttt;
   if (typeof engineSelTTT !== 'undefined') { try { engineSelTTT = ttt; } catch (e) {} }
   if (typeof setAiTTT === 'function') { try { setAiTTT(ttt); } catch (e) {} }
-  goPage(6);
-  SoundFX?.click?.();
+  goPage(5);
 }
 window.actAsRepresentative = actAsRepresentative;
 
@@ -1655,7 +1672,7 @@ function renderEczaneContent() {
   }
 
   // PHASE 4.7 NOTU: "Bugünkü Akıllı Rota" bloğu buradan kaldırıldı —
-  // kart artık AI & Görev Motoru sayfasına (page5) taşındı, bkz.
+  // kart artık AI & Görev Motoru sayfasına (page4) taşındı, bkz.
   // js/ai/ai-engine.js _runEngineCore() içindeki renderTodayRouteCard çağrısı.
 
   // PHASE 4.8: AI Sales Coach V2 — Koç + Senaryo kartları
@@ -1763,9 +1780,7 @@ function toggleEczaneAcc(id) {
 // sadece "hangi panel görünür" ve "ilk açılışta bir kez render et" mantığı
 // var — eskiden accordion'un onclick'inde duran kod buraya taşındı.
 const ECZ_SUBTABS = [
-  'detay', 'top15_forecast', 'urun_analiz', 'route_plan_input',
-  'satis_sartlari', 'haber_takibi', 'ai_perf', 'ai_decision',
-  'launch_readiness'
+  'detay', 'top15_forecast', 'urun_analiz', 'route_plan_input'
 ];
 let _eczActiveSubTab = 0;
 
@@ -1800,6 +1815,42 @@ function goEczaneSubTab(idx) {
           window.RoutePlanInput.renderRoutePlanForm('routePlanFormContainer', { representative: _rpTTT });
         }
         break;
+    }
+  } catch (_e) {
+    console.warn('[EczaneSubTab] lazy-render hata (sessiz):', _e.message);
+  }
+
+  if (typeof SoundFX !== 'undefined') SoundFX.click();
+}
+
+// ── AYARLAR & REFERANS SAYFASI ALT-SEKMELERİ ────────────────
+// ECZ_SUBTABS/goEczaneSubTab() ile BİREBİR AYNI desen — Eczane'den ayrılan
+// 3 konfigürasyon/referans paneli burada. Varsayılan ('satis_sartlari')
+// eskiden Eczane'nin 5. sekmesiydi, render tetikleyicisi (window._pvSartlariRendered)
+// AYNEN korundu.
+const AYAR_SUBTABS = ['satis_sartlari', 'haber_takibi', 'launch_readiness'];
+let _ayarActiveSubTab = 0;
+
+function goAyarSubTab(idx) {
+  idx = Math.max(0, Math.min(AYAR_SUBTABS.length - 1, idx | 0));
+  _ayarActiveSubTab = idx;
+
+  AYAR_SUBTABS.forEach(function (key, i) {
+    const panel = document.getElementById('ayarsub_' + key);
+    if (panel) panel.style.display = (i === idx) ? 'block' : 'none';
+  });
+
+  const bar = document.querySelector('#page6 .eczsub-bar');
+  if (bar) {
+    Array.from(bar.querySelectorAll('.eczsub-tab')).forEach(function (btn, i) {
+      btn.classList.toggle('active', i === idx);
+    });
+  }
+  const sel = document.getElementById('ayarSubSelect');
+  if (sel) sel.value = String(idx);
+
+  try {
+    switch (AYAR_SUBTABS[idx]) {
       case 'satis_sartlari':
         if (!window._pvSartlariRendered) {
           window._pvSartlariRendered = true;
@@ -1812,18 +1863,6 @@ function goEczaneSubTab(idx) {
           if (typeof renderHaberTakibiPanel === 'function') renderHaberTakibiPanel('haberTakibiPanel');
         }
         break;
-      case 'ai_perf':
-        if (!window._pvAiPerfRendered) {
-          window._pvAiPerfRendered = true;
-          if (window.LearningEngine) LearningEngine.renderAIPerformanceDashboard('aiPerfDashboard');
-        }
-        break;
-      case 'ai_decision':
-        if (!window._pvDecisionRendered) {
-          window._pvDecisionRendered = true;
-          if (typeof renderAIDecisionCard === 'function') renderAIDecisionCard();
-        }
-        break;
       case 'launch_readiness':
         if (!window._pvLaunchRendered) {
           window._pvLaunchRendered = true;
@@ -1832,7 +1871,7 @@ function goEczaneSubTab(idx) {
         break;
     }
   } catch (_e) {
-    console.warn('[EczaneSubTab] lazy-render hata (sessiz):', _e.message);
+    console.warn('[AyarSubTab] lazy-render hata (sessiz):', _e.message);
   }
 
   if (typeof SoundFX !== 'undefined') SoundFX.click();
@@ -2064,7 +2103,7 @@ function renderLaunchReadinessCard() {
   if (badge) badge.textContent = onLansman.length + ' Lansman/Ramp-up';
 }
 
-// FAZ 6.8 — Takım Öğrenmesi Kartı (page5 yönetici)
+// FAZ 6.8 — Takım Öğrenmesi Kartı (page4 yönetici)
 function renderTeamLearningCard(forceTtt) {
   const el = document.getElementById('teamLearningCard');
   if (!el) return;
@@ -2108,7 +2147,7 @@ function renderTeamLearningCard(forceTtt) {
       </div>`;
     });
   }
-  // BUG DÜZELTMESİ (FAZ 13.4): Bu kart artık Yönetici sayfasında (page7)
+  // BUG DÜZELTMESİ (FAZ 13.4): Bu kart artık Yönetici sayfasında (page6)
   // yaşıyor ve bölge müdürü "Temsilci Brick Detayı" alanındaki
   // mgrTttSelect ile İSTEDİĞİ temsilciyi inceleyebiliyor. Eski kod burada
   // hâlâ "Genel Durum" sayfasının kendi seçim değişkeni olan global
@@ -2721,7 +2760,7 @@ function doLogin(){
     // FAZ 12.3 — rol bazlı görünürlük (LOGGED_IN_USER artık set)
     if(typeof applyRoleVisibility === 'function') { applyRoleVisibility(); }
     // FAZ 13.1 — ŞENOL YILMAZ (Bölge Müdürü) girişinde varsayılan sayfa
-    // "Genel Durum" (page0) DEĞİL, doğrudan "Yönetici" (page7) paneli
+    // "Genel Durum" (page0) DEĞİL, doğrudan "Yönetici" (page6) paneli
     // açılır — bölge müdürünün ekip özetini/kritik aksiyonları anında
     // görmesi için. Diğer tüm temsilciler için davranış DEĞİŞMEDİ
     // (varsayılan page0 — HTML'de zaten "active" olan sayfa).
@@ -3261,9 +3300,9 @@ function goPage(i){
   // tab-system.js mirrors them for reuse elsewhere.
   document.querySelectorAll('.page').forEach((p,j)=>p.classList.toggle('active',j===i));
   document.querySelectorAll('.nav-tab').forEach((t,j)=>t.classList.toggle('active',j===i));
-  for(let k=0;k<=9;k++){const el=document.getElementById('snav'+k);if(el)el.classList.toggle('active',k===i);}
+  for(let k=0;k<=8;k++){const el=document.getElementById('snav'+k);if(el)el.classList.toggle('active',k===i);}
   // ── Mobil tab bar güncelle ──────────────────────────────
-  for(let k=0;k<=9;k++){
+  for(let k=0;k<=8;k++){
     const btn=document.getElementById('mtb'+k);
     if(btn) btn.classList.toggle('active',k===i);
   }
@@ -3286,19 +3325,65 @@ function goPage(i){
   }
   // ────────────────────────────────────────────────────────
   if(window.innerWidth<=1024)closeSidebar();
+  // SAYFA YAPISI KONSOLİDASYONU (kullanıcı isteği — "daha profesyonel/business
+  // mantığına uygun yapı"). ADIM 3: Eczane'nin 7 alt-sekmesi, "her gün
+  // bakılan" (operasyonel) ve "ayar/referans" olarak ikiye ayrıldı — yeni
+  // "Ayarlar & Referans" sayfası (6) eklendi, Yönetici(6→7) ve Dosyalar(7→8)
+  // bir kaydı. "Performans" sayfasında varsayılan alt-sekme "Pazar Analizi"
+  // olduğu için renderPazar() burada AYNEN eskisi gibi doğrudan çağrılıyor;
+  // Eczane'de varsayılan "Detay Listesi" de renderEczane() içinde zaten
+  // render ediliyor. "Ayarlar & Referans"ta varsayılan alt-sekme
+  // ('satis_sartlari') ise goAyarSubTab(0) ile tetikleniyor (aşağıda).
   if(i===0)renderAna();
   else if(i===1)renderPazar();
-  else if(i===2)renderTakip();
-  else if(i===3){ initMigi1(); initMigi2(); }
-  else if(i===4){ buildPrimInputs(); syncPrimFromCalc(); }
-  else if(i===5){ if(typeof renderAiAsistan==='function') renderAiAsistan(); }
-  else if(i===6)renderEczane();
+  else if(i===2){ initMigi1(); initMigi2(); }
+  else if(i===3){ buildPrimInputs(); syncPrimFromCalc(); }
+  else if(i===4){ if(typeof renderAiAsistan==='function') renderAiAsistan(); }
+  else if(i===5)renderEczane();
+  else if(i===6){ if(typeof goAyarSubTab==='function') goAyarSubTab(_ayarActiveSubTab); }
   // FAZ 8.2 — Yönetici sekmesi
   else if(i===7){ if(typeof renderManagerHeroBanner==='function') renderManagerHeroBanner(); if(typeof renderManagerExtra==='function') renderManagerExtra(); /* FAZ 22.1 */ if(typeof renderDosyalarManagerSummary==='function') renderDosyalarManagerSummary(); }
-  // YTD TL&KUTU sayfası (Satış Takibi'nden sonra eklendi — bkz. js/ui/ytd-tl-page.js)
-  else if(i===8){ if(typeof initYtdTlPage==='function') initYtdTlPage(); }
   // FAZ 19.0 — Dosyalar sayfası (bkz. js/ui/dosyalar-page.js)
-  else if(i===9){ if(typeof renderDosyalarPage==='function') renderDosyalarPage(); }
+  else if(i===8){ if(typeof renderDosyalarPage==='function') renderDosyalarPage(); }
+}
+
+// ── PERFORMANS SAYFASI ALT-SEKMELERİ ────────────────────────
+// Eczane sayfasındaki ECZ_SUBTABS / goEczaneSubTab() ile BİREBİR AYNI desen.
+// Varsayılan ('pazar') zaten goPage(1) içinde render ediliyor; burada sadece
+// görünürlük değişimi + diğer ikisinin (takip, ytd) ilk tıklamada bir kez
+// render edilmesi var.
+const PERF_SUBTABS = ['pazar', 'takip', 'ytd'];
+let _perfActiveSubTab = 0;
+
+function goPerfSubTab(idx) {
+  idx = Math.max(0, Math.min(PERF_SUBTABS.length - 1, idx | 0));
+  _perfActiveSubTab = idx;
+  const bar = document.getElementById('perfSubBar');
+  if (bar) {
+    Array.from(bar.querySelectorAll('.eczsub-tab')).forEach((btn, i) => {
+      btn.classList.toggle('active', i === idx);
+    });
+  }
+  const sel = document.getElementById('perfSubSelect');
+  if (sel) sel.value = String(idx);
+  PERF_SUBTABS.forEach(function (key, i) {
+    const panel = document.getElementById('perfsub_' + key);
+    if (panel) panel.style.display = (i === idx) ? 'block' : 'none';
+  });
+  switch (PERF_SUBTABS[idx]) {
+    case 'takip':
+      if (!window._pvTakipRendered) {
+        window._pvTakipRendered = true;
+        if (typeof renderTakip === 'function') renderTakip();
+      }
+      break;
+    case 'ytd':
+      if (!window._pvYtdRendered) {
+        window._pvYtdRendered = true;
+        if (typeof initYtdTlPage === 'function') initYtdTlPage();
+      }
+      break;
+  }
 }
 
 // ── DARK MODE ────────────────────────────────────────────
@@ -3390,7 +3475,7 @@ function buildSideNav(){/* TTT picker is inside ana sayfa now */}
 // ═══════════════════════════════════════════════════════════
 function buildTTTPicker(){
   // FAZ 13.1 — Yönetici (ŞENOL YILMAZ) artık kendi ayrı "Yönetici" sayfasına
-  // (page7) sahip; "Genel Durum" temsilci seçim kartlarında görünmesine
+  // (page6) sahip; "Genel Durum" temsilci seçim kartlarında görünmesine
   // gerek yok — burası artık SADECE saha temsilcilerini listeler.
   // ALL_TTTS zaten Şenol Yılmaz'ı içermiyor (bkz. data-loader.js), ama
   // FAZ 13.2 sağlamlaştırması: CSV'den gelen ham ad beklenmedik bir yazım
@@ -4096,14 +4181,14 @@ function renderManagerHeroBanner() {
     </div>`;
 }
 
-// ── openBolgeGeneliMotoru — AI Asistan (page5) sayfasındaki "AI Saha
+// ── openBolgeGeneliMotoru — AI Asistan (page4) sayfasındaki "AI Saha
 // Komutanı" görev motorunu, temsilci olarak ŞENOL YILMAZ (bölge geneli)
 // seçili şekilde doğrudan açar. Temsilci seçim listelerinden kaldırılan
 // "ŞENOL YILMAZ" seçeneğinin yerini alır (bkz. buildTTTPicker() yorumu). ──
 function openBolgeGeneliMotoru() {
   if (typeof SoundFX !== 'undefined') SoundFX.click();
   selTTT = 'ŞENOL YILMAZ';
-  if (typeof goPage === 'function') goPage(5);
+  if (typeof goPage === 'function') goPage(4);
   if (typeof setAiTTT === 'function') setAiTTT('ŞENOL YILMAZ');
 
   _safeTimeout(() => {
@@ -6112,31 +6197,27 @@ function _buildEczaneDrawerRefresh(){
       </button>
       <button class="nav-tab" id="ntab1" onclick="goPage(1)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-        <span class="tab-label">Pazar Analizi</span>
+        <span class="tab-label">Performans</span>
       </button>
-      <button class="nav-tab" id="ntab2" onclick="goPage(2)">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
-        <span class="tab-label">Satış Takibi</span>
-      </button>
-      <button class="nav-tab" id="ntab8" onclick="goPage(8)">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>
-        <span class="tab-label">YTD TL&amp;KUTU</span>
-      </button>
-      <button class="nav-tab pv-hidden-ui" id="ntab3" onclick="goPage(3)">
+      <button class="nav-tab pv-hidden-ui" id="ntab2" onclick="goPage(2)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         <span class="tab-label">MI & GI</span>
       </button>
-      <button class="nav-tab" id="ntab4" onclick="goPage(4)">
+      <button class="nav-tab" id="ntab3" onclick="goPage(3)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M8 10h8M8 14h5"/></svg>
         <span class="tab-label">Prim Hesapla</span>
       </button>
-      <button class="nav-tab pv-hidden-ui" id="ntab5" onclick="goPage(5)">
+      <button class="nav-tab pv-hidden-ui" id="ntab4" onclick="goPage(4)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
         <span class="tab-label">AI & Motor</span>
       </button>
-      <button class="nav-tab" id="ntab6" onclick="goPage(6)">
+      <button class="nav-tab" id="ntab5" onclick="goPage(5)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 3h18v18H3z"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
         <span class="tab-label">Eczane</span>
+      </button>
+      <button class="nav-tab" id="ntab6" onclick="goPage(6)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span class="tab-label">Ayarlar &amp; Referans</span>
       </button>
       <!-- FAZ 8.2 — Yönetici sekmesi -->
       <button class="nav-tab" id="ntab7" onclick="goPage(7)">
@@ -6144,7 +6225,7 @@ function _buildEczaneDrawerRefresh(){
         <span class="tab-label">Yönetici</span>
       </button>
       <!-- FAZ 19.0 — Dosyalar sekmesi -->
-      <button class="nav-tab" id="ntab9" onclick="goPage(9)">
+      <button class="nav-tab" id="ntab8" onclick="goPage(8)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
         <span class="tab-label">Dosyalar</span>
       </button>
@@ -6161,35 +6242,31 @@ function _buildEczaneDrawerRefresh(){
   </button>
   <button class="mtb-btn" id="mtb1" onclick="goPage(1)">
     <span class="mtb-icon"><i class="fas fa-search-dollar"></i></span>
-    <span class="mtb-label">Pazar</span>
+    <span class="mtb-label">Performans</span>
   </button>
-  <button class="mtb-btn" id="mtb2" onclick="goPage(2)">
-    <span class="mtb-icon"><i class="fas fa-chart-line"></i></span>
-    <span class="mtb-label">Satış</span>
-  </button>
-  <button class="mtb-btn" id="mtb8" onclick="goPage(8)">
-    <span class="mtb-icon"><i class="fas fa-chart-area"></i></span>
-    <span class="mtb-label">YTD TL&amp;KUTU</span>
-  </button>
-  <button class="mtb-btn pv-hidden-ui" id="mtb3" onclick="goPage(3)">
+  <button class="mtb-btn pv-hidden-ui" id="mtb2" onclick="goPage(2)">
     <span class="mtb-icon"><i class="fas fa-map-marker-alt"></i></span>
     <span class="mtb-label">MI&GI</span>
   </button>
-  <button class="mtb-btn" id="mtb4" onclick="goPage(4)">
+  <button class="mtb-btn" id="mtb3" onclick="goPage(3)">
     <span class="mtb-icon"><i class="fas fa-coins"></i></span>
     <span class="mtb-label">Prim</span>
   </button>
-  <button class="mtb-btn pv-hidden-ui" id="mtb5" onclick="goPage(5)">
+  <button class="mtb-btn pv-hidden-ui" id="mtb4" onclick="goPage(4)">
     <span class="mtb-icon"><i class="fas fa-brain"></i></span>
     <span class="mtb-label">AI</span>
   </button>
-  <button class="mtb-btn" id="mtb6" onclick="goPage(6)">
+  <button class="mtb-btn" id="mtb5" onclick="goPage(5)">
     <span class="mtb-icon"><i class="fas fa-clinic-medical"></i></span>
     <span class="mtb-label">Eczane</span>
   </button>
+  <button class="mtb-btn" id="mtb6" onclick="goPage(6)">
+    <span class="mtb-icon"><i class="fas fa-sliders-h"></i></span>
+    <span class="mtb-label">Ayarlar</span>
+  </button>
   <!-- FAZ 8.2 — Yönetici sekmesi (mobil) — eskiden eksikti: goPage() zaten
-       mtb7'yi arıyordu (k<=7 döngüsü) ve .mtb-indicator CSS'i 8 sütuna göre
-       hesaplanmıştı (width:calc(100%/8)), ama bu buton hiç eklenmemişti —
+       mtb7'yi arıyordu (k<=8 döngüsü) ve .mtb-indicator CSS'i sütun sayısına göre
+       hesaplanıyordu, ama bu buton hiç eklenmemişti —
        mobilde Yönetici sayfasına ULAŞILACAK HİÇBİR YOL yoktu. RoleVisibility
        ile snav7 ile aynı şekilde sadece Yönetici rolüne gösterilir. -->
   <button class="mtb-btn" id="mtb7" onclick="goPage(7)">
@@ -6197,7 +6274,7 @@ function _buildEczaneDrawerRefresh(){
     <span class="mtb-label">Yönetici</span>
   </button>
   <!-- FAZ 19.0 — Dosyalar sekmesi (mobil) -->
-  <button class="mtb-btn" id="mtb9" onclick="goPage(9)">
+  <button class="mtb-btn" id="mtb8" onclick="goPage(8)">
     <span class="mtb-icon"><i class="fas fa-folder-open"></i></span>
     <span class="mtb-label">Dosyalar</span>
   </button>
@@ -6255,32 +6332,29 @@ function _buildEczaneDrawerRefresh(){
     <span class="nav-icon"><i class="fas fa-chart-pie"></i></span><span>Genel Durum</span>
   </div>
   <div class="nav-item pg" id="snav1" onclick="goPage(1)">
-    <span class="nav-icon"><i class="fas fa-search-dollar"></i></span><span>Pazar Analizi</span>
+    <span class="nav-icon"><i class="fas fa-search-dollar"></i></span><span>Performans</span>
   </div>
-  <div class="nav-item pg" id="snav2" onclick="goPage(2)">
-    <span class="nav-icon"><i class="fas fa-chart-line"></i></span><span>Satış Takibi</span>
-  </div>
-  <div class="nav-item pg" id="snav8" onclick="goPage(8)">
-    <span class="nav-icon"><i class="fas fa-chart-area"></i></span><span>YTD TL&amp;KUTU</span>
-  </div>
-  <div class="nav-item pg pv-hidden-ui" id="snav3" onclick="goPage(3)">
+  <div class="nav-item pg pv-hidden-ui" id="snav2" onclick="goPage(2)">
     <span class="nav-icon"><i class="fas fa-map-marker-alt"></i></span><span>MI &amp; GI Takibi</span>
   </div>
-  <div class="nav-item pg" id="snav4" onclick="goPage(4)">
+  <div class="nav-item pg" id="snav3" onclick="goPage(3)">
     <span class="nav-icon"><i class="fas fa-coins"></i></span><span>Prim Hesapla</span>
   </div>
-  <div class="nav-item pg pv-hidden-ui" id="snav5" onclick="goPage(5)">
+  <div class="nav-item pg pv-hidden-ui" id="snav4" onclick="goPage(4)">
     <span class="nav-icon"><i class="fas fa-brain"></i></span><span>AI & Görev Motoru</span>
   </div>
-  <div class="nav-item pg" id="snav6" onclick="goPage(6)">
+  <div class="nav-item pg" id="snav5" onclick="goPage(5)">
     <span class="nav-icon"><i class="fas fa-clinic-medical"></i></span><span>Eczane Satış</span>
+  </div>
+  <div class="nav-item pg" id="snav6" onclick="goPage(6)">
+    <span class="nav-icon"><i class="fas fa-sliders-h"></i></span><span>Ayarlar &amp; Referans</span>
   </div>
   <!-- FAZ 8.2 — Yönetici Sekmesi (FAZ 6.9 / executive-engine.js) -->
   <div class="nav-item pg" id="snav7" onclick="goPage(7)">
     <span class="nav-icon"><i class="fas fa-user-tie"></i></span><span>Yönetici</span>
   </div>
   <!-- FAZ 19.0 — Dosyalar Sekmesi -->
-  <div class="nav-item pg" id="snav9" onclick="goPage(9)">
+  <div class="nav-item pg" id="snav8" onclick="goPage(8)">
     <span class="nav-icon"><i class="fas fa-folder-open"></i></span><span>Dosyalar</span>
   </div>
 
@@ -6455,8 +6529,38 @@ function _buildEczaneDrawerRefresh(){
   </div>
 </div>
 
-<!-- ══════ PAGE 1: PAZAR ANALİZİ ══════ -->
+<!-- ══════ PAGE 1: PERFORMANS (Pazar Analizi + Satış Takibi + YTD TL&KUTU) ══════ -->
 <div class="page" id="page1">
+  <!-- PERFORMANS SAYFASI KONSOLİDASYONU (kullanıcı isteği — "sistemin sayfa
+       yapısı karışık, daha profesyonel/business mantığına uygun yapılsın").
+       Eskiden 3 ayrı üst-seviye sayfaydı: Pazar Analizi (page1), Satış
+       Takibi (page2), YTD TL&KUTU (page8) — üçü de "performansımı nasıl
+       takip ediyorum" sorusuna cevap veriyordu, sadece farklı açılardan.
+       Şimdi tek "Performans" sayfası, 3 alt-sekme (Eczane sayfasındaki
+       eczsub-tab/ECZ_SUBTABS deseninin BİREBİR AYNISI — bkz. goPerfSubTab()
+       ve PERF_SUBTABS aşağıda). Her alt-sekmenin kendi render fonksiyonu
+       (renderPazar/renderTakip/initYtdTlPage) ve kendi filtre state'i
+       (selTTT_p1 vb.) AYNEN korundu — sadece hangi panelin GÖRÜNÜR olduğu
+       değişti, veri/hesaplama mantığına dokunulmadı.
+       Rollback: aşağıdaki 3 perfsub-panel'i eski 3 ayrı sayfa (div.page)
+       olarak geri ayırmak + nav/goPage numaralarını eski haline almak
+       yeterli (bkz. bu değişiklikle birlikte gelen sayfa-numarası eşleme
+       tablosu). -->
+  <div class="eczsub-bar" id="perfSubBar">
+    <button type="button" class="eczsub-tab active" onclick="goPerfSubTab(0)">📊 Pazar Analizi</button>
+    <button type="button" class="eczsub-tab" onclick="goPerfSubTab(1)">📈 Satış Takibi</button>
+    <button type="button" class="eczsub-tab" onclick="goPerfSubTab(2)">📉 YTD TL&amp;KUTU</button>
+  </div>
+  <div class="eczsub-select-wrap">
+    <select class="eczsub-select" id="perfSubSelect" onchange="goPerfSubTab(parseInt(this.value,10))">
+      <option value="0">📊 Pazar Analizi</option>
+      <option value="1">📈 Satış Takibi</option>
+      <option value="2">📉 YTD TL&amp;KUTU</option>
+    </select>
+  </div>
+
+  <!-- ═══ 1. Pazar Analizi (varsayılan, açılışta görünür) ═══ -->
+  <div class="eczsub-panel" id="perfsub_pazar">
   <!-- TOP STICKY FILTER BAR -->
   <div class="top-filter-bar">
     <div id="pazarTopFilterBar">
@@ -6514,10 +6618,10 @@ function _buildEczaneDrawerRefresh(){
       <div id="marketShareCard"></div>
     </div>
   </div>
-</div>
+  </div><!-- /perfsub_pazar -->
 
-<!-- ══════ PAGE 2: SATIŞ TAKİBİ ══════ -->
-<div class="page" id="page2">
+  <!-- ═══ 2. Satış Takibi ═══ -->
+  <div class="eczsub-panel" id="perfsub_takip" style="display:none">
   <!-- TOP STICKY FILTER BAR -->
   <div class="top-filter-bar">
     <div id="takipTopFilterBar">
@@ -6606,11 +6710,85 @@ function _buildEczaneDrawerRefresh(){
       </table>
     </div>
   </div>
-</div>
+  </div><!-- /perfsub_takip -->
+
+  <!-- ═══ 3. YTD TL&KUTU ═══
+       Kaynak: YTD_TL.csv (bkz. js/data/ytd-tl-loader.js) — dönemsel olarak
+       https://github.com/yilmazusta28/aslan.samsun.portal/blob/main/YTD_TL.csv
+       adresinde güncellenir. Filtreler: Dönem (YTD/1-6.Dönem/1-2.Kompanzasyon),
+       Ürün (Toplam + 5 ürün) ve Temsilci (8 temsilci). NATIONAL ve ŞENOL
+       YILMAZ satırları kullanıcı isteğiyle TÜM filtrelerde standart olarak
+       (kilitli/her zaman görünür) gösterilir — bkz. js/ui/ytd-tl-page.js -->
+  <div class="eczsub-panel" id="perfsub_ytd" style="display:none">
+  <div style="padding:16px">
+    <!-- TOP STICKY FILTER BAR — Eczane Satış sayfasıyla AYNI görsel desen
+         (mf-select kutuları + Filtrele butonu + drawer). -->
+    <div class="top-filter-bar">
+      <div class="filter-row">
+        <div class="mf-select" id="ytdTlMfBirim" onclick="toggleMfDrawer('ytdTlDrawer')">
+          <div class="mf-icon">📐</div>
+          <div class="mf-content">
+            <div class="mf-label">Birim</div>
+            <div class="mf-value" id="ytdTlMfBirimVal">TL</div>
+          </div>
+          <div class="mf-arrow">▼</div>
+        </div>
+        <div class="mf-select active-box" id="ytdTlMfDonem" onclick="toggleMfDrawer('ytdTlDrawer')">
+          <div class="mf-icon">📅</div>
+          <div class="mf-content">
+            <div class="mf-label">Dönem</div>
+            <div class="mf-value" id="ytdTlMfDonemVal">—</div>
+          </div>
+          <div class="mf-arrow">▼</div>
+        </div>
+        <div class="mf-select" id="ytdTlMfUrun" onclick="toggleMfDrawer('ytdTlDrawer')">
+          <div class="mf-icon">💊</div>
+          <div class="mf-content">
+            <div class="mf-label">Ürün</div>
+            <div class="mf-value" id="ytdTlMfUrunVal">Tümü</div>
+          </div>
+          <div class="mf-arrow">▼</div>
+        </div>
+        <div class="mf-select" id="ytdTlMfTemsilci" onclick="toggleMfDrawer('ytdTlDrawer')">
+          <div class="mf-icon">👤</div>
+          <div class="mf-content">
+            <div class="mf-label">Temsilci</div>
+            <div class="mf-value" id="ytdTlMfTemsilciVal">—</div>
+          </div>
+          <div class="mf-arrow">▼</div>
+        </div>
+        <button class="mf-detail-btn" onclick="toggleMfDrawer('ytdTlDrawer')">
+          <i class="fas fa-sliders-h"></i> Filtrele
+        </button>
+        <span class="card-badge" id="ytdTlBadge" style="margin-left:auto">—</span>
+      </div>
+      <div class="active-filters" id="ytdTlChips" style="display:none"></div>
+    </div>
+
+    <div id="ytdTlWarn" style="display:none"></div>
+
+    <div class="ytdtl-summary-row" id="ytdTlSummary"></div>
+
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-title"><i class="fas fa-chart-area"></i> YTD TL&amp;KUTU — Hedef / Satış / Gerçekleşme</span>
+      </div>
+      <div class="card-body-0 scroll-x">
+        <table class="tbl" id="ytdTlTable" style="min-width:560px">
+          <thead><tr>
+            <th>Temsilci</th><th id="ytdTlColHedef">Hedef (TL)</th><th id="ytdTlColSatis">Satış (TL)</th><th>Gerçekleşme %</th>
+          </tr></thead>
+          <tbody id="ytdTlBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  </div><!-- /perfsub_ytd -->
+</div><!-- /page1 (Performans) -->
 
 
-<!-- ══════ PAGE 3: MI & GI ANALİZİ ══════ -->
-<div class="page" id="page3">
+<!-- ══════ PAGE 2: MI & GI ANALİZİ ══════ -->
+<div class="page" id="page2">
 
   <!-- ── BÖLÜM 1: TOPLAM ── -->
   <div class="card" style="margin-bottom:16px">
@@ -6670,8 +6848,8 @@ function _buildEczaneDrawerRefresh(){
 
 </div>
 
-<!-- ══════ PAGE 4: PRİM HESAPLAMA ══════ -->
-<div class="page" id="page4">
+<!-- ══════ PAGE 3: PRİM HESAPLAMA ══════ -->
+<div class="page" id="page3">
 
   <!-- Senkron Bilgi Bandı -->
   <div id="primSyncBadge" style="border-radius:8px;padding:8px 14px;font-size:11px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;background:#FFFBEB;border:1px solid #FDE68A">
@@ -6737,8 +6915,8 @@ function _buildEczaneDrawerRefresh(){
   </div>
 </div>
 
-<!-- ══════ PAGE 5: AI ASISTAN + GÖREV MOTORU ══════ -->
-<div class="page" id="page5">
+<!-- ══════ PAGE 4: AI ASISTAN + GÖREV MOTORU ══════ -->
+<div class="page" id="page4">
 
   <!-- ═══ HERO BAŞLIK (Motor'dan alındı) ═══ -->
   <div class="engine-hero">
@@ -6962,13 +7140,13 @@ function _buildEczaneDrawerRefresh(){
   </div><!-- /tab card -->
 
   <!-- FAZ 13.0 DÜZELTMESİ: "Takım Öğrenmesi & Peer Benchmark" kartı buradan
-       (AI Asistan / page5, her temsilcinin gördüğü sayfa) Yönetici Sekmesine
-       (page7) TAŞINDI — kart ekip-geneli peer benchmark içerdiği için sadece
+       (AI Asistan / page4, her temsilcinin gördüğü sayfa) Yönetici Sekmesine
+       (page6) TAŞINDI — kart ekip-geneli peer benchmark içerdiği için sadece
        bölge müdürünün görmesi gereken bir yönetici raporudur; kendi comment'i
-       zaten "yönetici ekranı" diyordu ama fiziksel olarak page5'teydi.
+       zaten "yönetici ekranı" diyordu ama fiziksel olarak page4'teydi.
        Rollback: bu yorumu silip aşağıdaki orijinal div bloğunu geri
        yapıştırmak yeterli — renderTeamLearningCard() ve teamLearningCard id'si
-       değişmedi, sadece page7'de yeniden konumlandı. -->
+       değişmedi, sadece page6'de yeniden konumlandı. -->
 
   <!-- PHASE 5.7: Autonomous Planning Engine — AI Saha Koçu
        AUDIT2 Bulgu 3 düzeltmesi: motor (js/ai/autonomous-planning-engine.js,
@@ -6995,10 +7173,43 @@ function _buildEczaneDrawerRefresh(){
   </div>
   <!-- END PHASE 5.7 Autonomous Planning Engine -->
 
-</div><!-- /page5 -->
+  <!-- AI KONSOLİDASYONU (kullanıcı isteği — daha profesyonel/tutarlı sayfa
+       yapısı): "AI Tahmin Performansı" ve "AI Karar Önerisi" kartları,
+       eskiden Eczane Satış sayfasının içine gömülü iki ayrı gizli alt-sekme
+       idi (eczsub_ai_perf, eczsub_ai_decision) — AI ile ilgili her şeyin
+       tek bir sayfada ("AI & Motor") toplanması için buraya taşındı.
+       Render tetikleyicileri de goEczaneSubTab() switch'inden buraya,
+       renderAiAsistan() içine taşındı (bkz. aşağıdaki fonksiyon) — aynı
+       window._pvAiPerfRendered / _pvDecisionRendered bayrakları, aynı
+       LearningEngine.renderAIPerformanceDashboard() / renderAIDecisionCard()
+       çağrıları, sadece TETİKLENDİĞİ YER değişti. Rollback: bu iki kartı
+       kesip eczsub_ai_perf/eczsub_ai_decision panelleri olarak Eczane
+       sayfasına geri yapıştırmak + renderAiAsistan()'daki ilgili bloğu
+       silmek yeterli; render fonksiyonlarının kendisi değişmedi. -->
+  <div class="card mb16">
+    <div class="card-hd">
+      <span class="card-title">🧠 AI Tahmin Performansı</span>
+      <span id="acc_ai_perf_badge" class="card-badge" style="margin-left:auto;background:#F3E8FF;color:#7C3AED;font-size:9px">Bekleniyor</span>
+    </div>
+    <div id="acc_ai_perf_body" class="card-body-0">
+      <div id="aiPerfDashboard"></div>
+    </div>
+  </div>
 
-<!-- ══════ PAGE 6: ECZANE SATIŞ TAKİBİ ══════ -->
-<div class="page" id="page6">
+  <div class="card mb16">
+    <div class="card-hd">
+      <span class="card-title">🎯 AI Karar Önerisi</span>
+      <span class="card-badge" id="acc_ai_decision_badge" style="margin-left:auto;background:#EDE9FE;color:#6D28D9">AI Öneri</span>
+    </div>
+    <div class="card-body-0" id="acc_ai_decision_body">
+      <div id="aiDecisionCard"></div>
+    </div>
+  </div>
+
+</div><!-- /page4 -->
+
+<!-- ══════ PAGE 5: ECZANE SATIŞ TAKİBİ ══════ -->
+<div class="page" id="page5">
   <!-- FAZ 18.1 — Yönetici "Temsilci Adına İşlem Yap" göstergesi.
        Yönetici (YONETICI rolü), Yönetici panelindeki "Bu Temsilci Adına
        İşlem Yap" butonuyla buraya geldiğinde selEczaneTTT kendi adı
@@ -7093,34 +7304,26 @@ function _buildEczaneDrawerRefresh(){
   <!-- Özet kartları -->
   <div id="eczaneSummaryCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:16px"></div>
 
-  <!-- FAZ 13.x: Eczane Sayfası Alt Sekmeleri (sub-tabs)
-       Eskiden bu sayfada 8 accordion art arda dizili duruyordu + her zaman
-       açık "Eczane Detay Listesi" tablosu. Kullanıcı isteğiyle (çok fazla
-       veri tek sayfada) hepsi ayrı alt sayfalara (tab) bölündü. Masaüstünde
-       yatay sekme çubuğu (.eczsub-bar), mobilde (≤768px, bkz. css/style.css
+  <!-- FAZ 13.x → SAYFA YAPISI KONSOLİDASYONU (kullanıcı isteği): bu sayfa
+       eskiden 7 alt-sekme taşıyordu — operasyonel (Detay/Top15/Ürün
+       Analizi/Rota) ile konfigürasyon+referans (Satış Şartları/Piyasa
+       Haberleri/Lansman Hazırlık) aynı sayfada karışıktı. Konfigürasyon+
+       referans olanlar "Ayarlar & Referans" (yeni, ayrı) sayfasına taşındı
+       — bkz. o sayfanın başındaki yorum. Bu sayfada artık sadece "her gün
+       bakılan" 4 alt-sekme kaldı. Masaüstünde yatay sekme çubuğu
+       (.eczsub-bar), mobilde (≤768px, bkz. css/style.css
        @media(max-width:768px)) açılır seçici (#eczSubSelect) gösterilir —
-       ikisi de goEczaneSubTab(idx)'i çağırır (index.html: goEczaneSubTab).
-       Her panelin İÇ İÇERİĞİ (id'ler: satisKosullariPanel, haberTakibiPanel,
-       aiPerfDashboard, eczaneUrunAnalizKarti,
-       routePlanFormContainer, aiDecisionCard,
-       launchReadinessCard, eczaneTable/eczaneBrickChart/eczaneUrunChart)
+       ikisi de goEczaneSubTab(idx)'i çağırır. Her panelin İÇ İÇERİĞİ
        DEĞİŞMEDİ — render fonksiyonları ve renderEczaneContent()'teki
-       filtre-değişince-yenile mantığı (window._pvXRendered bayrakları,
-       acc_X_badge id'leri) AYNEN korunuyor, sadece "accordion aç/kapa"
-       yerine "sekme değiştir" ile tetikleniyor (bkz. goEczaneSubTab()).
-       Rollback: bu bloğu silip PATCH_GUIDE.md / git geçmişinden önceki
-       accordion sürümünü geri yapıştırmak yeterli; hiçbir render
-       fonksiyonu veya veri motoru değişmedi. -->
+       filtre-değişince-yenile mantığı AYNEN korunuyor.
+       Rollback: taşınan 3 paneli (satis_sartlari, haber_takibi,
+       launch_readiness) buraya geri taşımak + ECZ_SUBTABS'e eklemek +
+       "Ayarlar & Referans" sayfasını/nav girişini silmek yeterli. -->
   <div class="eczsub-bar" role="tablist">
     <button type="button" class="eczsub-tab active" onclick="goEczaneSubTab(0)">📋 Eczane Detay Listesi</button>
     <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(1)">📦 Top 15 Sipariş Tahmini</button>
     <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(2)">📦 Ürün Sipariş Analizi</button>
     <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(3)">📝 Haftalık Rota Planım</button>
-    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(4)">⚙️ Satış Şartları Yönetimi</button>
-    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(5)">📰 Piyasa Haberleri</button>
-    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(6)">🧠 AI Tahmin Performansı</button>
-    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(7)">🎯 AI Karar Önerisi</button>
-    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(8)">🚀 Lansman Hazırlık</button>
   </div>
   <div class="eczsub-select-wrap">
     <select class="eczsub-select" id="eczSubSelect" onchange="goEczaneSubTab(parseInt(this.value,10))">
@@ -7128,11 +7331,6 @@ function _buildEczaneDrawerRefresh(){
       <option value="1">📦 Top 15 Sipariş Tahmini</option>
       <option value="2" class="pv-hidden-ui">📦 Eczane Ürün Sipariş Analizi</option>
       <option value="3">📝 Haftalık Rota Planım (Manuel)</option>
-      <option value="4">⚙️ Satış Şartları Yönetimi</option>
-      <option value="5">📰 Piyasa Haberleri ve Özel Durumlar</option>
-      <option value="6" class="pv-hidden-ui">🧠 AI Tahmin Performansı</option>
-      <option value="7" class="pv-hidden-ui">🎯 AI Karar Önerisi</option>
-      <option value="8" class="pv-hidden-ui">🚀 Lansman Hazırlık</option>
     </select>
   </div>
 
@@ -7235,9 +7433,37 @@ function _buildEczaneDrawerRefresh(){
       </div>
     </div>
   </div>
+</div>
 
-  <!-- ═══ 5. Satış Şartları Yönetimi ═══ -->
-  <div class="eczsub-panel" id="eczsub_satis_sartlari" style="display:none">
+<!-- ══════ PAGE 6: AYARLAR & REFERANS ══════
+     SAYFA YAPISI KONSOLİDASYONU (kullanıcı isteği — "daha profesyonel/business
+     mantığına uygun yapı"): Eczane sayfasının konfigürasyon+referans nitelikli
+     3 alt-sekmesi (Satış Şartları Yönetimi, Piyasa Haberleri, Lansman
+     Hazırlık) buraya taşındı — bunlar "her gün bakılan" değil, "ayar
+     değiştirilecekse veya referans gerektiğinde bakılan" içerikler, o yüzden
+     günlük operasyonel akıştan (Eczane) ayrıldı. Desen AYNEN Eczane'deki
+     eczsub-bar/ECZ_SUBTABS ile birebir aynı (bkz. AYAR_SUBTABS/goAyarSubTab()
+     aşağıda) — sadece isim/dizi farklı. İç içerik id'leri (satisKosullariPanel,
+     haberTakibiPanel, launchReadinessCard) ve render fonksiyonları AYNEN
+     korundu.
+     Rollback: bu sayfayı silip 3 paneli Eczane'nin ECZ_SUBTABS'ine geri
+     eklemek + nav/goPage numaralarını bir öncekine kaydırmak yeterli. -->
+<div class="page" id="page6">
+  <div class="eczsub-bar" role="tablist">
+    <button type="button" class="eczsub-tab active" onclick="goAyarSubTab(0)">⚙️ Satış Şartları Yönetimi</button>
+    <button type="button" class="eczsub-tab" onclick="goAyarSubTab(1)">📰 Piyasa Haberleri</button>
+    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goAyarSubTab(2)">🚀 Lansman Hazırlık</button>
+  </div>
+  <div class="eczsub-select-wrap">
+    <select class="eczsub-select" id="ayarSubSelect" onchange="goAyarSubTab(parseInt(this.value,10))">
+      <option value="0">⚙️ Satış Şartları Yönetimi</option>
+      <option value="1">📰 Piyasa Haberleri ve Özel Durumlar</option>
+      <option value="2" class="pv-hidden-ui">🚀 Lansman Hazırlık</option>
+    </select>
+  </div>
+
+  <!-- ═══ 1. Satış Şartları Yönetimi ═══ -->
+  <div class="eczsub-panel" id="ayarsub_satis_sartlari">
     <div class="card mb16">
       <div class="card-hd">
         <span class="card-title">⚙️ Satış Şartları Yönetimi</span>
@@ -7249,8 +7475,8 @@ function _buildEczaneDrawerRefresh(){
     </div>
   </div>
 
-  <!-- ═══ 6. Piyasa Haberleri ve Özel Durumlar ═══ -->
-  <div class="eczsub-panel" id="eczsub_haber_takibi" style="display:none">
+  <!-- ═══ 2. Piyasa Haberleri ve Özel Durumlar ═══ -->
+  <div class="eczsub-panel" id="ayarsub_haber_takibi" style="display:none">
     <div class="card mb16">
       <div class="card-hd">
         <span class="card-title">📰 Piyasa Haberleri & Özel Durumlar</span>
@@ -7262,34 +7488,8 @@ function _buildEczaneDrawerRefresh(){
     </div>
   </div>
 
-  <!-- ═══ 7. AI Tahmin Performansı ═══ -->
-  <div class="eczsub-panel" id="eczsub_ai_perf" style="display:none">
-    <div class="card mb16">
-      <div class="card-hd">
-        <span class="card-title">🧠 AI Tahmin Performansı</span>
-        <span id="acc_ai_perf_badge" class="card-badge" style="margin-left:auto;background:#F3E8FF;color:#7C3AED;font-size:9px">Bekleniyor</span>
-      </div>
-      <div id="acc_ai_perf_body" class="card-body-0">
-        <div id="aiPerfDashboard"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ 8. AI Karar Önerisi ═══ -->
-  <div class="eczsub-panel" id="eczsub_ai_decision" style="display:none">
-    <div class="card mb16">
-      <div class="card-hd">
-        <span class="card-title">🎯 AI Karar Önerisi</span>
-        <span class="card-badge" id="acc_ai_decision_badge" style="margin-left:auto;background:#EDE9FE;color:#6D28D9">AI Öneri</span>
-      </div>
-      <div class="card-body-0" id="acc_ai_decision_body">
-        <div id="aiDecisionCard"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ 9. Lansman Hazırlık ═══ -->
-  <div class="eczsub-panel" id="eczsub_launch_readiness" style="display:none">
+  <!-- ═══ 3. Lansman Hazırlık ═══ -->
+  <div class="eczsub-panel" id="ayarsub_launch_readiness" style="display:none">
     <div class="card mb16">
       <div class="card-hd">
         <span class="card-title">🚀 Lansman Hazırlık</span>
@@ -7455,11 +7655,11 @@ function _buildEczaneDrawerRefresh(){
     </div>
 
     <!-- FAZ 13.0 DÜZELTMESİ: "Takım Öğrenmesi & Peer Benchmark" kartı buradan
-         (AI Asistan / page5, her temsilcinin gördüğü sayfa) Yönetici Sekmesine
-         (page7) TAŞINDI — kart ekip-geneli peer benchmark içerdiği için sadece
+         (AI Asistan / page4, her temsilcinin gördüğü sayfa) Yönetici Sekmesine
+         (page6) TAŞINDI — kart ekip-geneli peer benchmark içerdiği için sadece
          bölge müdürünün görmesi gereken bir yönetici raporudur; kendi comment'i
-         zaten "yönetici ekranı" diyordu ama fiziksel olarak page5'teydi.
-         Rollback: bu kartı silmek ve page5'teki eski konumuna geri koymak
+         zaten "yönetici ekranı" diyordu ama fiziksel olarak page4'teydi.
+         Rollback: bu kartı silmek ve page4'teki eski konumuna geri koymak
          yeterli — renderTeamLearningCard() ve teamLearningCard id'si değişmedi. -->
     <div class="card mb16" id="acc_team_learning_exec">
       <div class="card-hd" onclick="const p=this.nextElementSibling;const open=p.style.display==='none';p.style.display=open?'block':'none';if(open)renderTeamLearningCard();">
@@ -7590,7 +7790,7 @@ function _buildEczaneDrawerRefresh(){
       <div id="sgList" style="margin-top:12px"></div>
     </div>
 
-    <!-- ═══ FAZ 22.1 — Dosyalar Özeti (page9 › Dosyalar sayfası kayıtları) ═══
+    <!-- ═══ FAZ 22.1 — Dosyalar Özeti (page8 › Dosyalar sayfası kayıtları) ═══
          Temsilcilerin "Dosyalar" sayfasından girdiği Temsil Masraf / Planlanan
          & Gerçekleşen Merkez Ödeme / Kongre kayıtlarının temsilci bazında
          adet + toplam masraf özeti. Salt okunur; "Detay →" Dosyalar sayfasına
@@ -7653,83 +7853,10 @@ function _buildEczaneDrawerRefresh(){
   </div>
 </div>
 
-<!-- ══════ PAGE 8: YTD TL&KUTU (Satış Takibi'nden sonra eklendi) ══════
-     Kaynak: YTD_TL.csv (bkz. js/data/ytd-tl-loader.js) — dönemsel olarak
-     https://github.com/yilmazusta28/aslan.samsun.portal/blob/main/YTD_TL.csv
-     adresinde güncellenir. Filtreler: Dönem (YTD/1-6.Dönem/1-2.Kompanzasyon),
-     Ürün (Toplam + 5 ürün) ve Temsilci (8 temsilci). NATIONAL ve ŞENOL
-     YILMAZ satırları kullanıcı isteğiyle TÜM filtrelerde standart olarak
-     (kilitli/her zaman görünür) gösterilir — bkz. js/ui/ytd-tl-page.js -->
+<!-- ══════ PAGE 8: DOSYALAR (FAZ 19.0 — bkz. js/ui/dosyalar-page.js) ══════ -->
 <div class="page" id="page8">
-  <div style="padding:16px">
-    <!-- TOP STICKY FILTER BAR — Eczane Satış sayfasıyla AYNI görsel desen
-         (mf-select kutuları + Filtrele butonu + drawer). -->
-    <div class="top-filter-bar">
-      <div class="filter-row">
-        <div class="mf-select" id="ytdTlMfBirim" onclick="toggleMfDrawer('ytdTlDrawer')">
-          <div class="mf-icon">📐</div>
-          <div class="mf-content">
-            <div class="mf-label">Birim</div>
-            <div class="mf-value" id="ytdTlMfBirimVal">TL</div>
-          </div>
-          <div class="mf-arrow">▼</div>
-        </div>
-        <div class="mf-select active-box" id="ytdTlMfDonem" onclick="toggleMfDrawer('ytdTlDrawer')">
-          <div class="mf-icon">📅</div>
-          <div class="mf-content">
-            <div class="mf-label">Dönem</div>
-            <div class="mf-value" id="ytdTlMfDonemVal">—</div>
-          </div>
-          <div class="mf-arrow">▼</div>
-        </div>
-        <div class="mf-select" id="ytdTlMfUrun" onclick="toggleMfDrawer('ytdTlDrawer')">
-          <div class="mf-icon">💊</div>
-          <div class="mf-content">
-            <div class="mf-label">Ürün</div>
-            <div class="mf-value" id="ytdTlMfUrunVal">Tümü</div>
-          </div>
-          <div class="mf-arrow">▼</div>
-        </div>
-        <div class="mf-select" id="ytdTlMfTemsilci" onclick="toggleMfDrawer('ytdTlDrawer')">
-          <div class="mf-icon">👤</div>
-          <div class="mf-content">
-            <div class="mf-label">Temsilci</div>
-            <div class="mf-value" id="ytdTlMfTemsilciVal">—</div>
-          </div>
-          <div class="mf-arrow">▼</div>
-        </div>
-        <button class="mf-detail-btn" onclick="toggleMfDrawer('ytdTlDrawer')">
-          <i class="fas fa-sliders-h"></i> Filtrele
-        </button>
-        <span class="card-badge" id="ytdTlBadge" style="margin-left:auto">—</span>
-      </div>
-      <div class="active-filters" id="ytdTlChips" style="display:none"></div>
-    </div>
-
-    <div id="ytdTlWarn" style="display:none"></div>
-
-    <div class="ytdtl-summary-row" id="ytdTlSummary"></div>
-
-    <div class="card">
-      <div class="card-hd">
-        <span class="card-title"><i class="fas fa-chart-area"></i> YTD TL&amp;KUTU — Hedef / Satış / Gerçekleşme</span>
-      </div>
-      <div class="card-body-0 scroll-x">
-        <table class="tbl" id="ytdTlTable" style="min-width:560px">
-          <thead><tr>
-            <th>Temsilci</th><th id="ytdTlColHedef">Hedef (TL)</th><th id="ytdTlColSatis">Satış (TL)</th><th>Gerçekleşme %</th>
-          </tr></thead>
-          <tbody id="ytdTlBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ══════ PAGE 9: DOSYALAR (FAZ 19.0 — bkz. js/ui/dosyalar-page.js) ══════ -->
-<div class="page" id="page9">
   <!-- İçerik tamamen js/ui/dosyalar-page.js::renderDosyalarPage() tarafından
-       doldurulur (goPage(9) çağrıldığında). Statik markup yok — kullanıcı
+       doldurulur (goPage(8) çağrıldığında). Statik markup yok — kullanıcı
        rolüne (temsilci / ŞENOL YILMAZ) göre form ve tablo dinamik kurulur. -->
   <div style="padding:16px;color:var(--dim);font-size:12px">Yükleniyor...</div>
 </div>
@@ -7823,7 +7950,7 @@ function _renderSgList() {
 
 // Sayfa 7 açıldığında listeyi yükle
 const _origGoPage = typeof goPage === 'function' ? goPage : null;
-// goPage override ile page7 açılışında _renderSgList tetiklenir (wrapper sayfa geçişinde çalışır)
+// goPage override ile page6 açılışında _renderSgList tetiklenir (wrapper sayfa geçişinde çalışır)
 document.addEventListener('click', function (e) {
   const nav = e.target.closest('#snav7');
   if (nav) setTimeout(_renderSgList, 300);
