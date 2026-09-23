@@ -902,6 +902,8 @@
   // ── Sekme geçişleri (mevcut .eczsub-bar / .eczsub-tab deseniyle aynı —
   // bkz. Eczane Satış sayfası, style.css satır ~640) ────────────────────
   window._dsyShowMain = function (name) {
+    var _mainEl = document.getElementById('main');
+    if (_mainEl) _mainEl.scrollTop = 0;
     ['masraf', 'kongre'].forEach(function (n) {
       var sec = document.getElementById('dsyMain_' + n);
       var tab = document.getElementById('dsyMainTab_' + n);

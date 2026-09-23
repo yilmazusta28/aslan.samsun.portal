@@ -1787,6 +1787,7 @@ let _eczActiveSubTab = 0;
 function goEczaneSubTab(idx) {
   idx = Math.max(0, Math.min(ECZ_SUBTABS.length - 1, idx | 0));
   _eczActiveSubTab = idx;
+  const _mainEl2=document.getElementById('main'); if(_mainEl2) _mainEl2.scrollTop=0;
 
   ECZ_SUBTABS.forEach(function (key, i) {
     const panel = document.getElementById('eczsub_' + key);
@@ -1835,6 +1836,7 @@ let _ayarActiveSubTab = 0;
 function goAyarSubTab(idx) {
   idx = Math.max(0, Math.min(AYAR_SUBTABS.length - 1, idx | 0));
   _ayarActiveSubTab = idx;
+  const _mainEl3=document.getElementById('main'); if(_mainEl3) _mainEl3.scrollTop=0;
 
   AYAR_SUBTABS.forEach(function (key, i) {
     const panel = document.getElementById('ayarsub_' + key);
@@ -3339,6 +3341,11 @@ function goDosyaSub(which, subEl) {
 
 function goPage(i){
   curPage=i;
+  // Kullanıcı isteği: sayfa geçişinde önceki sayfanın scroll konumu
+  // kalmasın — her sayfaya girildiğinde otomatik en üstten başlasın.
+  const _mainEl=document.getElementById('main');
+  if(_mainEl) _mainEl.scrollTop=0;
+  window.scrollTo(0,0);
   // PHASE23-STUB: pure tab UI mechanics delegated to js/ui/tab-system.js
   // tabActivateAll(i) covers the four loops below.
   // The loops are kept here as the authoritative source of truth;
@@ -3403,6 +3410,7 @@ let _perfActiveSubTab = 0;
 function goPerfSubTab(idx) {
   idx = Math.max(0, Math.min(PERF_SUBTABS.length - 1, idx | 0));
   _perfActiveSubTab = idx;
+  const _mainEl1=document.getElementById('main'); if(_mainEl1) _mainEl1.scrollTop=0;
   const bar = document.getElementById('perfSubBar');
   if (bar) {
     Array.from(bar.querySelectorAll('.eczsub-tab')).forEach((btn, i) => {
@@ -3480,29 +3488,15 @@ function toggleDarkMode(){
   _applyDarkUI(saved==='dark');
 })();
 
-// ── GİZLİ SAYFA/SEKME GÖSTER-GİZLE ─────────────────────────
-// pv-hidden-ui ile işaretli (MI & GI Takibi, AI & Görev Motoru gibi)
-// sayfa/sekme/kolonları toplu göster/gizle. Varsayılan: KAPALI (gizli).
-function _applyHiddenUi(show){
-  document.documentElement.classList.toggle('pv-show-hidden', !!show);
-  const icon=document.getElementById('sidebarHiddenUiIcon');
-  const toggle=document.getElementById('sidebarHiddenUiToggle');
-  const knob=document.getElementById('sidebarHiddenUiKnob');
-  if(icon) icon.textContent = show?'📂':'🗂️';
-  if(toggle) toggle.style.background = show?'rgba(139,92,246,.7)':'rgba(255,255,255,.2)';
-  if(knob) knob.style.transform = show?'translateX(16px)':'translateX(0)';
-}
-function toggleHiddenPages(){
-  const isShown = document.documentElement.classList.contains('pv-show-hidden');
-  const next = !isShown;
-  _applyHiddenUi(next);
-  try{ localStorage.setItem('samsun_show_hidden_ui', next?'1':'0'); }catch(e){}
-}
-(function initHiddenUi(){
-  let show=false; // genel olarak KAPALI gelir
-  try{ show = localStorage.getItem('samsun_show_hidden_ui')==='1'; }catch(e){}
-  _applyHiddenUi(show);
-})();
+// ── "GİZLİ SAYFALARI GÖSTER" ÖZELLİĞİ KALDIRILDI ────────────
+// (kullanıcı isteği). pv-hidden-ui ile işaretli sayfa/sekme/kolonlar
+// (MI & GI Takibi, AI & Görev Motoru, Ürün Sipariş Analizi, Lansman
+// Hazırlık vb.) artık anahtar olmadan her zaman görünür — <html>
+// öğesine kalıcı olarak .pv-show-hidden sınıfı ekleniyor, bu da
+// css/style.css'teki "html:not(.pv-show-hidden) .pv-hidden-ui{display:
+// none!important}" kuralını devre dışı bırakıyor. Hiçbir motor/veri
+// silinmedi — sadece gizleme anahtarı kaldırıldı.
+document.documentElement.classList.add('pv-show-hidden');
 
 function selectTTT(ttt){
   selTTT=selTTT===ttt?'':ttt;
@@ -5044,17 +5038,6 @@ window.addEventListener('DOMContentLoaded',()=>{
   if(window._pendingLogin){ window._pendingLogin=false; initApp(); }
   // Phase 2.2: UI runtime stabilization patches
   if(typeof installRuntimePatches === 'function') installRuntimePatches();
-  // FAZ — initHiddenUi() <head> içinde (sidebar DOM'u henüz yokken) çalıştığı
-  // için anahtarın görsel durumu (ikon/knob) o an senkronize edilemiyordu —
-  // işlevsel taraf (html.pv-show-hidden sınıfı) doğruydu ama switch görseli
-  // sayfa her yeniden yüklendiğinde "kapalı" görünüp kullanıcıyı yanıltıyor,
-  // bu da bir sonraki tıklamanın (aslında halihazırda AÇIK olan) anahtarı
-  // ters yönde KAPATMASINA ve "bir kere çalıştı, artık çalışmıyor" hissine
-  // yol açıyordu. Sidebar DOM'u artık hazır olduğuna göre görseli gerçek
-  // duruma göre burada tekrar senkronize ediyoruz.
-  if(typeof _applyHiddenUi === 'function'){
-    _applyHiddenUi(document.documentElement.classList.contains('pv-show-hidden'));
-  }
 });
 
 // (CARPAN_TABLE, MIGI_MATRIX, URUN_AGIRLIK — blok 1'de tanımlı)
@@ -6405,12 +6388,10 @@ function _buildEczaneDrawerRefresh(){
       </div>
     </div>
   </div>
-  <!-- MI & GI Takibi ayrıca kendi bağımsız sayfası/kısayolu olarak da
-       duruyor (gizli-UI anahtarıyla görünür); Performans grubuna da
-       kısayol olarak eklendi (yukarıda). -->
-  <div class="nav-item pg pv-hidden-ui" id="snav2" onclick="goPage(2)">
-    <span class="nav-icon"><i class="fas fa-map-marker-alt"></i></span><span>MI &amp; GI Takibi</span>
-  </div>
+  <!-- MI & GI Takibi artık bağımsız bir sidebar girişi DEĞİL — sadece
+       Performans grubunun altında (yukarıda) kısayol olarak duruyor.
+       goPage()'deki genel snav-vurgu döngüsü elemanı bulamazsa sessizce
+       atlıyor (if(el) kontrolü), o yüzden snav2 tamamen kaldırılabildi. -->
   <div class="nav-item pg" id="snav3" onclick="goPage(3)">
     <span class="nav-icon"><i class="fas fa-coins"></i></span><span>Prim Hesapla</span>
   </div>
@@ -6497,34 +6478,6 @@ function _buildEczaneDrawerRefresh(){
         style="width:36px;height:20px;border-radius:10px;background:rgba(255,255,255,.2);
         position:relative;transition:background .25s;flex-shrink:0">
         <span id="sidebarDarkKnob"
-          style="position:absolute;top:2px;left:2px;width:16px;height:16px;
-          border-radius:50%;background:#fff;transition:transform .25s;display:block"></span>
-      </span>
-    </button>
-
-    <!-- FAZ — Gizli Sayfa/Sekme Göster-Gizle Anahtarı — Gece/Gündüz Modu
-         butonunun HEMEN ALTINA eklendi. pv-hidden-ui sınıfı taşıyan tüm
-         sayfa/sekme/kolonlar (MI & GI Takibi, AI & Görev Motoru, Ürün
-         Sipariş Analizi, AI Tahmin Performansı vb.) varsayılan olarak
-         KAPALI (gizli) gelir — bkz. css/style.css
-         "html:not(.pv-show-hidden) .pv-hidden-ui{display:none!important}".
-         Anahtar açıldığında &lt;html&gt; öğesine .pv-show-hidden sınıfı eklenir ve tüm
-         bu öğeler tekrar görünür olur. Tercih localStorage'da saklanır. -->
-    <button onclick="toggleHiddenPages()" id="sidebarHiddenUiBtn"
-      style="width:100%;display:flex;align-items:center;justify-content:space-between;
-      background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);
-      border-radius:11px;padding:10px 14px;cursor:pointer;
-      font-family:'Poppins',sans-serif;font-size:11px;font-weight:600;
-      color:rgba(255,255,255,.7);margin-bottom:10px;
-      transition:background .2s,border-color .2s">
-      <span style="display:flex;align-items:center;gap:8px">
-        <span id="sidebarHiddenUiIcon">🗂️</span>
-        <span id="sidebarHiddenUiLabel">Gizli Sayfaları Göster</span>
-      </span>
-      <span id="sidebarHiddenUiToggle"
-        style="width:36px;height:20px;border-radius:10px;background:rgba(255,255,255,.2);
-        position:relative;transition:background .25s;flex-shrink:0">
-        <span id="sidebarHiddenUiKnob"
           style="position:absolute;top:2px;left:2px;width:16px;height:16px;
           border-radius:50%;background:#fff;transition:transform .25s;display:block"></span>
       </span>
