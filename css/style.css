@@ -299,6 +299,30 @@ body{
 .nav-icon{font-size:14px;width:20px;text-align:center;flex-shrink:0;opacity:.75}
 .nav-item.active .nav-icon,.nav-item:hover .nav-icon{opacity:1}
 
+/* Sidebar açılır-kapanır alt sayfa grupları (Performans / Eczane Satış /
+   Ayarlar & Referans / Dosyalar) — kullanıcı isteği: alt sayfalar,
+   sayfaya girmeden, sidebar üzerinde tıklanınca açılıp oradan seçilebilsin. */
+.nav-caret{margin-left:auto;font-size:9px;opacity:.55;transition:transform .2s ease;flex-shrink:0}
+.nav-group.expanded > .nav-item .nav-caret{transform:rotate(180deg)}
+.nav-children{max-height:0;overflow:hidden;transition:max-height .25s ease}
+.nav-group.expanded > .nav-children{max-height:400px}
+.nav-subitem{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 16px 8px 44px;cursor:pointer;
+  font-size:11.5px;font-weight:500;
+  color:rgba(255,255,255,.55);
+  border-left:3px solid transparent;
+  transition:all .16s;
+  margin:1px 10px 1px 0;
+  border-radius:0 9px 9px 0;
+}
+.nav-subitem:hover{background:rgba(255,255,255,.08);color:#fff}
+.nav-subitem.active{
+  background:rgba(27,206,216,.16);color:#fff;
+  border-left-color:var(--c3);font-weight:600;
+}
+.nav-subitem .nav-subdot{font-size:5px;opacity:.7}
+
 /* Dönem pill (sidebar) */
 .sidebar-period-pill{
   margin:10px 12px 0;padding:11px 14px;
@@ -575,7 +599,9 @@ body{
 .insight-body strong{color:var(--text)}
 .alert-box{background:#FEF2F2;border:1px solid #FECACA;border-radius:11px;padding:11px 14px;margin-top:8px}
 .alert-title{font-size:12px;font-weight:700;color:#991B1B;margin-bottom:3px}
-.alert-body{font-size:11px;color:#7F1D1D;line-height:1.5}
+.alert-body{font-size:11px;color:#7F1D1D;line-height:1.5;max-height:180px;overflow-y:auto;padding-right:4px}
+.alert-body::-webkit-scrollbar{width:5px}
+.alert-body::-webkit-scrollbar-thumb{background:rgba(153,27,27,.3);border-radius:3px}
 
 /* ── INPUT ── */
 .inp{background:#F8F7FF;border:1.5px solid var(--border);color:var(--text);padding:8px 11px;border-radius:9px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;width:100%;outline:none;transition:all .2s}

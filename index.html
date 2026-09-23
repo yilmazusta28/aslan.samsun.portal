@@ -1798,6 +1798,7 @@ function goEczaneSubTab(idx) {
   });
   const sel = document.getElementById('eczSubSelect');
   if (sel) sel.value = String(idx);
+  if (typeof pvSyncSubNav === 'function') pvSyncSubNav('navsub_ecz_' + idx);
 
   // İlk açılışta bir kez render et (eskiden accordion onclick'indeydi)
   try {
@@ -1848,6 +1849,7 @@ function goAyarSubTab(idx) {
   }
   const sel = document.getElementById('ayarSubSelect');
   if (sel) sel.value = String(idx);
+  if (typeof pvSyncSubNav === 'function') pvSyncSubNav('navsub_ayar_' + idx);
 
   try {
     switch (AYAR_SUBTABS[idx]) {
@@ -3292,6 +3294,49 @@ let selKutuUruns = new Set(URUN_ORDER);
 // ═══════════════════════════════════════════════════════════
 //  ROUTING
 // ═══════════════════════════════════════════════════════════
+// ── SIDEBAR AÇILIR ALT-SAYFA GRUPLARI ───────────────────────
+// Kullanıcı isteği: Performans / Eczane Satış / Ayarlar & Referans /
+// Dosyalar sayfalarının alt sekmeleri, sayfaya girmeden sidebar'da
+// tıklanınca açılıp oradan doğrudan seçilebilsin.
+function toggleNavGroup(id) {
+  document.querySelectorAll('.nav-group').forEach(function (g) {
+    if (g.id !== id) g.classList.remove('expanded');
+  });
+  const g = document.getElementById(id);
+  if (g) g.classList.toggle('expanded');
+}
+
+function pvSyncSubNav(subId) {
+  document.querySelectorAll('.nav-subitem').forEach(function (el) { el.classList.remove('active'); });
+  const el = subId && document.getElementById(subId);
+  if (el) el.classList.add('active');
+}
+
+// Sidebar alt-sekme tıklaması: ilgili sayfaya git + (varsa) alt-sekmeyi
+// seç + tıklanan alt-öğeyi vurgula. subEl verilmezse pvSyncSubNav ilgili
+// goXSubTab() fonksiyonu içinden zaten çağrılır (bkz. aşağıda).
+function goPageSub(page, subFn, subEl) {
+  goPage(page);
+  if (typeof subFn === 'function') subFn();
+  if (subEl) pvSyncSubNav(subEl.id);
+  if (window.innerWidth <= 1024) closeSidebar();
+}
+
+// Dosyalar sayfası alt başlıkları (Sabit Formlar / Kongre / Masraf)
+function goDosyaSub(which, subEl) {
+  goPage(8);
+  setTimeout(function () {
+    if (which === 'kongre') { if (typeof window._dsyShowMain === 'function') window._dsyShowMain('kongre'); }
+    else if (which === 'masraf') { if (typeof window._dsyShowMain === 'function') window._dsyShowMain('masraf'); }
+    else if (which === 'sabit') {
+      const card = document.getElementById('dsyFixedFormsCard');
+      if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, 0);
+  if (subEl) pvSyncSubNav(subEl.id);
+  if (window.innerWidth <= 1024) closeSidebar();
+}
+
 function goPage(i){
   curPage=i;
   // PHASE23-STUB: pure tab UI mechanics delegated to js/ui/tab-system.js
@@ -3335,16 +3380,16 @@ function goPage(i){
   // render ediliyor. "Ayarlar & Referans"ta varsayılan alt-sekme
   // ('satis_sartlari') ise goAyarSubTab(0) ile tetikleniyor (aşağıda).
   if(i===0)renderAna();
-  else if(i===1)renderPazar();
-  else if(i===2){ initMigi1(); initMigi2(); }
+  else if(i===1){ renderPazar(); if(typeof pvSyncSubNav==='function') pvSyncSubNav('navsub_perf_pazar'); }
+  else if(i===2){ initMigi1(); initMigi2(); if(typeof pvSyncSubNav==='function') pvSyncSubNav('navsub_perf_migi'); }
   else if(i===3){ buildPrimInputs(); syncPrimFromCalc(); }
   else if(i===4){ if(typeof renderAiAsistan==='function') renderAiAsistan(); }
-  else if(i===5)renderEczane();
+  else if(i===5){ renderEczane(); if(typeof pvSyncSubNav==='function') pvSyncSubNav('navsub_ecz_'+_eczActiveSubTab); }
   else if(i===6){ if(typeof goAyarSubTab==='function') goAyarSubTab(_ayarActiveSubTab); }
   // FAZ 8.2 — Yönetici sekmesi
   else if(i===7){ if(typeof renderManagerHeroBanner==='function') renderManagerHeroBanner(); if(typeof renderManagerExtra==='function') renderManagerExtra(); /* FAZ 22.1 */ if(typeof renderDosyalarManagerSummary==='function') renderDosyalarManagerSummary(); }
   // FAZ 19.0 — Dosyalar sayfası (bkz. js/ui/dosyalar-page.js)
-  else if(i===8){ if(typeof renderDosyalarPage==='function') renderDosyalarPage(); }
+  else if(i===8){ if(typeof renderDosyalarPage==='function') renderDosyalarPage(); if(typeof pvSyncSubNav==='function') pvSyncSubNav('navsub_dsy_masraf'); }
 }
 
 // ── PERFORMANS SAYFASI ALT-SEKMELERİ ────────────────────────
@@ -3366,6 +3411,7 @@ function goPerfSubTab(idx) {
   }
   const sel = document.getElementById('perfSubSelect');
   if (sel) sel.value = String(idx);
+  if (typeof pvSyncSubNav === 'function') pvSyncSubNav('navsub_perf_' + (PERF_SUBTABS[idx] === 'takip' ? 'takip' : PERF_SUBTABS[idx] === 'ytd' ? 'ytd' : 'pazar'));
   PERF_SUBTABS.forEach(function (key, i) {
     const panel = document.getElementById('perfsub_' + key);
     if (panel) panel.style.display = (i === idx) ? 'block' : 'none';
@@ -6328,12 +6374,40 @@ function _buildEczaneDrawerRefresh(){
   <!-- Navigasyon -->
   <div class="nav-sec">Sayfalar</div>
 
+  <!-- FAZ 8.2 — Yönetici Sekmesi (kullanıcı isteği: liste en üstte) -->
+  <div class="nav-item pg" id="snav7" onclick="goPage(7)">
+    <span class="nav-icon"><i class="fas fa-user-tie"></i></span><span>Yönetici</span>
+  </div>
   <div class="nav-item pg active" id="snav0" onclick="goPage(0)">
     <span class="nav-icon"><i class="fas fa-chart-pie"></i></span><span>Genel Durum</span>
   </div>
-  <div class="nav-item pg" id="snav1" onclick="goPage(1)">
-    <span class="nav-icon"><i class="fas fa-search-dollar"></i></span><span>Performans</span>
+
+  <!-- Performans — kullanıcı isteği: alt sayfalar (Pazar Analizi, Satış
+       Takibi, YTD TL&Kutu, MI&GI Takibi) sayfaya girmeden sidebar'da
+       tıklanınca açılıp oradan seçilebilsin. -->
+  <div class="nav-group" id="navgrp-perf">
+    <div class="nav-item pg" id="snav1" onclick="toggleNavGroup('navgrp-perf'); goPage(1)">
+      <span class="nav-icon"><i class="fas fa-search-dollar"></i></span><span>Performans</span>
+      <i class="fas fa-chevron-down nav-caret"></i>
+    </div>
+    <div class="nav-children">
+      <div class="nav-subitem" id="navsub_perf_pazar" onclick="event.stopPropagation();goPageSub(1,function(){goPerfSubTab(0)},this)">
+        <span class="nav-subdot">●</span><span>📊 Pazar Analizi</span>
+      </div>
+      <div class="nav-subitem" id="navsub_perf_takip" onclick="event.stopPropagation();goPageSub(1,function(){goPerfSubTab(1)},this)">
+        <span class="nav-subdot">●</span><span>📈 Satış Takibi</span>
+      </div>
+      <div class="nav-subitem" id="navsub_perf_ytd" onclick="event.stopPropagation();goPageSub(1,function(){goPerfSubTab(2)},this)">
+        <span class="nav-subdot">●</span><span>📉 YTD TL&amp;Kutu</span>
+      </div>
+      <div class="nav-subitem" id="navsub_perf_migi" onclick="event.stopPropagation();goPageSub(2,null,this)">
+        <span class="nav-subdot">●</span><span>🗺️ MI &amp; GI Takibi</span>
+      </div>
+    </div>
   </div>
+  <!-- MI & GI Takibi ayrıca kendi bağımsız sayfası/kısayolu olarak da
+       duruyor (gizli-UI anahtarıyla görünür); Performans grubuna da
+       kısayol olarak eklendi (yukarıda). -->
   <div class="nav-item pg pv-hidden-ui" id="snav2" onclick="goPage(2)">
     <span class="nav-icon"><i class="fas fa-map-marker-alt"></i></span><span>MI &amp; GI Takibi</span>
   </div>
@@ -6343,19 +6417,65 @@ function _buildEczaneDrawerRefresh(){
   <div class="nav-item pg pv-hidden-ui" id="snav4" onclick="goPage(4)">
     <span class="nav-icon"><i class="fas fa-brain"></i></span><span>AI & Görev Motoru</span>
   </div>
-  <div class="nav-item pg" id="snav5" onclick="goPage(5)">
-    <span class="nav-icon"><i class="fas fa-clinic-medical"></i></span><span>Eczane Satış</span>
+
+  <!-- Eczane Satış — alt sekmeler sidebar'dan seçilebilir -->
+  <div class="nav-group" id="navgrp-ecz">
+    <div class="nav-item pg" id="snav5" onclick="toggleNavGroup('navgrp-ecz'); goPage(5)">
+      <span class="nav-icon"><i class="fas fa-clinic-medical"></i></span><span>Eczane Satış</span>
+      <i class="fas fa-chevron-down nav-caret"></i>
+    </div>
+    <div class="nav-children">
+      <div class="nav-subitem" id="navsub_ecz_0" onclick="event.stopPropagation();goPageSub(5,function(){goEczaneSubTab(0)},this)">
+        <span class="nav-subdot">●</span><span>📋 Eczane Detay Listesi</span>
+      </div>
+      <div class="nav-subitem" id="navsub_ecz_1" onclick="event.stopPropagation();goPageSub(5,function(){goEczaneSubTab(1)},this)">
+        <span class="nav-subdot">●</span><span>📦 Top 15 Sipariş Tahmini</span>
+      </div>
+      <div class="nav-subitem pv-hidden-ui" id="navsub_ecz_2" onclick="event.stopPropagation();goPageSub(5,function(){goEczaneSubTab(2)},this)">
+        <span class="nav-subdot">●</span><span>📦 Ürün Sipariş Analizi</span>
+      </div>
+      <div class="nav-subitem" id="navsub_ecz_3" onclick="event.stopPropagation();goPageSub(5,function(){goEczaneSubTab(3)},this)">
+        <span class="nav-subdot">●</span><span>📝 Haftalık Rota Planım</span>
+      </div>
+    </div>
   </div>
-  <div class="nav-item pg" id="snav6" onclick="goPage(6)">
-    <span class="nav-icon"><i class="fas fa-sliders-h"></i></span><span>Ayarlar &amp; Referans</span>
+
+  <!-- Ayarlar & Referans — alt sekmeler sidebar'dan seçilebilir -->
+  <div class="nav-group" id="navgrp-ayar">
+    <div class="nav-item pg" id="snav6" onclick="toggleNavGroup('navgrp-ayar'); goPage(6)">
+      <span class="nav-icon"><i class="fas fa-sliders-h"></i></span><span>Ayarlar &amp; Referans</span>
+      <i class="fas fa-chevron-down nav-caret"></i>
+    </div>
+    <div class="nav-children">
+      <div class="nav-subitem" id="navsub_ayar_0" onclick="event.stopPropagation();goPageSub(6,function(){goAyarSubTab(0)},this)">
+        <span class="nav-subdot">●</span><span>⚙️ Satış Şartları Yönetimi</span>
+      </div>
+      <div class="nav-subitem" id="navsub_ayar_1" onclick="event.stopPropagation();goPageSub(6,function(){goAyarSubTab(1)},this)">
+        <span class="nav-subdot">●</span><span>📰 Piyasa Haberleri</span>
+      </div>
+      <div class="nav-subitem pv-hidden-ui" id="navsub_ayar_2" onclick="event.stopPropagation();goPageSub(6,function(){goAyarSubTab(2)},this)">
+        <span class="nav-subdot">●</span><span>🚀 Lansman Hazırlık</span>
+      </div>
+    </div>
   </div>
-  <!-- FAZ 8.2 — Yönetici Sekmesi (FAZ 6.9 / executive-engine.js) -->
-  <div class="nav-item pg" id="snav7" onclick="goPage(7)">
-    <span class="nav-icon"><i class="fas fa-user-tie"></i></span><span>Yönetici</span>
-  </div>
-  <!-- FAZ 19.0 — Dosyalar Sekmesi -->
-  <div class="nav-item pg" id="snav8" onclick="goPage(8)">
-    <span class="nav-icon"><i class="fas fa-folder-open"></i></span><span>Dosyalar</span>
+
+  <!-- FAZ 19.0 — Dosyalar Sekmesi — alt başlıklar sidebar'dan seçilebilir -->
+  <div class="nav-group" id="navgrp-dsy">
+    <div class="nav-item pg" id="snav8" onclick="toggleNavGroup('navgrp-dsy'); goPage(8)">
+      <span class="nav-icon"><i class="fas fa-folder-open"></i></span><span>Dosyalar</span>
+      <i class="fas fa-chevron-down nav-caret"></i>
+    </div>
+    <div class="nav-children">
+      <div class="nav-subitem" id="navsub_dsy_sabit" onclick="event.stopPropagation();goDosyaSub('sabit',this)">
+        <span class="nav-subdot">●</span><span>📄 Sabit Formlar</span>
+      </div>
+      <div class="nav-subitem" id="navsub_dsy_kongre" onclick="event.stopPropagation();goDosyaSub('kongre',this)">
+        <span class="nav-subdot">●</span><span>🎪 Kongre Katılımcı Bilgileri</span>
+      </div>
+      <div class="nav-subitem" id="navsub_dsy_masraf" onclick="event.stopPropagation();goDosyaSub('masraf',this)">
+        <span class="nav-subdot">●</span><span>💰 Masraf Dosyası</span>
+      </div>
+    </div>
   </div>
 
 

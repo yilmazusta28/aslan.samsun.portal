@@ -137,7 +137,7 @@
   };
 
   function _fixedFormsHtml() {
-    return '<div class="card mb16"><div class="card-hd">' +
+    return '<div class="card mb16" id="dsyFixedFormsCard"><div class="card-hd">' +
       '<span class="card-title">📄 Sabit Formlar</span>' +
       '<span class="card-badge" style="font-size:9px">İndir / Yazdır</span>' +
       '</div><div class="card-body">' +
@@ -908,6 +908,8 @@
       if (sec) sec.style.display = (n === name) ? '' : 'none';
       if (tab) tab.classList.toggle('active', n === name);
     });
+    // Sidebar'daki (Dosyalar > Kongre/Masraf) alt-öğe vurgusunu senkronize et
+    if (typeof window.pvSyncSubNav === 'function') window.pvSyncSubNav('navsub_dsy_' + name);
   };
   window._dsyShowSub = function (name) {
     ['temsil', 'planlanan', 'gerceklesen'].forEach(function (n) {
