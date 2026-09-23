@@ -3324,6 +3324,90 @@ function goPageSub(page, subFn, subEl) {
   if (window.innerWidth <= 1024) closeSidebar();
 }
 
+// ── MOBİL ALT-SAYFA MENÜSÜ (tab bar → yukarı kayan panel) ───
+// Kullanıcı isteği: mobilde de Performans/Eczane Satış/Ayarlar &
+// Referans/Dosyalar butonlarına basılınca alt sayfalar bir menü
+// efektiyle yukarı kaysın ve oradan doğrudan seçilebilsin — sıralama
+// sol (sidebar) menüyle birebir aynı.
+const MTB_GROUPS = {
+  perf: { title: 'Performans', items: [
+    { label: '📊 Pazar Analizi', navId: 'navsub_perf_pazar', action: function () { goPageSub(1, function () { goPerfSubTab(0); }); } },
+    { label: '📈 Satış Takibi', navId: 'navsub_perf_takip', action: function () { goPageSub(1, function () { goPerfSubTab(1); }); } },
+    { label: '📉 YTD TL&Kutu', navId: 'navsub_perf_ytd', action: function () { goPageSub(1, function () { goPerfSubTab(2); }); } },
+    { label: '🗺️ MI & GI Takibi', navId: 'navsub_perf_migi', action: function () { goPageSub(2, null); } }
+  ]},
+  ecz: { title: 'Eczane Satış', items: [
+    { label: '📋 Eczane Detay Listesi', navId: 'navsub_ecz_0', action: function () { goPageSub(5, function () { goEczaneSubTab(0); }); } },
+    { label: '📦 Top 15 Sipariş Tahmini', navId: 'navsub_ecz_1', action: function () { goPageSub(5, function () { goEczaneSubTab(1); }); } },
+    { label: '📦 Ürün Sipariş Analizi', navId: 'navsub_ecz_2', action: function () { goPageSub(5, function () { goEczaneSubTab(2); }); } },
+    { label: '📝 Haftalık Rota Planım', navId: 'navsub_ecz_3', action: function () { goPageSub(5, function () { goEczaneSubTab(3); }); } }
+  ]},
+  ayar: { title: 'Ayarlar & Referans', items: [
+    { label: '⚙️ Satış Şartları Yönetimi', navId: 'navsub_ayar_0', action: function () { goPageSub(6, function () { goAyarSubTab(0); }); } },
+    { label: '📰 Piyasa Haberleri', navId: 'navsub_ayar_1', action: function () { goPageSub(6, function () { goAyarSubTab(1); }); } },
+    { label: '🚀 Lansman Hazırlık', navId: 'navsub_ayar_2', action: function () { goPageSub(6, function () { goAyarSubTab(2); }); } }
+  ]},
+  dsy: { title: 'Dosyalar', items: [
+    { label: '📄 Sabit Formlar', navId: 'navsub_dsy_sabit', action: function () { goDosyaSub('sabit'); } },
+    { label: '🎪 Kongre Katılımcı Bilgileri', navId: 'navsub_dsy_kongre', action: function () { goDosyaSub('kongre'); } },
+    { label: '💰 Masraf Dosyası', navId: 'navsub_dsy_masraf', action: function () { goDosyaSub('masraf'); } }
+  ]}
+};
+
+function openMtbSubmenu(key, btnEl) {
+  const g = MTB_GROUPS[key];
+  if (!g) return;
+  const title = document.getElementById('mtbSubTitle');
+  const list = document.getElementById('mtbSubList');
+  if (title) title.textContent = g.title;
+  if (list) {
+    list.innerHTML = '';
+    g.items.forEach(function (it, idx) {
+      const row = document.createElement('div');
+      const _navEl = it.navId && document.getElementById(it.navId);
+      row.className = 'mtb-sub-item' + ((_navEl && _navEl.classList.contains('active')) ? ' active' : '');
+      row.textContent = it.label;
+      row.onclick = function () {
+        it.action();
+        closeMtbSubmenu();
+      };
+      list.appendChild(row);
+    });
+  }
+  const menu = document.getElementById('mtbSubmenu');
+  const overlay = document.getElementById('mtbSubOverlay');
+  if (menu) { menu.classList.add('open'); menu.dataset.key = key; }
+  if (overlay) overlay.classList.add('open');
+  document.querySelectorAll('.mtb-btn').forEach(function (b) { b.classList.remove('mtb-sub-active'); });
+  if (btnEl) btnEl.classList.add('mtb-sub-active');
+}
+function closeMtbSubmenu() {
+  const menu = document.getElementById('mtbSubmenu');
+  const overlay = document.getElementById('mtbSubOverlay');
+  if (menu) { menu.classList.remove('open'); menu.dataset.key = ''; }
+  if (overlay) overlay.classList.remove('open');
+  document.querySelectorAll('.mtb-btn').forEach(function (b) { b.classList.remove('mtb-sub-active'); });
+}
+function toggleMtbSubmenu(key, btnEl) {
+  const menu = document.getElementById('mtbSubmenu');
+  if (menu && menu.classList.contains('open') && menu.dataset.key === key) {
+    closeMtbSubmenu();
+    return;
+  }
+  openMtbSubmenu(key, btnEl);
+}
+// goPage() sayfa her değiştiğinde açık menüyü otomatik kapatır (bkz.
+// yukarıda goPage() içindeki closeMtbSubmenu() çağrısı) — bu yüzden
+// "aynı butona ikinci kez basınca kapansın" (toggle) davranışı, goPage()
+// çağrılmadan ÖNCE mevcut açık durumu hatırlayan bu sarmalayıcı ile
+// sağlanıyor.
+function mtbGroupTap(page, key, btnEl) {
+  const menu = document.getElementById('mtbSubmenu');
+  const wasOpenSame = !!(menu && menu.classList.contains('open') && menu.dataset.key === key);
+  goPage(page);
+  if (!wasOpenSame) openMtbSubmenu(key, btnEl);
+}
+
 // Dosyalar sayfası alt başlıkları (Sabit Formlar / Kongre / Masraf)
 function goDosyaSub(which, subEl) {
   goPage(8);
@@ -3346,6 +3430,7 @@ function goPage(i){
   const _mainEl=document.getElementById('main');
   if(_mainEl) _mainEl.scrollTop=0;
   window.scrollTo(0,0);
+  if(typeof closeMtbSubmenu==='function') closeMtbSubmenu();
   // PHASE23-STUB: pure tab UI mechanics delegated to js/ui/tab-system.js
   // tabActivateAll(i) covers the four loops below.
   // The loops are kept here as the authoritative source of truth;
@@ -6263,50 +6348,62 @@ function _buildEczaneDrawerRefresh(){
 </div>
 
 <!-- ═══ MOBİL ALT TAB BAR ═══ -->
+<!-- Kullanıcı isteği: mobil alt bar sırası artık sol (sidebar) menüyle
+     AYNI — Yönetici en başta. Alt sayfalı 4 buton (Performans/Eczane
+     Satış/Ayarlar & Referans/Dosyalar) tıklanınca sayfaya gider VE
+     alt sekmelerini aşağıdaki mtbSubmenu panelinde yukarı kayarak
+     gösterir (bkz. toggleMtbSubmenu()). MI & GI Takibi artık bağımsız
+     bir buton değil — sadece Performans'ın alt menüsünde. -->
 <div id="mobileTabBar">
   <div class="mtb-indicator" id="mtbIndicator"></div>
+  <!-- FAZ 8.2 — Yönetici sekmesi (mobil) — RoleVisibility ile snav7 ile
+       aynı şekilde sadece Yönetici rolüne gösterilir. -->
+  <button class="mtb-btn" id="mtb7" onclick="goPage(7)">
+    <span class="mtb-icon"><i class="fas fa-user-tie"></i></span>
+    <span class="mtb-label">Yönetici</span>
+  </button>
   <button class="mtb-btn active" id="mtb0" onclick="goPage(0)">
     <span class="mtb-icon"><i class="fas fa-chart-pie"></i></span>
     <span class="mtb-label">Ana</span>
   </button>
-  <button class="mtb-btn" id="mtb1" onclick="goPage(1)">
+  <button class="mtb-btn" id="mtb1" onclick="mtbGroupTap(1,'perf',this)">
     <span class="mtb-icon"><i class="fas fa-search-dollar"></i></span>
     <span class="mtb-label">Performans</span>
-  </button>
-  <button class="mtb-btn pv-hidden-ui" id="mtb2" onclick="goPage(2)">
-    <span class="mtb-icon"><i class="fas fa-map-marker-alt"></i></span>
-    <span class="mtb-label">MI&GI</span>
+    <i class="fas fa-chevron-up mtb-caret"></i>
   </button>
   <button class="mtb-btn" id="mtb3" onclick="goPage(3)">
     <span class="mtb-icon"><i class="fas fa-coins"></i></span>
     <span class="mtb-label">Prim</span>
   </button>
-  <button class="mtb-btn pv-hidden-ui" id="mtb4" onclick="goPage(4)">
+  <button class="mtb-btn" id="mtb4" onclick="goPage(4)">
     <span class="mtb-icon"><i class="fas fa-brain"></i></span>
     <span class="mtb-label">AI</span>
   </button>
-  <button class="mtb-btn" id="mtb5" onclick="goPage(5)">
+  <button class="mtb-btn" id="mtb5" onclick="mtbGroupTap(5,'ecz',this)">
     <span class="mtb-icon"><i class="fas fa-clinic-medical"></i></span>
     <span class="mtb-label">Eczane</span>
+    <i class="fas fa-chevron-up mtb-caret"></i>
   </button>
-  <button class="mtb-btn" id="mtb6" onclick="goPage(6)">
+  <button class="mtb-btn" id="mtb6" onclick="mtbGroupTap(6,'ayar',this)">
     <span class="mtb-icon"><i class="fas fa-sliders-h"></i></span>
     <span class="mtb-label">Ayarlar</span>
-  </button>
-  <!-- FAZ 8.2 — Yönetici sekmesi (mobil) — eskiden eksikti: goPage() zaten
-       mtb7'yi arıyordu (k<=8 döngüsü) ve .mtb-indicator CSS'i sütun sayısına göre
-       hesaplanıyordu, ama bu buton hiç eklenmemişti —
-       mobilde Yönetici sayfasına ULAŞILACAK HİÇBİR YOL yoktu. RoleVisibility
-       ile snav7 ile aynı şekilde sadece Yönetici rolüne gösterilir. -->
-  <button class="mtb-btn" id="mtb7" onclick="goPage(7)">
-    <span class="mtb-icon"><i class="fas fa-user-tie"></i></span>
-    <span class="mtb-label">Yönetici</span>
+    <i class="fas fa-chevron-up mtb-caret"></i>
   </button>
   <!-- FAZ 19.0 — Dosyalar sekmesi (mobil) -->
-  <button class="mtb-btn" id="mtb8" onclick="goPage(8)">
+  <button class="mtb-btn" id="mtb8" onclick="mtbGroupTap(8,'dsy',this)">
     <span class="mtb-icon"><i class="fas fa-folder-open"></i></span>
     <span class="mtb-label">Dosyalar</span>
+    <i class="fas fa-chevron-up mtb-caret"></i>
   </button>
+</div>
+
+<!-- Mobil alt-sayfa menüsü — tab bar butonuna basılınca yukarı kayarak
+     açılır (bkz. toggleMtbSubmenu() / css .mtb-submenu). -->
+<div id="mtbSubOverlay" onclick="closeMtbSubmenu()"></div>
+<div id="mtbSubmenu">
+  <div class="mtb-sub-handle"></div>
+  <div class="mtb-sub-title" id="mtbSubTitle">—</div>
+  <div class="mtb-sub-list" id="mtbSubList"></div>
 </div>
 
 <div id="app">

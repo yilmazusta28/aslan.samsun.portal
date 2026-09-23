@@ -967,6 +967,49 @@ body{
   font-size:8.5px;font-weight:600;
   letter-spacing:.3px;white-space:nowrap;line-height:1;
 }
+.mtb-caret{
+  position:absolute;top:6px;right:calc(50% - 20px);
+  font-size:7px;opacity:.45;transition:transform .2s ease,opacity .2s ease;
+}
+.mtb-btn.mtb-sub-active{color:var(--c1)}
+.mtb-btn.mtb-sub-active .mtb-caret{opacity:.9;transform:rotate(180deg)}
+
+/* ── Mobil alt-sayfa menüsü (tab bar butonuna basınca yukarı kayan panel) ── */
+#mtbSubOverlay{
+  display:none;position:fixed;inset:0;z-index:255;
+  background:rgba(15,10,30,.4);
+}
+#mtbSubOverlay.open{display:block}
+#mtbSubmenu{
+  position:fixed;left:0;right:0;bottom:0;z-index:256;
+  background:#fff;
+  border-radius:18px 18px 0 0;
+  box-shadow:0 -10px 34px rgba(0,0,0,.2);
+  padding:8px 10px calc(74px + env(safe-area-inset-bottom,0));
+  max-height:min(60vh,420px);overflow-y:auto;
+  transform:translateY(100%);
+  transition:transform .3s cubic-bezier(.32,.9,.4,1.1);
+}
+#mtbSubmenu.open{transform:translateY(0)}
+.mtb-sub-handle{width:36px;height:4px;border-radius:3px;background:var(--border);margin:4px auto 10px}
+.mtb-sub-title{
+  font-size:10.5px;font-weight:700;color:var(--dim);
+  text-transform:uppercase;letter-spacing:1.5px;
+  padding:0 10px 8px;
+}
+.mtb-sub-list{display:flex;flex-direction:column;gap:2px}
+.mtb-sub-item{
+  display:flex;align-items:center;gap:10px;
+  padding:13px 14px;border-radius:13px;
+  font-size:13.5px;font-weight:600;color:var(--fg);
+  cursor:pointer;transition:background .15s;
+  -webkit-tap-highlight-color:transparent;
+}
+.mtb-sub-item:active{background:rgba(79,0,140,.08)}
+.mtb-sub-item.active{color:var(--c1);background:rgba(79,0,140,.08)}
+[data-theme="dark"] #mtbSubmenu{background:#13132A!important}
+[data-theme="dark"] .mtb-sub-item{color:var(--fg)!important}
+[data-theme="dark"] .mtb-sub-item:active,[data-theme="dark"] .mtb-sub-item.active{background:rgba(139,92,246,.14)!important;color:var(--c2)!important}
 
 /* Mobil: tab bar görünür, içerik altından taşmasın */
 @media(max-width:768px){
