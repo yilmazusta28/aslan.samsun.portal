@@ -3332,8 +3332,9 @@ function goPageSub(page, subFn, subEl) {
 const MTB_GROUPS = {
   perf: { title: 'Performans', items: [
     { label: '📊 Pazar Analizi', navId: 'navsub_perf_pazar', action: function () { goPageSub(1, function () { goPerfSubTab(0); }); } },
-    { label: '📈 Satış Takibi', navId: 'navsub_perf_takip', action: function () { goPageSub(1, function () { goPerfSubTab(1); }); } },
-    { label: '📉 YTD TL&Kutu', navId: 'navsub_perf_ytd', action: function () { goPageSub(1, function () { goPerfSubTab(2); }); } },
+    { label: '📊 Pazar Payı Analizi', navId: 'navsub_perf_payi', action: function () { goPageSub(1, function () { goPerfSubTab(1); }); } },
+    { label: '📈 Satış Takibi', navId: 'navsub_perf_takip', action: function () { goPageSub(1, function () { goPerfSubTab(2); }); } },
+    { label: '📉 YTD TL&Kutu', navId: 'navsub_perf_ytd', action: function () { goPageSub(1, function () { goPerfSubTab(3); }); } },
     { label: '🗺️ MI & GI Takibi', navId: 'navsub_perf_migi', action: function () { goPageSub(2, null); } }
   ]},
   ecz: { title: 'Eczane Satış', items: [
@@ -3489,7 +3490,7 @@ function goPage(i){
 // Varsayılan ('pazar') zaten goPage(1) içinde render ediliyor; burada sadece
 // görünürlük değişimi + diğer ikisinin (takip, ytd) ilk tıklamada bir kez
 // render edilmesi var.
-const PERF_SUBTABS = ['pazar', 'takip', 'ytd'];
+const PERF_SUBTABS = ['pazar', 'payi', 'takip', 'ytd'];
 let _perfActiveSubTab = 0;
 
 function goPerfSubTab(idx) {
@@ -3504,7 +3505,7 @@ function goPerfSubTab(idx) {
   }
   const sel = document.getElementById('perfSubSelect');
   if (sel) sel.value = String(idx);
-  if (typeof pvSyncSubNav === 'function') pvSyncSubNav('navsub_perf_' + (PERF_SUBTABS[idx] === 'takip' ? 'takip' : PERF_SUBTABS[idx] === 'ytd' ? 'ytd' : 'pazar'));
+  if (typeof pvSyncSubNav === 'function') pvSyncSubNav('navsub_perf_' + PERF_SUBTABS[idx]);
   PERF_SUBTABS.forEach(function (key, i) {
     const panel = document.getElementById('perfsub_' + key);
     if (panel) panel.style.display = (i === idx) ? 'block' : 'none';
@@ -6474,10 +6475,13 @@ function _buildEczaneDrawerRefresh(){
       <div class="nav-subitem" id="navsub_perf_pazar" onclick="event.stopPropagation();goPageSub(1,function(){goPerfSubTab(0)},this)">
         <span class="nav-subdot">●</span><span>📊 Pazar Analizi</span>
       </div>
-      <div class="nav-subitem" id="navsub_perf_takip" onclick="event.stopPropagation();goPageSub(1,function(){goPerfSubTab(1)},this)">
+      <div class="nav-subitem" id="navsub_perf_payi" onclick="event.stopPropagation();goPageSub(1,function(){goPerfSubTab(1)},this)">
+        <span class="nav-subdot">●</span><span>📊 Pazar Payı Analizi</span>
+      </div>
+      <div class="nav-subitem" id="navsub_perf_takip" onclick="event.stopPropagation();goPageSub(1,function(){goPerfSubTab(2)},this)">
         <span class="nav-subdot">●</span><span>📈 Satış Takibi</span>
       </div>
-      <div class="nav-subitem" id="navsub_perf_ytd" onclick="event.stopPropagation();goPageSub(1,function(){goPerfSubTab(2)},this)">
+      <div class="nav-subitem" id="navsub_perf_ytd" onclick="event.stopPropagation();goPageSub(1,function(){goPerfSubTab(3)},this)">
         <span class="nav-subdot">●</span><span>📉 YTD TL&amp;Kutu</span>
       </div>
       <div class="nav-subitem" id="navsub_perf_migi" onclick="event.stopPropagation();goPageSub(2,null,this)">
@@ -6718,14 +6722,16 @@ function _buildEczaneDrawerRefresh(){
        tablosu). -->
   <div class="eczsub-bar" id="perfSubBar">
     <button type="button" class="eczsub-tab active" onclick="goPerfSubTab(0)">📊 Pazar Analizi</button>
-    <button type="button" class="eczsub-tab" onclick="goPerfSubTab(1)">📈 Satış Takibi</button>
-    <button type="button" class="eczsub-tab" onclick="goPerfSubTab(2)">📉 YTD TL&amp;KUTU</button>
+    <button type="button" class="eczsub-tab" onclick="goPerfSubTab(1)">📊 Pazar Payı Analizi</button>
+    <button type="button" class="eczsub-tab" onclick="goPerfSubTab(2)">📈 Satış Takibi</button>
+    <button type="button" class="eczsub-tab" onclick="goPerfSubTab(3)">📉 YTD TL&amp;KUTU</button>
   </div>
   <div class="eczsub-select-wrap">
     <select class="eczsub-select" id="perfSubSelect" onchange="goPerfSubTab(parseInt(this.value,10))">
       <option value="0">📊 Pazar Analizi</option>
-      <option value="1">📈 Satış Takibi</option>
-      <option value="2">📉 YTD TL&amp;KUTU</option>
+      <option value="1">📊 Pazar Payı Analizi</option>
+      <option value="2">📈 Satış Takibi</option>
+      <option value="3">📉 YTD TL&amp;KUTU</option>
     </select>
   </div>
 
@@ -6775,10 +6781,15 @@ function _buildEczaneDrawerRefresh(){
     </div>
   </div>
 
-  <!-- Pazar Payı Analizi (Eczane Satış sayfasından buraya taşındı).
-       İç içerik id'leri (marketShareCard, acc_market_share_badge/body) AYNEN
-       korundu; renderMarketShareCard() temsilciyi bu sayfanın filtresinden
-       (selTTT_p1) alır ve renderPazarCharts() sonunda çağrılır. -->
+  </div><!-- /perfsub_pazar -->
+
+  <!-- ═══ 2. Pazar Payı Analizi (kullanıcı isteğiyle Pazar Analizi'nin
+       altından ayrılıp kendi alt-sayfası yapıldı). İç içerik id'leri
+       (marketShareCard, acc_market_share_badge/body) AYNEN korundu;
+       renderMarketShareCard() temsilciyi Pazar Analizi'nin filtresinden
+       (selTTT_p1) alır ve renderPazarCharts() sonunda otomatik çağrılır —
+       yani bu sekmeye girilmeden önce bile içerik hazır olur. ═══ -->
+  <div class="eczsub-panel" id="perfsub_payi" style="display:none">
   <div class="card">
     <div class="card-hd">
       <span class="card-title">📊 Pazar Payı Analizi</span>
@@ -6788,9 +6799,9 @@ function _buildEczaneDrawerRefresh(){
       <div id="marketShareCard"></div>
     </div>
   </div>
-  </div><!-- /perfsub_pazar -->
+  </div><!-- /perfsub_payi -->
 
-  <!-- ═══ 2. Satış Takibi ═══ -->
+  <!-- ═══ 3. Satış Takibi ═══ -->
   <div class="eczsub-panel" id="perfsub_takip" style="display:none">
   <!-- TOP STICKY FILTER BAR -->
   <div class="top-filter-bar">
@@ -6882,7 +6893,7 @@ function _buildEczaneDrawerRefresh(){
   </div>
   </div><!-- /perfsub_takip -->
 
-  <!-- ═══ 3. YTD TL&KUTU ═══
+  <!-- ═══ 4. YTD TL&KUTU ═══
        Kaynak: YTD_TL.csv (bkz. js/data/ytd-tl-loader.js) — dönemsel olarak
        https://github.com/yilmazusta28/aslan.samsun.portal/blob/main/YTD_TL.csv
        adresinde güncellenir. Filtreler: Dönem (YTD/1-6.Dönem/1-2.Kompanzasyon),
