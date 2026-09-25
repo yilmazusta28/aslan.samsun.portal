@@ -901,19 +901,22 @@
 
   // ── Sekme geçişleri (mevcut .eczsub-bar / .eczsub-tab deseniyle aynı —
   // bkz. Eczane Satış sayfası, style.css satır ~640) ────────────────────
-  // Kullanıcı isteği: Sabit Formlar / Masraf Dosyası / Kongre Katılımcı
-  // Bilgileri artık üçü de birbirinden TAMAMEN ayrı, karşılıklı dışlayan
-  // panel — aynı anda sadece biri görünür ve girişleri SADECE sol menü /
-  // mobil alt menüden (bkz. index.html goDosyaSub()) yapılır. Sayfa
-  // içinde bunları seçen bir sekme çubuğu YOK artık.
+  // Kullanıcı bildirimi: Dosyalar sayfası "tek sayfa" gibi duruyordu —
+  // Sabit Formlar kartı sekmelerden BAĞIMSIZ her zaman en üstte görünüyor,
+  // Masraf/Kongre arasında sadece görünürlük değişiyordu. Artık üçü de
+  // (sabit/masraf/kongre) sidebar'daki 3 alt-öğeyle (navsub_dsy_*) birebir
+  // eşleşen, aynı anda sadece BİRİ görünür olan ayrı alt-sayfalar.
   window._dsyShowMain = function (name) {
     var _mainEl = document.getElementById('main');
     if (_mainEl) _mainEl.scrollTop = 0;
     ['sabit', 'masraf', 'kongre'].forEach(function (n) {
       var sec = document.getElementById('dsyMain_' + n);
+      var tab = document.getElementById('dsyMainTab_' + n);
       if (sec) sec.style.display = (n === name) ? '' : 'none';
+      if (tab) tab.classList.toggle('active', n === name);
     });
-    // Sidebar'daki (Dosyalar > Sabit/Kongre/Masraf) alt-öğe vurgusunu senkronize et
+    // Sidebar'daki (Dosyalar > Sabit Formlar/Masraf/Kongre) alt-öğe
+    // vurgusunu senkronize et
     if (typeof window.pvSyncSubNav === 'function') window.pvSyncSubNav('navsub_dsy_' + name);
   };
   window._dsyShowSub = function (name) {
@@ -958,18 +961,20 @@
 
     // FAZ 22.0 — GitHub'a yazılamamış kayıt uyarı şeridi (içeriği
     // _renderSyncBanner() doldurur; bekleyen kayıt yoksa gizli kalır).
-    // Masraf/Kongre panelinden bağımsız, her zaman en üstte (hangi panel
-    // açıksa açılsın bekleyen kayıt uyarısı görünsün diye).
+    // Masraf/Kongre kayıtlarıyla ilgili olduğundan, hangi alt-sayfa açık
+    // olursa olsun her zaman en üstte görünür kalır.
     html += '<div id="dsySyncBanner" style="display:none"></div>';
 
-    // Kullanıcı isteği: Sabit Formlar / Masraf Dosyası / Kongre Katılımcı
-    // Bilgileri artık 3 AYRI panel — hepsi karşılıklı dışlayan, sayfa içi
-    // sekme çubuğu YOK, geçiş SADECE sol menü/mobil alt menüden
-    // (goDosyaSub() → _dsyShowMain()) yapılıyor. Varsayılan olarak "masraf"
-    // görünür render edilir; goDosyaSub() sayfa açılır açılmaz doğru
-    // panele geçirir.
+    // Ana başlıklar: Sabit Formlar / Masraf Dosyası / Kongre Katılımcı
+    // Bilgileri — kullanıcı isteği (FAZ 28.0): üçü artık gerçekten AYRI
+    // alt-sayfalar (aynı anda sadece biri görünür), Sabit Formlar da dahil.
+    html += '<div class="eczsub-bar">' +
+      '<div class="eczsub-tab" id="dsyMainTab_sabit" onclick="_dsyShowMain(\'sabit\')">📄 Sabit Formlar</div>' +
+      '<div class="eczsub-tab active" id="dsyMainTab_masraf" onclick="_dsyShowMain(\'masraf\')">💰 Masraf Dosyası</div>' +
+      '<div class="eczsub-tab" id="dsyMainTab_kongre" onclick="_dsyShowMain(\'kongre\')">🎪 Kongre Katılımcı Bilgileri</div>' +
+    '</div>';
 
-    // ── Sabit Formlar bölümü (artık kendi ayrı paneli) ──
+    // ── Sabit Formlar bölümü ──
     html += '<div id="dsyMain_sabit" style="display:none">' + _fixedFormsHtml() + '</div>';
 
     // ── Masraf Dosyası bölümü ──
