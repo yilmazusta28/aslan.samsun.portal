@@ -147,7 +147,7 @@ function _runEngineCore() {
   // Artık gerçekten sadece o kişi+brick için mevcut EN GÜNCEL döneme ait
   // satırlar kullanılıyor (bkz. prim-calc.js'deki aynı düzeltme notu).
   const _migiDonemNum = d => { const p = String(d||'').split('/'); return p.length===2 ? (+p[1]*100+ +p[0]) : 0; };
-  const _migiSrcAll = (MIGI_BRICK_TL_RAW||[]).filter(r=>r.person===ttt);
+  const _migiSrcAll = (MIGI_BRICK_TL_RAW||[]).filter(r=>(typeof normTTT==='function'?(normTTT(r.person)||r.person):r.person)===ttt);
   const _migiByBrick = {};
   _migiSrcAll.forEach(r=>{ if(!_migiByBrick[r.brick]) _migiByBrick[r.brick]=[]; _migiByBrick[r.brick].push(r); });
   const _brickMap = {};

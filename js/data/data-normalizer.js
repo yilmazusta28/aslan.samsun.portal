@@ -31,9 +31,22 @@ function normTTT(raw) {
   // 2. ASCII-stripped lookup
   const stripped = stripTR(up);
   if (TTT_NORM_MAP[stripped]) return TTT_NORM_MAP[stripped];
-  // 3. Fuzzy: compare ASCII-stripped against canonical list
+  // 3. Fuzzy: compare ASCII-stripped against canonical list (tam eşleşme)
   for (const canon of CANONICAL_TTTS) {
     if (stripTR(canon) === stripped) return canon;
+  }
+  // 4. BUG DÜZELTMESİ (kullanıcı bildirimi: "Enis Tok" için MI&GI brick
+  // verilerinde temsilci seçilince brick sırası bazen yüklenmiyordu).
+  // Bazı CSV kaynaklarında personel adının önünde/sonunda ünvan, boşluk
+  // fazlalığı veya ek metin olabiliyor ("UZM. ENİS TOK", "ENİS TOK -
+  // STAJ" vb.) — bu durumda 1-3'teki TAM string eşleşmesi başarısız
+  // oluyor ve o kişinin verisi (person alanı canonical olmadığı için)
+  // hiçbir yerde `r.person === ttt` ile eşleşmiyordu. Son çare olarak
+  // "içerir" eşleşmesi (iki yönlü) deniyoruz — normal isimler için asla
+  // tetiklenmez (1-3 zaten yakalar), sadece bu tür kirli veri için devreye girer.
+  for (const canon of CANONICAL_TTTS) {
+    const cStripped = stripTR(canon);
+    if (stripped.length >= 4 && (stripped.includes(cStripped) || cStripped.includes(stripped))) return canon;
   }
   return null;
 }

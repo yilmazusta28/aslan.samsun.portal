@@ -61,7 +61,7 @@
   function _migiDonemNum(d) { var p = String(d || '').split('/'); return p.length === 2 ? (+p[1] * 100 + +p[0]) : 0; }
   function _buildBrickMigiMap(ttt) {
     var byBrick = {};
-    (MIGI_BRICK_TL_RAW || []).filter(function (r) { return r.person === ttt; }).forEach(function (r) {
+    (MIGI_BRICK_TL_RAW || []).filter(function (r) { var rp=(typeof normTTT==='function'?(normTTT(r.person)||r.person):r.person); return rp === ttt; }).forEach(function (r) {
       var key = (r.brick || '').toUpperCase();
       if (!key) return;
       if (!byBrick[key]) byBrick[key] = [];
