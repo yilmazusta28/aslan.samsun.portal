@@ -1780,7 +1780,7 @@ function toggleEczaneAcc(id) {
 // sadece "hangi panel görünür" ve "ilk açılışta bir kez render et" mantığı
 // var — eskiden accordion'un onclick'inde duran kod buraya taşındı.
 const ECZ_SUBTABS = [
-  'detay', 'top15_forecast', 'urun_analiz', 'route_plan_input'
+  'detay', 'top15_forecast', 'urun_analiz'
 ];
 let _eczActiveSubTab = 0;
 
@@ -1811,12 +1811,6 @@ function goEczaneSubTab(idx) {
           if (typeof renderEczaneUrunAnalizKarti === 'function') renderEczaneUrunAnalizKarti('eczaneUrunAnalizKarti', _ttt);
         }
         break;
-      case 'route_plan_input':
-        if (typeof window.RoutePlanInput === 'object') {
-          const _rpTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
-          window.RoutePlanInput.renderRoutePlanForm('routePlanFormContainer', { representative: _rpTTT });
-        }
-        break;
     }
   } catch (_e) {
     console.warn('[EczaneSubTab] lazy-render hata (sessiz):', _e.message);
@@ -1830,7 +1824,10 @@ function goEczaneSubTab(idx) {
 // 3 konfigürasyon/referans paneli burada. Varsayılan ('satis_sartlari')
 // eskiden Eczane'nin 5. sekmesiydi, render tetikleyicisi (window._pvSartlariRendered)
 // AYNEN korundu.
-const AYAR_SUBTABS = ['satis_sartlari', 'haber_takibi', 'launch_readiness'];
+// Kullanıcı isteğiyle 'route_plan' (Haftalık Rota Planım) Eczane
+// Satış'tan buraya taşındı — dizinin SONUNA eklendi, mevcut 3 index
+// (0,1,2) değişmedi.
+const AYAR_SUBTABS = ['satis_sartlari', 'haber_takibi', 'launch_readiness', 'route_plan'];
 let _ayarActiveSubTab = 0;
 
 function goAyarSubTab(idx) {
@@ -1843,14 +1840,6 @@ function goAyarSubTab(idx) {
     if (panel) panel.style.display = (i === idx) ? 'block' : 'none';
   });
 
-  const bar = document.querySelector('#page6 .eczsub-bar');
-  if (bar) {
-    Array.from(bar.querySelectorAll('.eczsub-tab')).forEach(function (btn, i) {
-      btn.classList.toggle('active', i === idx);
-    });
-  }
-  const sel = document.getElementById('ayarSubSelect');
-  if (sel) sel.value = String(idx);
   if (typeof pvSyncSubNav === 'function') pvSyncSubNav('navsub_ayar_' + idx);
 
   try {
@@ -1871,6 +1860,12 @@ function goAyarSubTab(idx) {
         if (!window._pvLaunchRendered) {
           window._pvLaunchRendered = true;
           if (typeof renderLaunchReadinessCard === 'function') renderLaunchReadinessCard();
+        }
+        break;
+      case 'route_plan':
+        if (typeof window.RoutePlanInput === 'object') {
+          const _rpTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
+          window.RoutePlanInput.renderRoutePlanForm('routePlanFormContainer', { representative: _rpTTT });
         }
         break;
     }
@@ -3340,13 +3335,13 @@ const MTB_GROUPS = {
   ecz: { title: 'Eczane Satış', items: [
     { label: '📋 Eczane Detay Listesi', navId: 'navsub_ecz_0', action: function () { goPageSub(5, function () { goEczaneSubTab(0); }); } },
     { label: '📦 Top 15 Sipariş Tahmini', navId: 'navsub_ecz_1', action: function () { goPageSub(5, function () { goEczaneSubTab(1); }); } },
-    { label: '📦 Ürün Sipariş Analizi', navId: 'navsub_ecz_2', action: function () { goPageSub(5, function () { goEczaneSubTab(2); }); } },
-    { label: '📝 Haftalık Rota Planım', navId: 'navsub_ecz_3', action: function () { goPageSub(5, function () { goEczaneSubTab(3); }); } }
+    { label: '📦 Ürün Sipariş Analizi', navId: 'navsub_ecz_2', action: function () { goPageSub(5, function () { goEczaneSubTab(2); }); } }
   ]},
   ayar: { title: 'Ayarlar & Referans', items: [
     { label: '⚙️ Satış Şartları Yönetimi', navId: 'navsub_ayar_0', action: function () { goPageSub(6, function () { goAyarSubTab(0); }); } },
     { label: '📰 Piyasa Haberleri', navId: 'navsub_ayar_1', action: function () { goPageSub(6, function () { goAyarSubTab(1); }); } },
-    { label: '🚀 Lansman Hazırlık', navId: 'navsub_ayar_2', action: function () { goPageSub(6, function () { goAyarSubTab(2); }); } }
+    { label: '🚀 Lansman Hazırlık', navId: 'navsub_ayar_2', action: function () { goPageSub(6, function () { goAyarSubTab(2); }); } },
+    { label: '📝 Haftalık Rota Planım', navId: 'navsub_ayar_3', action: function () { goPageSub(6, function () { goAyarSubTab(3); }); } }
   ]},
   dsy: { title: 'Dosyalar', items: [
     { label: '📄 Sabit Formlar', navId: 'navsub_dsy_sabit', action: function () { goDosyaSub('sabit'); } },
@@ -3397,28 +3392,13 @@ function toggleMtbSubmenu(key, btnEl) {
   }
   openMtbSubmenu(key, btnEl);
 }
-// goPage() sayfa her değiştiğinde açık menüyü otomatik kapatır (bkz.
-// yukarıda goPage() içindeki closeMtbSubmenu() çağrısı) — bu yüzden
-// "aynı butona ikinci kez basınca kapansın" (toggle) davranışı, goPage()
-// çağrılmadan ÖNCE mevcut açık durumu hatırlayan bu sarmalayıcı ile
-// sağlanıyor.
-function mtbGroupTap(page, key, btnEl) {
-  const menu = document.getElementById('mtbSubmenu');
-  const wasOpenSame = !!(menu && menu.classList.contains('open') && menu.dataset.key === key);
-  goPage(page);
-  if (!wasOpenSame) openMtbSubmenu(key, btnEl);
-}
-
-// Dosyalar sayfası alt başlıkları (Sabit Formlar / Kongre / Masraf)
+// Dosyalar sayfası alt başlıkları — Sabit Formlar / Kongre Katılımcı
+// Bilgileri / Masraf Dosyası artık üçü de kendi başına ayrı panel;
+// hangisi seçilirse SADECE o gösterilir (bkz. dosyalar-page.js _dsyShowMain).
 function goDosyaSub(which, subEl) {
   goPage(8);
   setTimeout(function () {
-    if (which === 'kongre') { if (typeof window._dsyShowMain === 'function') window._dsyShowMain('kongre'); }
-    else if (which === 'masraf') { if (typeof window._dsyShowMain === 'function') window._dsyShowMain('masraf'); }
-    else if (which === 'sabit') {
-      const card = document.getElementById('dsyFixedFormsCard');
-      if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    if (typeof window._dsyShowMain === 'function') window._dsyShowMain(which);
   }, 0);
   if (subEl) pvSyncSubNav(subEl.id);
   if (window.innerWidth <= 1024) closeSidebar();
@@ -6367,7 +6347,7 @@ function _buildEczaneDrawerRefresh(){
     <span class="mtb-icon"><i class="fas fa-chart-pie"></i></span>
     <span class="mtb-label">Ana</span>
   </button>
-  <button class="mtb-btn" id="mtb1" onclick="mtbGroupTap(1,'perf',this)">
+  <button class="mtb-btn" id="mtb1" onclick="toggleMtbSubmenu('perf',this)">
     <span class="mtb-icon"><i class="fas fa-search-dollar"></i></span>
     <span class="mtb-label">Performans</span>
     <i class="fas fa-chevron-up mtb-caret"></i>
@@ -6380,18 +6360,18 @@ function _buildEczaneDrawerRefresh(){
     <span class="mtb-icon"><i class="fas fa-brain"></i></span>
     <span class="mtb-label">AI</span>
   </button>
-  <button class="mtb-btn" id="mtb5" onclick="mtbGroupTap(5,'ecz',this)">
+  <button class="mtb-btn" id="mtb5" onclick="toggleMtbSubmenu('ecz',this)">
     <span class="mtb-icon"><i class="fas fa-clinic-medical"></i></span>
     <span class="mtb-label">Eczane</span>
     <i class="fas fa-chevron-up mtb-caret"></i>
   </button>
-  <button class="mtb-btn" id="mtb6" onclick="mtbGroupTap(6,'ayar',this)">
+  <button class="mtb-btn" id="mtb6" onclick="toggleMtbSubmenu('ayar',this)">
     <span class="mtb-icon"><i class="fas fa-sliders-h"></i></span>
     <span class="mtb-label">Ayarlar</span>
     <i class="fas fa-chevron-up mtb-caret"></i>
   </button>
   <!-- FAZ 19.0 — Dosyalar sekmesi (mobil) -->
-  <button class="mtb-btn" id="mtb8" onclick="mtbGroupTap(8,'dsy',this)">
+  <button class="mtb-btn" id="mtb8" onclick="toggleMtbSubmenu('dsy',this)">
     <span class="mtb-icon"><i class="fas fa-folder-open"></i></span>
     <span class="mtb-label">Dosyalar</span>
     <i class="fas fa-chevron-up mtb-caret"></i>
@@ -6467,7 +6447,7 @@ function _buildEczaneDrawerRefresh(){
        Takibi, YTD TL&Kutu, MI&GI Takibi) sayfaya girmeden sidebar'da
        tıklanınca açılıp oradan seçilebilsin. -->
   <div class="nav-group" id="navgrp-perf">
-    <div class="nav-item pg" id="snav1" onclick="toggleNavGroup('navgrp-perf'); goPage(1)">
+    <div class="nav-item pg" id="snav1" onclick="toggleNavGroup('navgrp-perf')">
       <span class="nav-icon"><i class="fas fa-search-dollar"></i></span><span>Performans</span>
       <i class="fas fa-chevron-down nav-caret"></i>
     </div>
@@ -6502,7 +6482,7 @@ function _buildEczaneDrawerRefresh(){
 
   <!-- Eczane Satış — alt sekmeler sidebar'dan seçilebilir -->
   <div class="nav-group" id="navgrp-ecz">
-    <div class="nav-item pg" id="snav5" onclick="toggleNavGroup('navgrp-ecz'); goPage(5)">
+    <div class="nav-item pg" id="snav5" onclick="toggleNavGroup('navgrp-ecz')">
       <span class="nav-icon"><i class="fas fa-clinic-medical"></i></span><span>Eczane Satış</span>
       <i class="fas fa-chevron-down nav-caret"></i>
     </div>
@@ -6516,15 +6496,12 @@ function _buildEczaneDrawerRefresh(){
       <div class="nav-subitem pv-hidden-ui" id="navsub_ecz_2" onclick="event.stopPropagation();goPageSub(5,function(){goEczaneSubTab(2)},this)">
         <span class="nav-subdot">●</span><span>📦 Ürün Sipariş Analizi</span>
       </div>
-      <div class="nav-subitem" id="navsub_ecz_3" onclick="event.stopPropagation();goPageSub(5,function(){goEczaneSubTab(3)},this)">
-        <span class="nav-subdot">●</span><span>📝 Haftalık Rota Planım</span>
-      </div>
     </div>
   </div>
 
   <!-- Ayarlar & Referans — alt sekmeler sidebar'dan seçilebilir -->
   <div class="nav-group" id="navgrp-ayar">
-    <div class="nav-item pg" id="snav6" onclick="toggleNavGroup('navgrp-ayar'); goPage(6)">
+    <div class="nav-item pg" id="snav6" onclick="toggleNavGroup('navgrp-ayar')">
       <span class="nav-icon"><i class="fas fa-sliders-h"></i></span><span>Ayarlar &amp; Referans</span>
       <i class="fas fa-chevron-down nav-caret"></i>
     </div>
@@ -6538,12 +6515,15 @@ function _buildEczaneDrawerRefresh(){
       <div class="nav-subitem pv-hidden-ui" id="navsub_ayar_2" onclick="event.stopPropagation();goPageSub(6,function(){goAyarSubTab(2)},this)">
         <span class="nav-subdot">●</span><span>🚀 Lansman Hazırlık</span>
       </div>
+      <div class="nav-subitem" id="navsub_ayar_3" onclick="event.stopPropagation();goPageSub(6,function(){goAyarSubTab(3)},this)">
+        <span class="nav-subdot">●</span><span>📝 Haftalık Rota Planım</span>
+      </div>
     </div>
   </div>
 
   <!-- FAZ 19.0 — Dosyalar Sekmesi — alt başlıklar sidebar'dan seçilebilir -->
   <div class="nav-group" id="navgrp-dsy">
-    <div class="nav-item pg" id="snav8" onclick="toggleNavGroup('navgrp-dsy'); goPage(8)">
+    <div class="nav-item pg" id="snav8" onclick="toggleNavGroup('navgrp-dsy')">
       <span class="nav-icon"><i class="fas fa-folder-open"></i></span><span>Dosyalar</span>
       <i class="fas fa-chevron-down nav-caret"></i>
     </div>
@@ -6720,20 +6700,10 @@ function _buildEczaneDrawerRefresh(){
        olarak geri ayırmak + nav/goPage numaralarını eski haline almak
        yeterli (bkz. bu değişiklikle birlikte gelen sayfa-numarası eşleme
        tablosu). -->
-  <div class="eczsub-bar" id="perfSubBar">
-    <button type="button" class="eczsub-tab active" onclick="goPerfSubTab(0)">📊 Pazar Analizi</button>
-    <button type="button" class="eczsub-tab" onclick="goPerfSubTab(1)">📊 Pazar Payı Analizi</button>
-    <button type="button" class="eczsub-tab" onclick="goPerfSubTab(2)">📈 Satış Takibi</button>
-    <button type="button" class="eczsub-tab" onclick="goPerfSubTab(3)">📉 YTD TL&amp;KUTU</button>
-  </div>
-  <div class="eczsub-select-wrap">
-    <select class="eczsub-select" id="perfSubSelect" onchange="goPerfSubTab(parseInt(this.value,10))">
-      <option value="0">📊 Pazar Analizi</option>
-      <option value="1">📊 Pazar Payı Analizi</option>
-      <option value="2">📈 Satış Takibi</option>
-      <option value="3">📉 YTD TL&amp;KUTU</option>
-    </select>
-  </div>
+  <!-- Kullanıcı isteği: sayfa içi sekme çubuğu (eczsub-bar) ve açılır
+       seçim kutusu (eczsub-select) KALDIRILDI — giriş artık SADECE sol
+       menü / mobil alt menüden (goPerfSubTab() hâlâ aynı şekilde
+       çağrılıyor, sadece tetikleyici sidebar/mtb menüsü). -->
 
   <!-- ═══ 1. Pazar Analizi (varsayılan, açılışta görünür) ═══ -->
   <div class="eczsub-panel" id="perfsub_pazar">
@@ -7500,20 +7470,8 @@ function _buildEczaneDrawerRefresh(){
        Rollback: taşınan 3 paneli (satis_sartlari, haber_takibi,
        launch_readiness) buraya geri taşımak + ECZ_SUBTABS'e eklemek +
        "Ayarlar & Referans" sayfasını/nav girişini silmek yeterli. -->
-  <div class="eczsub-bar" role="tablist">
-    <button type="button" class="eczsub-tab active" onclick="goEczaneSubTab(0)">📋 Eczane Detay Listesi</button>
-    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(1)">📦 Top 15 Sipariş Tahmini</button>
-    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(2)">📦 Ürün Sipariş Analizi</button>
-    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(3)">📝 Haftalık Rota Planım</button>
-  </div>
-  <div class="eczsub-select-wrap">
-    <select class="eczsub-select" id="eczSubSelect" onchange="goEczaneSubTab(parseInt(this.value,10))">
-      <option value="0">📋 Eczane Detay Listesi</option>
-      <option value="1">📦 Top 15 Sipariş Tahmini</option>
-      <option value="2" class="pv-hidden-ui">📦 Eczane Ürün Sipariş Analizi</option>
-      <option value="3">📝 Haftalık Rota Planım (Manuel)</option>
-    </select>
-  </div>
+  <!-- Kullanıcı isteği: sayfa içi sekme çubuğu kaldırıldı — giriş SADECE
+       sol menü / mobil alt menüden yapılır (bkz. sidebar navgrp-ecz). -->
 
   <!-- ═══ 1. Eczane Detay Listesi ═══ -->
   <div class="eczsub-panel" id="eczsub_detay">
@@ -7602,18 +7560,8 @@ function _buildEczaneDrawerRefresh(){
     </div>
   </div>
 
-  <!-- ═══ 3. Haftalık Rota Planım (Manuel) ═══ -->
-  <div class="eczsub-panel" id="eczsub_route_plan_input" style="display:none">
-    <div class="card mb16">
-      <div class="card-hd">
-        <span class="card-title">📝 Haftalık Rota Planım (Manuel)</span>
-        <span class="card-badge" id="acc_route_plan_input_badge" style="margin-left:auto">Kendi Planım</span>
-      </div>
-      <div class="card-body-0" id="acc_route_plan_input_body">
-        <div id="routePlanFormContainer"></div>
-      </div>
-    </div>
-  </div>
+  <!-- Haftalık Rota Planım (Manuel) kullanıcı isteğiyle Ayarlar & Referans
+       sayfasına taşındı — bkz. #ayarsub_route_plan aşağıda (PAGE 6). -->
 </div>
 
 <!-- ══════ PAGE 6: AYARLAR & REFERANS ══════
@@ -7630,18 +7578,8 @@ function _buildEczaneDrawerRefresh(){
      Rollback: bu sayfayı silip 3 paneli Eczane'nin ECZ_SUBTABS'ine geri
      eklemek + nav/goPage numaralarını bir öncekine kaydırmak yeterli. -->
 <div class="page" id="page6">
-  <div class="eczsub-bar" role="tablist">
-    <button type="button" class="eczsub-tab active" onclick="goAyarSubTab(0)">⚙️ Satış Şartları Yönetimi</button>
-    <button type="button" class="eczsub-tab" onclick="goAyarSubTab(1)">📰 Piyasa Haberleri</button>
-    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goAyarSubTab(2)">🚀 Lansman Hazırlık</button>
-  </div>
-  <div class="eczsub-select-wrap">
-    <select class="eczsub-select" id="ayarSubSelect" onchange="goAyarSubTab(parseInt(this.value,10))">
-      <option value="0">⚙️ Satış Şartları Yönetimi</option>
-      <option value="1">📰 Piyasa Haberleri ve Özel Durumlar</option>
-      <option value="2" class="pv-hidden-ui">🚀 Lansman Hazırlık</option>
-    </select>
-  </div>
+  <!-- Kullanıcı isteği: sayfa içi sekme çubuğu kaldırıldı — giriş SADECE
+       sol menü / mobil alt menüden yapılır (bkz. sidebar navgrp-ayar). -->
 
   <!-- ═══ 1. Satış Şartları Yönetimi ═══ -->
   <div class="eczsub-panel" id="ayarsub_satis_sartlari">
@@ -7678,6 +7616,23 @@ function _buildEczaneDrawerRefresh(){
       </div>
       <div class="card-body-0" id="acc_launch_readiness_body">
         <div id="launchReadinessCard"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 4. Haftalık Rota Planım (Manuel) — kullanıcı isteğiyle Eczane
+       Satış'tan buraya taşındı. İç içerik id'leri (routePlanFormContainer,
+       acc_route_plan_input_badge/body) AYNEN korundu — render fonksiyonu
+       (RoutePlanInput.renderRoutePlanForm) ve tetikleyici mantık DEĞİŞMEDİ,
+       sadece goAyarSubTab() içine taşındı (bkz. AYAR_SUBTABS). ═══ -->
+  <div class="eczsub-panel" id="ayarsub_route_plan" style="display:none">
+    <div class="card mb16">
+      <div class="card-hd">
+        <span class="card-title">📝 Haftalık Rota Planım (Manuel)</span>
+        <span class="card-badge" id="acc_route_plan_input_badge" style="margin-left:auto">Kendi Planım</span>
+      </div>
+      <div class="card-body-0" id="acc_route_plan_input_body">
+        <div id="routePlanFormContainer"></div>
       </div>
     </div>
   </div>
