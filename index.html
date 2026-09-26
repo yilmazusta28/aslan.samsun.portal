@@ -2285,9 +2285,14 @@ function exportEczaneToExcel() {
       _AY_K_BASE.forEach((ad,i) => { _AY_K[String(i+1).padStart(2,'0')+'/'+yr] = ad + (yr!==2026?"'"+(yr%100):''); });
     });
 
-    // Satırları oluştur
+    // Satırları oluştur — kullanıcı isteği: "Tüm Temsilciler" seçiliyken
+    // indirilen Excel'de hangi eczanenin hangi temsilciye ait olduğu
+    // anlaşılsın diye ilk sütun olarak "TTT" eklenir (tek bir temsilci
+    // seçiliyken zaten hepsi aynı kişi olacağından gereksiz — o durumda
+    // sütun eklenmez).
+    const _showTttCol = (typeof selEczaneTTT !== 'undefined') && (selEczaneTTT === 'TÜMÜ');
     const rows = list.map(e => {
-      const row = { 'Eczane': e.ad, 'Brick': e.brick };
+      const row = _showTttCol ? { 'TTT': e.ttt || '—', 'Eczane': e.ad, 'Brick': e.brick } : { 'Eczane': e.ad, 'Brick': e.brick };
       _aylar.forEach(a => { row[_AY_K[a]||a] = e['ay_'+a] || 0; });
       row['Toplam Adet'] = e.toplam || 0;
       row['Toplam Tutar (₺)'] = Math.round((e.tutar||0) * 100) / 100;
@@ -2299,6 +2304,7 @@ function exportEczaneToExcel() {
     const ws = XLSX.utils.json_to_sheet(rows);
     // Sütun genişlikleri — okunabilirlik için
     ws['!cols'] = [
+      ...(_showTttCol ? [{ wch: 22 }] : []),
       { wch: 32 }, { wch: 14 },
       ..._aylar.map(() => ({ wch: 8 })),
       { wch: 12 }, { wch: 16 }, { wch: 30 }, { wch: 8 }
