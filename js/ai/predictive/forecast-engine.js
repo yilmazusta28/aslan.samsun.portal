@@ -124,15 +124,36 @@
   }
 
   // ── _recentDailyRate ─────────────────────────────────────────
-  // KULLANICI İSTEĞİ — basit/şeffaf yöntem: son GERÇEKTEN gelen IMS
-  // haftalarının (en fazla son 2 tam hafta ≈ 14 gün — IMS, sistemde bir
-  // hafta geriden geldiği için dönemin başından bugüne kümülatif ortalama
-  // yerine SADECE en güncel gerçek veri kullanılır) toplamını, o kadar
-  // günün (hafta sayısı × 7) gerçek gün sayısına bölerek günlük hız elde
-  // eder. remainingDays ile çarpılınca dönem sonu tahmini ortaya çıkar.
-  function _recentDailyRate(vals) {
-    var recent = vals.slice(-2); // en fazla son 2 hafta (~14 gün)
-    var days   = recent.length * 7;
+  // KÖK NEDEN DÜZELTMESİ (kullanıcı bildirimi + elle hesaplama örneği:
+  // "Haftalık TL Dökümü" tablosunda 2 haftalık ortalama 223.228₺, toplam
+  // dönem 43 iş günü — 223.228'i 7'ye bölüp (31.890₺/gün) sonra kalan İŞ
+  // GÜNÜNE çarpmak yerine, 223.228'i o haftaya denk gelen GERÇEK iş günü
+  // sayısına (5'e yakın, ama dönemin tatil/haftasonu dağılımına göre
+  // ~4.78) bölüp öyle çarpmak gerekiyordu — kullanıcının elle hesapladığı
+  // "223.228/5=44.645₺/gün" ile "9 haftalık ortalama × 9" yöntemlerinin
+  // ikisinin de işaret ettiği kök sorun buydu).
+  //
+  // ESKİ (HATALI): her IMS haftası SABİT 7 TAKVİM günü sayılıp bölünüyordu
+  // (days = recent.length*7), ama bu hız sonradan remainingDays/totalDays
+  // (İŞ GÜNÜ, workDays() ile hesaplanan) ile çarpılıyordu — TAKVİM günü
+  // bazında hesaplanmış bir hızı İŞ GÜNÜ sayısıyla çarpmak BİRİM
+  // UYUMSUZLUĞU'dur ve hızı gerçekte olması gerekenden ~%29 (7 vs ~5)
+  // DÜŞÜK gösterir → "Dönem Sonu Tahmini TL" ve "Tahmini %" olması
+  // gerekenden belirgin şekilde düşük çıkar.
+  //
+  // YENİ (DOĞRU): runrate-engine.js'in _weeklyAvgDailyRate() fonksiyonunda
+  // ZATEN kullandığı, dönemin GERÇEK iş günü sayısından türetilen
+  // workDaysPerWeek = totalDays/9 (9 IMS hafta-slotu) ile bölünüyor — iki
+  // motor artık BİREBİR TUTARLI ve tatil/haftasonu farklarına göre otomatik
+  // ayarlanıyor (kullanıcının sabit "/5" yaklaşımından da daha kesin,
+  // çünkü dönemin gerçek toplam iş günü sayısını kullanıyor).
+  // totalDays verilmezse (eski çağrılarla geriye dönük uyumluluk) 5 iş
+  // günü/hafta varsayılır.
+  function _recentDailyRate(vals, totalDays) {
+    var recent = vals.slice(-2); // en fazla son 2 hafta
+    if (!recent.length) return 0;
+    var workDaysPerWeek = (totalDays && totalDays > 0) ? (totalDays / 9) : 5;
+    var days = recent.length * workDaysPerWeek;
     if (days <= 0) return 0;
     var total = recent.reduce(function (s, v) { return s + v; }, 0);
     return total / days;
@@ -196,7 +217,7 @@
 
       var currentTL = gr.satis_tl  || 0;
       var hedefTL   = gr.hedef_tl  || 0;
-      var rawRate   = _recentDailyRate(wVals);
+      var rawRate   = _recentDailyRate(wVals, totalDays);
       // BUG DÜZELTMESİ: ham hız yerine, bu ürünün KENDİ hedefine göre
       // hesaplanan gerekli-hız ile ağırlıklı harmanlanmış (stabilize
       // edilmiş) hız kullanılır — bkz. _stabilizedRate yorumu.
@@ -290,15 +311,13 @@
       // yerine, dönem başındaki tek seferlik sıçrama/düşüşlere karşı
       // korumalı (stabilize edilmiş) hız kullanılır — runrate-engine.js
       // (FIX-RR-02) ile BİREBİR AYNI yöntem, artık burada da uygulanıyor.
-      var rawTLRate   = _recentDailyRate(tlVals);
+      var rawTLRate   = _recentDailyRate(tlVals, totalDays);
       var dailyTLRate = _stabilizedRate(rawTLRate, hedefTL, totalDays, elapsedDays);
       var addedTL     = dailyTLRate * remainingDays;
       var projectedTL = currentTL + addedTL;
 
-      // ── Box: aynı ham yöntem (kutu için TL bazlı bir "hedef hız"
-      // referansı yok, bu kolon kullanıcının bildirdiği tabloda zaten
-      // gösterilmiyor — dokunulmadı) ────────────────────────────────
-      var dailyBoxRate = _recentDailyRate(boxVals);
+      // ── Box: aynı düzeltilmiş yöntem (iş günü bazlı) ────────────────
+      var dailyBoxRate = _recentDailyRate(boxVals, totalDays);
       var boxAdded     = dailyBoxRate * remainingDays;
       var projectedBox = Math.round((typeof KUTU !== 'undefined'
         ? (KUTU.filter(function(r){return r.ttt===ttt;}).reduce(function(s,r){return s+(r.cikan_kutu||0);},0))
