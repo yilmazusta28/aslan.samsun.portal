@@ -14,11 +14,14 @@
 //  Bağımlılık:
 //    js/core/constants.js                (ALL_TTTS)
 //    js/data/data-state.js               (GENEL)
-//    js/ai/predictive/runrate-engine.js  (calculateRunRate)
+//    js/ai/predictive/forecast-engine.js (generateForecast — TEK gerçek
+//                                          forecast kaynağı, bkz. FAZ 23
+//                                          notu team-ranking-engine.js'de)
+//    js/ai/predictive/runrate-engine.js  (calculateRunRate — yedek/fallback)
 //    js/ai/intelligence/risk-engine.js   (detectRisks)
 //  GitHub Pages compatible: classic script, no ES modules
 // ══════════════════════════════════════════════════════════════════════
-/* global GENEL, ALL_TTTS, MIGI_TL_RAW, calculateRunRate, detectRisks */
+/* global GENEL, ALL_TTTS, MIGI_TL_RAW, calculateRunRate, generateForecast, detectRisks */
 
 (function () {
   'use strict';
@@ -28,7 +31,20 @@
     return gt ? (gt.tl_pct || 0) : 0;
   }
 
+  // BUG DÜZELTMESİ (tutarlılık — kullanıcı isteği): bu fonksiyon eskiden
+  // calculateRunRate() (tüm ürünleri TEK seride birleştiren eski motor)
+  // kullanıyordu — team-ranking-engine.js'deki "Ekip Performans Sıralaması
+  // (Tümü)" tablosu ise generateForecast() (ürün bazlı toplam) kullanıyordu.
+  // İkisi FARKLI sayı üretebiliyordu. Artık İKİSİ DE generateForecast()
+  // üzerinden — tek gerçek kaynak — besleniyor; calculateRunRate sadece
+  // generateForecast yüklenmemişse yedek olarak kullanılıyor.
   function _safeForecast(ttt) {
+    try {
+      if (typeof generateForecast === 'function') {
+        var fc = generateForecast(ttt);
+        if (fc && fc.projectedReal > 0) return fc.projectedReal;
+      }
+    } catch (e0) { /* silent */ }
     try {
       if (typeof calculateRunRate === 'function') {
         var rr = calculateRunRate(ttt);

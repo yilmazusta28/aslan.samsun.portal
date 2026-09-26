@@ -197,7 +197,7 @@
 <!-- PHASE 3.0: Sales Intelligence Engine — yükleme sırası kritik -->
 <script src="js/ai/intelligence/insight-engine.js?v=20260705"></script>
 <script src="js/ai/intelligence/trend-engine.js?v=20260705"></script>
-<script src="js/ai/intelligence/risk-engine.js?v=20260705"></script>
+<script src="js/ai/intelligence/risk-engine.js?v=20260926"></script>
 <script src="js/ai/intelligence/opportunity-engine.js?v=20260705"></script>
 <script src="js/ai/intelligence/recommendation-engine.js?v=20260705"></script>
 <script src="js/ai/intelligence/intelligence-orchestrator.js?v=20260705"></script>
@@ -322,7 +322,7 @@
      Yükleme sırası: ranking → risk → forecast → summary → executive
      Rollback: bu 5 satırı sil. -->
 <script src="js/ai/executive/team-ranking-engine.js?v=20260705"></script>
-<script src="js/ai/executive/team-risk-engine.js?v=20260705"></script>
+<script src="js/ai/executive/team-risk-engine.js?v=20260926"></script>
 <script src="js/ai/executive/team-forecast-engine.js?v=20260705"></script>
 <script src="js/ai/executive/executive-summary-engine.js?v=20260705"></script>
 <script src="js/ai/executive/executive-engine.js?v=20260705"></script>
@@ -3909,7 +3909,20 @@ function computeHedefOranlari(ttt) {
   }
   const pazarPct = pazarBuyuklukTl > 0 ? (hedefTl / pazarBuyuklukTl * 100) : null;
 
-  return { hedefTl, nationalPct, bolgePct, pazarBuyuklukTl, pazarPct };
+  // 4) FORECAST TL / FORECAST % — kullanıcı isteği: Bölge Özet Analizi
+  // kutucuğuna "Dönem Sonu Tahmini TL" ve "Tahmini %" eklendi. Tek gerçek
+  // kaynak: generateForecast() (forecast-engine.js) — "Ürün Bazlı
+  // Performans" tablosu ve "Ekip Performans Sıralaması" ile AYNI motor.
+  let forecastTl = null, forecastPct = null;
+  try {
+    if (typeof generateForecast === 'function') {
+      const fc = generateForecast(ttt);
+      if (fc && fc.projectedTL != null) forecastTl = fc.projectedTL;
+      if (fc && fc.projectedReal != null) forecastPct = fc.projectedReal;
+    }
+  } catch (eFc) { /* silent */ }
+
+  return { hedefTl, nationalPct, bolgePct, pazarBuyuklukTl, pazarPct, forecastTl, forecastPct };
 }
 
 // ── FAZ 23 — Hedef Payı Oranları için açıklama metinleri ──────────
@@ -3928,6 +3941,14 @@ const AIS_INFO_TEXTS = {
   pazar: {
     title: 'Gerekli Pazar Payı nedir?',
     html: 'Temsilcinin TL hedefinin, ürün grubundaki TOPLAM pazar büyüklüğüne (tüm ürünler + rakipler dahil, GENEL_TABLO.csv "TOP.PAZAR TL" kolonu) oranıdır.<br><br>Hesap: <strong>Hedef TL ÷ Toplam Pazar TL</strong> × 100.<br><br>Bu oran, hedefe ulaşmak için pazardan alınması gereken minimum payı gösterir.'
+  },
+  forecastTl: {
+    title: 'Forecast TL (Dönem Sonu Tahmini TL) nedir?',
+    html: 'generateForecast() motorunun (forecast-engine.js) ürettiği, mevcut satış hızının (son 14 günlük gerçek IMS hızı × kalan gün sayısı) mevcut satışa eklenmesiyle bulunan dönem sonu TL tahminidir.<br><br>"Ürün Bazlı Performans" tablosundaki "Dönem Sonu Tahmini TL" ile AYNI motor/tek gerçek kaynaktır.'
+  },
+  forecastPct: {
+    title: 'Forecast % (Tahmini yüzde) nedir?',
+    html: 'Dönem Sonu Tahmini TL ÷ Hedef TL × 100 — mevcut gidişle dönem sonunda ulaşılması beklenen realizasyon yüzdesidir.<br><br>%100 ve üzeri, mevcut hızın hedefi karşılayacağı; %91 altı, prim eşiğinin (%91) mevcut hızla tutturulamayacağı anlamına gelir. Risk skorlamaları ve kritik aksiyon listesi artık bu değere göre önceliklendirilir.'
   }
 };
 function showAisInfo(key, el) {
@@ -3978,6 +3999,12 @@ function renderAnaInsight(){
           <span class="ais-val bdg ${o.pazarPct!=null?pCls(o.pazarPct):''}">${o.pazarPct!=null?o.pazarPct.toFixed(1)+'%':'Veri yok'}</span>
           ${o.pazarBuyuklukTl>0?`<span class="ais-sub">Pazar: ${fTL(o.pazarBuyuklukTl)} · Hedef: ${fTL(o.hedefTl)}</span>`:''}
         </div>
+        <div class="ais-chip info-chip" onclick="showAisInfo('forecastTl',this)">
+          <span class="ais-label">Forecast TL<span class="info-pin">ⓘ</span></span>
+          <span class="ais-val bdg">${o.forecastTl!=null?fTL(o.forecastTl):'Veri yok'}</span>
+          <span class="ais-sub">Dönem Sonu Tahmini TL</span>
+        </div>
+        ${chip('Forecast %', o.forecastPct, true, 'forecastPct')}
       `;
       statsEl.style.display='flex';
     }
@@ -4100,22 +4127,35 @@ function buildRakipSpikeAlerts(ttt){
 // PHASE23-STUB: renderGenelTablo — business render orchestrator; NOT moved.
 // Reusable table helper extracted → js/ui/table-renderers.js: renderTblEkipRanking()
 // Future refactor can replace innerHTML assignment with renderTblEkipRanking() call.
+// KOLON DÜZENİ (kullanıcı isteği): Sıra - Temsilci - TR Sıra - Hedef TL -
+// Satış TL - Kalan TL - TL% - PP% - Gerçekleşme - Forecast%. "TR Sıra" öne
+// (Temsilci'nin hemen sağına) alındı; en sona, generateForecast()'ın (bkz.
+// forecast-engine.js — "Ürün Bazlı Performans" tablosuyla AYNI motor/tek
+// gerçek kaynak) ürettiği dönem sonu tahmini realizasyon yüzdesi eklendi.
 function renderGenelTablo(){
   const rows=[...GENEL.filter(r=>r.urun==='GENEL TOPLAM'&&r.ttt!=='ŞENOL YILMAZ')].sort((a,b)=>b.tl_pct-a.tl_pct);
   document.getElementById('genelTbody').innerHTML=rows.map((r,i)=>{
     const trSira=TR_SIRA_MAP[r.ttt]||0;
     const trCol=trSira<=30?'#0BA87E':trSira<=60?'#D97706':'#DC2626';
     const pp=r.prim_pct||0;
+    let fcPct=r.tl_pct||0;
+    try{
+      if(typeof generateForecast==='function'){
+        const fc=generateForecast(r.ttt);
+        if(fc && fc.projectedReal!=null && fc.projectedReal>0) fcPct=fc.projectedReal;
+      }
+    }catch(eFc){/* silent — anlık tl_pct'e geri düş */}
     return `<tr>
       <td><span class="rk ${i===0?'rk-1':i===1?'rk-2':i===2?'rk-3':'rk-n'}">${i+1}</span></td>
       <td style="font-weight:600;cursor:pointer;color:var(--c1)" onclick="selectTTT('${r.ttt}')">${r.ttt}</td>
+      <td style="color:${trCol};font-weight:700">${trSira?'#'+trSira:'—'}</td>
       <td class="mono">${fTL(r.hedef_tl)}</td>
       <td class="mono" style="font-weight:700">${fTL(r.satis_tl)}</td>
       <td class="mono ${r.kalan_tl<0?'negative':'positive'}">${fTL(r.kalan_tl)}</td>
       <td><span class="bdg ${pCls(r.tl_pct)}">${fPct(r.tl_pct)}</span></td>
       <td><span class="bdg bdg-blue" style="${pp>=91?'background:#16A34A;color:#fff':pp>=70?'background:#D97706;color:#fff':''}">${fPct(pp)}</span></td>
       <td><div class="prog" style="width:80px"><div class="prog-fill ${barCls(r.tl_pct)}" style="width:${Math.min(r.tl_pct,100)}%"></div></div></td>
-      <td style="color:${trCol};font-weight:700">${trSira?'#'+trSira:'—'}</td>
+      <td><span class="bdg ${pCls(fcPct)}">${fPct(fcPct)}</span></td>
     </tr>`;
   }).join('');
 }
@@ -6746,7 +6786,7 @@ function _buildEczaneDrawerRefresh(){
       <div class="card-hd"><span class="card-title">Ekip Performans Sıralaması</span><span class="card-badge">Genel Toplam</span></div>
       <div class="card-body-0 scroll-x">
         <table class="tbl" id="genelTablo">
-          <thead><tr><th>Sıra</th><th>Temsilci</th><th>Hedef TL</th><th>Satış TL</th><th>Kalan TL</th><th>TL %</th><th>PP %</th><th>Gerçekleşme</th><th>TR Sıra</th></tr></thead>
+          <thead><tr><th>Sıra</th><th>Temsilci</th><th>TR Sıra</th><th>Hedef TL</th><th>Satış TL</th><th>Kalan TL</th><th>TL %</th><th>PP %</th><th>Gerçekleşme</th><th>Forecast %</th></tr></thead>
           <tbody id="genelTbody"></tbody>
         </table>
       </div>

@@ -8,10 +8,23 @@
 //    • detectRisks(ttt) → risk[]
 //
 //  Risk kategorileri:
-//    - Realizasyon riski (hedeften sapma)            — GENEL (değişmedi)
+//    - R1/R2: DÖNEM SONU FORECAST riski (hedeften sapma)  — GENEL + forecast-engine.js
 //    - Pazar payı kaybı (IMS)                          — adapter üzerinden (bkz. ⚠️ not)
 //    - Brick performansı (MI&GI)                       — MIGI_BRICK_TL_RAW (değişmedi)
 //    - Portföy prim riski                               — GENEL (değişmedi)
+//
+//  ⚠️ YAPISAL DEĞİŞİKLİK (kullanıcı isteği — forecast tabanlı risk):
+//    R1 (genel realizasyon) ve R2 (ürün bazlı) artık MEVCUT anlık
+//    realizasyona (tl_pct) göre değil, generateForecast()'ın ürettiği
+//    DÖNEM SONU TAHMİNİ realizasyona (projectedReal / productForecasts)
+//    göre sınıflandırılıyor. Mantık: bir temsilci/ürünün mevcut durumu
+//    zayıf görünse bile gidişatı (forecast) %100'ü geçecekse "mevcut
+//    durum korunur" — risk üretilmez; forecast düşükse, ne kadar
+//    düşükse severity o kadar artar (kritik uyarı/önlem artışı). Mevcut
+//    (anlık) yüzde artık sadece detail metninde bağlam olarak gösterilir,
+//    sınıflandırmayı BELİRLEMEZ. generateForecast() yüklenmemişse (veya
+//    hesap üretemezse) anlık tl_pct'e sessizce geri düşülür — davranış
+//    hiçbir zaman kırılmaz.
 //
 //  ⚠️ ÖNEMLİ AUDIT NOTU — R3 "Pazar Payı Kaybı" (bkz. AI_MIMARI_STABILIZASYON_RAPORU.md):
 //    Bu blok ÖNCEDEN r.hafta / r.bizim_pay / r.rakip_pay okuyordu. r.hafta
@@ -34,11 +47,12 @@
 //  AI çağrısı: YOK
 //  UI değişikliği: YOK
 //
-//  Bağımlılık: js/ai/core/ims-adapter.js, js/data/data-state.js (GENEL, MIGI_BRICK_TL_RAW)
-//  Yükleme sırası: ims-adapter.js SONRASI
+//  Bağımlılık: js/ai/core/ims-adapter.js, js/data/data-state.js (GENEL, MIGI_BRICK_TL_RAW),
+//              js/ai/predictive/forecast-engine.js (generateForecast — R1/R2/R5 forecast kaynağı)
+//  Yükleme sırası: ims-adapter.js VE forecast-engine.js SONRASI
 //  GitHub Pages compatible: classic script, no ES modules
 // ══════════════════════════════════════════════════════════════════════
-/* global GENEL, MIGI_BRICK_TL_RAW */
+/* global GENEL, MIGI_BRICK_TL_RAW, generateForecast */
 
 (function() {
   'use strict';
@@ -57,30 +71,48 @@
         ? window.IMSAdapter.normalizeIMS(ttt) : [];
       var migiRows   = (MIGI_BRICK_TL_RAW || []).filter(function(r){ return r.person === ttt; });
 
-      // ── R1: Genel TL realizasyon riski ───────────────────
+      // ── Dönem sonu forecast'ı bir kere hesapla (R1 + R2 ortak kaynak) ──
+      var fcAll = null;
+      try { if (typeof generateForecast === 'function') fcAll = generateForecast(ttt); } catch (eFc) { /* silent */ }
+      var productForecastMap = {};
+      if (fcAll && fcAll.productForecasts) {
+        fcAll.productForecasts.forEach(function (pf) { productForecastMap[pf.urun] = pf; });
+      }
+
+      // ── R1: Genel TL — DÖNEM SONU FORECAST riski ─────────────────
+      // (bkz. dosya başı ⚠️ YAPISAL DEĞİŞİKLİK notu)
       if (genelTotal) {
-        var pct = genelTotal.tl_pct || 0;
-        if (pct < 70) {
-          risks.push({ severity: 'HIGH', title: 'Kritik Realizasyon Açığı',
-            detail: 'Genel TL realizasyonu %' + pct.toFixed(1) + ' — prim eşiğinin çok altında (%91). Acil aksiyon gerekli.' });
-        } else if (pct < 82) {
-          risks.push({ severity: 'MEDIUM', title: 'Realizasyon Açığı',
-            detail: 'Genel TL realizasyonu %' + pct.toFixed(1) + ' — %91 prim eşiğine ' + (91 - pct).toFixed(1) + ' puan kaldı.' });
-        } else if (pct < 91) {
-          risks.push({ severity: 'LOW', title: 'Sınırda Realizasyon',
-            detail: 'Genel TL realizasyonu %' + pct.toFixed(1) + ' — %91 eşiği yakın, tempo korunmalı.' });
+        var pct = genelTotal.tl_pct || 0; // sadece bağlam metni için
+        var fcGenel = (fcAll && fcAll.projectedReal != null && fcAll.projectedReal > 0) ? fcAll.projectedReal : pct;
+        if (fcGenel >= 100) {
+          // Gidişat dönem sonunda %100'ü geçiyor → mevcut durum korunur,
+          // risk üretilmez (mevcut anlık % düşük görünse bile).
+        } else if (fcGenel < 70) {
+          risks.push({ severity: 'HIGH', title: 'Dönem Sonu Forecast Kritik',
+            detail: 'Mevcut gidişle dönem sonu tahmini realizasyon %' + fcGenel.toFixed(1) + ' (şu an %' + pct.toFixed(1) + ') — prim eşiğinin (%91) çok altında. Acil aksiyon gerekli.' });
+        } else if (fcGenel < 91) {
+          risks.push({ severity: 'MEDIUM', title: 'Forecast %91 Prim Eşiğinin Altında',
+            detail: 'Dönem sonu tahmini realizasyon %' + fcGenel.toFixed(1) + ' (şu an %' + pct.toFixed(1) + ') — %91 prim eşiğine ' + (91 - fcGenel).toFixed(1) + ' puan kaldı, tempo artırılmalı.' });
+        } else {
+          risks.push({ severity: 'LOW', title: 'Forecast Sınırda',
+            detail: 'Dönem sonu tahmini realizasyon %' + fcGenel.toFixed(1) + ' (şu an %' + pct.toFixed(1) + ') — %100 hedefine yakın, tempo korunmalı.' });
         }
       }
 
-      // ── R2: Ürün bazlı kritik açıklar ────────────────────
+      // ── R2: Ürün bazlı — DÖNEM SONU FORECAST riski ───────────────
       genelRows.forEach(function(r) {
-        var p = r.tl_pct || 0;
-        if (p < 60) {
-          risks.push({ severity: 'HIGH', title: r.urun + ' Kritik Açık',
-            detail: r.urun + ' realizasyonu %' + p.toFixed(1) + ' — portföy primini tehdit ediyor.' });
-        } else if (p < 75) {
-          risks.push({ severity: 'MEDIUM', title: r.urun + ' Düşük Realizasyon',
-            detail: r.urun + ' realizasyonu %' + p.toFixed(1) + ' — ek satış baskısı gerekli.' });
+        var p  = r.tl_pct || 0; // sadece bağlam metni için
+        var pf = productForecastMap[r.urun];
+        var fcP = (pf && pf.projectedReal != null && (pf.hedefTL || 0) > 0) ? pf.projectedReal : p;
+        if (fcP >= 100) {
+          // Ürünün gidişatı dönem sonunda %100'ü geçiyor → mevcut
+          // (başarılı) gidişat korunur, risk üretilmez.
+        } else if (fcP < 60) {
+          risks.push({ severity: 'HIGH', title: r.urun + ' Dönem Sonu Forecast Kritik',
+            detail: r.urun + ' için dönem sonu tahmini realizasyon %' + fcP.toFixed(1) + ' (şu an %' + p.toFixed(1) + ') — portföy primini tehdit ediyor, önlem şart.' });
+        } else if (fcP < 91) {
+          risks.push({ severity: 'MEDIUM', title: r.urun + ' Forecast Düşük',
+            detail: r.urun + ' için dönem sonu tahmini realizasyon %' + fcP.toFixed(1) + ' (şu an %' + p.toFixed(1) + ') — ek satış baskısı gerekli.' });
         }
       });
 
@@ -153,18 +185,25 @@
         }
       }
 
-      // ── R5: Portföy prim riski — TL real + prim puanı ────
+      // ── R5: Portföy prim riski — FORECAST real + forecast prim puanı ──
+      // YENİ MANTIK: R1/R2 ile tutarlı olsun diye bu da artık anlık
+      // yerine dönem sonu forecast'a bakıyor — forecast %100'ü geçen bir
+      // ekip/ürün için bu blok da risk üretmez.
       if (genelTotal) {
-        var realPct = genelTotal.tl_pct || 0;
-        // Prim puanı proxy: ürün realizasyon ortalaması
-        var primPuani = genelRows.length
-          ? genelRows.reduce(function(s,r){ return s + (r.tl_pct || 0); }, 0) / genelRows.length
+        var realPctFc = (fcAll && fcAll.projectedReal != null && fcAll.projectedReal > 0) ? fcAll.projectedReal : (genelTotal.tl_pct || 0);
+        // Prim puanı proxy: ürün forecast ortalaması (varsa), yoksa anlık ürün ortalaması
+        var primPuaniFc = genelRows.length
+          ? genelRows.reduce(function(s,r){
+              var pf = productForecastMap[r.urun];
+              var v  = (pf && pf.projectedReal != null && (pf.hedefTL || 0) > 0) ? pf.projectedReal : (r.tl_pct || 0);
+              return s + v;
+            }, 0) / genelRows.length
           : 0;
 
-        if (realPct < 91 && primPuani < 91) {
+        if (realPctFc < 91 && primPuaniFc < 91) {
           risks.push({ severity: 'HIGH', title: 'Portföy Prim Riski',
-            detail: 'Hem TL real (%' + realPct.toFixed(1) + ') hem de ürün ortalaması (%' + primPuani.toFixed(1) +
-              ') %91 altında — portföy prim koşulu sağlanamıyor.' });
+            detail: 'Hem dönem sonu TL forecast (%' + realPctFc.toFixed(1) + ') hem de ürün forecast ortalaması (%' + primPuaniFc.toFixed(1) +
+              ') %91 altında — mevcut gidişle portföy prim koşulu sağlanamıyor.' });
         }
       }
 
