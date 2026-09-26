@@ -225,6 +225,85 @@ function calcPrimForTTT(ttt) {
   return tlRealPrim + portfoyPrim + migiPrim;
 }
 
+// ══════════════════════════════════════════════════════════════
+//  FORECAST BAZLI TAHMİNİ PRİM (kullanıcı isteği — "Ekip Performans
+//  Sıralaması (Tümü)" tablosundaki "Tahmini Prim" sütunu, dönem henüz
+//  bitmemişken o anki ANLIK realizasyona göre hesaplanıyordu — bu,
+//  "Tahmini" (yani dönem SONUNU öngören) bir sütun için yanıltıcıydı,
+//  çünkü kategori sütunu (bkz. team-ranking-engine.js _category — aynı
+//  bug düzeltmesi) forecast'a bakarken prim sütunu hâlâ anlık real'e
+//  bakıyordu — ikisi TUTARSIZ görünebiliyordu.
+//
+//  Bu fonksiyon calcPrimForTTT() ile BİREBİR AYNI resmi iş kuralını
+//  (çarpan tablosu, MI&GI matrisi, %91 Portföy Primi eşiği) uygular —
+//  TEK FARK: "effReal" olarak o anki rGenel.tl_pct yerine dönem sonu
+//  FORECAST'ı (generateForecast() → projectedReal) kullanılır; Portföy
+//  Primi Puanı da (varsa) forecast'ın ürün bazlı projectedReal'lerinden
+//  hesaplanır.
+//
+//  BİLİNÇLİ OLARAK DAHİL EDİLMEYEN kalemler:
+//    • Kompanzasyon Ek Primi — resmi kural gereği SADECE GERÇEKLEŞMİŞ
+//      (arşivlenmiş, dönemi kapanmış) periyodların KENDİ realizasyonuna
+//      bakar ("kompanzasyon döneminin KENDİ TL realizasyonu >= %95");
+//      henüz kapanmamış bir dönem için bu koşul ileriye dönük bir
+//      tahminle test edilemez, o yüzden forecast prim hesabına dahil
+//      edilmez (calcPrimForTTT'de zaten sadece k1/k2 dönemlerinde devreye
+//      giriyor).
+//    • MI&GI kısmı — bu veri kaynağının (MIGI_TL_RAW) kendi bir forecast
+//      yöntemi yok, bu yüzden calcPrimForTTT'deki gibi CANLI (mevcut) MI/GI
+//      ortalaması kullanılır; sadece eşik kontrolü (effReal>=70) forecast
+//      değerine göre yapılır.
+//
+//  @param {string} ttt
+//  @returns {number} — forecast bazlı tahmini toplam prim (TL)
+// ══════════════════════════════════════════════════════════════
+function calcPrimForTTTForecast(ttt) {
+  // Forecast motoru yoksa veya bu kişi için hesaplanamıyorsa (0/negatif),
+  // sessizce anlık real bazlı calcPrimForTTT()'ye düş — hiç prim
+  // göstermemekten iyidir.
+  if (typeof generateForecast !== 'function') return calcPrimForTTT(ttt);
+  let fc;
+  try { fc = generateForecast(ttt); } catch (e) { return calcPrimForTTT(ttt); }
+  if (!fc || !(fc.projectedReal > 0)) return calcPrimForTTT(ttt);
+
+  const effReal = fc.projectedReal;
+
+  // Portföy Primi Puanı — forecast'ın kendi ürün bazlı tahminlerini
+  // (productForecasts[].projectedReal) kullanır; forecast ürün kırılımı
+  // yoksa anlık GENEL ürün real'lerine düşülür.
+  let primPuani;
+  if (Array.isArray(fc.productForecasts) && fc.productForecasts.length) {
+    const urunReals = {};
+    fc.productForecasts.forEach(pf => { urunReals[pf.urun] = pf.projectedReal; });
+    primPuani = calcPrimPuani(urunReals, ttt);
+  } else {
+    const urunRows  = GENEL.filter(g => g.ttt === ttt && g.urun !== 'GENEL TOPLAM' && g.urun !== 'DESTEVIT');
+    const urunReals = Object.fromEntries(urunRows.map(r => [r.urun, r.tl_pct]));
+    primPuani = calcPrimPuani(urunReals, ttt);
+  }
+
+  // MI/GI — calcPrimForTTT ile AYNI (canlı, en güncel dönem ortalaması)
+  const _migiDonemNum = d => { const p = String(d || '').split('/'); return p.length === 2 ? (+p[1] * 100 + +p[0]) : 0; };
+  const migiRowsAll   = (typeof MIGI_TL_RAW !== 'undefined' ? MIGI_TL_RAW : []).filter(r => r.person === ttt);
+  const _migiLatest    = migiRowsAll.reduce((max, r) => Math.max(max, _migiDonemNum(r.donem)), 0);
+  const migiRows       = migiRowsAll.filter(r => _migiDonemNum(r.donem) === _migiLatest);
+  const miAvg = migiRows.length ? migiRows.reduce((s, r) => s + (r.mi || 100), 0) / migiRows.length : 100;
+  const giAvg = migiRows.length ? migiRows.reduce((s, r) => s + (r.bi || 100), 0) / migiRows.length : 100;
+  const migiKatsayi = effReal >= 70 ? getMiGiKatsayi(Math.round(miAvg), Math.round(giAvg)) : 0;
+
+  const BAZ_TL_REAL = 55000;
+  const BAZ_MIGI    = 14000;
+  const effRealCarpan = Math.min(effReal, 100);
+  const carpan     = effReal >= 91 ? getCarpan(effRealCarpan) : 0;
+  const tlRealPrim = carpan * BAZ_TL_REAL; // Kompanzasyon Ek Primi kasıtlı olarak dahil değil (yukarıdaki not)
+
+  const carpanPortfoy100 = getCarpan(100); // her zaman 1.0 — iş kuralı gereği sabit
+  const portfoyPrim = (effReal >= 91 && primPuani >= 91) ? 0.20 * BAZ_TL_REAL * carpanPortfoy100 : 0;
+  const migiPrim    = migiKatsayi * BAZ_MIGI;
+
+  return tlRealPrim + portfoyPrim + migiPrim;
+}
+
 function calcPrimPuani(urunReals, ttt) {
   let total = 0;
   for (const urun of Object.keys(URUN_AGIRLIK)) {

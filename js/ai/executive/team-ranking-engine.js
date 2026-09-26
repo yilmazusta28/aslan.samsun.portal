@@ -215,10 +215,15 @@
       var score    = _computeScore(ttt);
       var cat      = _category(real, score, forecast);
 
-      // Prim tahmini
+      // Prim tahmini — kullanıcı isteği: bu tablo "Tahmini" (dönem sonu
+      // öngörüsü) olduğundan, prim de anlık real yerine FORECAST'a göre
+      // hesaplanır (bkz. prim-calc.js calcPrimForTTTForecast). Forecast
+      // motoru yoksa/hesaplanamıyorsa fonksiyon kendi içinde sessizce
+      // calcPrimForTTT()'ye (anlık real) düşer.
       var prim = 0;
       try {
-        if (typeof calcPrimForTTT === 'function') prim = calcPrimForTTT(ttt);
+        if (typeof calcPrimForTTTForecast === 'function') prim = calcPrimForTTTForecast(ttt);
+        else if (typeof calcPrimForTTT === 'function') prim = calcPrimForTTT(ttt);
       } catch (e) { /* silent */ }
 
       results.push({
