@@ -175,11 +175,27 @@
   // forecast hesaplanabiliyorsa (generateForecast > 0) o kullanılır, yoksa
   // (veri yoksa) anlık real'e geri düşülür. Böylece iyi bir gidişat (örn.
   // %102 forecast) artık "RİSK" olarak görünmüyor.
+  //
+  // BUG DÜZELTMESİ #2 (kullanıcı bildirimi — "Ekip Performans Sıralaması
+  // (Tümü)'nde herkes RİSK gösteriyor, mevcut forecast'a göre bazı
+  // temsilciler risk dışı olmalı"): Yukarıdaki düzeltme "basis"i (forecast)
+  // öncelikli yaptı AMA her eşiğe ayrıca "score >= 80/60/40" koşulunu da
+  // VE (AND) ile bağlamıştı. "score" — büyüme + pazar payı + risk-motoru
+  // ceza puanlarını da içeren ayrı bir bileşik metrik — genelde 40-60
+  // bandının altında kalabiliyor (özellikle detectRisks() ceza uyguladığında
+  // veya büyüme/pazar payı düşük olduğunda), bu da forecast'ı %95-105
+  // olan (yani gerçekte sağlıklı) temsilcileri de "score < eşik" koşulunu
+  // sağlayamadıkları için otomatik olarak RİSK'e düşürüyordu — pratikte
+  // NEREDEYSE HERKES RİSK görünüyordu. Düzeltme: "basis" (forecast/real)
+  // artık TEK BAŞINA kategoriyi belirliyor; "score" sadece basis >= 100
+  // olan en üst dilimde STAR/STABLE ayrımı yapmak için ince-ayar olarak
+  // kullanılıyor — düşük bir score, forecast'ı iyi olan birini artık
+  // WATCHLIST/RİSK'e düşüremez.
   function _category(real, score, forecast) {
     var basis = (forecast != null && forecast > 0) ? forecast : real;
-    if (basis >= 100 && score >= 80) return 'STAR';
-    if (basis >=  91 && score >= 60) return 'STABLE';
-    if (basis >=  70 && score >= 40) return 'WATCHLIST';
+    if (basis >= 100) return score >= 70 ? 'STAR' : 'STABLE';
+    if (basis >=  91) return 'STABLE';
+    if (basis >=  70) return 'WATCHLIST';
     return 'RISK';
   }
 
