@@ -994,7 +994,7 @@
 
     // ── Masraf Dosyası bölümü ──
     html += '<div id="dsyMain_masraf">';
-    html += '<div class="eczsub-bar">' +
+    html += '<div class="eczsub-bar dsy-eczsub-bar">' +
       '<div class="eczsub-tab active" id="dsySubTab_temsil" onclick="_dsyShowSub(\'temsil\')">Temsil Masraf Detay</div>' +
       '<div class="eczsub-tab" id="dsySubTab_planlanan" onclick="_dsyShowSub(\'planlanan\')">Planlanan Merkez Ödeme</div>' +
       '<div class="eczsub-tab" id="dsySubTab_gerceklesen" onclick="_dsyShowSub(\'gerceklesen\')">Gerçekleşen Merkez Ödeme</div>' +

@@ -685,6 +685,30 @@ body{
 @media(max-width:768px){
   .eczsub-bar{display:none}
   .eczsub-select-wrap{display:block}
+  /* Dosyalar > Masraf Dosyası sekmeleri (Temsil Masraf Detay / Planlanan
+     Merkez Ödeme / Gerçekleşen Merkez Ödeme): kullanıcı isteğiyle, telefonu
+     yatay çevirmeye gerek kalmadan dikey modda da görünür kalsın. Genel
+     ".eczsub-bar{display:none}" kuralının İSTİSNASI — sadece bu çubuk
+     ".dsy-eczsub-bar" ekstra sınıfıyla işaretli, diğer sayfalardaki
+     eczsub-bar'lar (Eczane/Ayarlar) etkilenmez. flex-wrap zaten sekmelerin
+     3 sekmeyi dar ekranda alt alta/2 satıra sarmasını sağlıyor.
+  */
+  .eczsub-bar.dsy-eczsub-bar{
+    display:flex!important;
+    overflow-x:visible;
+    padding:6px;
+    gap:5px;
+  }
+  .eczsub-bar.dsy-eczsub-bar .eczsub-tab{
+    flex:1 1 auto;
+    min-width:0;
+    justify-content:center;
+    text-align:center;
+    white-space:normal;
+    padding:8px 8px;
+    font-size:11px;
+    line-height:1.25;
+  }
 }
 
 /* ── LOADING ── */
