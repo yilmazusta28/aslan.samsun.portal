@@ -3372,6 +3372,20 @@ function toggleNavGroup(id) {
 // sidebar artık sadece gerçek bir alt-öğe seçildiğinde kapanır (goPageSub/
 // goDosyaSub içlerinde zaten closeSidebar() çağrısı var).
 function navGroupHeaderTap(groupId, page) {
+  // Kullanıcı bildirimi (telefon/tablet): yukarıdaki keepSidebarOpen çözümü
+  // tek başına yetmiyor — başlığa dokunmak hâlâ goPage()'i (dolayısıyla
+  // sayfa render/scroll/reflow'unu) tetikliyor ve kullanıcı alt öğeye
+  // dokunma fırsatı bulamadan menü kapanmış gibi algılanıyor. Kalıcı çözüm:
+  // mobil/tablette (≤1024px) başlığa dokunmak ARTIK SAYFAYA GİTMİYOR,
+  // SADECE alt menüyü açıp kapatıyor — goPage() hiç çağrılmadığı için
+  // kapanma riski tamamen ortadan kalkıyor. Sayfaya geçiş, kullanıcı bir
+  // alt öğeye (navsub_*) dokunduğunda goPageSub/goDosyaSub üzerinden olur.
+  // Masaüstünde (sidebar zaten hep açık) eski davranış (aç + sayfaya git)
+  // korunuyor.
+  if (window.innerWidth <= 1024) {
+    toggleNavGroup(groupId);
+    return;
+  }
   toggleNavGroup(groupId);
   goPage(page, true);
 }
@@ -7775,20 +7789,13 @@ function _buildEczaneDrawerRefresh(){
      Rollback: bu sayfayı silip 3 paneli Eczane'nin ECZ_SUBTABS'ine geri
      eklemek + nav/goPage numaralarını bir öncekine kaydırmak yeterli. -->
 <div class="page" id="page6">
-  <div class="eczsub-bar" role="tablist">
-    <button type="button" class="eczsub-tab active" onclick="goAyarSubTab(0)">⚙️ Satış Şartları Yönetimi</button>
-    <button type="button" class="eczsub-tab" onclick="goAyarSubTab(1)">📰 Piyasa Haberleri</button>
-    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goAyarSubTab(2)">🚀 Lansman Hazırlık</button>
-    <button type="button" class="eczsub-tab" onclick="goAyarSubTab(3)">📝 Haftalık Rota Planım</button>
-  </div>
-  <div class="eczsub-select-wrap">
-    <select class="eczsub-select" id="ayarSubSelect" onchange="goAyarSubTab(parseInt(this.value,10))">
-      <option value="0">⚙️ Satış Şartları Yönetimi</option>
-      <option value="1">📰 Piyasa Haberleri ve Özel Durumlar</option>
-      <option value="2" class="pv-hidden-ui">🚀 Lansman Hazırlık</option>
-      <option value="3">📝 Haftalık Rota Planım (Manuel)</option>
-    </select>
-  </div>
+  <!-- Kullanıcı isteği: bu sayfanın üstünde tekrar eden sekme/seçim
+       bağlantıları kaldırıldı — giriş artık SADECE sol (sidebar) ana
+       menüdeki "Ayarlar & Referans" alt-öğelerinden yapılıyor. Alt-sekme
+       değişimi hâlâ goAyarSubTab() ile çalışıyor (sidebar'daki
+       navsub_ayar_* öğelerinden tetikleniyor); panellerin görünürlüğü
+       kendi inline style="display" durumlarıyla yönetiliyor, bu barın
+       kaldırılması işlevi etkilemez. -->
 
   <!-- ═══ 1. Satış Şartları Yönetimi ═══ -->
   <div class="eczsub-panel" id="ayarsub_satis_sartlari">

@@ -966,13 +966,13 @@
     html += '<div id="dsySyncBanner" style="display:none"></div>';
 
     // Ana başlıklar: Sabit Formlar / Masraf Dosyası / Kongre Katılımcı
-    // Bilgileri — kullanıcı isteği (FAZ 28.0): üçü artık gerçekten AYRI
-    // alt-sayfalar (aynı anda sadece biri görünür), Sabit Formlar da dahil.
-    html += '<div class="eczsub-bar">' +
-      '<div class="eczsub-tab" id="dsyMainTab_sabit" onclick="_dsyShowMain(\'sabit\')">📄 Sabit Formlar</div>' +
-      '<div class="eczsub-tab active" id="dsyMainTab_masraf" onclick="_dsyShowMain(\'masraf\')">💰 Masraf Dosyası</div>' +
-      '<div class="eczsub-tab" id="dsyMainTab_kongre" onclick="_dsyShowMain(\'kongre\')">🎪 Kongre Katılımcı Bilgileri</div>' +
-    '</div>';
+    // Bilgileri — üçü gerçekten AYRI alt-sayfalar (aynı anda sadece biri
+    // görünür). Kullanıcı isteği: bu sayfanın en üstünde sidebar'ı
+    // tekrarlayan bağlantı şeridi kaldırıldı — giriş SADECE sol menüdeki
+    // "Dosyalar" alt-öğelerinden (Sabit Formlar / Masraf Dosyası / Kongre
+    // Katılımcı Bilgileri) yapılıyor. _dsyShowMain() hâlâ aynı şekilde
+    // çalışıyor (sidebar'daki goDosyaSub() onu çağırıyor); dsyMainTab_*
+    // elemanları artık DOM'da olmadığından o satırlar sessizce atlanıyor.
 
     // ── Sabit Formlar bölümü ──
     html += '<div id="dsyMain_sabit" style="display:none">' + _fixedFormsHtml() + '</div>';
