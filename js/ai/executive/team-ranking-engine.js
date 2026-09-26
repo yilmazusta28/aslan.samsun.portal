@@ -166,10 +166,20 @@
   }
 
   // ── _category ─────────────────────────────────────────────
-  function _category(real, score) {
-    if (real >= 100 && score >= 80) return 'STAR';
-    if (real >=  91 && score >= 60) return 'STABLE';
-    if (real >=  70 && score >= 40) return 'WATCHLIST';
+  // BUG DÜZELTMESİ (kullanıcı bildirimi — "Hakan Yumak forecast %102.2
+  // olmasına rağmen RİSK gösteriyor"): Bu fonksiyon eskiden SADECE anlık
+  // realizasyona (real) bakıyordu — dönem başında/ortasında anlık % düşük
+  // olsa bile dönem sonu forecast'ı iyi olabilir. risk-engine.js'te zaten
+  // uygulanan "forecast %100'ü geçecekse mevcut durumu koru" mantığıyla
+  // TUTARLI olması için, kategori artık ÖNCELİKLE forecast'a bakıyor —
+  // forecast hesaplanabiliyorsa (generateForecast > 0) o kullanılır, yoksa
+  // (veri yoksa) anlık real'e geri düşülür. Böylece iyi bir gidişat (örn.
+  // %102 forecast) artık "RİSK" olarak görünmüyor.
+  function _category(real, score, forecast) {
+    var basis = (forecast != null && forecast > 0) ? forecast : real;
+    if (basis >= 100 && score >= 80) return 'STAR';
+    if (basis >=  91 && score >= 60) return 'STABLE';
+    if (basis >=  70 && score >= 40) return 'WATCHLIST';
     return 'RISK';
   }
 
@@ -187,7 +197,7 @@
       var real     = _safeReal(ttt);
       var forecast = _forecastReal(ttt);
       var score    = _computeScore(ttt);
-      var cat      = _category(real, score);
+      var cat      = _category(real, score, forecast);
 
       // Prim tahmini
       var prim = 0;

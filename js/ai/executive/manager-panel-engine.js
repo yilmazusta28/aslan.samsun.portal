@@ -636,7 +636,7 @@
     },
     kategori: {
       title: 'Kategori nedir?',
-      html: 'Real % ve Skor birlikte değerlendirilerek atanan yönetim kategorisidir:<br><br>🟢 <strong>STAR</strong>: Real ≥100 ve Skor ≥80<br>🟢 <strong>STABLE</strong>: Real ≥91 ve Skor ≥60<br>🟠 <strong>WATCHLIST</strong>: Real ≥70 ve Skor ≥40<br>🔴 <strong>RISK</strong>: bu eşiklerin altı'
+      html: 'Skor ve DÖNEM SONU FORECAST\'a (forecast varsa; yoksa anlık Real %\'e) göre atanan yönetim kategorisidir — bkz. risk-engine.js\'teki "forecast %100\'ü geçecekse mevcut durumu koru" mantığıyla TUTARLI:<br><br>🟢 <strong>STAR</strong>: Forecast ≥100 ve Skor ≥80<br>🟢 <strong>STABLE</strong>: Forecast ≥91 ve Skor ≥60<br>🟠 <strong>WATCHLIST</strong>: Forecast ≥70 ve Skor ≥40<br>🔴 <strong>RISK</strong>: bu eşiklerin altı<br><br>Not: Anlık Real % düşük olsa bile, dönem sonu forecast iyiyse temsilci RİSK\'e düşmez.'
     },
     prim: {
       title: 'Tahmini Prim nedir?',
