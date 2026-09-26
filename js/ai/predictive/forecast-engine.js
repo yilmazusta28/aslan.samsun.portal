@@ -138,11 +138,40 @@
     return total / days;
   }
 
+  // ── _stabilizedRate — BUG DÜZELTMESİ (kullanıcı bildirimi: "Ürün Bazlı
+  // Performans" tablosunun sonundaki "Dönem Sonu Tahmini TL / Tahmini %"
+  // hesaplama hataları) ────────────────────────────────────────────────
+  // KÖK NEDEN: runrate-engine.js'teki calculateRunRate() (bkz. FIX-RR-02),
+  // dönemin İLK günlerinde bir "sell-in" (kutu yükleme) sıçramasının ham
+  // günlük hızı şişirip kalan TÜM güne sabit çarpılınca gerçekçi olmayan
+  // (örn. %1377) bir projeksiyona yol açmasını önlemek için, ham hızı
+  // "hedefe zamanında ulaşmak için gereken hız" ile GÖZLEM MİKTARINA göre
+  // ağırlıklı harmanlıyordu (elapsedDays arttıkça ham hıza tam güven).
+  // Bu koruma SADECE genel (temsilci toplamı) projeksiyonuna uygulanmıştı —
+  // _productForecasts() (ürün bazlı satırlar) ve generateForecast()'in
+  // kendi projectedTL/projectedBox hesabı bu korumadan YOKSUNDU, ham
+  // _recentDailyRate()'i doğrudan kalan güne çarpıyordu. Sonuç: dönemin
+  // başında veya son 1-2 haftada tek seferlik bir sıçrama/düşüş olduğunda,
+  // "Dönem Sonu Tahmini TL" ve "Tahmini %" tek bir ürün için (veya toplam
+  // satırda) gerçekçi olmayan seviyelere sıçrayabiliyordu — runrate-
+  // engine'de zaten bir kez tespit edilip düzeltilmiş olan hatanın AYNISI.
+  // Düzeltme: AYNI yöntem (RELIABLE_DAYS ağırlıklı harmanlama) burada da
+  // uygulanıyor — formül runrate-engine.js ile BİREBİR TUTARLI.
+  var RELIABLE_DAYS = 10; // ~2 hafta iş günü — runrate-engine.js ile aynı eşik
+
+  function _stabilizedRate(rawRate, hedefAmt, totalDays, elapsedDays) {
+    var targetPaceRate = (hedefAmt > 0 && totalDays > 0) ? (hedefAmt / totalDays) : rawRate;
+    var obsWeight = (totalDays > 0) ? Math.min(1, Math.max(0, elapsedDays) / RELIABLE_DAYS) : 1;
+    return (rawRate * obsWeight) + (targetPaceRate * (1 - obsWeight));
+  }
+
   // ── _productForecasts ─────────────────────────────────────
   // Ürün bazlı TL tahminleri. remainingDays: dönem sonuna kalan takvim/iş
   // günü (calculateRunRate() → rr.remainingDays; dönem sınırlarını ve
   // "veri hâlâ önceki döneme ait" durumunu zaten doğru şekilde hesaplıyor).
-  function _productForecasts(ttt, remainingDays) {
+  // totalDays/elapsedDays: rr.totalDays / rr.elapsedDays — _stabilizedRate
+  // için gerekli (bkz. yukarıdaki yorum).
+  function _productForecasts(ttt, remainingDays, totalDays, elapsedDays) {
     var urunOrder  = (typeof URUN_ORDER !== 'undefined') ? URUN_ORDER : [];
     var tlMap      = (typeof IMS_TL_MAP !== 'undefined') ? IMS_TL_MAP : {};
     var genelRows  = (typeof GENEL !== 'undefined' ? GENEL : [])
@@ -167,7 +196,11 @@
 
       var currentTL = gr.satis_tl  || 0;
       var hedefTL   = gr.hedef_tl  || 0;
-      var dailyRate = _recentDailyRate(wVals);
+      var rawRate   = _recentDailyRate(wVals);
+      // BUG DÜZELTMESİ: ham hız yerine, bu ürünün KENDİ hedefine göre
+      // hesaplanan gerekli-hız ile ağırlıklı harmanlanmış (stabilize
+      // edilmiş) hız kullanılır — bkz. _stabilizedRate yorumu.
+      var dailyRate = _stabilizedRate(rawRate, hedefTL, totalDays, elapsedDays);
       var addedTL   = dailyRate * Math.max(0, remainingDays);
       var projTL    = currentTL + addedTL;
       var projReal  = hedefTL > 0 ? (projTL / hedefTL) * 100 : 0;
@@ -250,12 +283,21 @@
       // henüz gelmemiş haftalar zaten wVals'te YOK, ekstra bir lag düzeltmesi
       // gerekmez.
       var remainingDays = Math.max(0, rr.remainingDays || 0);
+      var totalDays     = rr.totalDays   || 0;
+      var elapsedDays   = rr.elapsedDays || 0;
 
-      var dailyTLRate = _recentDailyRate(tlVals);
+      // BUG DÜZELTMESİ (bkz. _stabilizedRate yorumu): ham son-14-gün hızı
+      // yerine, dönem başındaki tek seferlik sıçrama/düşüşlere karşı
+      // korumalı (stabilize edilmiş) hız kullanılır — runrate-engine.js
+      // (FIX-RR-02) ile BİREBİR AYNI yöntem, artık burada da uygulanıyor.
+      var rawTLRate   = _recentDailyRate(tlVals);
+      var dailyTLRate = _stabilizedRate(rawTLRate, hedefTL, totalDays, elapsedDays);
       var addedTL     = dailyTLRate * remainingDays;
       var projectedTL = currentTL + addedTL;
 
-      // ── Box: aynı yöntemle ────────────────────────────────
+      // ── Box: aynı ham yöntem (kutu için TL bazlı bir "hedef hız"
+      // referansı yok, bu kolon kullanıcının bildirdiği tabloda zaten
+      // gösterilmiyor — dokunulmadı) ────────────────────────────────
       var dailyBoxRate = _recentDailyRate(boxVals);
       var boxAdded     = dailyBoxRate * remainingDays;
       var projectedBox = Math.round((typeof KUTU !== 'undefined'
@@ -276,7 +318,7 @@
           : 'Sadece run rate (haftalık IMS verisi yok)';
 
       // ── Ürün bazlı tahminler ──────────────────────────────
-      result.productForecasts = _productForecasts(ttt, remainingDays);
+      result.productForecasts = _productForecasts(ttt, remainingDays, totalDays, elapsedDays);
 
       // ── Akıllı insight'lar ────────────────────────────────
       var insights = [];
