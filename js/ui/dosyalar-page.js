@@ -59,8 +59,9 @@
   var SINGLE_DOUBLE_OPTIONS = ['SINGLE', 'DOUBLE'];
   var AY_ADLARI = ['OCAK','ŞUBAT','MART','NİSAN','MAYIS','HAZİRAN','TEMMUZ','AĞUSTOS','EYLÜL','EKİM','KASIM','ARALIK'];
 
-  // FAZ 27.0 — Sabit Formlar (kullanıcı isteğiyle GitHub'a yüklenen 2 hazır
-  // dosya): DAF (Değer Aktarım Formu) ve Medikal Talep Formu. Bunlar
+  // FAZ 27.0 — Sabit Formlar (kullanıcı isteğiyle GitHub'a yüklenen hazır
+  // dosyalar): DAF (Değer Aktarım Formu), Medikal Talep Formu ve Kaza
+  // Tespit Tutanağı. Bunlar
   // Masraf Dosyası/Kongre kayıt sistemiyle İLİŞKİSİZ — sadece indirilip
   // yazdırılacak statik şablonlar. raw.githubusercontent.com üzerinden
   // doğrudan repo kökünden servis ediliyor (dosya adları %-encode edilmiş
@@ -82,6 +83,14 @@
       sub: 'Medikal Talep Formu (.xls)',
       fileName: 'MEDİKAL TALEP FORMU.xls',
       url: 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/MED%C4%B0KAL%20TALEP%20FORMU.xls'
+    },
+    {
+      key: 'kaza',
+      icon: '🚗',
+      label: 'Kaza Tespit Tutanağı',
+      sub: 'Kaza Tespit Tutanağı (.pdf)',
+      fileName: 'Kaza Tespit Tutanağı.pdf',
+      url: 'https://raw.githubusercontent.com/yilmazusta28/aslan.samsun.portal/main/kaza-tespit-tutanagi.pdf'
     }
   ];
 
@@ -133,6 +142,12 @@
   // yazdırabilir. Doğrudan window.print() ile ZORLA yazdırma, tarayıcının
   // binary Office dosyalarını render edememesi nedeniyle mümkün değil.
   window._dsyPrintForm = function (url) {
+    // PDF: tarayıcı zaten kendi PDF görüntüleyicisiyle (yazdır ikonu dahil)
+    // açabiliyor, Google Docs Viewer'a gerek yok — doğrudan yeni sekmede aç.
+    if (/\.pdf($|\?)/i.test(url)) {
+      window.open(url, '_blank');
+      return;
+    }
     window.open('https://docs.google.com/viewer?url=' + encodeURIComponent(url) + '&embedded=false', '_blank');
   };
 
