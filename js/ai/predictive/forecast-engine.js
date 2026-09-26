@@ -7,32 +7,40 @@
 //  Sorumluluk: Dönem sonu TL / kutu satış tahmini
 //    • generateForecast(ttt) → { projectedTL, projectedBox, confidence, methodology }
 //
-//  ⚠️ ÖNEMLİ DÜZELTME NOTU (bkz. AI_MIMARI_STABILIZASYON_RAPORU.md):
+//  ⚠️ ÖNEMLİ DÜZELTME NOTU 1 (bkz. AI_MIMARI_STABILIZASYON_RAPORU.md):
 //    Bu dosya ÖNCEDEN r.hafta / r.own_kutu / r.own_tl alanlarını okuyordu —
 //    GERÇEK parseIMSCSV() çıktısında bu alanlar HİÇBİR ZAMAN var olmadı.
-//    Sonuç: _weeklyTLSeries()/_weeklyBoxSeries() HER ZAMAN boş dizi
-//    döndürüyordu → 3 projeksiyon yönteminden İKİSİ her zaman 0 üretiyordu
-//    → MEDYAN her zaman 0 oluyordu → "projectedTL"/"projectedBox" HER
-//    ZAMAN "currentTL"/"currentBox" İLE BİREBİR AYNI dönüyordu (sıfır
-//    büyüme projeksiyonu) — GERÇEK satış hızından bağımsız. Bu motor
-//    artık ims-adapter.js üzerinden GERÇEK h1..h9 haftalık hacim verisini
-//    (× IMS_TL_MAP birim fiyatı) kullanıyor. Kasıtlı bir DÜZELTMEdir.
+//    Bu motor artık ims-adapter.js üzerinden GERÇEK h1..h9 haftalık hacim
+//    verisini (× IMS_TL_MAP birim fiyatı) kullanıyor.
 //
-//  Yöntemler (en iyi sonuç seçilir):
-//    1. Linear projection   — tüm haftalara eşit ağırlık, doğrusal trendten extrapole
-//    2. Weighted recent trend — son 3 haftaya 2×, önceki haftalara 1× ağırlık
-//    3. Trend-adjusted run rate — run rate × trend düzeltme faktörü
+//  ⚠️ ÖNEMLİ DÜZELTME NOTU 2 (kullanıcı bildirimi — "PANOCER 2 haftada
+//  260.868₺, dönem sonu tahmini de aynı"): İKİ AYRI KÖK NEDEN vardı:
+//    a) _productForecasts() ürünü IMS ham etiketiyle (r.product) DEĞİL,
+//       URUN_ORDER isimle karşılaştırıyordu. PANOCER/ACİDPASS'in ham IMS
+//       etiketi ("PANOCER TOPLAM"/"ACIDPASS TOPLAM") isimden farklı olduğu
+//       için o ürünlerin haftalık verisi HİÇ bulunamıyor, eklenen tahmin
+//       her zaman 0 çıkıyordu → düzeltme: bkz. _ownIlacForUrun().
+//    b) Kalan süre "remainingWeeks" olarak totalDays/5'ten türetilip ayrıca
+//       IMS gecikmesi (dataLagWeeks) kadar bir daha düşürülüyordu — gecikme
+//       ÇİFT SAYILIYOR, hafta↔gün çevrimi yuvarlama hatası taşıyordu.
+//       Düzeltme: kalan süre artık doğrudan calculateRunRate()'in ZATEN
+//       doğru hesapladığı rr.remainingDays (takvim/iş günü) kullanılarak
+//       alınıyor; hız için de dönem başından bugüne kümülatif ortalama
+//       yerine SADECE son gerçekten gelen ~14 günlük (en fazla 2 hafta)
+//       IMS verisinin günlük ortalaması kullanılıyor (bkz. _recentDailyRate).
+//
+//  Yöntem: Son 14 günlük (≤2 hafta) gerçek IMS hızı × kalan gün sayısı,
+//          mevcut satışa eklenir.
 //
 //  Bağımlılık:
-//    js/ai/core/ims-adapter.js           (normalizeIMS, aggregateRecords, weekValuesArray, activeWeekCount)
-//    js/ai/predictive/runrate-engine.js  (calculateRunRate, _rrCurrentPeriod)
+//    js/ai/core/ims-adapter.js           (normalizeIMS, aggregateRecords, weekValuesArray)
+//    js/ai/predictive/runrate-engine.js  (calculateRunRate → remainingDays)
 //    js/data/data-state.js               (GENEL, KUTU)
-//    js/core/constants.js                (IMS_TL_MAP, URUN_ORDER)
-//    js/core/date-utils.js               (PERIODS, workDays)
+//    js/core/constants.js                (IMS_TL_MAP, URUN_ORDER, OWN_DRUG_BY_GRP)
 //  Yükleme sırası: ims-adapter.js SONRASI
 //  GitHub Pages compatible: classic script, no ES modules
 // ══════════════════════════════════════════════════════════════════════
-/* global GENEL, KUTU, IMS_TL_MAP, URUN_ORDER, calculateRunRate, _rrCurrentPeriod */
+/* global GENEL, KUTU, IMS_TL_MAP, URUN_ORDER, OWN_DRUG_BY_GRP, calculateRunRate */
 
 (function () {
   'use strict';
@@ -41,10 +49,9 @@
   // weekValuesArray() / aggregateRecords().weeks HER ZAMAN 9 elemanlı
   // bir dizi döner (w1..w9 sabit slot) — dönemin henüz YAŞANMAMIŞ
   // haftaları için bu slotlar 0 değeriyle doludur. Bu 0'ları "satış
-  // sıfırdı" diye yorumlayıp doğrusal eğim/projeksiyon hesaplarına
-  // (₋_linearSlope, _linearProjection, _weightedRecentTrend,
-  // _trendAdjustedRunRate) OLDUĞU GİBİ vermek, eğimi YAPAY OLARAK
-  // SIFIRA/NEGATİFE ÇEKER — özellikle dönemin başındayken (örn. sadece
+  // sıfırdı" diye yorumlayıp _recentDailyRate() gibi hız hesaplarına
+  // OLDUĞU GİBİ vermek, günlük hızı YAPAY OLARAK SIFIRA ÇEKER —
+  // özellikle dönemin başındayken (örn. sadece
   // 5/9 hafta geçmişken) çarpıcı bir hata oluşturur. Bu fonksiyon,
   // haftalar SIRALI doldurulduğu (w1 önce, sonra w2, ...) gerçek CSV
   // semantiğine dayanarak, dizinin SONUNDAKİ ardışık sıfırları (henüz
@@ -96,72 +103,46 @@
     return _trimTrailingZeroWeeks(raw);
   }
 
-  // ── _linearSlope ─────────────────────────────────────────
-  function _linearSlope(vals) {
-    var n = vals.length;
-    if (n < 2) return 0;
-    var sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-    for (var i = 0; i < n; i++) {
-      sumX += i; sumY += vals[i];
-      sumXY += i * vals[i]; sumX2 += i * i;
+  // ── _ownIlacForUrun ─────────────────────────────────────────
+  // KÖK NEDEN DÜZELTMESİ (kullanıcı bildirimi): IMSAdapter kayıtlarındaki
+  // HAM ilaç etiketi (record.product = parseIMSCSV çıktısındaki row.ilac),
+  // bazı ürünlerde URUN_ORDER'daki isimle BİREBİR AYNI DEĞİL:
+  //   PANOCER  → ham etiket "PANOCER TOPLAM"
+  //   ACİDPASS → ham etiket "ACIDPASS TOPLAM" (ayrıca düz I / noktalı İ farkı)
+  //   MOKSEFEN / GRİPORT COLD / FAMTREC → ham etiket zaten birebir aynı
+  // Eskiden _productForecasts() doğrudan `r.product === urun` karşılaştırıyordu;
+  // PANOCER ve ACİDPASS için bu HİÇBİR ZAMAN eşleşmiyordu → o ürünlerin
+  // productRecords'u HER ZAMAN boş kalıyor → wVals boş → eklenecek tahmin
+  // her zaman 0 → "dönem sonu tahmini" == "mevcut satış" (bildirilen hata).
+  // Artık OWN_DRUG_BY_GRP'teki gerçek eşleme kullanılıyor.
+  function _ownIlacForUrun(urun) {
+    var map = (typeof OWN_DRUG_BY_GRP !== 'undefined') ? OWN_DRUG_BY_GRP : {};
+    for (var grp in map) {
+      if (map[grp] && map[grp].urun === urun) return map[grp].ownIlac;
     }
-    var d = n * sumX2 - sumX * sumX;
-    return d !== 0 ? (n * sumXY - sumX * sumY) / d : 0;
+    return urun; // eşleşme bulunamazsa (beklenmedik ürün) isim aynı kabul edilir
   }
 
-  // ── METHOD 1: Linear projection ──────────────────────────
-  // Mevcut haftalara doğrusal eğim fit ederek kalan haftaları extrapole eder.
-  function _linearProjection(vals, remainingWeeks) {
-    if (!vals.length) return 0;
-    var slope   = _linearSlope(vals);
-    var lastVal = vals[vals.length - 1];
-    var sum = 0;
-    for (var i = 1; i <= remainingWeeks; i++) {
-      var projected = Math.max(0, lastVal + slope * i);
-      sum += projected;
-    }
-    return sum;
-  }
-
-  // ── METHOD 2: Weighted recent trend ──────────────────────
-  // Son 3 haftaya 2×, daha öncekilere 1× ağırlık → haftalık ortalama hesapla.
-  function _weightedRecentTrend(vals, remainingWeeks) {
-    if (!vals.length) return 0;
-    var recent  = vals.slice(-3);
-    var earlier = vals.slice(0, Math.max(0, vals.length - 3));
-    var wSum = 0, wCnt = 0;
-    recent.forEach(function  (v) { wSum += v * 2; wCnt += 2; });
-    earlier.forEach(function (v) { wSum += v * 1; wCnt += 1; });
-    var weeklyAvg = wCnt > 0 ? wSum / wCnt : 0;
-    return weeklyAvg * remainingWeeks;
-  }
-
-  // ── METHOD 3: Trend-adjusted run rate ────────────────────
-  // Run rate × trend faktörü (son 3 hafta ortalaması / önceki 3 hafta ortalaması).
-  function _trendAdjustedRunRate(runRateProjected, vals) {
-    if (vals.length < 4) return runRateProjected;
-    var recent  = vals.slice(-3);
-    var prev    = vals.slice(-6, -3);
-    if (!prev.length) return runRateProjected;
-    var recentAvg = recent.reduce(function (s, v) { return s + v; }, 0) / recent.length;
-    var prevAvg   = prev.reduce(function (s, v) { return s + v; }, 0)   / prev.length;
-    var factor = prevAvg > 0 ? recentAvg / prevAvg : 1;
-    // Faktörü sınırla (sert sapmalardan koruma)
-    factor = Math.min(1.5, Math.max(0.5, factor));
-    return runRateProjected * factor;
-  }
-
-  // ── _bestEstimate ─────────────────────────────────────────
-  // 3 metodun ortalaması; aykırı değerleri dışlar.
-  function _bestEstimate(v1, v2, v3) {
-    var vals = [v1, v2, v3].sort(function (a, b) { return a - b; });
-    // Median of 3
-    return vals[1];
+  // ── _recentDailyRate ─────────────────────────────────────────
+  // KULLANICI İSTEĞİ — basit/şeffaf yöntem: son GERÇEKTEN gelen IMS
+  // haftalarının (en fazla son 2 tam hafta ≈ 14 gün — IMS, sistemde bir
+  // hafta geriden geldiği için dönemin başından bugüne kümülatif ortalama
+  // yerine SADECE en güncel gerçek veri kullanılır) toplamını, o kadar
+  // günün (hafta sayısı × 7) gerçek gün sayısına bölerek günlük hız elde
+  // eder. remainingDays ile çarpılınca dönem sonu tahmini ortaya çıkar.
+  function _recentDailyRate(vals) {
+    var recent = vals.slice(-2); // en fazla son 2 hafta (~14 gün)
+    var days   = recent.length * 7;
+    if (days <= 0) return 0;
+    var total = recent.reduce(function (s, v) { return s + v; }, 0);
+    return total / days;
   }
 
   // ── _productForecasts ─────────────────────────────────────
-  // Ürün bazlı TL tahminleri.
-  function _productForecasts(ttt, remainingWeeks) {
+  // Ürün bazlı TL tahminleri. remainingDays: dönem sonuna kalan takvim/iş
+  // günü (calculateRunRate() → rr.remainingDays; dönem sınırlarını ve
+  // "veri hâlâ önceki döneme ait" durumunu zaten doğru şekilde hesaplıyor).
+  function _productForecasts(ttt, remainingDays) {
     var urunOrder  = (typeof URUN_ORDER !== 'undefined') ? URUN_ORDER : [];
     var tlMap      = (typeof IMS_TL_MAP !== 'undefined') ? IMS_TL_MAP : {};
     var genelRows  = (typeof GENEL !== 'undefined' ? GENEL : [])
@@ -173,8 +154,10 @@
       var gr = genelRows.find(function (r) { return r.urun === urun; });
       if (!gr) return { urun: urun, currentTL: 0, projectedTL: 0, hedefTL: 0, projectedReal: 0 };
 
-      // Bu ürüne ait TÜM brick kayıtlarını (adapter üzerinden) topla
-      var productRecords = imsRecords.filter(function (r) { return r.product === urun; });
+      // Bu ürüne ait TÜM brick kayıtlarını (adapter üzerinden) topla —
+      // ham etiket eşlemesi ile (bkz. _ownIlacForUrun yorumu).
+      var ownIlac = _ownIlacForUrun(urun);
+      var productRecords = imsRecords.filter(function (r) { return r.product === ownIlac; });
       var productAgg = (window.IMSAdapter && typeof window.IMSAdapter.aggregateRecords === 'function')
         ? window.IMSAdapter.aggregateRecords(productRecords) : null;
       var price = tlMap[urun] || 0;
@@ -184,12 +167,8 @@
 
       var currentTL = gr.satis_tl  || 0;
       var hedefTL   = gr.hedef_tl  || 0;
-      var slope     = _linearSlope(wVals);
-      var lastW     = wVals.length ? wVals[wVals.length - 1] : 0;
-      var addedTL   = 0;
-      for (var i = 1; i <= remainingWeeks; i++) {
-        addedTL += Math.max(0, lastW + slope * i);
-      }
+      var dailyRate = _recentDailyRate(wVals);
+      var addedTL   = dailyRate * Math.max(0, remainingDays);
       var projTL    = currentTL + addedTL;
       var projReal  = hedefTL > 0 ? (projTL / hedefTL) * 100 : 0;
 
@@ -250,44 +229,35 @@
       // ── Haftalık seriler ──────────────────────────────────
       var tlVals  = _weeklyTLSeries(ttt);
       var boxVals = _weeklyBoxSeries(ttt);
+      var elapsedWeeks = boxVals.length; // sadece metodoloji metni için
 
-      // ── Kalan haftaları tahmin et ─────────────────────────
-      // NOT: _weeklyBoxSeries()/_weeklyTLSeries() artık SADECE gerçekten
-      // yaşanmış haftaları içerir (henüz gelmemiş haftalar trim edildi —
-      // bkz. _trimTrailingZeroWeeks). Bu yüzden dizi UZUNLUĞU = elapsed
-      // hafta sayısıdır (activeWeekCount KULLANILMAZ — o, sıfırdan
-      // farklı değerleri sayar ve dönem içinde GERÇEKTEN sıfır satış
-      // olan bir haftayı yanlışlıkla "henüz yaşanmadı" sayardı).
-      var period = (typeof _rrCurrentPeriod === 'function') ? _rrCurrentPeriod() : null;
-      var totalWeeks    = period ? Math.round(rr.totalDays    / 5) : 9;
-      var elapsedWeeks  = boxVals.length || Math.round(rr.elapsedDays  / 5);
+      // ── KULLANICI DÜZELTMESİ — kalan gün + son 14 günlük IMS hızı ──────
+      // ESKİ YÖNTEM (kaldırıldı): remainingWeeks'i totalDays/5 ile hesaplayıp
+      // ayrıca dataLagWeeks kadar daha düşürüyordu — hem hafta↔gün çevrimi
+      // yuvarlama hatası taşıyordu hem de gecikmeyi ÇİFT SAYIYORDU (IMS'in
+      // zaten SADECE gerçekleşmiş haftaları içermesi + ayrıca lag düşmek).
+      // Sonuç: remainingWeeks çoğu zaman gerçekte olması gerekenden düşük
+      // çıkıyor, bazı ürünlerde (PANOCER/ACİDPASS, bkz. _ownIlacForUrun
+      // yorumu) isim uyuşmazlığıyla birleşince tahmin==mevcut satış oluyordu.
+      //
+      // YENİ YÖNTEM: rr.remainingDays ZATEN doğru hesaplanıyor (calculateRunRate
+      // dönem takvimini, "veri hâlâ önceki döneme ait mi" durumunu vs. dikkate
+      // alıyor) — kalan hafta sayısını YENİDEN TÜRETMEK yerine doğrudan bu
+      // değer kullanılır. Hız için de dönem başından bugüne kümülatif ortalama
+      // değil, SADECE son gerçekten gelen ~14 günlük (en fazla 2 hafta) IMS
+      // verisinin günlük ortalaması alınır (bkz. _recentDailyRate) — böylece
+      // "sistem bir hafta geriden geliyor" gerçeği otomatik olarak yansır:
+      // henüz gelmemiş haftalar zaten wVals'te YOK, ekstra bir lag düzeltmesi
+      // gerekmez.
+      var remainingDays = Math.max(0, rr.remainingDays || 0);
 
-      // FAZ 9.5: Temporal düzeltme — IMS dataLagWeeks kadar geride olduğundan
-      // kalan hafta sayısını bu fark kadar azalt (additive correction, mevcut
-      // hesap mantığı değişmez — sadece remainingWeeks girdisi düzeltilir).
-      var _temporalLag = 0;
-      if (window.TemporalContextEngine && typeof window.TemporalContextEngine.getTemporalContext === 'function') {
-        try { _temporalLag = window.TemporalContextEngine.getTemporalContext().dataLagWeeks || 0; } catch (_e) {}
-      }
-      var remainingWeeks = Math.max(0, totalWeeks - elapsedWeeks - _temporalLag);
-
-      // ── TL: 3 yöntem ─────────────────────────────────────
-      var addedByLinear  = _linearProjection(tlVals, remainingWeeks);
-      var addedByWeighted = _weightedRecentTrend(tlVals, remainingWeeks);
-      var addedByRunRate = _trendAdjustedRunRate(rr.dailyRunRate * rr.remainingDays, tlVals);
-
-      var bestAdded  = _bestEstimate(addedByLinear, addedByWeighted, addedByRunRate);
-      var projectedTL = Math.max(currentTL, currentTL + bestAdded);
+      var dailyTLRate = _recentDailyRate(tlVals);
+      var addedTL     = dailyTLRate * remainingDays;
+      var projectedTL = currentTL + addedTL;
 
       // ── Box: aynı yöntemle ────────────────────────────────
-      var boxAdded = _bestEstimate(
-        _linearProjection(boxVals, remainingWeeks),
-        _weightedRecentTrend(boxVals, remainingWeeks),
-        _trendAdjustedRunRate(
-          (boxVals.length ? boxVals.reduce(function(s,v){return s+v;},0) / boxVals.length : 0) * remainingWeeks,
-          boxVals
-        )
-      );
+      var dailyBoxRate = _recentDailyRate(boxVals);
+      var boxAdded     = dailyBoxRate * remainingDays;
       var projectedBox = Math.round((typeof KUTU !== 'undefined'
         ? (KUTU.filter(function(r){return r.ttt===ttt;}).reduce(function(s,r){return s+(r.cikan_kutu||0);},0))
         : 0) + boxAdded);
@@ -299,16 +269,14 @@
       result.projectedBox  = Math.round(Math.max(0, projectedBox));
       result.projectedReal = Math.round(projReal * 10) / 10;
       result.confidence    = rr.confidence;
-      // NOT: metodoloji metni için anlamlı ölçüt "veri içeren hafta
-      // sayısı" (elapsedWeeks, post-trim dizi uzunluğu) olmalı.
-      result.methodology   = elapsedWeeks >= 3
-        ? 'Ağırlıklı trend + lineer projeksiyon (median seçimi)'
+      result.methodology   = elapsedWeeks >= 2
+        ? 'Son 14 günlük IMS hızı × kalan gün sayısı'
         : elapsedWeeks >= 1
-          ? 'Run rate bazlı projeksiyon'
-          : 'Sadece run rate (haftalık veri yok)';
+          ? 'Son 7 günlük IMS hızı × kalan gün sayısı (tek hafta veri)'
+          : 'Sadece run rate (haftalık IMS verisi yok)';
 
       // ── Ürün bazlı tahminler ──────────────────────────────
-      result.productForecasts = _productForecasts(ttt, remainingWeeks);
+      result.productForecasts = _productForecasts(ttt, remainingDays);
 
       // ── Akıllı insight'lar ────────────────────────────────
       var insights = [];
