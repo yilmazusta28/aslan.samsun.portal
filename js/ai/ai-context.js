@@ -31,7 +31,7 @@ function buildTTTContext(ttt) {
   // karıştırılıyordu (bkz. prim-calc.js'deki aynı düzeltme notu) — artık
   // sadece o kişi+brick için mevcut EN GÜNCEL döneme ait satırlar kullanılıyor.
   const _migiDonemNum2 = d => { const p = String(d||'').split('/'); return p.length===2 ? (+p[1]*100+ +p[0]) : 0; };
-  const _mgSrc2 = (MIGI_BRICK_TL_RAW||[]).filter(r=>(typeof normTTT==='function'?(normTTT(r.person)||r.person):r.person)===ttt);
+  const _mgSrc2 = (MIGI_BRICK_TL_RAW||[]).filter(r=>r.person===ttt);
   const _mgRowsByBrick2 = {};
   _mgSrc2.forEach(r=>{ if(!_mgRowsByBrick2[r.brick]) _mgRowsByBrick2[r.brick]=[]; _mgRowsByBrick2[r.brick].push(r); });
   const _mgMap2 = {};
@@ -462,7 +462,7 @@ function buildPrimContext(ttt) {
       // BUG DÜZELTMESİ: r.ttt → r.person, r.gi → r.bi + sadece EN GÜNCEL
       // döneme ait satırlar kullanılıyor (bkz. prim-calc.js düzeltme notu).
       var _migiDonemNum = function (d) { var p = String(d || '').split('/'); return p.length === 2 ? (+p[1] * 100 + +p[0]) : 0; };
-      var migiRowsAll = (typeof MIGI_TL_RAW !== 'undefined' ? MIGI_TL_RAW : []).filter(function (r) { var rp=(typeof normTTT==='function'?(normTTT(r.person)||r.person):r.person); return rp === ttt; });
+      var migiRowsAll = (typeof MIGI_TL_RAW !== 'undefined' ? MIGI_TL_RAW : []).filter(function (r) { return r.person === ttt; });
       var migiLatest = migiRowsAll.reduce(function (max, r) { return Math.max(max, _migiDonemNum(r.donem)); }, 0);
       var migiRows = migiRowsAll.filter(function (r) { return _migiDonemNum(r.donem) === migiLatest; });
       if (migiRows.length && typeof getMiGiKatsayi === 'function') {

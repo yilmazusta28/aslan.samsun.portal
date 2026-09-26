@@ -721,6 +721,55 @@ function applyCalcToPrim() {
   calcPrim();
 }
 
+// FAZ 31.0 — Kullanıcı isteği: "MI & GI Takibi" artık dönemsel (2 aylık)
+// geldiğinden, dönem değişince (ör. 4.Dönem → 5.Dönem) eski dönemin prim
+// tablosu sıfırlanıyor ve önceki dönemin NET alınacak primi kayboluyordu.
+// Bu fonksiyon, arşivlenmiş (bkz. period-archive-manager.js +
+// calcPrimFromArchivedPeriod, prim-calc.js) bir önceki dönemin prim
+// dökümünü, Prim Hesaplama sonucunun EN ALTINA ayrı bir panel olarak
+// ekler. Arşiv/veri yoksa (ör. henüz hiç dönem geçişi yaşanmadıysa) boş
+// string döner — panel hiç gösterilmez.
+function renderPreviousPeriodPrimPanelHtml(ttt) {
+  if (!ttt || typeof calcPrimFromArchivedPeriod !== 'function') return '';
+  const prev = calcPrimFromArchivedPeriod(ttt, 'previous');
+  if (!prev) return '';
+  const okStyle = v => v > 0 ? 'color:#16A34A;font-weight:700' : 'color:#DC2626;font-weight:700';
+  const migiNote = prev.hasMigi ? '' : ' <span style="color:#D97706;font-weight:400">(MI&amp;GI arşivi yok — 0 kabul edildi)</span>';
+  const ekPrimRow = prev.ekPrim > 0 ? `
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:4px">↳ Kompanzasyon Ek Primi (dahil)</td>
+            <td style="text-align:right"><span style="${okStyle(prev.ekPrim)}">${prev.ekPrim.toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺</span></td>
+          </tr>` : '';
+  return `
+    <div style="background:#F1F5F9;border:1px dashed #94A3B8;border-radius:8px;padding:10px 12px;margin-top:12px">
+      <div style="font-size:10px;color:var(--dim);font-weight:700;margin-bottom:6px">
+        📅 ÖNCEKİ DÖNEM — ${prev.periodLabel} (${prev.periodMonths}) · NET ALINACAK PRİM (ARŞİV)
+      </div>
+      <table style="width:100%;font-size:11px;border-collapse:collapse">
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:4px">TL Real Primi</td>
+          <td style="text-align:right"><span style="${okStyle(prev.tlRealPrim)}">${prev.tlRealPrim.toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺</span></td>
+        </tr>
+        ${ekPrimRow}
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:4px">Portföy Primi</td>
+          <td style="text-align:right"><span style="${okStyle(prev.portfoyPrim)}">${prev.portfoyPrim.toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺</span></td>
+        </tr>
+        <tr style="border-bottom:2px solid var(--c1)">
+          <td style="padding:4px">MI &amp; GI Primi${migiNote}</td>
+          <td style="text-align:right"><span style="${okStyle(prev.migiPrim)}">${prev.migiPrim.toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺</span></td>
+        </tr>
+        <tr>
+          <td style="padding:6px 4px;font-weight:700;color:var(--c1)">TOPLAM (${prev.periodLabel})</td>
+          <td style="text-align:right;font-size:14px;font-weight:800;color:var(--c1)">${prev.toplamPrim.toLocaleString('tr-TR',{maximumFractionDigits:0})} ₺</td>
+        </tr>
+      </table>
+      <div style="font-size:9px;color:var(--dim);margin-top:4px">
+        TL Realizasyon: ${prev.effReal.toFixed(1)}% · Prim Puanı: ${prev.primPuani.toFixed(1)}%${prev.hasMigi?` · MI: ${Math.round(prev.miAvg)} · GI: ${Math.round(prev.giAvg)}`:''}
+      </div>
+    </div>`;
+}
+
 function calcPrim() {
   const ttt = document.getElementById('primTTT')?.value;
   if (!ttt) return;
@@ -899,6 +948,7 @@ function calcPrim() {
         * Dönemlik TL Real Primi HER dönemde %100 sınırlıdır. %100 üzeri realizasyon, sadece <strong>3. ve 6. dönemlerde (Kompanzasyon)</strong>, geçmiş 3 dönemin (6 aylık) kümülatif sonucuna göre ayrı bir "Kompanzasyon Ek Primi" olarak değerlendirilir${_isKompDonem?(_komp.eligible?' — <strong style="color:#16A34A">bu dönem hak ediliyor.</strong>':' — <strong style="color:#D97706">bu dönem henüz hak edilmiyor: '+_komp.reason+'</strong>'):''}.<br>
         * MI &amp; GI değerleri manuel girilir — dönem bitiminde kesinleşir.
       </div>
+      ${renderPreviousPeriodPrimPanelHtml(ttt)}
     </div>
   `;
   SoundFX.success();
@@ -1356,7 +1406,7 @@ function _updateEczActingAsBanner() {
   const textEl = document.getElementById('eczActingAsText');
   if (!banner || !textEl) return;
   const role = (typeof getCurrentRole === 'function') ? getCurrentRole() : 'TEMSILCI';
-  const isActingAsOther = role === 'YONETICI' && selEczaneTTT && selEczaneTTT !== 'ŞENOL YILMAZ';
+  const isActingAsOther = role === 'YONETICI' && selEczaneTTT && selEczaneTTT !== 'ŞENOL YILMAZ' && selEczaneTTT !== 'TÜMÜ';
   banner.style.display = isActingAsOther ? 'flex' : 'none';
   if (isActingAsOther) {
     textEl.textContent = selEczaneTTT + ' adına işlem yapıyorsunuz — stok, rota planı ve saha gözlemi girişleri bu temsilci adına kaydedilir.';
@@ -1391,14 +1441,14 @@ function buildEczaneFilters() {
   // Temsilci listesi - ALL_TTTS
   const allT = [...ALL_TTTS];
   if (!selEczaneTTT && allT.length) selEczaneTTT = _autoSelTTT(allT[0]);
-  // Kullanıcı isteği: SADECE Yönetici rolünde, temsilci filtresine "TÜMÜ"
-  // (tüm temsilciler birleşik) seçeneği eklenir. Normal temsilci rolünde
-  // bu seçenek hiç gösterilmez — herkes kendi/diğer isimlerden seçer.
-  const _isYoneticiRole = (typeof getCurrentRole === 'function') && getCurrentRole() === 'YONETICI';
-  const _tttDrawerList = _isYoneticiRole ? ['TÜMÜ', ...allT] : allT;
+  // FAZ 29.0 — Kullanıcı isteği: "Tüm Temsilciler" seçeneği SADECE Yönetici
+  // (ŞENOL YILMAZ) ekranında görünsün — normal temsilci girişinde eskisi
+  // gibi sadece kendi/atanan temsilciler arasında seçim yapılabilsin.
+  const _isMgrRole = (typeof getCurrentRole === 'function') ? getCurrentRole() === 'YONETICI' : false;
+  const allTOptions = _isMgrRole ? ['TÜMÜ', ...allT] : allT;
   // mf-select değerlerini güncelle
   const _eTttEl = document.getElementById('eczMfTttVal');
-  if(_eTttEl) _eTttEl.textContent = selEczaneTTT ? selEczaneTTT.split(' ')[0] : '—';
+  if(_eTttEl) _eTttEl.textContent = selEczaneTTT === 'TÜMÜ' ? 'Tüm Temsilciler' : (selEczaneTTT ? selEczaneTTT.split(' ')[0] : '—');
   const _eBrickEl = document.getElementById('eczMfBrickVal');
   if(_eBrickEl) _eBrickEl.textContent = selEczaneBrick === 'TÜMÜ' ? 'Tümü' : (selEczaneBrick || 'Tümü');
   const _eUrunEl = document.getElementById('eczMfUrunVal');
@@ -1406,15 +1456,16 @@ function buildEczaneFilters() {
 
   // Backward compat bars (gizli, ama kod okuyabilsin) — null guard
   const _tttBarEl = document.getElementById('eczaneTttBar');
-  if (_tttBarEl) _tttBarEl.innerHTML = allT.map(t =>
-    `<button class="tfb-sp${t===selEczaneTTT?' active':''}" onclick="selEczaneTTT='${t}';buildEczaneFilters();renderEczaneContent()">${t.split(' ')[0]}</button>`
+  if (_tttBarEl) _tttBarEl.innerHTML = allTOptions.map(t =>
+    `<button class="tfb-sp${t===selEczaneTTT?' active':''}" onclick="selEczaneTTT='${t}';buildEczaneFilters();renderEczaneContent()">${t==='TÜMÜ'?'👥 Tüm Temsilciler':t.split(' ')[0]}</button>`
   ).join('');
 
-  // Seçili TTT'ye ait brickler — 'TÜMÜ' seçiliyse tüm temsilcilerin brickleri
+  // Seçili TTT'ye ait brickler — "Tüm Temsilciler" seçiliyken TÜM bricklerin
+  // listelenmesi gerekir (tek bir temsilciyle eşleşme aranmaz).
   const _activeBase = (window.pharmacyActiveData && window.pharmacyActiveData.length)
     ? window.pharmacyActiveData : (ECZANE_RAW || []);
   const tttBricks = [...new Set(
-    _activeBase.filter(r => selEczaneTTT === 'TÜMÜ' || r.ttt === selEczaneTTT).map(r => r.brick)
+    (selEczaneTTT === 'TÜMÜ' ? _activeBase : _activeBase.filter(r => r.ttt === selEczaneTTT)).map(r => r.brick)
   )].filter(Boolean).sort();
 
   const _brickBarEl = document.getElementById('eczaneBrickBar');
@@ -1466,8 +1517,7 @@ function buildEczaneFilters() {
   const _eczChips = document.getElementById('eczaneChips');
   if(_eczChips){
     const parts=[];
-    if(selEczaneTTT === 'TÜMÜ') parts.push(`<div class="filter-chip-tag">👥 Tüm Temsilciler</div>`);
-    else if(selEczaneTTT) parts.push(`<div class="filter-chip-tag">👤 ${selEczaneTTT.split(' ')[0]}</div>`);
+    if(selEczaneTTT) parts.push(`<div class="filter-chip-tag">👤 ${selEczaneTTT==='TÜMÜ'?'Tüm Temsilciler':selEczaneTTT.split(' ')[0]}</div>`);
     if(selEczaneBrick&&selEczaneBrick!=='TÜMÜ') parts.push(`<div class="filter-chip-tag">🧱 ${selEczaneBrick} <span class="fct-x" onclick="selEczaneBrick='TÜMÜ';buildEczaneFilters();renderEczaneContent()">✕</span></div>`);
     if(selEczaneUrun&&selEczaneUrun!=='TÜMÜ') parts.push(`<div class="filter-chip-tag">💊 ${selEczaneUrun} <span class="fct-x" onclick="selEczaneUrun='TÜMÜ';buildEczaneFilters();renderEczaneContent()">✕</span></div>`);
     // PDM multi-select chip
@@ -1479,8 +1529,8 @@ function buildEczaneFilters() {
     _eczChips.innerHTML = parts.join('');
     _eczChips.style.display = parts.length ? 'flex' : 'none';
   }
-  // Drawer'ı güncelle (TÜMÜ seçeneği sadece Yönetici'ye — _tttDrawerList)
-  _buildEczaneDrawer(_tttDrawerList, tttBricks, uruns, aylar, AY_LABELS);
+  // Drawer'ı güncelle
+  _buildEczaneDrawer(allTOptions, tttBricks, uruns, aylar, AY_LABELS);
 }
 
 function getFilteredEczane() {
@@ -1505,9 +1555,7 @@ function getFilteredEczanePDM() {
     : (ECZANE_RAW || []);
 
   return base.filter(r => {
-    // TTT filtresi — kullanıcı isteği: 'TÜMÜ' seçiliyse (sadece Yönetici
-    // rolünde seçilebilir, bkz. buildEczaneFilters) hiçbir temsilciye göre
-    // filtrelenmez, TÜM temsilcilerin verisi birleşik gösterilir.
+    // TTT filtresi — "TÜMÜ" (sadece Yönetici) tüm temsilcileri kapsar
     if (selEczaneTTT && selEczaneTTT !== 'TÜMÜ' && r.ttt !== selEczaneTTT) return false;
     // Brick filtresi
     if (selEczaneBrick !== 'TÜMÜ' && r.brick !== selEczaneBrick) return false;
@@ -1832,10 +1880,7 @@ function goEczaneSubTab(idx) {
 // 3 konfigürasyon/referans paneli burada. Varsayılan ('satis_sartlari')
 // eskiden Eczane'nin 5. sekmesiydi, render tetikleyicisi (window._pvSartlariRendered)
 // AYNEN korundu.
-// Kullanıcı isteğiyle 'route_plan' (Haftalık Rota Planım) Eczane
-// Satış'tan buraya taşındı — dizinin SONUNA eklendi, mevcut 3 index
-// (0,1,2) değişmedi.
-const AYAR_SUBTABS = ['satis_sartlari', 'haber_takibi', 'launch_readiness', 'route_plan'];
+const AYAR_SUBTABS = ['satis_sartlari', 'haber_takibi', 'launch_readiness', 'route_plan_input'];
 let _ayarActiveSubTab = 0;
 
 function goAyarSubTab(idx) {
@@ -1848,6 +1893,14 @@ function goAyarSubTab(idx) {
     if (panel) panel.style.display = (i === idx) ? 'block' : 'none';
   });
 
+  const bar = document.querySelector('#page6 .eczsub-bar');
+  if (bar) {
+    Array.from(bar.querySelectorAll('.eczsub-tab')).forEach(function (btn, i) {
+      btn.classList.toggle('active', i === idx);
+    });
+  }
+  const sel = document.getElementById('ayarSubSelect');
+  if (sel) sel.value = String(idx);
   if (typeof pvSyncSubNav === 'function') pvSyncSubNav('navsub_ayar_' + idx);
 
   try {
@@ -1870,7 +1923,7 @@ function goAyarSubTab(idx) {
           if (typeof renderLaunchReadinessCard === 'function') renderLaunchReadinessCard();
         }
         break;
-      case 'route_plan':
+      case 'route_plan_input':
         if (typeof window.RoutePlanInput === 'object') {
           const _rpTTT = (typeof selEczaneTTT !== 'undefined' && selEczaneTTT !== 'TÜMÜ') ? selEczaneTTT : null;
           window.RoutePlanInput.renderRoutePlanForm('routePlanFormContainer', { representative: _rpTTT });
@@ -3311,6 +3364,18 @@ function toggleNavGroup(id) {
   if (g) g.classList.toggle('expanded');
 }
 
+// Kullanıcı bildirimi (telefon/tablet): sol menüde Performans/Eczane Satış/
+// Ayarlar & Referans/Dosyalar başlığına tıklanınca alt menü açılıyor AMA
+// hemen ardından goPage() içindeki otomatik closeSidebar() (≤1024px) TÜM
+// sidebar'ı kapatıyor — kullanıcı alt öğeye tıklayamadan menü kayboluyor.
+// Çözüm: grup başlığı tıklamasında goPage()'e keepSidebarOpen=true geçilir;
+// sidebar artık sadece gerçek bir alt-öğe seçildiğinde kapanır (goPageSub/
+// goDosyaSub içlerinde zaten closeSidebar() çağrısı var).
+function navGroupHeaderTap(groupId, page) {
+  toggleNavGroup(groupId);
+  goPage(page, true);
+}
+
 function pvSyncSubNav(subId) {
   document.querySelectorAll('.nav-subitem').forEach(function (el) { el.classList.remove('active'); });
   const el = subId && document.getElementById(subId);
@@ -3400,9 +3465,20 @@ function toggleMtbSubmenu(key, btnEl) {
   }
   openMtbSubmenu(key, btnEl);
 }
-// Dosyalar sayfası alt başlıkları — Sabit Formlar / Kongre Katılımcı
-// Bilgileri / Masraf Dosyası artık üçü de kendi başına ayrı panel;
-// hangisi seçilirse SADECE o gösterilir (bkz. dosyalar-page.js _dsyShowMain).
+// goPage() sayfa her değiştiğinde açık menüyü otomatik kapatır (bkz.
+// yukarıda goPage() içindeki closeMtbSubmenu() çağrısı) — bu yüzden
+// "aynı butona ikinci kez basınca kapansın" (toggle) davranışı, goPage()
+// çağrılmadan ÖNCE mevcut açık durumu hatırlayan bu sarmalayıcı ile
+// sağlanıyor.
+function mtbGroupTap(page, key, btnEl) {
+  const menu = document.getElementById('mtbSubmenu');
+  const wasOpenSame = !!(menu && menu.classList.contains('open') && menu.dataset.key === key);
+  goPage(page);
+  if (!wasOpenSame) openMtbSubmenu(key, btnEl);
+}
+
+// Dosyalar sayfası alt başlıkları (Sabit Formlar / Kongre / Masraf) — üçü de
+// artık gerçek ayrı alt-sayfalar (bkz. dosyalar-page.js::_dsyShowMain).
 function goDosyaSub(which, subEl) {
   goPage(8);
   setTimeout(function () {
@@ -3412,7 +3488,7 @@ function goDosyaSub(which, subEl) {
   if (window.innerWidth <= 1024) closeSidebar();
 }
 
-function goPage(i){
+function goPage(i, keepSidebarOpen){
   curPage=i;
   // Kullanıcı isteği: sayfa geçişinde önceki sayfanın scroll konumu
   // kalmasın — her sayfaya girildiğinde otomatik en üstten başlasın.
@@ -3450,7 +3526,7 @@ function goPage(i){
     }
   }
   // ────────────────────────────────────────────────────────
-  if(window.innerWidth<=1024)closeSidebar();
+  if(window.innerWidth<=1024 && !keepSidebarOpen)closeSidebar();
   // SAYFA YAPISI KONSOLİDASYONU (kullanıcı isteği — "daha profesyonel/business
   // mantığına uygun yapı"). ADIM 3: Eczane'nin 7 alt-sekmesi, "her gün
   // bakılan" (operasyonel) ve "ayar/referans" olarak ikiye ayrıldı — yeni
@@ -4419,10 +4495,13 @@ function buildPazarSlicers(){
   // Drawer'ı güncelle
   _buildPazarDrawer();
 
-  // Kullanıcı isteği: Pazar Payı Analizi (perfsub_payi) sekmesinin kendi
-  // sticky filtre çubuğu — sadece Temsilci (bu kart yalnızca selTTT_p1'e
-  // bağlı, grup/hafta'dan etkilenmiyor). Aynı pazarDrawer'ı açar, seçim
-  // setP1() ile yapılır — state PAYLAŞILIR, ayrı bir değişken YOK.
+  // FAZ 30.0 — Kullanıcı isteği: "Pazar Payı Analizi" sekmesi kendi
+  // temsilci filtresinden yoksundu (temsilciyi değiştirmek için Pazar
+  // Analizi sekmesine geri dönmek gerekiyordu, ki bu da "filtre sanki
+  // sayfa kaydırılınca kayboluyor/sabit değil" hissi veriyordu). Artık bu
+  // sekmenin de KENDİ sabit (sticky) filtresi var — aynı selTTT_p1
+  // state'ini kullanıyor, aynı pazarDrawer'ı açıyor, Uygula'ya basınca
+  // her iki sekme de senkron güncelleniyor.
   const payiBar = document.getElementById('payiTopFilterBar');
   if (payiBar) {
     payiBar.innerHTML = `
@@ -4436,9 +4515,18 @@ function buildPazarSlicers(){
           <div class="mf-arrow">▼</div>
         </div>
         <button class="mf-detail-btn" onclick="toggleMfDrawer('pazarDrawer')">
-          <i class="fas fa-sliders-h"></i> Değiştir
+          <i class="fas fa-sliders-h"></i> Filtrele
         </button>
-      </div>`;
+      </div>
+      <div class="active-filters" id="payiChips"></div>
+    `;
+    const payiChips = document.getElementById('payiChips');
+    if (payiChips) {
+      const pparts = [];
+      if (selTTT_p1) pparts.push(`<div class="filter-chip-tag">👤 ${selTTT_p1.split(' ')[0]} <span class="fct-x" onclick="setP1(0,'${ALL_TTTS[0]}')">✕</span></div>`);
+      payiChips.innerHTML = pparts.join('');
+      payiChips.style.display = pparts.length ? 'flex' : 'none';
+    }
   }
 }
 
@@ -6203,7 +6291,7 @@ function _buildEczaneDrawer(allT, tttBricks, uruns, aylar, AY_LABELS) {
     <div class="drawer-title"><i class="fas fa-clinic-medical"></i> Eczane Filtresi</div>
     <div class="drawer-group">
       <label><i class="fas fa-user" style="margin-right:5px"></i>Temsilci</label>
-      <div class="drawer-btns">${allT.map(t=>`<button class="drawer-btn-item${t===selEczaneTTT?' active':''}" onclick="selEczaneTTT='${t}';buildEczaneFilters();renderEczaneContent();_buildEczaneDrawerRefresh()">${t==='TÜMÜ'?'👥 Tümü':t.split(' ')[0]}</button>`).join('')}</div>
+      <div class="drawer-btns">${allT.map(t=>`<button class="drawer-btn-item${t===selEczaneTTT?' active':''}" onclick="selEczaneTTT='${t}';buildEczaneFilters();renderEczaneContent();_buildEczaneDrawerRefresh()">${t==='TÜMÜ'?'👥 Tüm Temsilciler':t.split(' ')[0]}</button>`).join('')}</div>
     </div>
     <div class="drawer-group">
       <label><i class="fas fa-map-pin" style="margin-right:5px"></i>Brick</label>
@@ -6238,18 +6326,16 @@ function _buildEczaneDrawer(allT, tttBricks, uruns, aylar, AY_LABELS) {
 
 function _buildEczaneDrawerRefresh(){
   // En son veriyle drawer'ı yenile
-  const allT = ALL_TTTS;
-  // Kullanıcı isteği: 'TÜMÜ' seçiliyse (sadece Yönetici) tüm temsilcilerin brickleri
-  const tttBricks = [...new Set((ECZANE_RAW||[]).filter(r=>selEczaneTTT==='TÜMÜ' || r.ttt===selEczaneTTT).map(r=>r.brick))].sort();
+  const _isMgrRole2 = (typeof getCurrentRole === 'function') ? getCurrentRole() === 'YONETICI' : false;
+  const allT = _isMgrRole2 ? ['TÜMÜ', ...ALL_TTTS] : ALL_TTTS;
+  const tttBricks = [...new Set((selEczaneTTT === 'TÜMÜ' ? (ECZANE_RAW||[]) : (ECZANE_RAW||[]).filter(r=>r.ttt===selEczaneTTT)).map(r=>r.brick))].sort();
   const _drwUrunOrder = (typeof URUN_ORDER !== 'undefined') ? URUN_ORDER : ['PANOCER','ACİDPASS','GRİPORT COLD','MOKSEFEN','FAMTREC'];
   const _drwUrunSet = new Set((ECZANE_RAW||[]).map(r=>r.urun));
   const uruns = _drwUrunOrder.filter(u => _drwUrunSet.has(u))
     .concat([..._drwUrunSet].filter(u => !_drwUrunOrder.includes(u)).sort());
   const aylar = [...new Set((ECZANE_RAW||[]).map(r=>r.ay))].sort();
   const AY_LABELS = {'01/2026':'Ocak 2026','02/2026':'Şubat 2026','03/2026':'Mart 2026','04/2026':'Nisan 2026','05/2026':'Mayıs 2026','06/2026':'Haziran 2026','07/2026':'Temmuz 2026','08/2026':'Ağustos 2026','09/2026':'Eylül 2026','10/2026':'Ekim 2026','11/2026':'Kasım 2026','12/2026':'Aralık 2026'};
-  const _isYoneticiRole2 = (typeof getCurrentRole === 'function') && getCurrentRole() === 'YONETICI';
-  const _tttDrawerList2 = _isYoneticiRole2 ? ['TÜMÜ', ...allT] : allT;
-  _buildEczaneDrawer(_tttDrawerList2, tttBricks, uruns, aylar, AY_LABELS);
+  _buildEczaneDrawer(allT, tttBricks, uruns, aylar, AY_LABELS);
 }
 
 </script>
@@ -6380,7 +6466,7 @@ function _buildEczaneDrawerRefresh(){
     <span class="mtb-icon"><i class="fas fa-chart-pie"></i></span>
     <span class="mtb-label">Ana</span>
   </button>
-  <button class="mtb-btn" id="mtb1" onclick="toggleMtbSubmenu('perf',this)">
+  <button class="mtb-btn" id="mtb1" onclick="mtbGroupTap(1,'perf',this)">
     <span class="mtb-icon"><i class="fas fa-search-dollar"></i></span>
     <span class="mtb-label">Performans</span>
     <i class="fas fa-chevron-up mtb-caret"></i>
@@ -6393,18 +6479,18 @@ function _buildEczaneDrawerRefresh(){
     <span class="mtb-icon"><i class="fas fa-brain"></i></span>
     <span class="mtb-label">AI</span>
   </button>
-  <button class="mtb-btn" id="mtb5" onclick="toggleMtbSubmenu('ecz',this)">
+  <button class="mtb-btn" id="mtb5" onclick="mtbGroupTap(5,'ecz',this)">
     <span class="mtb-icon"><i class="fas fa-clinic-medical"></i></span>
     <span class="mtb-label">Eczane</span>
     <i class="fas fa-chevron-up mtb-caret"></i>
   </button>
-  <button class="mtb-btn" id="mtb6" onclick="toggleMtbSubmenu('ayar',this)">
+  <button class="mtb-btn" id="mtb6" onclick="mtbGroupTap(6,'ayar',this)">
     <span class="mtb-icon"><i class="fas fa-sliders-h"></i></span>
     <span class="mtb-label">Ayarlar</span>
     <i class="fas fa-chevron-up mtb-caret"></i>
   </button>
   <!-- FAZ 19.0 — Dosyalar sekmesi (mobil) -->
-  <button class="mtb-btn" id="mtb8" onclick="toggleMtbSubmenu('dsy',this)">
+  <button class="mtb-btn" id="mtb8" onclick="mtbGroupTap(8,'dsy',this)">
     <span class="mtb-icon"><i class="fas fa-folder-open"></i></span>
     <span class="mtb-label">Dosyalar</span>
     <i class="fas fa-chevron-up mtb-caret"></i>
@@ -6480,7 +6566,7 @@ function _buildEczaneDrawerRefresh(){
        Takibi, YTD TL&Kutu, MI&GI Takibi) sayfaya girmeden sidebar'da
        tıklanınca açılıp oradan seçilebilsin. -->
   <div class="nav-group" id="navgrp-perf">
-    <div class="nav-item pg" id="snav1" onclick="toggleNavGroup('navgrp-perf')">
+    <div class="nav-item pg" id="snav1" onclick="navGroupHeaderTap('navgrp-perf', 1)">
       <span class="nav-icon"><i class="fas fa-search-dollar"></i></span><span>Performans</span>
       <i class="fas fa-chevron-down nav-caret"></i>
     </div>
@@ -6515,7 +6601,7 @@ function _buildEczaneDrawerRefresh(){
 
   <!-- Eczane Satış — alt sekmeler sidebar'dan seçilebilir -->
   <div class="nav-group" id="navgrp-ecz">
-    <div class="nav-item pg" id="snav5" onclick="toggleNavGroup('navgrp-ecz')">
+    <div class="nav-item pg" id="snav5" onclick="navGroupHeaderTap('navgrp-ecz', 5)">
       <span class="nav-icon"><i class="fas fa-clinic-medical"></i></span><span>Eczane Satış</span>
       <i class="fas fa-chevron-down nav-caret"></i>
     </div>
@@ -6534,7 +6620,7 @@ function _buildEczaneDrawerRefresh(){
 
   <!-- Ayarlar & Referans — alt sekmeler sidebar'dan seçilebilir -->
   <div class="nav-group" id="navgrp-ayar">
-    <div class="nav-item pg" id="snav6" onclick="toggleNavGroup('navgrp-ayar')">
+    <div class="nav-item pg" id="snav6" onclick="navGroupHeaderTap('navgrp-ayar', 6)">
       <span class="nav-icon"><i class="fas fa-sliders-h"></i></span><span>Ayarlar &amp; Referans</span>
       <i class="fas fa-chevron-down nav-caret"></i>
     </div>
@@ -6556,7 +6642,7 @@ function _buildEczaneDrawerRefresh(){
 
   <!-- FAZ 19.0 — Dosyalar Sekmesi — alt başlıklar sidebar'dan seçilebilir -->
   <div class="nav-group" id="navgrp-dsy">
-    <div class="nav-item pg" id="snav8" onclick="toggleNavGroup('navgrp-dsy')">
+    <div class="nav-item pg" id="snav8" onclick="navGroupHeaderTap('navgrp-dsy', 8)">
       <span class="nav-icon"><i class="fas fa-folder-open"></i></span><span>Dosyalar</span>
       <i class="fas fa-chevron-down nav-caret"></i>
     </div>
@@ -6733,10 +6819,12 @@ function _buildEczaneDrawerRefresh(){
        olarak geri ayırmak + nav/goPage numaralarını eski haline almak
        yeterli (bkz. bu değişiklikle birlikte gelen sayfa-numarası eşleme
        tablosu). -->
-  <!-- Kullanıcı isteği: sayfa içi sekme çubuğu (eczsub-bar) ve açılır
-       seçim kutusu (eczsub-select) KALDIRILDI — giriş artık SADECE sol
-       menü / mobil alt menüden (goPerfSubTab() hâlâ aynı şekilde
-       çağrılıyor, sadece tetikleyici sidebar/mtb menüsü). -->
+  <!-- Kullanıcı isteği: Performans sayfasının en üstündeki sekme/seçici
+       bağlantıları kaldırıldı — alt sayfalara giriş artık SADECE sol
+       (sidebar) ana menüdeki Performans açılır grubundan yapılıyor
+       (bkz. navgrp-perf / goPageSub). goPerfSubTab() içindeki #perfSubBar
+       ve #perfSubSelect referansları zaten "if (bar)/if (sel)" ile
+       korumalı olduğundan bu elemanların kaldırılması güvenli. -->
 
   <!-- ═══ 1. Pazar Analizi (varsayılan, açılışta görünür) ═══ -->
   <div class="eczsub-panel" id="perfsub_pazar">
@@ -6793,11 +6881,9 @@ function _buildEczaneDrawerRefresh(){
        (selTTT_p1) alır ve renderPazarCharts() sonunda otomatik çağrılır —
        yani bu sekmeye girilmeden önce bile içerik hazır olur. ═══ -->
   <div class="eczsub-panel" id="perfsub_payi" style="display:none">
-  <!-- Kullanıcı isteği: Pazar Analizi'ndeki temsilci filtresi burada da
-       görünsün ve sayfa aşağı kaydırılınca kaymadan (sticky) sabit
-       kalsın. Aynı .top-filter-bar (position:sticky) deseni + aynı
-       pazarDrawer/setP1() state'i kullanılıyor — buildPazarSlicers()
-       her çağrıldığında bu bar da (görünür olmasa bile) güncellenir. -->
+  <!-- TOP STICKY FILTER BAR — kullanıcı isteği: bu sekmenin artık kendi
+       sabit (position:sticky) temsilci filtresi var, sayfa aşağı
+       kaydırılırken üstte sabit kalır (bkz. buildPazarSlicers()). -->
   <div class="top-filter-bar">
     <div id="payiTopFilterBar">
       <div class="filter-row"><span style="color:var(--dim);font-size:12px">Veriler yükleniyor…</span></div>
@@ -7513,8 +7599,18 @@ function _buildEczaneDrawerRefresh(){
        Rollback: taşınan 3 paneli (satis_sartlari, haber_takibi,
        launch_readiness) buraya geri taşımak + ECZ_SUBTABS'e eklemek +
        "Ayarlar & Referans" sayfasını/nav girişini silmek yeterli. -->
-  <!-- Kullanıcı isteği: sayfa içi sekme çubuğu kaldırıldı — giriş SADECE
-       sol menü / mobil alt menüden yapılır (bkz. sidebar navgrp-ecz). -->
+  <div class="eczsub-bar" role="tablist">
+    <button type="button" class="eczsub-tab active" onclick="goEczaneSubTab(0)">📋 Eczane Detay Listesi</button>
+    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(1)">📦 Top 15 Sipariş Tahmini</button>
+    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(2)">📦 Ürün Sipariş Analizi</button>
+  </div>
+  <div class="eczsub-select-wrap">
+    <select class="eczsub-select" id="eczSubSelect" onchange="goEczaneSubTab(parseInt(this.value,10))">
+      <option value="0">📋 Eczane Detay Listesi</option>
+      <option value="1">📦 Top 15 Sipariş Tahmini</option>
+      <option value="2" class="pv-hidden-ui">📦 Eczane Ürün Sipariş Analizi</option>
+    </select>
+  </div>
 
   <!-- ═══ 1. Eczane Detay Listesi ═══ -->
   <div class="eczsub-panel" id="eczsub_detay">
@@ -7602,9 +7698,6 @@ function _buildEczaneDrawerRefresh(){
       </div>
     </div>
   </div>
-
-  <!-- Haftalık Rota Planım (Manuel) kullanıcı isteğiyle Ayarlar & Referans
-       sayfasına taşındı — bkz. #ayarsub_route_plan aşağıda (PAGE 6). -->
 </div>
 
 <!-- ══════ PAGE 6: AYARLAR & REFERANS ══════
@@ -7621,8 +7714,20 @@ function _buildEczaneDrawerRefresh(){
      Rollback: bu sayfayı silip 3 paneli Eczane'nin ECZ_SUBTABS'ine geri
      eklemek + nav/goPage numaralarını bir öncekine kaydırmak yeterli. -->
 <div class="page" id="page6">
-  <!-- Kullanıcı isteği: sayfa içi sekme çubuğu kaldırıldı — giriş SADECE
-       sol menü / mobil alt menüden yapılır (bkz. sidebar navgrp-ayar). -->
+  <div class="eczsub-bar" role="tablist">
+    <button type="button" class="eczsub-tab active" onclick="goAyarSubTab(0)">⚙️ Satış Şartları Yönetimi</button>
+    <button type="button" class="eczsub-tab" onclick="goAyarSubTab(1)">📰 Piyasa Haberleri</button>
+    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goAyarSubTab(2)">🚀 Lansman Hazırlık</button>
+    <button type="button" class="eczsub-tab" onclick="goAyarSubTab(3)">📝 Haftalık Rota Planım</button>
+  </div>
+  <div class="eczsub-select-wrap">
+    <select class="eczsub-select" id="ayarSubSelect" onchange="goAyarSubTab(parseInt(this.value,10))">
+      <option value="0">⚙️ Satış Şartları Yönetimi</option>
+      <option value="1">📰 Piyasa Haberleri ve Özel Durumlar</option>
+      <option value="2" class="pv-hidden-ui">🚀 Lansman Hazırlık</option>
+      <option value="3">📝 Haftalık Rota Planım (Manuel)</option>
+    </select>
+  </div>
 
   <!-- ═══ 1. Satış Şartları Yönetimi ═══ -->
   <div class="eczsub-panel" id="ayarsub_satis_sartlari">
@@ -7664,11 +7769,8 @@ function _buildEczaneDrawerRefresh(){
   </div>
 
   <!-- ═══ 4. Haftalık Rota Planım (Manuel) — kullanıcı isteğiyle Eczane
-       Satış'tan buraya taşındı. İç içerik id'leri (routePlanFormContainer,
-       acc_route_plan_input_badge/body) AYNEN korundu — render fonksiyonu
-       (RoutePlanInput.renderRoutePlanForm) ve tetikleyici mantık DEĞİŞMEDİ,
-       sadece goAyarSubTab() içine taşındı (bkz. AYAR_SUBTABS). ═══ -->
-  <div class="eczsub-panel" id="ayarsub_route_plan" style="display:none">
+       Satış'tan buraya (Ayarlar & Referans'ın alt sayfası olarak) taşındı ═══ -->
+  <div class="eczsub-panel" id="ayarsub_route_plan_input" style="display:none">
     <div class="card mb16">
       <div class="card-hd">
         <span class="card-title">📝 Haftalık Rota Planım (Manuel)</span>

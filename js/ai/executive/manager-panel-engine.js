@@ -656,26 +656,37 @@
     // döneme ait sira (BUG DÜZELTMESİ: eskiden tüm ayların en iyisi/en
     // düşüğü alınıyordu — güncel ay kötü olsa bile eski iyi sıra hep
     // kazanıyordu, bkz. prim-calc.js'deki aynı düzeltme notu).
+    //
+    // BUG DÜZELTMESİ (2): "Brick Sıra" bir TEMSİLCİ özelliği değil, o
+    // brick'in Türkiye genelindeki ULUSAL sırasıdır — MI_GI-TL.csv'deki
+    // PERSONEL sütunu sadece o dönemde brick'i kimin işlediğini gösterir.
+    // Bölge/temsilci devri olduğunda (ör. bir bölgenin eski temsilcisi
+    // ayrılıp yeni temsilci atandığında) dış kaynak (MI GI) dosyası bir
+    // süre eski ismi taşımaya devam edebiliyor; bu yüzden `r.person===ttt`
+    // ile filtrelemek, ismi kaynakta henüz güncellenmemiş bricklerin
+    // sırasının hiç bulunamamasına (Enis Tok gibi yeni atanan temsilciler
+    // için "—" görünmesine) yol açıyordu. Çözüm: sira değerini KİME AİT
+    // OLURSA OLSUN, sadece brick adına göre (ülke genelinde en güncel
+    // dönem) buluyoruz — kişi eşleşmesi artık sira için şart değil.
     var _migiDonemNum = function (d) { var p = String(d || '').split('/'); return p.length === 2 ? (+p[1] * 100 + +p[0]) : 0; };
-    var siraMap = {};
+
+    // 3b-i) Bu temsilciye ait ek brickleri brickMap'e ekle (kişiye özgü)
+    (MIGI_BRICK_TL_RAW || []).filter(function (r) { return r.person === ttt; }).forEach(function (r) {
+      var key = (r.brick || '').trim().toUpperCase();
+      if (!key) return;
+      if (!brickMap[key]) brickMap[key] = { estTL: 0, ppiVals: [] };
+    });
+
+    // 3b-ii) sira'yı KİŞİDEN BAĞIMSIZ, tüm kaynaktaki en güncel dönemden
+    // brick bazında bul (ülke geneli sıra, kime atfedildiğinden bağımsız)
     var _siraRowsByBrick = {};
-    // BUG DÜZELTMESİ (kullanıcı bildirimi: Enis Tok seçilince brick sırası
-    // yüklenmiyordu) — r.person, CSV'de bazen tam canonical isimle birebir
-    // (===) eşleşmeyen bir varyantla gelebiliyordu (fazladan ünvan/boşluk
-    // vb). Artık r.person burada YENİDEN normTTT() ile canonical hale
-    // getirilip öyle karşılaştırılıyor — parse anında normTTT zaten
-    // çalışıyordu ama bu ek katman, o anda eşleşmeyip ham haliyle kalmış
-    // kayıtları da yakalar.
-    (MIGI_BRICK_TL_RAW || []).filter(function (r) {
-      var rp = (typeof normTTT === 'function' ? (normTTT(r.person) || r.person) : r.person);
-      return rp === ttt;
-    }).forEach(function (r) {
+    (MIGI_BRICK_TL_RAW || []).forEach(function (r) {
       var key = (r.brick || '').trim().toUpperCase();
       if (!key) return;
       if (!_siraRowsByBrick[key]) _siraRowsByBrick[key] = [];
       _siraRowsByBrick[key].push(r);
-      if (!brickMap[key]) brickMap[key] = { estTL: 0, ppiVals: [] };
     });
+    var siraMap = {};
     Object.keys(_siraRowsByBrick).forEach(function (key) {
       var rows = _siraRowsByBrick[key];
       var latest = rows.reduce(function (max, r) { return Math.max(max, _migiDonemNum(r.donem)); }, 0);

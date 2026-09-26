@@ -4,6 +4,7 @@
 //  Globals uses: URUN_AGIRLIK (index.html), GENEL (index.html)
 //  Exports: getCarpan, getMiGiKatsayi, calcPrimForTTT, calcPrimPuani
 //  Exports: CARPAN_TABLE, MIGI_MATRIX, URUN_AGIRLIK
+//  Exports: calcKompanzasyonEkPrimi, calcPrimFromArchivedPeriod (FAZ 31.0)
 //  GitHub Pages compatible: classic script, no ES modules
 // ══════════════════════════════════════════════════════════════
 const CARPAN_TABLE = {
@@ -237,4 +238,106 @@ function calcPrimPuani(urunReals, ttt) {
     }
   }
   return total;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  FAZ 31.0 — ÖNCEKİ DÖNEMİN NET ALINACAK PRİMİ (arşivden)
+//
+//  Kullanıcı bildirimi: "MI & GI Takibi" artık AYLIK değil, sistemin
+//  2 aylık dönem yapısıyla uyumlu DÖNEMSEL geliyor. GENEL_TABLO.csv/
+//  IMS_TABLO.csv gibi MIGI_TL_RAW da dönem kapanınca sıfırlanıp yeni
+//  döneme göre dolduruluyor — bu yüzden Prim Hesaplama sayfası yeni
+//  döneme geçince eski dönemin sonucunu kaybediyordu. Örnek: 5.Dönem
+//  (Eylül–Ekim) aktifken 4.Dönemin (Temmuz–Ağustos) NET alınacak
+//  priminin hâlâ görülebilmesi gerekiyor.
+//
+//  Çözüm: calcPrimForTTT ile AYNI iş kuralını uygular, ama CANLI
+//  GENEL/MIGI_TL_RAW yerine PeriodArchiveManager'da saklanan o dönemin
+//  FİNAL (arşivlenmiş) verisini kullanır (bkz. period-archive-manager.js
+//  processNewSync — artık 3. parametre olarak MIGI_TL_RAW da arşivliyor).
+//
+//  @param {string} ttt
+//  @param {string} periodKey — 'previous' verilirse günün etkin
+//         döneminden BİR ÖNCEKİ dönem otomatik bulunur.
+//  @returns {object|null} — arşiv/veri yoksa null.
+// ══════════════════════════════════════════════════════════════
+function calcPrimFromArchivedPeriod(ttt, periodKey) {
+  const PM = (typeof window !== 'undefined' && window.PeriodArchiveManager) ? window.PeriodArchiveManager : null;
+  if (!PM || !ttt) return null;
+
+  let resolvedKey = periodKey;
+  if (resolvedKey === 'previous' || !resolvedKey) {
+    // NOT: getEffectivePeriod() değil, PM.getCurrentPeriodKey() (saf takvim
+    // bazlı) kullanılıyor — çünkü arşivleme kararı da AYNI takvim mantığıyla
+    // alınıyor (bkz. processNewSync). getEffectivePeriod()'daki 7 günlük
+    // "grace" penceresi farklı bir amaca (kalan iş günü hesabı) hizmet
+    // eder ve burada kullanılırsa dönem geçişinin ilk haftasında "önceki
+        // dönem" yanlış (bir fazla geriye) hesaplanabilir.
+    const curKey = typeof PM.getCurrentPeriodKey === 'function' ? PM.getCurrentPeriodKey() : null;
+    resolvedKey = curKey && typeof PM.getPreviousPeriodKey === 'function' ? PM.getPreviousPeriodKey(curKey) : null;
+  }
+  if (!resolvedKey) return null;
+
+  const arch = PM.getArchivedPeriod(resolvedKey);
+  if (!arch || !arch.genel || !arch.genel.length) return null;
+
+  const archGenel = arch.genel;
+  const archMigi  = arch.migi || [];
+
+  const rGenel = archGenel.find(g => g.ttt === ttt && g.urun === 'GENEL TOPLAM');
+  if (!rGenel) return null;
+
+  const effReal = rGenel.tl_pct || 0;
+  // Prim Puanı — CSV'de hazır değer varsa onu kullan, yoksa arşivlenmiş
+  // GENEL satırlarından (calcPrimPuani global GENEL'i okuduğundan burada
+  // aynı ağırlıklandırma mantığı arşiv verisiyle yeniden uygulanıyor).
+  let primPuani = rGenel.prim_pct;
+  if (!primPuani) {
+    primPuani = 0;
+    Object.keys(URUN_AGIRLIK).forEach(u => {
+      const r2 = archGenel.find(g => g.ttt === ttt && g.urun === u);
+      const real = r2 ? (r2.tl_pct || 0) : 0;
+      if (real >= 70) {
+        const agirlik = (r2 && r2.urun_agirlik > 0) ? r2.urun_agirlik : (URUN_AGIRLIK[u] || 0);
+        primPuani += Math.min(real, 130) * agirlik;
+      }
+    });
+  }
+
+  // MI/GI — arşivlenmiş MIGI_TL_RAW'dan bu kişinin en güncel dönemine ait ortalama
+  const _migiDonemNum = d => { const p = String(d || '').split('/'); return p.length === 2 ? (+p[1] * 100 + +p[0]) : 0; };
+  const migiRowsAll = archMigi.filter(r => r.person === ttt);
+  const _migiLatest = migiRowsAll.reduce((max, r) => Math.max(max, _migiDonemNum(r.donem)), 0);
+  const migiRows    = migiRowsAll.filter(r => _migiDonemNum(r.donem) === _migiLatest);
+  const hasMigi = migiRows.length > 0;
+  const miAvg = hasMigi ? migiRows.reduce((s, r) => s + (r.mi || 100), 0) / migiRows.length : null;
+  const giAvg = hasMigi ? migiRows.reduce((s, r) => s + (r.bi || 100), 0) / migiRows.length : null;
+
+  const BAZ_TL_REAL = 55000;
+  const BAZ_MIGI    = 14000;
+  const effRealCarpan = Math.min(effReal, 100);
+  const carpan = effReal >= 91 ? getCarpan(effRealCarpan) : 0;
+  const tlRealPrimDonemlik = carpan * BAZ_TL_REAL;
+
+  // Kompanzasyon Ek Primi — sadece arşivlenen dönem k1/k2 ise devreye
+  // girer; calcKompanzasyonEkPrimi zaten bunu kendi içinde kontrol eder.
+  const _komp = (typeof calcKompanzasyonEkPrimi === 'function')
+    ? calcKompanzasyonEkPrimi(ttt, archGenel, resolvedKey)
+    : { ekPrim: 0, eligible: false, reason: '' };
+  const tlRealPrim = tlRealPrimDonemlik + (_komp.ekPrim || 0);
+
+  const carpanPortfoy100 = getCarpan(100);
+  const portfoyPrim = (effReal >= 91 && primPuani >= 91) ? 0.20 * BAZ_TL_REAL * carpanPortfoy100 : 0;
+  const migiKatsayi = (effReal >= 70 && hasMigi) ? getMiGiKatsayi(Math.round(miAvg), Math.round(giAvg)) : 0;
+  const migiPrim = migiKatsayi * BAZ_MIGI;
+
+  const toplamPrim = tlRealPrim + portfoyPrim + migiPrim;
+
+  return {
+    periodKey: resolvedKey,
+    periodLabel: arch.periodLabel, periodMonths: arch.periodMonths, archivedAt: arch.archivedAt,
+    toplamPrim, tlRealPrim, tlRealPrimDonemlik, ekPrim: (_komp.ekPrim || 0),
+    portfoyPrim, migiPrim, migiKatsayi,
+    effReal, primPuani, miAvg, giAvg, hasMigi
+  };
 }

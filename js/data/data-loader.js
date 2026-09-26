@@ -427,9 +427,14 @@ async function syncData(forceFresh) {
     // bilinen (final) verisini kalıcı olarak yarıyıl arşivine (H1/H2)
     // taşır. Hata toleranslı — arşivleme başarısız olsa bile syncData akışı
     // ETKİLENMEZ (rollback-safe).
+    // FAZ 31.0 — MIGI_TL_RAW (MI & GI Takibi artık dönemsel/2 aylık
+    // geldiğinden) de 3. parametre olarak arşivleniyor, böylece bir
+    // önceki dönemin NET alınacak primi (MI&GI Primi dahil) dönem
+    // değiştikten sonra da hesaplanabiliyor — bkz. calcPrimFromArchivedPeriod
+    // (js/core/prim-calc.js) ve Prim Hesaplama sayfasındaki "Önceki Dönem" paneli.
     if (window.PeriodArchiveManager) {
       try {
-        var _archiveResult = window.PeriodArchiveManager.processNewSync(dedupedGenel, newIMS);
+        var _archiveResult = window.PeriodArchiveManager.processNewSync(dedupedGenel, newIMS, MIGI_TL_RAW);
         if (_archiveResult && _archiveResult.archived) {
           console.log('[period-archive] Dönem geçişi tespit edildi:',
             _archiveResult.previousPeriodKey, '→', _archiveResult.currentPeriodKey,

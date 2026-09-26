@@ -143,17 +143,18 @@
     return _readJSON(LS_LAST, null);
   }
 
-  function _saveLastSnapshot(periodKey, genelArr, imsArr) {
+  function _saveLastSnapshot(periodKey, genelArr, imsArr, migiArr) {
     _writeJSON(LS_LAST, {
       periodKey: periodKey,
       genel: genelArr,
       ims: imsArr,
+      migi: migiArr || [],
       savedAt: new Date().toISOString()
     });
   }
 
   // ── Bir dönemi kalıcı yarıyıl arşivine taşı ──────────────────────────
-  function _archivePeriod(periodKey, genelArr, imsArr) {
+  function _archivePeriod(periodKey, genelArr, imsArr, migiArr) {
     var halfYear = _halfYearForKey(periodKey);
     var lsKey = _lsKeyForHalfYear(halfYear);
     if (!lsKey) {
@@ -169,23 +170,34 @@
     bucket.periods[periodKey] = {
       genel: genelArr,
       ims: imsArr,
+      migi: migiArr || [],
       periodLabel: meta.label || periodKey,
       periodMonths: meta.months || '',
       archivedAt: new Date().toISOString(),
       genelCount: (genelArr || []).length,
-      imsCount: (imsArr || []).length
+      imsCount: (imsArr || []).length,
+      migiCount: (migiArr || []).length
     };
 
     var ok = _writeJSON(lsKey, bucket);
     if (ok) {
       console.log('[period-archive-manager] Arşivlendi →', halfYear + '/' + periodKey,
-        '(GENEL:', (genelArr || []).length, ', IMS:', (imsArr || []).length, ')');
+        '(GENEL:', (genelArr || []).length, ', IMS:', (imsArr || []).length, ', MIGI:', (migiArr || []).length, ')');
     }
     return ok;
   }
 
   // ── Ana giriş noktası — her başarılı syncData() sonrasında çağrılır ──
-  function processNewSync(newGenelArr, newIMSArr) {
+  // FAZ 31.0 — Kullanıcı bildirimi: "MI & GI Takibi" artık AYLIK değil,
+  // sistemin 2 aylık dönem yapısıyla uyumlu olarak DÖNEMSEL geliyor. Bu
+  // sayede bir dönem kapandığında MI&GI verisi de GENEL/IMS gibi o
+  // dönem için KESİNLEŞMİŞ sayılabilir — bu yüzden artık 3. parametre
+  // olarak MIGI_TL_RAW da arşivleniyor (bkz. calcPrimFromArchivedPeriod,
+  // js/core/prim-calc.js) — "önceki dönemin net alınacak primi" MI&GI
+  // dahil tam hesaplanabilsin diye. 3. parametre opsiyoneldir (geriye
+  // dönük uyumluluk): verilmezse boş dizi olarak arşivlenir, hiçbir şeyi
+  // bozmaz.
+  function processNewSync(newGenelArr, newIMSArr, newMigiArr) {
     // Boş/başarısız veri arşivi bozmasın
     if (!newGenelArr || !newIMSArr || newGenelArr.length === 0 || newIMSArr.length === 0) {
       return { archived: false, reason: 'empty-data' };
@@ -202,11 +214,11 @@
 
     if (last && last.periodKey && last.periodKey !== currentPeriodKey) {
       // Dönem değişmiş: bir önceki dönemin SON bilinen (final) verisini arşivle
-      archived = _archivePeriod(last.periodKey, last.genel, last.ims);
+      archived = _archivePeriod(last.periodKey, last.genel, last.ims, last.migi);
     }
 
     // Şimdiki veriyi "son görüntü" olarak güncelle (bir sonraki geçiş kontrolü için)
-    _saveLastSnapshot(currentPeriodKey, newGenelArr, newIMSArr);
+    _saveLastSnapshot(currentPeriodKey, newGenelArr, newIMSArr, newMigiArr);
 
     return { archived: archived, currentPeriodKey: currentPeriodKey, previousPeriodKey: last ? last.periodKey : null };
   }
@@ -240,7 +252,7 @@
       var out = {};
       Object.keys(bucket.periods || {}).forEach(function (k) {
         var p = bucket.periods[k];
-        out[k] = { label: p.periodLabel, genelCount: p.genelCount, imsCount: p.imsCount, archivedAt: p.archivedAt };
+        out[k] = { label: p.periodLabel, genelCount: p.genelCount, imsCount: p.imsCount, migiCount: p.migiCount || 0, archivedAt: p.archivedAt };
       });
       return out;
     }
@@ -251,9 +263,21 @@
         periodKey: last.periodKey,
         genelCount: (last.genel || []).length,
         imsCount: (last.ims || []).length,
+        migiCount: (last.migi || []).length,
         savedAt: last.savedAt
       } : null
     };
+  }
+
+  // FAZ 31.0 — bir periodKey'den PERIODS sırasına göre (aynı takvim yılı
+  // içinde) BİR ÖNCEKİ dönemin anahtarını döndürür (1d,2d,k1,4d,5d,k2
+  // sırasıyla). İlk dönemde (1d) önceki yıla geçmez, null döner — arşiv
+  // yapısı yıl ayrımı yapmadığından bu güvenli sınırdır.
+  function getPreviousPeriodKey(periodKey) {
+    var periods = _safe(function () { return PERIODS || []; }, []);
+    var idx = periods.findIndex(function (p) { return p.key === periodKey; });
+    if (idx <= 0) return null;
+    return periods[idx - 1].key;
   }
 
   function clearAll() {
@@ -288,6 +312,7 @@
       periodLabel: entry.periodLabel,
       genel:       entry.genel,
       ims:         entry.ims,
+      migi:        entry.migi || [],
       archivedAt:  entry.archivedAt,
       exportedAt:  new Date().toISOString()
     };
@@ -318,7 +343,7 @@
       if (!res.ok) return false; // 404 vb. — dosya henüz commit edilmemiş, sessizce geç
       return res.json().then(function (payload) {
         if (!payload || !payload.genel || !payload.ims) return false;
-        var ok = _archivePeriod(periodKey, payload.genel, payload.ims);
+        var ok = _archivePeriod(periodKey, payload.genel, payload.ims, payload.migi);
         if (ok) console.log('[period-archive-manager] Uzak arşivden yüklendi: ' + periodKey + '_' + year + '.json');
         return ok;
       });
@@ -353,6 +378,7 @@
   window.PeriodArchiveManager = {
     processNewSync: processNewSync,
     getCurrentPeriodKey: getCurrentPeriodKey,
+    getPreviousPeriodKey: getPreviousPeriodKey,
     getArchivedPeriod: getArchivedPeriod,
     getHalfYearArchive: getHalfYearArchive,
     listArchivedPeriods: listArchivedPeriods,
