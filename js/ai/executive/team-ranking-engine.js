@@ -8,7 +8,8 @@
 //
 //  Skor Formülü:
 //    30% Realization  (tl_pct → 0-100 normalize)
-//    25% Forecast     (projectedReal → calculateRunRate)
+//    25% Forecast     (projectedReal → generateForecast, "Ürün Bazlı
+//                      Performans" tablosuyla AYNI motor/yöntem)
 //    20% Growth       (son trend — IMS h7-h9 slope)
 //    15% Market Share (IMS pazar payı ortalaması)
 //    10% Risk Adj.    (-10 per HIGH risk, -5 per MEDIUM)
@@ -20,7 +21,7 @@
 //    js/ai/intelligence/risk-engine.js   (detectRisks)
 //  GitHub Pages compatible: classic script, no ES modules
 // ══════════════════════════════════════════════════════════════════════
-/* global GENEL, IMS, ALL_TTTS, calculateRunRate, detectRisks */
+/* global GENEL, IMS, ALL_TTTS, calculateRunRate, generateForecast, detectRisks */
 
 (function () {
   'use strict';
@@ -32,14 +33,31 @@
   }
 
   // ── _forecastReal ─────────────────────────────────────────
+  // BUG DÜZELTMESİ (kullanıcı isteği): "Ekip Performans Sıralaması (Tümü)"
+  // tablosundaki "Forecast %" kolonu, "Ürün Bazlı Performans" (Yönetici
+  // sayfası) tablosunun Σ Alt Toplam "Tahmini %" değerinden FARKLI bir
+  // motor kullanıyordu — calculateRunRate() (runrate-engine.js), TÜM
+  // ürünlerin haftalık verisini TEK bir seride birleştirip üzerinden
+  // hesaplıyordu; Ürün Bazlı Performans tablosu ise artık (bkz.
+  // forecast-engine.js) ürün bazlı tahminlerin TOPLAMINI kullanıyor. Aynı
+  // temsilci için sayfanın iki farklı yerinde iki farklı "Tahmini %"
+  // görünebiliyordu. Artık İKİSİ DE generateForecast() üzerinden — yani
+  // TEK gerçek kaynaktan — besleniyor.
   function _forecastReal(ttt) {
+    try {
+      if (typeof generateForecast === 'function') {
+        var fc = generateForecast(ttt);
+        if (fc && fc.projectedReal > 0) return fc.projectedReal;
+      }
+    } catch (e) { /* silent */ }
+    // Geriye dönük yedek: generateForecast yüklenmemişse eski motor
     try {
       if (typeof calculateRunRate === 'function') {
         var rr = calculateRunRate(ttt);
         if (rr && rr.projectedRealization > 0) return rr.projectedRealization;
       }
-    } catch (e) { /* silent */ }
-    return _safeReal(ttt); // fallback: mevcut real
+    } catch (e2) { /* silent */ }
+    return _safeReal(ttt); // son çare: mevcut real
   }
 
   // ── _growthScore ──────────────────────────────────────────

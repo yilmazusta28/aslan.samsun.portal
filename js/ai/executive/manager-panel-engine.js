@@ -297,13 +297,70 @@
       .filter(Boolean);
   }
 
+  // ── BÖLGE ÜRÜN BAZLI TAHMİN (Dönem Sonu Tahmini TL / Tahmini %) ──────
+  // Kullanıcı isteği: "Bölge Ürün Bazlı Performans" tablosuna da, temsilci
+  // sayfasındaki "Ürün Bazlı Performans" tablosuyla AYNI iki kolon eklendi.
+  // TASARIM NOTU: ŞENOL YILMAZ (Bölge Müdürü) satırının kendi IMS/brick
+  // verisi YOKTUR (bkz. yukarıdaki FAZ 26.0 yorumu — GENEL'deki satırı
+  // zaten TÜM EKİBİN hazır toplamı). generateForecast() haftalık hızı
+  // IMS'ten (brick bazlı) hesapladığı için doğrudan
+  // generateForecast('ŞENOL YILMAZ') çağırmak anlamlı bir sonuç
+  // ÜRETEMEZ (IMS'te bu ttt için hiç satır yok → hız her zaman 0 çıkar).
+  // Doğru yöntem — buildRegionMarketShareSummary() ile AYNI desen — her
+  // bir temsilcinin (ALL_TTTS) kendi generateForecast() sonucunu ÜRÜN
+  // BAZINDA TOPLAMAKTIR; bu aynı zamanda "Ürün Bazlı Performans"
+  // tablosundaki Σ Alt Toplam düzeltmesiyle (bkz. forecast-engine.js)
+  // TUTARLIDIR — toplam, parçaların toplamına eşittir.
+  function buildManagerUrunForecast() {
+    var urunOrder = (typeof URUN_ORDER !== 'undefined') ? URUN_ORDER : [];
+    var reps = (typeof ALL_TTTS !== 'undefined') ? ALL_TTTS : [];
+    var sums = {};
+    urunOrder.forEach(function (u) { sums[u] = { projectedTL: 0, hedefTL: 0 }; });
+
+    reps.forEach(function (ttt) {
+      try {
+        if (typeof generateForecast !== 'function') return;
+        var fc = generateForecast(ttt);
+        if (!fc || !fc.productForecasts) return;
+        fc.productForecasts.forEach(function (pf) {
+          if (!sums[pf.urun]) return;
+          sums[pf.urun].projectedTL += (pf.projectedTL || 0);
+          sums[pf.urun].hedefTL     += (pf.hedefTL     || 0);
+        });
+      } catch (e) { /* silent */ }
+    });
+
+    var byUrun = {};
+    var totalProj = 0, totalHedef = 0;
+    urunOrder.forEach(function (u) {
+      var s = sums[u];
+      var pct = s.hedefTL > 0 ? (s.projectedTL / s.hedefTL) * 100 : 0;
+      byUrun[u] = { projectedTL: Math.round(s.projectedTL), projectedReal: Math.round(pct * 10) / 10 };
+      totalProj  += s.projectedTL;
+      totalHedef += s.hedefTL;
+    });
+    var totalPct = totalHedef > 0 ? (totalProj / totalHedef) * 100 : 0;
+
+    return {
+      byUrun:             byUrun,
+      totalProjectedTL:   Math.round(totalProj),
+      totalProjectedReal: Math.round(totalPct * 10) / 10
+    };
+  }
+
   function renderManagerUrunPerformans(containerId) {
     var body = document.getElementById(containerId || 'mgrUrunBody');
     if (!body) return;
     var rows = buildManagerUrunPerformans();
     if (!rows.length) {
-      body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--dim);padding:14px">Veri yok — CSV yüklenmemiş olabilir.</td></tr>';
+      body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--dim);padding:14px">Veri yok — CSV yüklenmemiş olabilir.</td></tr>';
       return;
+    }
+    var fc = buildManagerUrunForecast();
+    function _fcCells(urun) {
+      var pf = fc.byUrun[urun];
+      if (!pf) return '<td class="mono">—</td><td>—</td>';
+      return '<td class="mono">' + fTL(pf.projectedTL) + '</td><td><span class="bdg ' + pCls(pf.projectedReal) + '">' + fPct(pf.projectedReal) + '</span></td>';
     }
     var html = rows.map(function (r) {
       var pct = Math.min(r.tl_pct || 0, 100);
@@ -316,11 +373,14 @@
         '<td><span class="bdg ' + pCls(r.tl_pct) + '">' + fPct(r.tl_pct) + '</span></td>' +
         '<td><div class="prog" style="width:80px"><div class="prog-fill ' + barCls(r.tl_pct) + '" style="width:' + pct + '%;background:' + barColor + '"></div></div></td>' +
         '<td class="mono">' + fPct(r.prim_pct) + '</td>' +
+        _fcCells(r.urun) +
         '</tr>';
     }).join('');
 
     // Alt toplam satırı — GENEL'deki ŞENOL YILMAZ / GENEL TOPLAM satırından
     // (bölge resmi toplamı, tek tek ürünlerin manuel toplanmasına gerek yok).
+    // Dönem Sonu Tahmini TL/% ise buildManagerUrunForecast()'in toplamından
+    // (parçaların toplamı — "Ürün Bazlı Performans" ile AYNI mantık).
     var gen = (GENEL || []).find(function (r) { return r.ttt === MANAGER_NAME && r.urun === 'GENEL TOPLAM'; }) || {};
     html += '<tr class="toplam-row" style="border-top:2px solid var(--border);background:var(--surf2,#F7F9FC)">' +
       '<td style="font-weight:800">Σ Alt Toplam</td>' +
@@ -330,6 +390,8 @@
       '<td><span class="bdg ' + pCls(gen.tl_pct) + '">' + fPct(gen.tl_pct) + '</span></td>' +
       '<td></td>' +
       '<td class="mono" style="font-weight:800">' + fPct(gen.prim_pct) + '</td>' +
+      '<td class="mono" style="font-weight:800">' + fTL(fc.totalProjectedTL) + '</td>' +
+      '<td><span class="bdg ' + pCls(fc.totalProjectedReal) + '" style="font-weight:800">' + fPct(fc.totalProjectedReal) + '</span></td>' +
       '</tr>';
     body.innerHTML = html;
   }
