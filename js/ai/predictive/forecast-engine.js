@@ -339,6 +339,32 @@
       // ── Ürün bazlı tahminler ──────────────────────────────
       result.productForecasts = _productForecasts(ttt, remainingDays, totalDays, elapsedDays);
 
+      // ── BUG DÜZELTMESİ (kullanıcı bildirimi — "Σ Alt Toplam" satırının
+      // "Dönem Sonu Tahmini TL / Tahmini %" değeri, tablodaki ürün
+      // satırlarının TOPLAMIYLA UYUŞMUYORDU, örn. satırlar 997.704 +
+      // 761.775 + 101.796 + 287.816 + 96.460 = 2.245.551 iken toplam
+      // satırı 1.048.225 gösteriyordu) ─────────────────────────────────
+      // KÖK NEDEN: projectedTL yukarıda AYRI bir yöntemle hesaplanıyordu
+      // — tüm ürünlerin haftalık TL'si ÖNCE tek bir seride birleştirilip
+      // (_weeklyTLSeries) SONRA o birleşik seri üzerinden TEK bir hız/trim
+      // hesaplanıyordu. Bu, her ürünün KENDİ haftalık serisi üzerinden AYRI
+      // AYRI hesaplanan productForecasts'ın basit toplamından FARKLI
+      // sonuç verebiliyordu (özellikle ürünler arasında "trim edilen son
+      // hafta sayısı" farklıysa — bir ürünün en son haftası henüz
+      // gelmemişken diğerlerininki gelmiş olabilir, birleşik seri bunu
+      // farklı kırpar). Bir "toplam" satırı MANTIKEN HER ZAMAN üstündeki
+      // satırların toplamına eşit olmalıdır — bu yüzden genel projectedTL/
+      // projectedReal artık AYRI hesaplanmıyor, doğrudan az önce üretilen
+      // productForecasts'ın toplamından türetiliyor (tek gerçek kaynak).
+      var _sumProjTL  = result.productForecasts.reduce(function (s, pf) { return s + (pf.projectedTL || 0); }, 0);
+      var _sumHedefTL = result.productForecasts.reduce(function (s, pf) { return s + (pf.hedefTL   || 0); }, 0);
+      if (_sumHedefTL > 0) {
+        projectedTL = _sumProjTL;
+        projReal    = (projectedTL / _sumHedefTL) * 100;
+        result.projectedTL   = Math.round(projectedTL);
+        result.projectedReal = Math.round(projReal * 10) / 10;
+      }
+
       // ── Akıllı insight'lar ────────────────────────────────
       var insights = [];
       if (projReal >= 100) {
