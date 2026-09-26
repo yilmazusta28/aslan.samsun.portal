@@ -7674,18 +7674,13 @@ function _buildEczaneDrawerRefresh(){
        Rollback: taşınan 3 paneli (satis_sartlari, haber_takibi,
        launch_readiness) buraya geri taşımak + ECZ_SUBTABS'e eklemek +
        "Ayarlar & Referans" sayfasını/nav girişini silmek yeterli. -->
-  <div class="eczsub-bar" role="tablist">
-    <button type="button" class="eczsub-tab active" onclick="goEczaneSubTab(0)">📋 Eczane Detay Listesi</button>
-    <button type="button" class="eczsub-tab" onclick="goEczaneSubTab(1)">📦 Top 15 Sipariş Tahmini</button>
-    <button type="button" class="eczsub-tab pv-hidden-ui" onclick="goEczaneSubTab(2)">📦 Ürün Sipariş Analizi</button>
-  </div>
-  <div class="eczsub-select-wrap">
-    <select class="eczsub-select" id="eczSubSelect" onchange="goEczaneSubTab(parseInt(this.value,10))">
-      <option value="0">📋 Eczane Detay Listesi</option>
-      <option value="1">📦 Top 15 Sipariş Tahmini</option>
-      <option value="2" class="pv-hidden-ui">📦 Eczane Ürün Sipariş Analizi</option>
-    </select>
-  </div>
+  <!-- Kullanıcı isteği: bu sayfanın üstünde tekrar eden sekme/seçim
+       bağlantıları da kaldırıldı — giriş artık SADECE sol (sidebar) ana
+       menüdeki "Eczane Satış" alt-öğelerinden yapılıyor. Alt-sekme
+       değişimi hâlâ goEczaneSubTab() ile çalışıyor (sidebar'daki
+       navsub_ecz_* öğelerinden tetikleniyor); panellerin görünürlüğü
+       kendi inline style="display" durumlarıyla yönetiliyor, bu barın
+       kaldırılması işlevi etkilemez. -->
 
   <!-- ═══ 1. Eczane Detay Listesi ═══ -->
   <div class="eczsub-panel" id="eczsub_detay">
