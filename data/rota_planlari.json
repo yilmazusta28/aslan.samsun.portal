@@ -155,7 +155,8 @@
         ],
         "2": [
           "CORUM GUNEYDOGU ILCELER",
-          "CORUM KARGI+OSMANCIK"
+          "CORUM KARGI+OSMANCIK",
+          "CORUM KUZEY ILCELER"
         ],
         "3": [
           "AMASYA MERZIFON",
@@ -196,5 +197,5 @@
       }
     }
   },
-  "updatedAt": "2026-09-27T06:58:31.168Z"
+  "updatedAt": "2026-09-27T06:58:32.417Z"
 }
