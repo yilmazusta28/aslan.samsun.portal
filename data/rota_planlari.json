@@ -73,8 +73,14 @@
           "GIRESUN MERKEZ -1",
           "GIRESUN MERKEZ -2"
         ]
+      },
+      "2": {
+        "1": [
+          "GIRESUN MERKEZ -1",
+          "GIRESUN MERKEZ -2"
+        ]
       }
     }
   },
-  "updatedAt": "2026-09-27T06:50:48.665Z"
+  "updatedAt": "2026-09-27T06:50:52.264Z"
 }
