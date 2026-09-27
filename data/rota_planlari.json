@@ -216,8 +216,14 @@
           "GIRESUN DOGU ILCELER -2",
           "TRABZON AKCAABAT"
         ]
+      },
+      "2": {
+        "1": [
+          "TRABZON MERKEZ -3",
+          "TRABZON MERKEZ -4"
+        ]
       }
     }
   },
-  "updatedAt": "2026-09-27T07:00:04.998Z"
+  "updatedAt": "2026-09-27T07:00:35.861Z"
 }
