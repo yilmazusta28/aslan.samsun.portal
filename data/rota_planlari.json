@@ -28,6 +28,10 @@
           "TOKAT MERKEZ -1",
           "TOKAT MERKEZ -2",
           "TOKAT TURHAL"
+        ],
+        "2": [
+          "TOKAT DOGU ILCELER",
+          "TOKAT ERBAA"
         ]
       }
     },
@@ -110,5 +114,5 @@
       }
     }
   },
-  "updatedAt": "2026-09-27T06:53:18.043Z"
+  "updatedAt": "2026-09-27T06:53:19.094Z"
 }
