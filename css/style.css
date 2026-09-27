@@ -403,6 +403,8 @@ body{
    yapıyoruz — dış sayfa scroll'una dokunmuyor. ── */
 .market-share-scroll{max-height:420px;overflow-y:auto}
 .market-share-scroll thead th{position:sticky;top:0;z-index:5;box-shadow:0 1px 0 var(--border)}
+.brick-detail-scroll{max-height:480px;overflow-y:auto}
+.brick-detail-scroll thead th{position:sticky;top:0;z-index:5;box-shadow:0 1px 0 var(--border)}
 
 /* ── KULLANICI İSTEĞİ: Eczane Detay Listesi — "📦 Stok" kısmındaki asıl
    giriş alanı (ürün seçim kutuları + sayısal giriş butonu) varsayılan
