@@ -48,31 +48,31 @@
       }
     },
     "MURAT KANDİŞ": {
-      "1": [
-        "RIZE MERKEZ",
-        "RIZE BATI ILCELER",
-        "RIZE DOGU ILCELER"
-      ],
-      "2": [
-        "RIZE BATI ILCELER",
-        "RIZE DOGU ILCELER",
-        "RIZE MERKEZ",
-        "TRABZON DOGU ILCELER - 2"
-      ],
-      "3": [
-        "ARTVIN KUZEY ILCELER",
-        "ARTVIN MERKEZ+DOGU+GUNEY"
-      ],
-      "4": [
-        "TRABZON DOGU ILCELER - 2",
-        "TRABZON DOGU ILCELER -1",
-        "TRABZON MERKEZ -1"
-      ],
-      "5": [
-        "TRABZON MERKEZ -1",
-        "TRABZON MERKEZ -2",
-        "RIZE MERKEZ"
-      ]
+      "1": {
+        "1": [
+          "RIZE MERKEZ"
+        ],
+        "2": [
+          "RIZE BATI ILCELER",
+          "RIZE DOGU ILCELER",
+          "RIZE MERKEZ",
+          "TRABZON DOGU ILCELER - 2"
+        ],
+        "3": [
+          "ARTVIN KUZEY ILCELER",
+          "ARTVIN MERKEZ+DOGU+GUNEY"
+        ],
+        "4": [
+          "TRABZON DOGU ILCELER - 2",
+          "TRABZON DOGU ILCELER -1",
+          "TRABZON MERKEZ -1"
+        ],
+        "5": [
+          "TRABZON MERKEZ -1",
+          "TRABZON MERKEZ -2",
+          "RIZE MERKEZ"
+        ]
+      }
     },
     "YILMAZ USTA": {
       "1": {
@@ -126,5 +126,5 @@
       }
     }
   },
-  "updatedAt": "2026-09-27T06:53:22.653Z"
+  "updatedAt": "2026-09-27T06:55:25.421Z"
 }
