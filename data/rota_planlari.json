@@ -327,9 +327,13 @@
           "ORDU UNYE",
           "SAMSUN TERME"
         ],
-        "5": []
+        "5": [
+          "SAMSUN ADALET",
+          "SAMSUN BAHCELIEVLER",
+          "SAMSUN HAVZA+KAVAK+LADIK"
+        ]
       }
     }
   },
-  "updatedAt": "2026-09-27T16:50:51.539Z"
+  "updatedAt": "2026-09-27T16:50:52.954Z"
 }
