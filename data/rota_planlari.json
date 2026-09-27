@@ -88,6 +88,10 @@
           "TRABZON DOGU ILCELER -1",
           "TRABZON MERKEZ -1",
           "TRABZON MERKEZ -2"
+        ],
+        "5": [
+          "RIZE BATI ILCELER",
+          "TRABZON DOGU ILCELER - 2"
         ]
       }
     },
@@ -143,5 +147,5 @@
       }
     }
   },
-  "updatedAt": "2026-09-27T06:56:30.789Z"
+  "updatedAt": "2026-09-27T06:56:31.875Z"
 }
