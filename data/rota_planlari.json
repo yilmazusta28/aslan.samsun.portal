@@ -74,6 +74,10 @@
       "2": {
         "1": [
           "RIZE MERKEZ"
+        ],
+        "2": [
+          "ARTVIN KUZEY ILCELER",
+          "ARTVIN MERKEZ+DOGU+GUNEY"
         ]
       }
     },
@@ -129,5 +133,5 @@
       }
     }
   },
-  "updatedAt": "2026-09-27T06:56:27.286Z"
+  "updatedAt": "2026-09-27T06:56:28.254Z"
 }
