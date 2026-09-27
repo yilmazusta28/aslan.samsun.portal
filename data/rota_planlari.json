@@ -149,8 +149,9 @@
     "AYKUT DİNLER": {
       "1": {
         "1": [
-          "CORUM KUZEY ILCELER",
-          "CORUM MERKEZ -1"
+          "CORUM MERKEZ -1",
+          "CORUM MERKEZ -2",
+          "CORUM MERKEZ -3"
         ],
         "2": [
           "CORUM GUNEYDOGU ILCELER",
@@ -195,5 +196,5 @@
       }
     }
   },
-  "updatedAt": "2026-09-27T06:58:11.343Z"
+  "updatedAt": "2026-09-27T06:58:31.168Z"
 }
