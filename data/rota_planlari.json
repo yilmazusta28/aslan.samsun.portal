@@ -36,6 +36,10 @@
         "3": [
           "SIVAS MERKEZ -4",
           "TOKAT BATI ILCELER"
+        ],
+        "4": [
+          "SIVAS MERKEZ -3",
+          "SIVAS MERKEZ -4"
         ]
       }
     },
@@ -118,5 +122,5 @@
       }
     }
   },
-  "updatedAt": "2026-09-27T06:53:20.368Z"
+  "updatedAt": "2026-09-27T06:53:21.575Z"
 }
