@@ -315,12 +315,15 @@
           "SAMSUN ILKADIM - 2",
           "SAMSUN RASATHANE"
         ],
-        "2": [],
+        "2": [
+          "SAMSUN ADALET",
+          "SAMSUN BAHCELIEVLER"
+        ],
         "3": [],
         "4": [],
         "5": []
       }
     }
   },
-  "updatedAt": "2026-09-27T16:50:24.558Z"
+  "updatedAt": "2026-09-27T16:50:25.672Z"
 }
