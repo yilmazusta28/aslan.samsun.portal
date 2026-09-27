@@ -58,8 +58,9 @@
           "RIZE BATI ILCELER"
         ],
         "3": [
-          "ARTVIN KUZEY ILCELER",
-          "ARTVIN MERKEZ+DOGU+GUNEY"
+          "RIZE DOGU ILCELER",
+          "TRABZON DOGU ILCELER - 2",
+          "TRABZON DOGU ILCELER -1"
         ],
         "4": [
           "TRABZON DOGU ILCELER - 2",
@@ -125,5 +126,5 @@
       }
     }
   },
-  "updatedAt": "2026-09-27T06:55:26.378Z"
+  "updatedAt": "2026-09-27T06:55:27.368Z"
 }
