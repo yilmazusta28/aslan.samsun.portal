@@ -1,26 +1,28 @@
 {
   "plans": {
     "SAMET ÇETİN": {
-      "1": [
-        "TOKAT MERKEZ -2",
-        "TOKAT TURHAL"
-      ],
-      "2": [
-        "TOKAT ERBAA",
-        "TOKAT MERKEZ -1"
-      ],
-      "3": [
-        "TOKAT BATI ILCELER",
-        "TOKAT DOGU ILCELER"
-      ],
-      "4": [
-        "SIVAS MERKEZ -3",
-        "SIVAS MERKEZ -4"
-      ],
-      "5": [
-        "SIVAS MERKEZ -1",
-        "SIVAS MERKEZ -2"
-      ]
+      "1": {
+        "1": [
+          "TOKAT MERKEZ -2",
+          "TOKAT TURHAL"
+        ],
+        "2": [
+          "TOKAT ERBAA",
+          "TOKAT MERKEZ -1"
+        ],
+        "3": [
+          "TOKAT BATI ILCELER",
+          "TOKAT DOGU ILCELER"
+        ],
+        "4": [
+          "SIVAS MERKEZ -3",
+          "SIVAS MERKEZ -4"
+        ],
+        "5": [
+          "SIVAS MERKEZ -1",
+          "SIVAS MERKEZ -2"
+        ]
+      }
     },
     "MURAT KANDİŞ": {
       "1": [
@@ -101,5 +103,5 @@
       }
     }
   },
-  "updatedAt": "2026-09-27T06:50:57.467Z"
+  "updatedAt": "2026-09-27T06:52:14.901Z"
 }
