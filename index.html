@@ -533,6 +533,7 @@ window.DOSYALAR_DELETE_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/dos
 
 <script src="js/ai/ai-context.js?v=20260705d"></script>
 <script src="js/ai/ai-service.js?v=20260705c"></script>
+<script src="js/ai/voice-briefing.js?v=20260927a"></script>
 <script src="js/ai/learning-engine.js?v=20260705"></script>
 <script src="js/ai/ai-engine.js?v=20260728a"></script>
 <!-- PHASE 4.6.x: Recommendation Memory Layer
@@ -2832,7 +2833,16 @@ function doLogin(){
     // (varsayılan page0 — HTML'de zaten "active" olan sayfa).
     if(LOGGED_IN_USER==='ŞENOL YILMAZ' && typeof goPage==='function'){ goPage(7); }
     // initApp Blok-2'de tanımlı — DOM tamamen yüklendiği için güvenli çağır
-    if(typeof initApp === 'function') { initApp(); }
+    if(typeof initApp === 'function') {
+      // NOT (sesli brifing): initApp() veriyi (GENEL/IMS/eczane CSV'leri)
+      // ASENKRON yüklüyor. initVoiceBriefing() bu veriye ihtiyaç duyduğu
+      // için initApp()'in Promise'i çözülene (veri yüklemesi bitene) KADAR
+      // beklenip ARDINDAN çağrılıyor — aksi halde brifing boş/yanlış veriyle
+      // üretilirdi.
+      initApp().then(function () {
+        if (typeof initVoiceBriefing === 'function') initVoiceBriefing();
+      });
+    }
     else { window._pendingLogin = true; }
   } else {
     errEl.style.display='block';
@@ -5300,7 +5310,12 @@ window.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('loading').style.display='none';
   document.getElementById('loginUser').focus();
   // Eğer kullanıcı script yüklenmeden önce giriş yaptıysa şimdi başlat
-  if(window._pendingLogin){ window._pendingLogin=false; initApp(); }
+  if(window._pendingLogin){
+    window._pendingLogin=false;
+    initApp().then(function () {
+      if (typeof initVoiceBriefing === 'function') initVoiceBriefing();
+    });
+  }
   // Phase 2.2: UI runtime stabilization patches
   if(typeof installRuntimePatches === 'function') installRuntimePatches();
 });
