@@ -283,7 +283,16 @@
           "ERZURUM MERKEZ -3"
         ]
       }
+    },
+    "ENİS TOK": {
+      "1": {
+        "1": [
+          "SAMSUN HURRIYET+ZAFER",
+          "SAMSUN ILKADIM - 2",
+          "SAMSUN RASATHANE"
+        ]
+      }
     }
   },
-  "updatedAt": "2026-09-27T16:48:30.700Z"
+  "updatedAt": "2026-09-27T16:49:57.841Z"
 }
