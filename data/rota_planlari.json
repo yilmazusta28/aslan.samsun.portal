@@ -83,6 +83,11 @@
           "RIZE DOGU ILCELER",
           "RIZE MERKEZ",
           "TRABZON DOGU ILCELER - 2"
+        ],
+        "4": [
+          "TRABZON DOGU ILCELER -1",
+          "TRABZON MERKEZ -1",
+          "TRABZON MERKEZ -2"
         ]
       }
     },
@@ -138,5 +143,5 @@
       }
     }
   },
-  "updatedAt": "2026-09-27T06:56:29.795Z"
+  "updatedAt": "2026-09-27T06:56:30.789Z"
 }
