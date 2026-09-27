@@ -71,7 +71,26 @@
     var voices = [];
     try { voices = window.speechSynthesis.getVoices() || []; } catch (e) { voices = []; }
     var tr = voices.filter(function (v) { return /^tr/i.test(v.lang || ''); });
-    return tr[0] || null; // null ise tarayıcı varsayılan sesi kullanır (lang='tr-TR' yine de set edilir)
+    if (!tr.length) return null; // tarayıcı varsayılanı (yine de lang='tr-TR' set edilir)
+    // KULLANICI İSTEĞİ: "daha insansı bir ses tonu" — aynı cihazda genelde
+    // birden fazla Türkçe ses kurulu olur: eski, robotik ("espeak" tabanlı,
+    // "Compact") sesler İLE Google/Microsoft'un yeni nöral ("Natural",
+    // "Neural", "Online", "Wavenet") sesleri bir arada bulunabilir.
+    // Web Speech API bunu doğrudan işaretlemiyor, isimden SEZİYORUZ ve en
+    // doğal duranı otomatik seçiyoruz — kullanıcı hiçbir şey yapmadan.
+    function _score(v) {
+      var n = (v.name || '').toLowerCase();
+      var s = 0;
+      if (/natural|neural|online|wavenet|premium/.test(n)) s += 10;
+      if (/yelda|filiz|emel/.test(n)) s += 3; // bilinen Türkçe nöral ses adları
+      if (/google/.test(n)) s += 4;
+      if (/microsoft/.test(n)) s += 3;
+      if (v.localService === false) s += 2; // bulut tabanlı sesler genelde daha kaliteli/doğal
+      if (/compact|espeak|robot/.test(n)) s -= 6;
+      return s;
+    }
+    tr.sort(function (a, b) { return _score(b) - _score(a); });
+    return tr[0];
   }
 
   if (_supportsTTS()) {
@@ -98,18 +117,40 @@
     STATE.speaking = true;
     _updatePanelStatus();
     function next() {
-      if (i >= chunks.length) {
+      // STATE.speaking kontrolü: stopSpeaking() araya girdiyse (cancel()
+      // sonrası tarayıcı onend/onerror'ı yine de tetikleyebilir) bekleyen
+      // setTimeout burada durur, iptal edilmiş okuma kaldığı yerden devam etmez.
+      if (i >= chunks.length || !STATE.speaking) {
         STATE.speaking = false;
         _updatePanelStatus();
         if (onend) onend();
         return;
       }
-      var u = new SpeechSynthesisUtterance(chunks[i]);
+      var sentence = chunks[i];
+      var u = new SpeechSynthesisUtterance(sentence);
       u.lang = 'tr-TR';
       if (STATE.voice) u.voice = STATE.voice;
-      u.rate = 1.0;
-      u.onend = function () { i++; next(); };
-      u.onerror = function () { i++; next(); };
+      // KULLANICI İSTEĞİ: "daha insansı, karşılıklı konuşuyormuş gibi" —
+      // her cümleyi TAM AYNI hız/perdede art arda okumak (eski davranış:
+      // rate sabit 1.0, duraksama yok) robotik hissettiriyordu. Gerçek
+      // insan konuşmasında hız/perde cümleden cümleye hafifçe değişir ve
+      // cümle sonlarında kısa bir "nefes" boşluğu olur. Deterministik
+      // (rastgele değil — her tekrar dinlemede aynı doğal akış olsun diye)
+      // hafif bir dalgalanma ekliyoruz; soru cümlelerinde perde biraz
+      // yükseliyor, ünlemde konuşma hafifçe hızlanıyor.
+      var jitter = Math.sin(i * 12.9898) * 0.5 + 0.5; // 0..1 deterministik dalgalanma
+      u.rate = 0.97 + jitter * 0.08;   // ~0.97 – 1.05
+      u.pitch = 1.0 + (jitter - 0.5) * 0.08; // ~0.96 – 1.04
+      if (/\?\s*$/.test(sentence)) u.pitch += 0.06;
+      if (/!\s*$/.test(sentence)) u.rate += 0.03;
+      u.onend = function () {
+        i++;
+        // Cümle arası kısa bir duraklama — nokta/soru/ünlemden sonra biraz
+        // daha uzun (yeni düşünceye geçiş), virgülsüz kısa cümlelerde daha kısa.
+        var pause = /[.!?…]$/.test(sentence) ? 260 : 120;
+        setTimeout(next, pause);
+      };
+      u.onerror = function () { i++; setTimeout(next, 80); };
       window.speechSynthesis.speak(u);
     }
     next();
@@ -143,13 +184,19 @@
     '(5) tek cümlelik motive edici bir kapanış.\n' +
     '- Eczane ve brick isimlerini olduğu gibi, açıkça telaffuz edilecek şekilde yaz.\n' +
     '- Sayıları konuşma diline uygun yuvarlak söyle ("243.500 TL" yerine "yaklaşık 244 bin lira" gibi).\n' +
+    '- SESLİ OKUNACAK bir metin yazdığını unutma — yazı dili değil, KONUŞMA dili kullan: ' +
+    'gerçek bir insan meslektaşın sana sesli not bırakıyormuş gibi düşün. ' +
+    'Cümle uzunluklarını çeşitlendir (bazen kısa/vurgulu, bazen biraz daha uzun), gerektiğinde ' +
+    '"bu arada", "aklında olsun", "bir de şunu söyleyeyim" gibi doğal geçiş ifadeleri kullanabilirsin — ' +
+    'ama abartma, yapmacık durmasın. Resmi/rapor diline ASLA kayma ("mezkur", "söz konusu" gibi kelimeler kullanma).\n' +
     '- ROUTE OPTIMIZER verisi yoksa veya boşsa, genel performans/rakip verisiyle en iyi tahmini brifingi ver; ' +
     '"veri yok" gibi bir cümle KURMA.';
 
   var QA_SYSTEM_PROMPT =
     'Sen İLKO İlaç PHARMA VISION portalının sesli asistanısın. Temsilci sana sesli soru soruyor. ' +
     'Cevabı KISA (en fazla 80 kelime), doğal konuşma dilinde, markdown kullanmadan, somut sayı/eczane/brick ' +
-    'isimleriyle Türkçe ver. Emin olmadığın bir şey varsa tahmin uydurma, elindeki veriyle en iyi cevabı ver.';
+    'isimleriyle Türkçe ver — resmi rapor dili değil, karşılıklı sohbet dili kullan. ' +
+    'Emin olmadığın bir şey varsa tahmin uydurma, elindeki veriyle en iyi cevabı ver.';
 
   async function generateBriefing(ttt, force) {
     var cacheKey = LS_KEY_PREFIX + ttt;
