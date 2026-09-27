@@ -54,9 +54,14 @@
         "1": [
           "GIRESUN MERKEZ -1",
           "GIRESUN MERKEZ -2"
+        ],
+        "2": [
+          "ORDU MERKEZ -1",
+          "ORDU MERKEZ -2",
+          "ORDU MERKEZ -3"
         ]
       }
     }
   },
-  "updatedAt": "2026-09-27T06:50:44.503Z"
+  "updatedAt": "2026-09-27T06:50:45.514Z"
 }
