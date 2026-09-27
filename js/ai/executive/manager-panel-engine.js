@@ -676,14 +676,27 @@
       body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--dim);padding:14px">Veri yok — CSV yüklenmemiş olabilir.</td></tr>';
       return;
     }
+    // Kullanıcı isteği: bu tablo artık "Real %" (realizasyon) değerine göre
+    // büyükten küçüğe sıralanır — buildTeamRanking()'in kendi score bazlı
+    // sırası (rank alanı) diğer motorlar (prim leaders, executive summary,
+    // learning engine vb.) için olduğu gibi korunuyor; burada sadece
+    // GÖRÜNTÜLEME sırası ve sıra numarası real %'e göre yeniden kuruluyor.
+    ranking = ranking.slice().sort(function (a, b) { return b.realization - a.realization; });
     var catColor = { STAR: '#16A34A', STABLE: '#059669', WATCHLIST: '#D97706', RISK: '#DC2626' };
-    body.innerHTML = ranking.map(function (r) {
+    // Forecast % renk eşikleri: 0-90 kırmızı, 91-99 turuncu, 100+ yeşil
+    function _forecastColor(fc) {
+      if (fc >= 100) return '#16A34A';
+      if (fc >= 91)  return '#D97706';
+      return '#DC2626';
+    }
+    body.innerHTML = ranking.map(function (r, i) {
       var cc = catColor[r.category] || '#6b7280';
+      var fcc = _forecastColor(r.forecast);
       return '<tr>' +
-        '<td style="font-weight:700;color:var(--c1)">' + r.rank + '</td>' +
+        '<td style="font-weight:700;color:var(--c1)">' + (i + 1) + '</td>' +
         '<td style="font-weight:600">' + r.ttt + '</td>' +
         '<td class="mono">%' + r.realization + '</td>' +
-        '<td class="mono">%' + r.forecast + '</td>' +
+        '<td class="mono" style="font-weight:700;color:' + fcc + '">%' + r.forecast + '</td>' +
         '<td class="mono">' + r.growthScore + '</td>' +
         '<td class="mono">' + r.marketShareScore + '</td>' +
         '<td class="mono" style="font-weight:700">' + r.score + '</td>' +
