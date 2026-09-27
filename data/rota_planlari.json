@@ -276,9 +276,14 @@
         "4": [
           "KARS ILCELER",
           "KARS MERKEZ"
+        ],
+        "5": [
+          "ERZURUM MERKEZ -1",
+          "ERZURUM MERKEZ -2",
+          "ERZURUM MERKEZ -3"
         ]
       }
     }
   },
-  "updatedAt": "2026-09-27T16:48:29.645Z"
+  "updatedAt": "2026-09-27T16:48:30.700Z"
 }
