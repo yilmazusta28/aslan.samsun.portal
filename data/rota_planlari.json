@@ -115,9 +115,7 @@
           "ORDU GUNEY ILCELER -1"
         ],
         "5": [
-          "GIRESUN BULANCAK+PIRAZIZ",
-          "GIRESUN MERKEZ -1",
-          "GIRESUN MERKEZ -2"
+          "GIRESUN BULANCAK+PIRAZIZ"
         ]
       },
       "2": {
@@ -140,9 +138,7 @@
           "ORDU FATSA"
         ],
         "5": [
-          "GIRESUN BULANCAK+PIRAZIZ",
-          "GIRESUN MERKEZ -1",
-          "GIRESUN MERKEZ -2"
+          "GIRESUN BULANCAK+PIRAZIZ"
         ]
       }
     },
@@ -239,5 +235,5 @@
       }
     }
   },
-  "updatedAt": "2026-09-27T07:00:40.248Z"
+  "updatedAt": "2026-09-27T14:27:12.333Z"
 }
