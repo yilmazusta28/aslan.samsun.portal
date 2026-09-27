@@ -40,6 +40,10 @@
         "4": [
           "SIVAS MERKEZ -3",
           "SIVAS MERKEZ -4"
+        ],
+        "5": [
+          "SIVAS MERKEZ -1",
+          "SIVAS MERKEZ -2"
         ]
       }
     },
@@ -122,5 +126,5 @@
       }
     }
   },
-  "updatedAt": "2026-09-27T06:53:21.575Z"
+  "updatedAt": "2026-09-27T06:53:22.653Z"
 }
