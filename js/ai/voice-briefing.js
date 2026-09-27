@@ -190,10 +190,19 @@
     var css =
       '#vbFab{position:fixed;bottom:22px;right:20px;z-index:400;width:56px;height:56px;border-radius:50%;' +
       'background:linear-gradient(135deg,var(--c1),var(--c2));color:#fff;border:none;box-shadow:0 6px 20px rgba(79,0,140,.35);' +
-      'font-size:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .15s}' +
-      '#vbFab:active{transform:scale(.92)}' +
+      'font-size:24px;display:flex;align-items:center;justify-content:center;cursor:grab;transition:transform .15s;' +
+      'touch-action:none;-webkit-user-select:none;user-select:none}' +
+      '#vbFab:active{transform:scale(.92);cursor:grabbing}' +
+      '#vbFab.vb-dragging{transition:none;box-shadow:0 10px 28px rgba(79,0,140,.55)}' +
       '#vbFab.vb-pulse{animation:vbPulse 1.6s ease-in-out infinite}' +
       '@keyframes vbPulse{0%,100%{box-shadow:0 6px 20px rgba(79,0,140,.35)}50%{box-shadow:0 6px 28px rgba(79,0,140,.65)}}' +
+      /* KULLANICI İSTEĞİ: telefonda buton en altta sağda kalıp mobil alt
+         menü (#mobileTabBar, 62px + güvenli alan) ile çakışıyor, menüye
+         dokunmayı engelliyordu — varsayılan konum mobilde tab bar'ın
+         ÜSTÜNE çıkarıldı. Buton ayrıca artık sürükle-bırak ile TAMAMEN
+         serbest taşınabilir (bkz. _makeDraggable) ve son bırakılan yer
+         cihaza kaydedilip bir sonraki açılışta hatırlanır. */
+      '@media(max-width:768px){#vbFab{bottom:calc(74px + env(safe-area-inset-bottom,0))}}' +
       '#vbPanel{position:fixed;bottom:88px;right:20px;z-index:400;width:320px;max-width:92vw;background:var(--surf);' +
       'border:1px solid var(--border);border-radius:var(--card-radius);box-shadow:var(--card-shadow);' +
       'padding:16px;display:none;font-family:inherit;color:var(--text)}' +
@@ -216,12 +225,110 @@
     document.head.appendChild(style);
   }
 
+  // ── Sürükle-Bırak: FAB butonu (mobilde alt menüyü engellemesin diye
+  //    kullanıcı istediği yere taşıyabilsin) ─────────────────────────────
+  var LS_KEY_FAB_POS = LS_KEY_PREFIX + 'fab_pos'; // {left, top} px, cihaza özel
+  var DRAG_THRESHOLD = 6; // px — bundan az hareket "dokunma" (tap) sayılır, panel açılır
+
+  function _clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+  // Kaydedilmiş bir konum varsa uygula (viewport dışında kalmışsa —
+  // örn. ekran döndürüldüyse — içeri çeker). Yoksa CSS varsayılanı
+  // (sağ-alt / mobilde tab bar üstü) geçerli kalır.
+  function _applySavedFabPosition(fab) {
+    var raw = null;
+    try { raw = JSON.parse(localStorage.getItem(LS_KEY_FAB_POS) || 'null'); } catch (e) { raw = null; }
+    if (!raw || typeof raw.left !== 'number' || typeof raw.top !== 'number') return;
+    var w = fab.offsetWidth || 56, h = fab.offsetHeight || 56;
+    var left = _clamp(raw.left, 4, window.innerWidth - w - 4);
+    var top = _clamp(raw.top, 4, window.innerHeight - h - 4);
+    fab.style.left = left + 'px';
+    fab.style.top = top + 'px';
+    fab.style.right = 'auto';
+    fab.style.bottom = 'auto';
+  }
+
+  function _makeDraggable(fab) {
+    var dragging = false, moved = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
+
+    fab.addEventListener('pointerdown', function (ev) {
+      if (ev.button != null && ev.button !== 0) return; // sadece sol tık / tek dokunuş
+      dragging = true; moved = false;
+      var r = fab.getBoundingClientRect();
+      startX = ev.clientX; startY = ev.clientY;
+      startLeft = r.left; startTop = r.top;
+      try { fab.setPointerCapture(ev.pointerId); } catch (e) { /* sessiz */ }
+    });
+
+    fab.addEventListener('pointermove', function (ev) {
+      if (!dragging) return;
+      var dx = ev.clientX - startX, dy = ev.clientY - startY;
+      if (!moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return; // henüz "sürükleme" sayılmıyor
+      if (!moved) { moved = true; fab.classList.add('vb-dragging'); }
+      var w = fab.offsetWidth, h = fab.offsetHeight;
+      var left = _clamp(startLeft + dx, 4, window.innerWidth - w - 4);
+      var top = _clamp(startTop + dy, 4, window.innerHeight - h - 4);
+      fab.style.left = left + 'px';
+      fab.style.top = top + 'px';
+      fab.style.right = 'auto';
+      fab.style.bottom = 'auto';
+    });
+
+    function _endDrag(ev) {
+      if (!dragging) return;
+      dragging = false;
+      fab.classList.remove('vb-dragging');
+      try { fab.releasePointerCapture(ev.pointerId); } catch (e) { /* sessiz */ }
+      if (moved) {
+        // Gerçek bir sürükleme oldu — yeni konumu kaydet, bu tıklamayla
+        // paneli AÇMA (kullanıcı butonu taşımak istedi, panel açmak değil).
+        var r = fab.getBoundingClientRect();
+        try { localStorage.setItem(LS_KEY_FAB_POS, JSON.stringify({ left: r.left, top: r.top })); } catch (e) { /* sessiz */ }
+        var swallow = function (e2) { e2.stopPropagation(); e2.preventDefault(); fab.removeEventListener('click', swallow, true); };
+        fab.addEventListener('click', swallow, true);
+      }
+      moved = false;
+    }
+    fab.addEventListener('pointerup', _endDrag);
+    fab.addEventListener('pointercancel', _endDrag);
+
+    // Ekran döndürme / klavye açılma gibi durumlarda buton görünür alanın
+    // dışında kalmasın diye viewport her değiştiğinde konumu yeniden kelepçele.
+    window.addEventListener('resize', function () {
+      if (fab.style.left && fab.style.left !== 'auto') _applySavedFabPosition(fab);
+    });
+  }
+
+  // Panel, FAB'ın O ANKİ konumuna göre açılır (FAB taşınmış olabilir) —
+  // ekranın neresinde olursa olsun panel görünür alanın İÇİNDE kalır.
+  function _positionPanelNearFab() {
+    var fab = document.getElementById('vbFab');
+    var panel = document.getElementById('vbPanel');
+    if (!fab || !panel) return;
+    var fr = fab.getBoundingClientRect();
+    var pw = Math.min(320, window.innerWidth * 0.92);
+    var ph = panel.offsetHeight || 260;
+    var margin = 10;
+    // Yatay: FAB'ın sağı taşarsa panel FAB'ın soluna, aksi halde sağ hizalı.
+    var left = fr.right - pw;
+    if (fr.left + pw + margin > window.innerWidth) left = window.innerWidth - pw - margin;
+    left = _clamp(left, margin, window.innerWidth - pw - margin);
+    // Dikey: FAB'ın üstünde yer yoksa (ekranın üst kısmındaysa) panel FAB'ın ALTINA açılır.
+    var top = fr.top - ph - margin;
+    if (top < margin) top = Math.min(fr.bottom + margin, window.innerHeight - ph - margin);
+    top = _clamp(top, margin, Math.max(margin, window.innerHeight - ph - margin));
+    panel.style.left = left + 'px';
+    panel.style.top = top + 'px';
+    panel.style.right = 'auto';
+    panel.style.bottom = 'auto';
+  }
+
   function _renderUI() {
     if (document.getElementById('vbFab')) return;
 
     var fab = document.createElement('button');
     fab.id = 'vbFab';
-    fab.title = 'Sesli Asistan';
+    fab.title = 'Sesli Asistan (taşımak için sürükleyin)';
     fab.innerHTML = '🎙️';
     fab.className = 'vb-pulse';
     fab.onclick = _togglePanel;
@@ -238,6 +345,8 @@
 
     document.body.appendChild(fab);
     document.body.appendChild(panel);
+    _applySavedFabPosition(fab);
+    _makeDraggable(fab);
 
     document.getElementById('vbPlayBtn').onclick = _onPlayClick;
     document.getElementById('vbStopBtn').onclick = function () { stopSpeaking(); };
@@ -260,6 +369,10 @@
     if (!panel) return;
     STATE.panelOpen = !STATE.panelOpen;
     panel.classList.toggle('open', STATE.panelOpen);
+    // NOT: gerçek yükseklik ancak 'open' sınıfı eklenip panel display:block
+    // olduktan SONRA doğru ölçülebiliyor — bu yüzden konumlandırma class
+    // değişiminden SONRA yapılıyor.
+    if (STATE.panelOpen) _positionPanelNearFab();
     var fab = document.getElementById('vbFab');
     if (fab) fab.classList.remove('vb-pulse');
   }
