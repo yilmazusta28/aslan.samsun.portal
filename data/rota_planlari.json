@@ -357,8 +357,15 @@
           "SINOP DOGU-BATI ILCELER",
           "SINOP MERKEZ"
         ]
+      },
+      "2": {
+        "1": [
+          "SAMSUN ALACAM+YAKAKENT",
+          "SAMSUN ATAKENT+19 MAYIS",
+          "SAMSUN ATAKUM"
+        ]
       }
     }
   },
-  "updatedAt": "2026-09-27T16:52:19.936Z"
+  "updatedAt": "2026-09-27T16:52:37.492Z"
 }
