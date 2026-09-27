@@ -319,11 +319,14 @@
           "SAMSUN ADALET",
           "SAMSUN BAHCELIEVLER"
         ],
-        "3": [],
+        "3": [
+          "SAMSUN DOGU ILCELER",
+          "SAMSUN DOGU ILCELER - 2"
+        ],
         "4": [],
         "5": []
       }
     }
   },
-  "updatedAt": "2026-09-27T16:50:25.672Z"
+  "updatedAt": "2026-09-27T16:50:26.736Z"
 }
