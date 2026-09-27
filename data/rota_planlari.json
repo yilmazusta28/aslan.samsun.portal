@@ -1,54 +1,243 @@
 {
   "plans": {
     "SAMET ÇETİN": {
-      "1": [
-        "TOKAT MERKEZ -2",
-        "TOKAT TURHAL"
-      ],
-      "2": [
-        "TOKAT ERBAA",
-        "TOKAT MERKEZ -1"
-      ],
-      "3": [
-        "TOKAT BATI ILCELER",
-        "TOKAT DOGU ILCELER"
-      ],
-      "4": [
-        "SIVAS MERKEZ -3",
-        "SIVAS MERKEZ -4"
-      ],
-      "5": [
-        "SIVAS MERKEZ -1",
-        "SIVAS MERKEZ -2"
-      ]
+      "1": {
+        "1": [
+          "TOKAT MERKEZ -2",
+          "TOKAT TURHAL"
+        ],
+        "2": [
+          "TOKAT ERBAA",
+          "TOKAT MERKEZ -1"
+        ],
+        "3": [
+          "TOKAT BATI ILCELER",
+          "TOKAT DOGU ILCELER"
+        ],
+        "4": [
+          "SIVAS MERKEZ -3",
+          "SIVAS MERKEZ -4"
+        ],
+        "5": [
+          "SIVAS MERKEZ -1",
+          "SIVAS MERKEZ -2"
+        ]
+      },
+      "2": {
+        "1": [
+          "TOKAT MERKEZ -1",
+          "TOKAT MERKEZ -2",
+          "TOKAT TURHAL"
+        ],
+        "2": [
+          "TOKAT DOGU ILCELER",
+          "TOKAT ERBAA"
+        ],
+        "3": [
+          "SIVAS MERKEZ -4",
+          "TOKAT BATI ILCELER"
+        ],
+        "4": [
+          "SIVAS MERKEZ -3",
+          "SIVAS MERKEZ -4"
+        ],
+        "5": [
+          "SIVAS MERKEZ -1",
+          "SIVAS MERKEZ -2"
+        ]
+      }
     },
     "MURAT KANDİŞ": {
-      "1": [
-        "RIZE MERKEZ",
-        "RIZE BATI ILCELER",
-        "RIZE DOGU ILCELER"
-      ],
-      "2": [
-        "RIZE BATI ILCELER",
-        "RIZE DOGU ILCELER",
-        "RIZE MERKEZ",
-        "TRABZON DOGU ILCELER - 2"
-      ],
-      "3": [
-        "ARTVIN KUZEY ILCELER",
-        "ARTVIN MERKEZ+DOGU+GUNEY"
-      ],
-      "4": [
-        "TRABZON DOGU ILCELER - 2",
-        "TRABZON DOGU ILCELER -1",
-        "TRABZON MERKEZ -1"
-      ],
-      "5": [
-        "TRABZON MERKEZ -1",
-        "TRABZON MERKEZ -2",
-        "RIZE MERKEZ"
-      ]
+      "1": {
+        "1": [
+          "RIZE MERKEZ"
+        ],
+        "2": [
+          "ARTVIN KUZEY ILCELER",
+          "ARTVIN MERKEZ+DOGU+GUNEY",
+          "RIZE BATI ILCELER"
+        ],
+        "3": [
+          "RIZE DOGU ILCELER",
+          "TRABZON DOGU ILCELER - 2",
+          "TRABZON DOGU ILCELER -1"
+        ],
+        "4": [
+          "TRABZON MERKEZ -1",
+          "TRABZON MERKEZ -2"
+        ],
+        "5": [
+          "RIZE DOGU ILCELER",
+          "RIZE MERKEZ"
+        ]
+      },
+      "2": {
+        "1": [
+          "RIZE MERKEZ"
+        ],
+        "2": [
+          "ARTVIN KUZEY ILCELER",
+          "ARTVIN MERKEZ+DOGU+GUNEY"
+        ],
+        "3": [
+          "RIZE DOGU ILCELER",
+          "RIZE MERKEZ",
+          "TRABZON DOGU ILCELER - 2"
+        ],
+        "4": [
+          "TRABZON DOGU ILCELER -1",
+          "TRABZON MERKEZ -1",
+          "TRABZON MERKEZ -2"
+        ],
+        "5": [
+          "RIZE BATI ILCELER",
+          "TRABZON DOGU ILCELER - 2"
+        ]
+      }
+    },
+    "YILMAZ USTA": {
+      "1": {
+        "1": [
+          "GIRESUN MERKEZ -1",
+          "GIRESUN MERKEZ -2"
+        ],
+        "2": [
+          "ORDU MERKEZ -1",
+          "ORDU MERKEZ -2",
+          "ORDU MERKEZ -3"
+        ],
+        "3": [
+          "GIRESUN BULANCAK+PIRAZIZ",
+          "ORDU FATSA"
+        ],
+        "4": [
+          "ORDU DOGU ILCELER",
+          "ORDU GUNEY ILCELER -1"
+        ],
+        "5": [
+          "GIRESUN BULANCAK+PIRAZIZ",
+          "GIRESUN MERKEZ -1",
+          "GIRESUN MERKEZ -2"
+        ]
+      },
+      "2": {
+        "1": [
+          "GIRESUN MERKEZ -1",
+          "GIRESUN MERKEZ -2"
+        ],
+        "2": [
+          "ORDU MERKEZ -1",
+          "ORDU MERKEZ -2",
+          "ORDU MERKEZ -3"
+        ],
+        "3": [
+          "ORDU BATI ILCELER",
+          "ORDU DOGU ILCELER",
+          "ORDU GUNEY ILCELER -1"
+        ],
+        "4": [
+          "GIRESUN BULANCAK+PIRAZIZ",
+          "ORDU FATSA"
+        ],
+        "5": [
+          "GIRESUN BULANCAK+PIRAZIZ",
+          "GIRESUN MERKEZ -1",
+          "GIRESUN MERKEZ -2"
+        ]
+      }
+    },
+    "AYKUT DİNLER": {
+      "1": {
+        "1": [
+          "CORUM MERKEZ -1",
+          "CORUM MERKEZ -2",
+          "CORUM MERKEZ -3"
+        ],
+        "2": [
+          "CORUM GUNEYDOGU ILCELER",
+          "CORUM KARGI+OSMANCIK",
+          "CORUM KUZEY ILCELER"
+        ],
+        "3": [
+          "AMASYA MERZIFON",
+          "CORUM GUNEYBATI ILCELER"
+        ],
+        "4": [
+          "AMASYA MERKEZ -1",
+          "AMASYA MERKEZ -2"
+        ],
+        "5": [
+          "AMASYA GOYNUCEK+TASOVA",
+          "AMASYA ILCELER"
+        ]
+      },
+      "2": {
+        "1": [
+          "CORUM MERKEZ -1",
+          "CORUM MERKEZ -2",
+          "CORUM MERKEZ -3"
+        ],
+        "2": [
+          "CORUM GUNEYDOGU ILCELER",
+          "CORUM KARGI+OSMANCIK",
+          "CORUM KUZEY ILCELER"
+        ],
+        "3": [
+          "AMASYA MERZIFON",
+          "CORUM GUNEYBATI ILCELER"
+        ],
+        "4": [
+          "AMASYA MERKEZ -1",
+          "AMASYA MERKEZ -2"
+        ],
+        "5": [
+          "AMASYA GOYNUCEK+TASOVA",
+          "AMASYA ILCELER"
+        ]
+      }
+    },
+    "HAKAN YUMAK": {
+      "1": {
+        "1": [
+          "TRABZON MERKEZ -3",
+          "TRABZON MERKEZ -4"
+        ],
+        "2": [
+          "TRABZON BATI ILCELER - 2",
+          "TRABZON DUZKOY+MACKA"
+        ],
+        "3": [
+          "GUMUSHANE"
+        ],
+        "4": [
+          "ERZINCAN MERKEZ"
+        ],
+        "5": [
+          "GIRESUN DOGU ILCELER -2",
+          "TRABZON AKCAABAT"
+        ]
+      },
+      "2": {
+        "1": [
+          "TRABZON MERKEZ -3",
+          "TRABZON MERKEZ -4"
+        ],
+        "2": [
+          "TRABZON BATI ILCELER - 2",
+          "TRABZON DUZKOY+MACKA"
+        ],
+        "3": [
+          "ERZINCAN MERKEZ"
+        ],
+        "4": [
+          "GUMUSHANE"
+        ],
+        "5": [
+          "GIRESUN DOGU ILCELER -2",
+          "TRABZON AKCAABAT"
+        ]
+      }
     }
   },
-  "updatedAt": "2026-07-29T22:24:57.524Z"
+  "updatedAt": "2026-09-27T07:00:40.248Z"
 }
