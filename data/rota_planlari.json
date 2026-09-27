@@ -323,10 +323,13 @@
           "SAMSUN DOGU ILCELER",
           "SAMSUN DOGU ILCELER - 2"
         ],
-        "4": [],
+        "4": [
+          "ORDU UNYE",
+          "SAMSUN TERME"
+        ],
         "5": []
       }
     }
   },
-  "updatedAt": "2026-09-27T16:50:50.379Z"
+  "updatedAt": "2026-09-27T16:50:51.539Z"
 }
