@@ -272,9 +272,13 @@
           "AGRI DIYADIN+D.BEYAZIT",
           "AGRI ILCELER",
           "AGRI MERKEZ"
+        ],
+        "4": [
+          "KARS ILCELER",
+          "KARS MERKEZ"
         ]
       }
     }
   },
-  "updatedAt": "2026-09-27T16:48:28.560Z"
+  "updatedAt": "2026-09-27T16:48:29.645Z"
 }
