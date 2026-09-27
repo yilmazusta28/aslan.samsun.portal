@@ -151,9 +151,13 @@
         "1": [
           "CORUM KUZEY ILCELER",
           "CORUM MERKEZ -1"
+        ],
+        "2": [
+          "CORUM GUNEYDOGU ILCELER",
+          "CORUM KARGI+OSMANCIK"
         ]
       }
     }
   },
-  "updatedAt": "2026-09-27T06:57:27.273Z"
+  "updatedAt": "2026-09-27T06:57:28.226Z"
 }
