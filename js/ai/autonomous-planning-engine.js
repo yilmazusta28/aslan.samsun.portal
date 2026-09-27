@@ -1053,7 +1053,15 @@
 
   function _miniCard(card) {
     if (!card) return '';
-    var rows = (card.items || []).slice(0, 4).map(function (it) {
+    // BUG DÜZELTMESİ (kullanıcı bulgusu — "4 eczane görünüyor, 5 olması
+    // lazım"): bu fonksiyon, veri üretim aşamasında ZATEN kart bazında
+    // doğru şekilde sınırlandırılmış listeyi (bkz. generateActionCards:
+    // goToday → 8, sellToday → 15, risks → 5, opportunities → 3) BİR DE
+    // kendi içinde sabit .slice(0,4) ile kesiyordu — günün 5. (hatta 6-8.)
+    // eczanesi/satırı üretilmiş olsa bile ekranda GÖRÜNMÜYORDU. Çözüm:
+    // ikinci (gereksiz) kesme kaldırıldı — kart artık kendisine gelen
+    // listenin TAMAMINI gösterir.
+    var rows = (card.items || []).map(function (it) {
       return '<div style="font-size:9px;color:var(--text);padding:3px 0;border-bottom:1px solid var(--border);line-height:1.4">' + it + '</div>';
     }).join('');
     return '<div style="background:var(--surf2);border-radius:8px;padding:8px 10px">' +

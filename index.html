@@ -1209,6 +1209,19 @@ let eczaneSortAsc  = false;
 // sayfalara bölünsün, sayfa numarasına tıklanınca devam etsin.
 const ECZANE_PAGE_SIZE = 20;
 let eczaneCurrentPage  = 1;
+// KULLANICI İSTEĞİ: Eczane Detay Listesi'ndeki "📦 Stok" kısmı (her satırda
+// ürün başına açılan seçim kutuları + "🔢 Sayı gir" butonu) liste çok yer
+// kaplıyordu. Artık varsayılan KAPALI: sadece kompakt stok rozeti (kalan
+// gün/kutu özeti) görünür, başlıktaki anahtar açılınca asıl giriş alanı
+// (seçim kutuları + sayısal giriş butonu) her satırda görünür hale gelir.
+// Tek bir CSS sınıfı (#eczaneTable.stok-col-open) ile kontrol edildiği için
+// sayfalama/sıralama yeniden render edilse bile DURUM KORUNUR.
+let _stokColumnOpen = false;
+function toggleStokColumnOpen(checked) {
+  _stokColumnOpen = !!checked;
+  const t = document.getElementById('eczaneTable');
+  if (t) t.classList.toggle('stok-col-open', _stokColumnOpen);
+}
 
 // Brick → TTT eşleşmesi (MIGI_RAW'dan türetilir)
 function getBrickTTTMap() {
@@ -2086,7 +2099,7 @@ function renderMarketShareCard() {
         </div>
       </div>
       <div style="font-size:10px;font-weight:700;color:var(--dim);margin-bottom:6px">BRICK × PAZAR PAYI (${records.length})</div>
-      <div class="scroll-x">
+      <div class="scroll-x market-share-scroll">
         <table class="tbl" id="marketShareDetailTable" style="min-width:760px">
           <thead><tr>
             <th>Brick</th><th>İlaç Grubu</th><th>Kendi (Kutu)</th><th>Toplam Pazar (Kutu)</th>
@@ -2416,10 +2429,19 @@ function renderEczaneTable(data) {
       <th onclick="sortEczane('toplam')" style="cursor:pointer">Toplam ▾</th>
       <th onclick="sortEczane('tutar')" style="cursor:pointer">Tutar ▾</th>
       <th>Ürünler</th>
-      <th class="pv-hidden-ui" style="min-width:90px">📦 Stok</th>
+      <th class="pv-hidden-ui" style="min-width:110px">📦 Stok
+        <label class="stok-col-toggle" title="Stok giriş alanını göster/gizle" onclick="event.stopPropagation()">
+          <input type="checkbox" ${_stokColumnOpen ? 'checked' : ''} onchange="toggleStokColumnOpen(this.checked)">
+          <span class="stok-col-toggle-track"></span>
+        </label>
+      </th>
       <th class="pv-hidden-ui" style="min-width:80px">Son Ziyaret</th>
       <th style="min-width:110px">AI Profil</th>`;
   }
+  // Stok kolonundaki aç/kapa anahtarının mevcut durumu, tablo yeniden
+  // oluşturulduğunda (sayfalama/sıralama) korunsun.
+  const eczTableEl = document.getElementById('eczaneTable');
+  if (eczTableEl) eczTableEl.classList.toggle('stok-col-open', _stokColumnOpen);
 
   // FAZ 7.0 — mevcut stok kayıtlarını belleğe çek (render başında tek seferde)
   const _stokByGln = {};
@@ -2540,7 +2562,7 @@ function renderEczaneTable(data) {
       <td class="mono" style="font-weight:700;color:var(--c1)">${e.toplam>0?fK(e.toplam):'—'}</td>
       <td class="mono" style="font-size:10px">${e.tutar>0?fTL(e.tutar):'—'}</td>
       <td>${urunBadges}</td>
-      <td class="pv-hidden-ui" style="min-width:90px;padding:4px 6px">${stokLines}${stokSayisalBtn}${stokRozetHtml}</td>
+      <td class="pv-hidden-ui" style="min-width:90px;padding:4px 6px">${stokRozetHtml}<div class="stok-col-inner">${stokLines}${stokSayisalBtn}</div></td>
       <td class="pv-hidden-ui" style="font-size:10px;color:var(--dim);white-space:nowrap">${_visitDate}</td>
       <td style="padding:4px 6px">${_behHtml}</td>
     </tr>`;
@@ -5032,6 +5054,10 @@ function renderTakipContent(){renderKutuTable();renderCalcTable();renderWeeklyTa
 function renderKutuTable(){
   const rows=URUN_ORDER.map(u=>GENEL.find(r=>r.ttt===selTTT_p2&&r.urun===u)).filter(r=>r&&r.hedef_kutu>0);
   const actH=(r)=>[r.h1,r.h2,r.h3,r.h4,r.h5,r.h6,r.h7,r.h8,r.h9].filter(v=>v>0).length||1;
+  // KULLANICI İSTEĞİ: "Hft. Ger. TL" ve "Kalan Hft. Ger. TL" kolonları için
+  // alt toplam satırı — tek tek ürünlerin altında ekip/ürün toplamını
+  // görmek için tabloyu aşağı kaydırmaya gerek kalmasın.
+  let _toplamHftTl=0, _toplamKalanHftTl=0;
   document.getElementById('kutuBody').innerHTML=rows.map(r=>{
     const k70=Math.max(0,r.hedef_kutu*0.70-r.cikan_kutu);
     const k91=Math.max(0,r.hedef_kutu*0.91-r.cikan_kutu);
@@ -5040,6 +5066,8 @@ function renderKutuTable(){
     const k100Pos=k100>0;
     // Kalan hft gereken TL: hedef TL - mevcut satış TL
     const k100TL=Math.max(0,r.hedef_tl-r.satis_tl);
+    _toplamHftTl += (r.hft_tl||0);
+    _toplamKalanHftTl += k100TL;
     return `<tr>
       <td style="font-weight:700;color:${URUN_CLR[r.urun]||'var(--c1)'}">${r.urun}</td>
       <td class="mono">${fK(r.hedef_kutu)}</td>
@@ -5051,7 +5079,12 @@ function renderKutuTable(){
       <td class="mono">${fTL(r.hft_tl)}</td>
       <td class="mono" style="color:var(--c2);font-weight:700">${fTL(k100TL)}</td>
     </tr>`;
-  }).join('');
+  }).join('') + (rows.length ? `<tr style="border-top:2px solid var(--border);background:var(--surf2)">
+      <td colspan="6" style="font-weight:800;text-align:right;padding-right:14px">ALT TOPLAM</td>
+      <td></td>
+      <td class="mono" style="font-weight:800">${fTL(_toplamHftTl)}</td>
+      <td class="mono" style="font-weight:800;color:var(--c2)">${fTL(_toplamKalanHftTl)}</td>
+    </tr>` : '');
 }
 
 // Calc table — ürünler alt alta (FAMTREC dahil)
@@ -7562,12 +7595,15 @@ function _buildEczaneDrawerRefresh(){
        kesip eczsub_ai_perf/eczsub_ai_decision panelleri olarak Eczane
        sayfasına geri yapıştırmak + renderAiAsistan()'daki ilgili bloğu
        silmek yeterli; render fonksiyonlarının kendisi değişmedi. -->
+  <!-- KULLANICI İSTEĞİ: Ekip Haftalık Rota Planları ile AYNI şekilde artık
+       varsayılan KAPALI, başlığa tıklanınca açılır (bkz. sayfa7 içindeki
+       "Takım Öğrenmesi & Peer Benchmark" kartıyla aynı idiyom). -->
   <div class="card mb16">
-    <div class="card-hd">
+    <div class="card-hd" style="cursor:pointer" onclick="const b=document.getElementById('acc_ai_perf_body');const open=b.style.display==='none';b.style.display=open?'block':'none';">
       <span class="card-title">🧠 AI Tahmin Performansı</span>
       <span id="acc_ai_perf_badge" class="card-badge" style="margin-left:auto;background:#F3E8FF;color:#7C3AED;font-size:9px">Bekleniyor</span>
     </div>
-    <div id="acc_ai_perf_body" class="card-body-0">
+    <div id="acc_ai_perf_body" class="card-body-0" style="display:none">
       <div id="aiPerfDashboard"></div>
     </div>
   </div>
@@ -8118,11 +8154,24 @@ function _buildEczaneDrawerRefresh(){
       <span style="flex:1;height:1px;background:var(--border)"></span>
     </div>
 
-    <!-- ═══ FAZ 13.5 — Ekip Haftalık Rota Planları (route-plan-input.js FAZ 10.2 üzerinden) ═══ -->
+    <!-- ═══ FAZ 13.5 — Ekip Haftalık Rota Planları (route-plan-input.js FAZ 10.2 üzerinden) ═══
+         KULLANICI İSTEĞİ: sayfa açılır açılmaz her zaman görünüp yer kaplamasın
+         diye artık VARSAYILAN KAPALI — başlığa tıklanınca açılır/kapanır
+         (diğer accordion'larla AYNI idiyom: nextElementSibling.display toggle,
+         bkz. aşağıdaki "AI Tahmin Performansı" ve "Takım Öğrenmesi" kartları).
+         renderManagerTeamRoutePlans() render tetiklemesi DEĞİŞMEDİ (hâlâ
+         renderManagerExtra() içinde koşulsuz çağrılıyor) — kapalıyken bile
+         veri arka planda hazırlanmış olur, açılınca hemen görünür. -->
     <div class="mb16" style="background:var(--surf);border:1.5px solid rgba(79,0,140,.15);border-radius:14px;padding:16px">
-      <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:4px">🗺️ Ekip Haftalık Rota Planları</div>
-      <div style="font-size:10px;color:var(--dim);margin-bottom:12px">Her temsilcinin kendi "Haftalık Rota Planım" ekranından girdiği brick planları — salt okunur özet.</div>
-      <div id="mgrTeamRouteBody"><div style="font-size:11px;color:var(--dim)">Yükleniyor…</div></div>
+      <div style="font-size:13px;font-weight:700;color:var(--fg);cursor:pointer;display:flex;align-items:center;gap:6px"
+        onclick="const p=this.nextElementSibling;const open=p.style.display==='none';p.style.display=open?'block':'none';this.querySelector('.mgr-acc-arrow').textContent=open?'▾':'▸';">
+        <span class="mgr-acc-arrow" style="font-size:10px;color:var(--dim)">▸</span>
+        🗺️ Ekip Haftalık Rota Planları
+      </div>
+      <div style="display:none;margin-top:8px">
+        <div style="font-size:10px;color:var(--dim);margin-bottom:12px">Her temsilcinin kendi "Haftalık Rota Planım" ekranından girdiği brick planları — salt okunur özet.</div>
+        <div id="mgrTeamRouteBody"><div style="font-size:11px;color:var(--dim)">Yükleniyor…</div></div>
+      </div>
     </div>
 
     <!-- ═══ FAZ 12.2 — Saha Gözlemleri Manuel Giriş ═══ -->

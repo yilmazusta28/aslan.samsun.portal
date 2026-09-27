@@ -588,12 +588,17 @@
       body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--dim);padding:14px">Veri yok — CSV yüklenmemiş olabilir.</td></tr>';
       return;
     }
-    body.innerHTML = rows.map(function (r) {
+    // KULLANICI İSTEĞİ: "Hft. Ger. TL" ve "Kalan Hft. Ger. TL" kolonları için
+    // alt toplam satırı — bireysel sayfadaki (renderKutuTable) ile AYNI mantık.
+    var toplamHftTl = 0, toplamKalanHftTl = 0;
+    var rowsHtml = rows.map(function (r) {
       var k70 = Math.max(0, r.hedef_kutu * 0.70 - r.cikan_kutu);
       var k91 = Math.max(0, r.hedef_kutu * 0.91 - r.cikan_kutu);
       var k100 = r.hedef_kutu - r.cikan_kutu;
       var k100Pos = k100 > 0;
       var k100TL = Math.max(0, r.hedef_tl - r.satis_tl);
+      toplamHftTl += (r.hft_tl || 0);
+      toplamKalanHftTl += k100TL;
       return '<tr>' +
         '<td style="font-weight:700;color:' + (URUN_CLR[r.urun] || 'var(--c1)') + '">' + r.urun + '</td>' +
         '<td class="mono">' + fK(r.hedef_kutu) + '</td>' +
@@ -606,6 +611,13 @@
         '<td class="mono" style="color:var(--c2);font-weight:700">' + fTL(k100TL) + '</td>' +
         '</tr>';
     }).join('');
+    var totalRowHtml = '<tr style="border-top:2px solid var(--border);background:var(--surf2)">' +
+      '<td colspan="6" style="font-weight:800;text-align:right;padding-right:14px">ALT TOPLAM</td>' +
+      '<td></td>' +
+      '<td class="mono" style="font-weight:800">' + fTL(toplamHftTl) + '</td>' +
+      '<td class="mono" style="font-weight:800;color:var(--c2)">' + fTL(toplamKalanHftTl) + '</td>' +
+      '</tr>';
+    body.innerHTML = rowsHtml + totalRowHtml;
   }
 
   // ── FAZ 23 — "Ekip Performans Sıralaması (Tümü)" kolon açıklamaları ──
