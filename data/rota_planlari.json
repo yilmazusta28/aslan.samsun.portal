@@ -83,9 +83,14 @@
           "ORDU MERKEZ -1",
           "ORDU MERKEZ -2",
           "ORDU MERKEZ -3"
+        ],
+        "3": [
+          "ORDU BATI ILCELER",
+          "ORDU DOGU ILCELER",
+          "ORDU GUNEY ILCELER -1"
         ]
       }
     }
   },
-  "updatedAt": "2026-09-27T06:50:53.847Z"
+  "updatedAt": "2026-09-27T06:50:54.993Z"
 }
