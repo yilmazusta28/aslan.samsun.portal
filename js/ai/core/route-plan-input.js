@@ -419,6 +419,77 @@
     });
   }
 
+  // ── BUG DÜZELTMESİ (tarayıcılar arası tutarsız rota planı dökümü) ─────
+  // TEŞHİS: Bu modül, kendi ekranını (renderRoutePlanForm) VE senkron
+  // önbelleği (route-optimizer.js'in okuduğu getTodayPlanSync/
+  // getWeekPlanSync) SADECE yerel IndexedDB'den besliyordu. IndexedDB
+  // TARAYICIYA/CİHAZA özeldir — aynı temsilci farklı bir tarayıcı, farklı
+  // bir cihaz veya gizli/temizlenmiş bir profil kullandığında o yerel
+  // depo BOŞ veya ESKİ oluyor, dolayısıyla her yerde farklı bir döküm
+  // görünüyordu. (worker.js tarafındaki asıl veri bozulması ayrıca
+  // düzeltildi — bkz. worker.js içindeki not; bu fonksiyon GitHub'daki
+  // doğru/nested veriyi artık yerel önbelleğe de yansıtır.)
+  // ÇÖZÜM: Modül yüklenirken (yerel hydrate'ten SONRA) paylaşımlı,
+  // TEK DOĞRU KAYNAK olan GitHub dosyasını (fetchTeamPlans) okuyup, oradaki
+  // her kaydı yerel IndexedDB'ye VE sync cache'e de yazıyoruz. Böylece
+  // internet erişimi olan her tarayıcı/cihaz, en son GitHub'a senkron
+  // edilmiş veriyle açılır — hangi cihazdan bakılırsa bakılsın AYNI dökümü
+  // gösterir. Ağ hatası/çevrimdışı durumunda sessizce mevcut yerel veriye
+  // geri döner (davranış öncekiyle aynı kalır, GERİLEME yok).
+  function _reconcileFromRemote() {
+    return fetchTeamPlans().then(function (workerPlans) {
+      if (!workerPlans) return; // çevrimdışı / okunamadı → yerel veri geçerliliğini korur
+      var writes = [];
+      Object.keys(workerPlans).forEach(function (rep) {
+        var wgData = workerPlans[rep] || {};
+        [1, 2].forEach(function (g) {
+          var byDay = wgData[String(g)] || {};
+          Object.keys(byDay).forEach(function (wdStr) {
+            var wd = parseInt(wdStr, 10);
+            if (!wd) return;
+            var bricks = byDay[wdStr] || [];
+            var plan = {
+              id:             _makeId(rep, g, wd),
+              representative: rep,
+              weekGroup:      g,
+              weekday:        wd,
+              bricks:         bricks,
+              updatedAt:      new Date().toISOString()
+            };
+            if (!_syncCache[rep]) _syncCache[rep] = {};
+            if (!_syncCache[rep][g]) _syncCache[rep][g] = {};
+            _syncCache[rep][g][wd] = bricks;
+
+            if (!window.PharmaDB) {
+              _fallback[plan.id] = plan;
+              return;
+            }
+            writes.push(window.PharmaDB.withStore(STORE, 'readwrite', function (store) {
+              if (!store) { _fallback[plan.id] = plan; return Promise.resolve(); }
+              return new Promise(function (resolve) {
+                var req = store.put(plan);
+                req.onsuccess = function () { resolve(); };
+                // Yerel yazım başarısız olsa bile diğer kayıtları bloklama —
+                // en kötü ihtimalle o kayıt için yerel önbellek eski kalır.
+                req.onerror = function () { resolve(); };
+              });
+            }));
+          });
+        });
+      });
+      return Promise.all(writes);
+    }).then(function () {
+      // Kullanıcı formu, bu eşitleme bitmeden ÖNCE açmışsa (sayfa yeni
+      // yüklendi vb.), ekranda kalan eski/eksik döküm yerine şimdi
+      // GitHub'dan gelen güncel veriyle sessizce tazele.
+      if (_lastRender && document.getElementById(_lastRender.containerId)) {
+        renderRoutePlanForm(_lastRender.containerId, _lastRender.options);
+      }
+    }).catch(function (e) {
+      console.warn('[route-plan-input] uzak (GitHub) veriyle yerel önbellek eşitlenemedi (yerel veri korunuyor):', e && e.message);
+    });
+  }
+
   // ── clearWeekPlan — SADECE belirtilen hafta grubunun (A veya B) planını sil ──
   function clearWeekPlan(weekGroup, representative) {
     var rep = representative || _currentRep();
@@ -455,9 +526,15 @@
   // containerId: DOM element id'si
   // options: { representative?, onSave?, activeGroup? } — activeGroup
   // verilmezse o anki aktif (A/B) hafta sekmesi açık gelir.
+  // Açık kalan formun, arka planda tamamlanan GitHub eşitlemesinden sonra
+  // otomatik tazelenmesi için son render bilgisini tutar (bkz.
+  // _reconcileFromRemote çağrısının sonu).
+  var _lastRender = null;
+
   function renderRoutePlanForm(containerId, options) {
     var container = document.getElementById(containerId);
     if (!container) return;
+    _lastRender = { containerId: containerId, options: options };
     options = options || {};
     var rep = options.representative || _currentRep();
     var currentGroup = getCurrentWeekGroup();
@@ -608,12 +685,19 @@
     clearWeekPlan:        clearWeekPlan,
     renderRoutePlanForm:  renderRoutePlanForm,
     fetchTeamPlans:       fetchTeamPlans,
-    version:              '15.0'
+    reconcileFromRemote:  _reconcileFromRemote,
+    version:              '15.1'
   };
 
+  // Sıra ÖNEMLİ: önce yerel IndexedDB'den hızlıca ısıt (çevrimdışı/ilk
+  // render için), SONRA GitHub'daki paylaşımlı veriyle eşitle — böylece bu
+  // tarayıcıda daha önce hiç açılmamış (veya eski) kayıtlar da GitHub'daki
+  // güncel haliyle tamamlanır/üzerine yazılır (bkz. _reconcileFromRemote
+  // üstündeki not).
   _hydrateSyncCache();
+  _reconcileFromRemote();
 
-  console.debug('[route-plan-input] FAZ 15.0 yüklendi (2 haftalık A/B model, o anki aktif: ' +
-    GROUP_LABELS[getCurrentWeekGroup()] + ', worker senkron: ' + (window.ROTA_SYNC_WORKER_URL ? 'aktif' : 'pasif') + ').');
+  console.debug('[route-plan-input] FAZ 15.1 yüklendi (2 haftalık A/B model, o anki aktif: ' +
+    GROUP_LABELS[getCurrentWeekGroup()] + ', worker senkron: ' + (window.ROTA_SYNC_WORKER_URL ? 'aktif' : 'pasif') + ', GitHub ile eşitleme: aktif).');
 
 })();

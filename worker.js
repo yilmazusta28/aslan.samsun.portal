@@ -454,8 +454,36 @@ async function handleOverwriteSync(request, env, ALLOWED, cfg) {
   }
 }
 
-// ── Rota Senkron: GitHub Contents API ile data/rota_planlari.json güncelle ──
-// (DEĞİŞTİRİLMEDİ — orijinal davranış aynen korundu)
+// ── BUG DÜZELTMESİ (tarayıcılar arası tutarsız rota planı dökümü) ──────────
+// TEŞHİS: route-plan-input.js (istemci, FAZ 15.0) her kayıtta artık
+// {representative, weekGroup, weekday, bricks} gönderiyor (weekGroup: 1=A
+// Haftası, 2=B Haftası) — ama bu fonksiyon weekGroup'u HİÇ OKUMUYOR ve
+// GitHub'a DÜZ (flat) `plans[temsilci][gün] = bricks` olarak yazıyordu.
+// Sonuç: A Haftası Pazartesi kaydı ile B Haftası Pazartesi kaydı GitHub'da
+// AYNI ANAHTARDA (gün=1) ÇAKIŞIYOR, biri diğerinin üstüne yazılıyordu.
+// Bu paylaşımlı (GitHub) dosya; Yönetici Paneli'nin VE farklı bir
+// tarayıcıda/cihazda IndexedDB'si boş olan herhangi bir oturumun tek veri
+// kaynağıdır — kendi tarayıcınızdaki (yerel IndexedDB'de duran, bozulmamış)
+// veriyle GitHub'daki bu çakışmış veri farklı olduğu için "her tarayıcıda
+// farklı döküm" görülüyordu.
+// ÇÖZÜM: weekGroup artık okunuyor ve GitHub'a NESTED
+// `plans[temsilci][weekGroup][gün] = bricks` olarak yazılıyor —
+// route-plan-input.js'in fetchTeamPlans() zaten bu nested formatı bekliyor.
+// Dosyada hâlâ eski DÜZ formatta kalmış bir temsilci varsa (bu koddan önce
+// yazılmış), önce otomatik olarak "1" (A Haftası) altına göçürülüyor, kayıp
+// olmadan yeni kayıt bunun üstüne ekleniyor.
+// repData: mevcut dosyadaki plans[temsilci] değeri. Eski (FAZ 15.0 öncesi
+// veya bu bug nedeniyle GitHub'a düz yazılmış) formatta ise
+// {gün: bricks[]} şeklindedir (değerler doğrudan dizi) — bunu nested
+// {"1": {gün: bricks[]}} (A Haftası) altına göçürür. Zaten nested ise
+// (değerler obje) OLDUĞU GİBİ döner. Tanımsızsa boş obje döner.
+function _normalizeLegacyRepPlan(repData) {
+  if (!repData) return {};
+  var isLegacyFlat = Object.keys(repData).some(function (k) { return Array.isArray(repData[k]); });
+  if (isLegacyFlat) return { '1': repData };
+  return repData;
+}
+
 async function handleRotaSync(request, env, ALLOWED) {
   const corsHeaders = {
     'Content-Type': 'application/json',
@@ -477,6 +505,10 @@ async function handleRotaSync(request, env, ALLOWED) {
   }
 
   const { representative, weekday, bricks } = payload || {};
+  // weekGroup FAZ 15.0 öncesi istemcilerde YOK olabilir — böyle durumda
+  // geriye uyumlu şekilde A Haftası (1) varsayılır (bkz. route-plan-input.js
+  // içindeki aynı geriye-uyum kararı).
+  const weekGroup = (payload && (payload.weekGroup === 1 || payload.weekGroup === 2)) ? payload.weekGroup : 1;
   if (!representative || !weekday || !Array.isArray(bricks)) {
     return new Response(JSON.stringify({ error: 'representative, weekday, bricks zorunlu' }), { status: 400, headers: corsHeaders });
   }
@@ -510,9 +542,11 @@ async function handleRotaSync(request, env, ALLOWED) {
     // dosya hiç yok / bozuk → sıfırdan başla
   }
 
-  // 2) Güncelle: plans[representative][weekday] = bricks
-  if (!current.plans[representative]) current.plans[representative] = {};
-  current.plans[representative][weekday] = bricks;
+  // 2) Güncelle: plans[representative][weekGroup][weekday] = bricks
+  //    (eski düz kayıt varsa önce "1" altına göçür — bkz. yukarıdaki not)
+  current.plans[representative] = _normalizeLegacyRepPlan(current.plans[representative]);
+  if (!current.plans[representative][weekGroup]) current.plans[representative][weekGroup] = {};
+  current.plans[representative][weekGroup][weekday] = bricks;
   current.updatedAt = new Date().toISOString();
 
   const newContentB64 = _utf8ToB64(JSON.stringify(current, null, 2));
@@ -537,8 +571,9 @@ async function handleRotaSync(request, env, ALLOWED) {
         const meta2 = await retryGet.json();
         const decoded2 = JSON.parse(_b64ToUtf8(meta2.content || ''));
         if (!decoded2.plans) decoded2.plans = {};
-        if (!decoded2.plans[representative]) decoded2.plans[representative] = {};
-        decoded2.plans[representative][weekday] = bricks;
+        decoded2.plans[representative] = _normalizeLegacyRepPlan(decoded2.plans[representative]);
+        if (!decoded2.plans[representative][weekGroup]) decoded2.plans[representative][weekGroup] = {};
+        decoded2.plans[representative][weekGroup][weekday] = bricks;
         decoded2.updatedAt = new Date().toISOString();
         const retryContentB64 = _utf8ToB64(JSON.stringify(decoded2, null, 2));
         putRes = await fetch(apiBase, {
