@@ -29,8 +29,11 @@
 //       yerine SADECE son gerçekten gelen ~14 günlük (en fazla 2 hafta)
 //       IMS verisinin günlük ortalaması kullanılıyor (bkz. _recentDailyRate).
 //
-//  Yöntem: Son 14 günlük (≤2 hafta) gerçek IMS hızı × kalan gün sayısı,
-//          mevcut satışa eklenir.
+//  Yöntem: Dönem başından bugüne kümülatif (yaşanmış tüm haftaların
+//          ortalaması) gerçek IMS hızı × kalan gün sayısı, mevcut satışa
+//          eklenir. (Not: bir ara sürümde son 14 gün/2 haftayla
+//          sınırlıydı — kullanıcı isteğiyle tekrar kümülatif/büyüyen
+//          pencereye dönüldü, bkz. _recentDailyRate yorumu.)
 //
 //  Bağımlılık:
 //    js/ai/core/ims-adapter.js           (normalizeIMS, aggregateRecords, weekValuesArray)
@@ -149,8 +152,23 @@
   // çünkü dönemin gerçek toplam iş günü sayısını kullanıyor).
   // totalDays verilmezse (eski çağrılarla geriye dönük uyumluluk) 5 iş
   // günü/hafta varsayılır.
+  // ── _recentDailyRate — KÜMÜLATİF ORTALAMA (kullanıcı isteği) ──────────
+  // ESKİ (Ekim güncellemesi öncesi): dönem başından bugüne TÜM elapsed
+  // haftaların kümülatif ortalaması kullanılıyordu.
+  // ARA GÜNCELLEME: son ~14 günlük (en fazla 2 hafta) hıza çevrilmişti —
+  // amaç, dönem başında yavaş başlayıp sonradan ivmelenen (veya tersi)
+  // temsilcilerin GÜNCEL temposunu daha hızlı yakalamaktı.
+  // KULLANICI İSTEĞİ (bu güncelleme): "haftalık veriler geldikçe kümülatif
+  // yaklaşımla ilerlensin — 1. hafta 7 gün, 2. hafta gelince 14, 3. hafta
+  // gelince 21 gün ortalaması..." — yani pencere ARTIK SON 2 HAFTAYLA
+  // SINIRLI DEĞİL, dönem başından bugüne kadar YAŞANMIŞ (trim edilmiş)
+  // TÜM haftaları kapsayacak şekilde büyüyor. Bu, hafta-hafta forecast %
+  // dalgalanmasını (varyansı) azaltır — bedeli, tek bir güncel ivme
+  // değişikliğinin (örn. son 2 haftada ani hızlanma) etkisinin, geçmiş
+  // haftaların ortalamasına karışarak daha YAVAŞ yansımasıdır (bilinçli
+  // tercih — kullanıcı tutarlılığı önceliklendirdi).
   function _recentDailyRate(vals, totalDays) {
-    var recent = vals.slice(-2); // en fazla son 2 hafta
+    var recent = vals; // TÜM yaşanmış (trim edilmiş) haftalar — kümülatif
     if (!recent.length) return 0;
     var workDaysPerWeek = (totalDays && totalDays > 0) ? (totalDays / 9) : 5;
     var days = recent.length * workDaysPerWeek;
@@ -331,7 +349,7 @@
       result.projectedReal = Math.round(projReal * 10) / 10;
       result.confidence    = rr.confidence;
       result.methodology   = elapsedWeeks >= 2
-        ? 'Son 14 günlük IMS hızı × kalan gün sayısı'
+        ? 'Kümülatif IMS hızı (dönem başından bugüne, ' + elapsedWeeks + ' hafta) × kalan gün sayısı'
         : elapsedWeeks >= 1
           ? 'Son 7 günlük IMS hızı × kalan gün sayısı (tek hafta veri)'
           : 'Sadece run rate (haftalık IMS verisi yok)';
