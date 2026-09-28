@@ -233,7 +233,155 @@
           "TRABZON AKCAABAT"
         ]
       }
+    },
+    "KÜRŞAD KARADAĞ": {
+      "1": {
+        "1": [
+          "ERZURUM MERKEZ -1",
+          "ERZURUM MERKEZ -2",
+          "ERZURUM MERKEZ -3"
+        ],
+        "2": [
+          "ERZURUM GUNEY ILCELER"
+        ],
+        "3": [
+          "AGRI DIYADIN+D.BEYAZIT",
+          "AGRI ILCELER",
+          "AGRI MERKEZ"
+        ],
+        "4": [
+          "KARS ILCELER",
+          "KARS MERKEZ"
+        ],
+        "5": [
+          "ERZURUM MERKEZ -1",
+          "ERZURUM MERKEZ -2",
+          "ERZURUM MERKEZ -3"
+        ]
+      },
+      "2": {
+        "1": [
+          "ERZURUM MERKEZ -1",
+          "ERZURUM MERKEZ -2",
+          "ERZURUM MERKEZ -3"
+        ],
+        "2": [
+          "ERZURUM GUNEY ILCELER"
+        ],
+        "3": [
+          "AGRI DIYADIN+D.BEYAZIT",
+          "AGRI ILCELER",
+          "AGRI MERKEZ"
+        ],
+        "4": [
+          "KARS ILCELER",
+          "KARS MERKEZ"
+        ],
+        "5": [
+          "ERZURUM MERKEZ -1",
+          "ERZURUM MERKEZ -2",
+          "ERZURUM MERKEZ -3"
+        ]
+      }
+    },
+    "ENİS TOK": {
+      "1": {
+        "1": [
+          "SAMSUN HURRIYET+ZAFER",
+          "SAMSUN ILKADIM - 2",
+          "SAMSUN RASATHANE"
+        ],
+        "2": [
+          "SAMSUN ADALET",
+          "SAMSUN BAHCELIEVLER"
+        ],
+        "3": [
+          "SAMSUN DOGU ILCELER",
+          "SAMSUN DOGU ILCELER - 2"
+        ],
+        "4": [
+          "ORDU UNYE",
+          "SAMSUN TERME"
+        ],
+        "5": [
+          "SAMSUN ADALET",
+          "SAMSUN BAHCELIEVLER",
+          "SAMSUN HAVZA+KAVAK+LADIK"
+        ]
+      },
+      "2": {
+        "1": [
+          "SAMSUN HURRIYET+ZAFER",
+          "SAMSUN ILKADIM - 2",
+          "SAMSUN RASATHANE"
+        ],
+        "2": [
+          "SAMSUN ADALET",
+          "SAMSUN BAHCELIEVLER"
+        ],
+        "3": [
+          "SAMSUN DOGU ILCELER",
+          "SAMSUN DOGU ILCELER - 2"
+        ],
+        "4": [
+          "ORDU UNYE",
+          "SAMSUN TERME"
+        ],
+        "5": [
+          "SAMSUN ADALET",
+          "SAMSUN BAHCELIEVLER",
+          "SAMSUN HAVZA+KAVAK+LADIK"
+        ]
+      }
+    },
+    "MEHMET AKİF ÖZGEÇEN": {
+      "1": {
+        "1": [
+          "SAMSUN ALACAM+YAKAKENT",
+          "SAMSUN ATAKENT+19 MAYIS",
+          "SAMSUN ATAKUM"
+        ],
+        "2": [
+          "SAMSUN BAFRA"
+        ],
+        "3": [
+          "SAMSUN CANIK",
+          "SAMSUN KALE",
+          "SAMSUN PAZAR"
+        ],
+        "4": [
+          "SAMSUN ULUGAZI",
+          "SAMSUN VEZIRKOPRU"
+        ],
+        "5": [
+          "SINOP DOGU-BATI ILCELER",
+          "SINOP MERKEZ"
+        ]
+      },
+      "2": {
+        "1": [
+          "SAMSUN ALACAM+YAKAKENT",
+          "SAMSUN ATAKENT+19 MAYIS",
+          "SAMSUN ATAKUM"
+        ],
+        "2": [
+          "SAMSUN BAFRA"
+        ],
+        "3": [
+          "SAMSUN CANIK",
+          "SAMSUN KALE",
+          "SAMSUN PAZAR"
+        ],
+        "4": [
+          "SAMSUN ULUGAZI",
+          "SAMSUN VEZIRKOPRU"
+        ],
+        "5": [
+          "SINOP DOGU-BATI ILCELER",
+          "SINOP MERKEZ"
+        ]
+      }
     }
   },
-  "updatedAt": "2026-09-27T14:27:12.333Z"
+  "updatedAt": "2026-09-27T16:52:41.741Z"
 }
