@@ -57,7 +57,26 @@
       "kisiBasi": 800,
       "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
       "syncedAt": "2026-10-01T12:20:30.288Z"
+    },
+    {
+      "id": "dsy_mupi7u0i_sddt5s_YIL",
+      "tip": "planlanan",
+      "bolge": "SAMSUN",
+      "ttt": "YILMAZ USTA",
+      "brick": "GIRESUN MERKEZ -2",
+      "tarih": "2026-10-12",
+      "enteredAt": "2026-10-01T12:22:13.170Z",
+      "grup": "ASLAN",
+      "bm": "ŞENOL YILMAZ",
+      "urun": "GRİPORT COLD",
+      "unite": "GİRESUN TEYYAREDÜZÜ ASM",
+      "klinik": "A.HEK",
+      "katilimci": 4,
+      "maliyet": 2800,
+      "kisiBasi": 700,
+      "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
+      "syncedAt": "2026-10-01T12:22:13.716Z"
     }
   ],
-  "updatedAt": "2026-10-01T12:20:42.478Z"
+  "updatedAt": "2026-10-01T12:22:13.716Z"
 }
