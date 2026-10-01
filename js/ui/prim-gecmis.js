@@ -49,7 +49,7 @@
         row.komp = calcKompEkFromRows(rows.concat([rec.genel]));
         ek = row.komp.ekPrim || 0;
       } else {
-        row.komp = { eligible: false, ekPrim: 0, reason: 'Önceki 2 dönemin ürün verisi kayıtlı değil.' };
+        row.komp = { eligible: false, ekPrim: 0, reason: 'Önceki 2 dönemin ürün verisi yok.' };
       }
     }
     row.calc = calcPrimBreakdown({ effReal: effReal, primPuani: primPuani, mi: mg ? mg.mi : 100, gi: mg ? mg.gi : 100, ekPrim: ek });
@@ -80,7 +80,7 @@
       '<input type="number" step="0.1" min="0" max="200" class="inp" id="pgGenelIn" value="' + gv + '" style="width:90px;padding:4px 6px"></div>' +
       '<button onclick="pgSaveEdit(\'' + r.p.key + '\')" style="padding:6px 12px;border-radius:6px;border:1px solid var(--c1);background:var(--c1);color:#fff;font-size:11px;font-weight:600;cursor:pointer">💾 Kaydet</button>' +
       (r.rec && r.rec.source === 'manuel' ? '<button onclick="pgClearEdit(\'' + r.p.key + '\')" style="padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surf);font-size:11px;cursor:pointer">🗑 Manuel kaydı sil</button>' : '') +
-      '</div>' + (r.rec ? '<div style="font-size:9px;color:var(--dim);margin-top:6px">Mevcut kayıt kaynağı: ' + r.rec.source + ' · ' + String(r.rec.savedAt).slice(0, 10) + '</div>' : '') +
+      '</div>' + (r.rec ? '<div style="font-size:9px;color:var(--dim);margin-top:6px">Mevcut kayıt kaynağı: ' + r.rec.source + (r.rec.savedAt ? ' · ' + String(r.rec.savedAt).slice(0, 10) : '') + '</div>' : '') +
       '</td></tr>';
   }
 
@@ -89,6 +89,12 @@
     if (!body) return;
     ttt = (typeof ttt === 'string' && ttt) ? ttt : _ttt();
     if (!ttt) { body.innerHTML = '<div style="color:var(--dim);font-size:12px">Temsilci seçin…</div>'; return; }
+    // Ürün bazlı dönem verisi: YTD_TL.csv (yüklü değilse arka planda çek, gelince yeniden çiz)
+    if (!window.YTD_TL_DATA && typeof loadYtdTlData === 'function' && !window._pgYtdLoading) {
+      window._pgYtdLoading = true;
+      loadYtdTlData().then(function () { window._pgYtdLoading = false; renderPrimGecmis(); })
+                     .catch(function () { window._pgYtdLoading = false; });
+    }
     if (window.PrimLedger) { try { window.PrimLedger.captureAll(typeof GENEL !== 'undefined' ? GENEL : []); } catch (e) { /* sessiz */ } }
 
     var years = _years();
@@ -115,7 +121,7 @@
         cells = '<td style="text-align:right;padding:4px 5px;font-weight:700">' + _pct(r.effReal) + '</td>' + urunCells +
           '<td style="text-align:right;padding:4px 5px">' + _pct(r.primPuani) + '</td>';
       } else {
-        cells = '<td colspan="7" style="text-align:center;color:var(--dim);padding:4px 5px">Ürün bazlı veri kayıtlı değil — ✏️ ile girin</td>';
+        cells = '<td colspan="7" style="text-align:center;color:var(--dim);padding:4px 5px">Ürün bazlı veri yok (YTD_TL.csv içinde bu dönem için hedef bulunamadı)</td>';
       }
       var mi = r.mg ? '<span style="color:' + getIndeksColor(r.mg.mi) + ';font-weight:700">' + r.mg.mi.toFixed(1).replace('.', ',') + '%</span>' : '<span style="color:var(--dim)">' + (c ? '100*' : '—') + '</span>';
       var gi = r.mg ? '<span style="color:' + getIndeksColor(r.mg.gi) + ';font-weight:700">' + r.mg.gi.toFixed(1).replace('.', ',') + '</span>' : '<span style="color:var(--dim)">' + (c ? '100*' : '—') + '</span>';
@@ -159,7 +165,7 @@
       '</div>' +
       '<div style="font-size:9px;color:var(--dim);background:var(--surf2);padding:8px;border-radius:6px;border:1px solid var(--border);margin-top:8px">' +
         '* Prim, dönem bitiminden 2 ay sonra gelen (düzeltilmiş IMS\'li) MI &amp; GIGI ile kesinleşir; gelene kadar MI=GIGI=100 varsayılır (100*). ' +
-        'MI &amp; GIGI kaynağı: <code>MI_GIGI.csv</code>. Ürün bazlı % değerleri her senkronizasyonda ve dönem arşivinden otomatik saklanır; kaydı olmayan dönemler ✏️ ile girilebilir.' +
+        'MI &amp; GIGI kaynağı: <code>MI_GIGI.csv</code>. Ürün bazlı hedef/satış/real değerleri <code>YTD_TL.csv</code> dosyasındaki dönem bloklarından okunur (manuel giriş gerekmez); ✏️ yalnızca o dosyada olmayan bir dönemi elle düzeltmek içindir.' +
       '</div>';
   }
 

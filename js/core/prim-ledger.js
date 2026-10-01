@@ -10,7 +10,11 @@
 //    { genel:{tl_pct, prim_pct, hedef_tl, satis_tl},
 //      urunler:{ 'PANOCER':{tl_pct, hedef_tl, satis_tl, agirlik}, ... },
 //      source:'sync'|'arsiv'|'manuel', savedAt:ISO }
-//  Kaynak öncelik: manuel > (sync | arsiv | uzak dosya).
+//  Kaynak öncelik: manuel > ytd > (sync | arsiv | uzak dosya).
+//    • ytd    → YTD_TL.csv (repo kökü): her dönemin ürün bazlı HEDEF/SATIŞ/REAL
+//               değerleri (1-6.DÖNEM bloğu ↔ 1d,2d,k1,4d,5d,k2). Dosyada kalıcı
+//               olduğundan ayrıca "saklama" gerekmez; dönem kapanınca da okunur.
+//               Kayıt ledger'a YAZILMAZ — her okumada dosyadan türetilir.
 //    • sync   → her syncData() sonrası "etkin dönem" (7 gün grace'li,
 //               bkz. getEffectivePeriod) için otomatik güncellenir.
 //    • arsiv  → PeriodArchiveManager'daki kapanmış dönemlerden içe aktarılır
@@ -87,9 +91,39 @@
     };
   }
 
+  // ── YTD_TL.csv kaynağı ────────────────────────────────────
+  // Blok adı ↔ dönem anahtarı (sıra numarasıyla: 3.DÖNEM = Mayıs-Haziran = k1)
+  var YTD_BLOCK = { '1d': '1.DÖNEM', '2d': '2.DÖNEM', 'k1': '3.DÖNEM', '4d': '4.DÖNEM', '5d': '5.DÖNEM', 'k2': '6.DÖNEM' };
+  var YTD_YEAR = '2026';                       // YTD_TL.csv yalnızca 2026 bloklarını içerir
+  var YTD_URUN = { 'PANOCER': 'PANOCER', 'ACİDPASS': 'ACIDPASS', 'GRİPORT COLD': 'GRIPORT_COLD', 'MOKSEFEN': 'MOKSEFEN', 'FAMTREC': 'FAMTREC' };
+
+  function _ytdRec(year, key, ttt) {
+    var d = window.YTD_TL_DATA;
+    if (String(year) !== YTD_YEAR || !d || !d.data || !YTD_BLOCK[key]) return null;
+    var rows = d.data[YTD_BLOCK[key]];
+    if (!rows) return null;
+    var nm = String(ttt).toLocaleUpperCase('tr-TR');
+    var row = rows.find(function (r) { return String(r.personel).toLocaleUpperCase('tr-TR') === nm; });
+    if (!row || !row.products || !row.products.TOPLAM) return null;
+    var t = row.products.TOPLAM;
+    if (!(t.hedef > 0)) return null;                         // bu dönem için hedef yok (ör. ENİS TOK ilk 4 dönem)
+    var urunler = {};
+    URUN_ORDER.forEach(function (u) {
+      var p = row.products[YTD_URUN[u]];
+      if (p && p.hedef > 0) urunler[u] = { tl_pct: _round(p.real || (p.satis / p.hedef * 100)), hedef_tl: p.hedef, satis_tl: p.satis, agirlik: null };
+    });
+    return {
+      genel: { tl_pct: _round(t.real || (t.satis / t.hedef * 100)), prim_pct: _round(_primPuani(urunler)), hedef_tl: t.hedef, satis_tl: t.satis },
+      urunler: urunler, source: 'ytd', savedAt: null
+    };
+  }
+
+  // Öncelik: manuel kayıt > YTD_TL.csv > sync/arşiv/uzak kayıt
   function get(year, key, ttt) {
     var e = _read().entries[_k(year, key)];
-    return (e && e[ttt]) || null;
+    var stored = (e && e[ttt]) || null;
+    if (stored && stored.source === 'manuel') return stored;
+    return _ytdRec(year, key, ttt) || stored;
   }
 
   // Her syncData() sonrası: etkin dönem için canlı kayıt + arşivden içe aktarım
@@ -198,6 +232,7 @@
       .catch(function () { return false; });
   }
 
-  window.PrimLedger = { get: get, captureAll: captureAll, setManual: setManual, remove: remove,
+  window.PrimLedger = { get: get, hasYtd: function () { return !!window.YTD_TL_DATA; },
+                         captureAll: captureAll, setManual: setManual, remove: remove,
                         exportYear: exportYear, hydrateRemote: hydrateRemote, primPuani: _primPuani };
 })();
