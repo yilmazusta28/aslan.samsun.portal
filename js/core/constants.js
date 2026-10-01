@@ -17,6 +17,9 @@ const GS_MIGI_BRICK_TL_URL  = "./MI_GI-TL.csv";
 const GS_MIGI_BRICK_KUTU_URL= "./MI_GI-KUTU.csv";
 const GS_ECZANE_URL = './eczane/ECZANE.csv';
 
+// Dönemsel MI & GIGI (dönem sonu +2 ay gelen KESİN değerler) — bkz. js/core/migi-donem.js
+const GS_MIGI_DONEM_URL = './MI_GIGI.csv';
+
 // ── FAZ 6.4: Rakip Satış Şartları Takvimi (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §7) ──
 const GS_RAKIP_URL = './RAKIP_AKSIYON.csv';
 

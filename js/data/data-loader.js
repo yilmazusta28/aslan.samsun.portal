@@ -446,6 +446,19 @@ async function syncData(forceFresh) {
     }
     // ── END FAZ — 6 Aylık Dönem Arşivleme ──────────────────────────
 
+    // Prim Kayıt Defteri: dönemin ÜRÜN BAZLI TL Real %'lerini sakla (MI&GIGI
+    // dönem sonu +2 ay geldiğinde kesin prim hesabı için) + MI_GIGI.csv yükle.
+    // Hata toleranslı — syncData akışını ETKİLEMEZ.
+    try {
+      if (window.PrimLedger) {
+        window.PrimLedger.captureAll(dedupedGenel);
+        window.PrimLedger.hydrateRemote(new Date().getFullYear());
+      }
+      if (typeof window.loadMiGiDonem === 'function') window.loadMiGiDonem();
+    } catch (e) {
+      console.warn('[prim-ledger] sessiz hata:', e.message);
+    }
+
     // FAZ 10: GitHub'daki arsiv/ klasöründen olası geçmiş dönemleri dene
     // (kullanıcı exportPeriodAsFile() ile indirip commit ettiyse). Sadece
     // sayfa başına BİR KEZ denenir (gereksiz tekrarlı ağ isteği olmasın) —
