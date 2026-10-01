@@ -37,7 +37,26 @@
       "kisiBasi": 850,
       "yemek": "",
       "syncedAt": "2026-10-01T12:18:46.451Z"
+    },
+    {
+      "id": "dsy_mupi5m90_qud0h5_YIL",
+      "tip": "planlanan",
+      "bolge": "SAMSUN",
+      "ttt": "YILMAZ USTA",
+      "brick": "ORDU FATSA",
+      "tarih": "2026-10-08",
+      "enteredAt": "2026-10-01T12:20:29.796Z",
+      "grup": "ASLAN",
+      "bm": "ŞENOL YILMAZ",
+      "urun": "FAMTREC",
+      "unite": "FATSA DEVLET HASTANESİ ",
+      "klinik": "ORTOPEDİ",
+      "katilimci": 3,
+      "maliyet": 2400,
+      "kisiBasi": 800,
+      "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
+      "syncedAt": "2026-10-01T12:20:30.288Z"
     }
   ],
-  "updatedAt": "2026-10-01T12:18:46.451Z"
+  "updatedAt": "2026-10-01T12:20:30.288Z"
 }
