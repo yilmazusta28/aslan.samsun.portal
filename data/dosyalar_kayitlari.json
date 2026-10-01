@@ -138,27 +138,7 @@
       "kisiBasi": 850,
       "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
       "syncedAt": "2026-09-16T17:52:59.697Z"
-    },
-    {
-      "id": "dsy_mu2eq1jz_5n677c_YIL",
-      "tip": "planlanan",
-      "bolge": "SAMSUN",
-      "ttt": "YILMAZ USTA",
-      "brick": "ORDU MERKEZ -2",
-      "tarih": "2026-09-15",
-      "enteredAt": "2026-09-15T08:25:42.239Z",
-      "updatedAt": "2026-09-17T15:57:54.231Z",
-      "grup": "ASLAN",
-      "bm": "ŞENOL YILMAZ",
-      "urun": "GRİPORT COLD",
-      "unite": "ORDU ALTINORDU CİVİL ASM.",
-      "klinik": "A.HEK",
-      "katilimci": 3,
-      "maliyet": 2550,
-      "kisiBasi": 850,
-      "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
-      "syncedAt": "2026-09-17T15:57:54.940Z"
     }
   ],
-  "updatedAt": "2026-10-01T12:13:04.676Z"
+  "updatedAt": "2026-10-01T12:13:07.302Z"
 }
