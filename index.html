@@ -94,16 +94,18 @@
       kendi başlıklarına ve docs/ klasöründeki FAZ raporlarına bakın.
      ═══════════════════════════════════════════════════════════════ -->
 <script src="js/core/async-guard.js?v=20260705"></script>
-<script src="js/core/constants.js?v=20260705"></script>
+<script src="js/core/constants.js?v=20261001"></script>
 <script src="js/core/date-utils.js?v=20260705d"></script>
 <script src="js/core/period-archive-manager.js?v=20260705"></script>
 <script src="js/core/math-utils.js?v=20260705"></script>
 <script src="js/core/formatters.js?v=20260705"></script>
-<script src="js/core/prim-calc.js?v=20260926"></script>
+<script src="js/core/prim-calc.js?v=20261001"></script>
+<script src="js/core/migi-donem.js?v=20261001"></script>
+<script src="js/core/prim-ledger.js?v=20261001"></script>
 <script src="js/data/data-normalizer.js?v=20260705"></script>
 <script src="js/data/csv-parser.js?v=20260705"></script>
 <script src="js/data/data-state.js?v=20260705"></script>
-<script src="js/data/data-loader.js?v=20260705"></script>
+<script src="js/data/data-loader.js?v=20261001"></script>
 <script src="js/data/ytd-tl-loader.js?v=20260912"></script>
 <script src="js/data/tr-sira-loader.js?v=20260913"></script>
 <script src="js/data/charts.js?v=20260705"></script>
@@ -125,6 +127,7 @@
 <script src="js/ui/role-visibility.js?v=20260705"></script>
 <script src="js/ui/ytd-tl-page.js?v=20260912"></script>
 <script src="js/ui/tr-sira-panel.js?v=20260913"></script>
+<script src="js/ui/prim-gecmis.js?v=20261001"></script>
 <!-- END PHASE23 UI Layer -->
 <script src="js/core/runtime-patches.js?v=20260705"></script>
 <!-- PHASE 2.3.5: Performance Monitor + Health Check (console-only, no UI) -->
@@ -955,6 +958,7 @@ function calcPrim() {
       ${renderPreviousPeriodPrimPanelHtml(ttt)}
     </div>
   `;
+  if (typeof renderPrimGecmis === 'function') { try { renderPrimGecmis(ttt); } catch (e) { console.warn('[prim-gecmis]', e.message); } }
   SoundFX.success();
 }
 
@@ -7311,7 +7315,7 @@ function _buildEczaneDrawerRefresh(){
 
           <div style="margin-top:12px">
             <div style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:10px;color:#92400E">
-              ⚠️ <strong>Not:</strong> MI & GI değerleri manuel girilir. Dönem sonunda kesinleşir.
+              ⚠️ <strong>Not:</strong> MI & GI değerleri manuel girilir. Dönem sonunda kesinleşir. Geçmiş dönemlerin kesinleşmiş MI &amp; GIGI'li primleri aşağıdaki tabloda.
             </div>
             <label style="font-size:10px;font-weight:600;color:var(--dim);display:block;margin-bottom:4px">MI İndeksi <span style="color:#6B7280;font-weight:400">(dönem sonucu)</span></label>
             <input type="number" class="inp" id="primMI" value="100" min="0" oninput="calcPrim()" style="width:100%" placeholder="Dönem MI sonucu...">
@@ -7333,9 +7337,20 @@ function _buildEczaneDrawerRefresh(){
       </div>
     </div>
   </div>
+
+<!-- Geçmiş Dönem Prim Hesabı — MI & GIGI (MI_GIGI.csv) + ürün bazlı % kayıtları (bkz. js/ui/prim-gecmis.js) -->
+<div class="card mb16" id="primGecmisCard">
+    <div class="card-hd">
+      <span class="card-title">📆 Geçmiş Dönem Prim Hesabı — MI &amp; GIGI</span>
+      <span class="card-badge">Kesinleşen primler</span>
+    </div>
+    <div class="card-body" id="primGecmisBody">
+      <div style="color:var(--dim);font-size:12px">Temsilci seçin…</div>
+    </div>
+  </div>
 </div>
 
-<!-- ══════ PAGE 4: AI ASISTAN + GÖREV MOTORU ══════ -->
+<!-- ══════ PAGE 4: AI ASISTAN + GÖREV MOTORU ══════
 <div class="page" id="page4">
 
   <!-- ═══ HERO BAŞLIK (Motor'dan alındı) ═══ -->

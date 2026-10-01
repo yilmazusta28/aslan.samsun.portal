@@ -126,6 +126,24 @@ function calcKompanzasyonEkPrimi(ttt, currentGenel, periodKeyOverride) {
     return { ekPrim: 0, eligible: false, reason: 'Bu dönemin GENEL TOPLAM satırı bulunamadı.', detail: null };
   }
 
+  // KOŞUL-1/2 + hesaplama: ortak yardımcı (calcKompEkFromRows) — Prim
+  // Hesapla sayfasındaki "Geçmiş Dönem" tablosu da aynı kuralı kullanır.
+  const res = calcKompEkFromRows(priorRows.map(p => p.row).concat([curRow]));
+  if (res.detail) res.detail.periods = siblingKeys.concat([curKey]);
+  return res;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Kompanzasyon Ek Primi — SAF hesap (arşiv/ledger'dan bağımsız)
+//  @param {Array} rows3 — [önceki-2, önceki-1, kompanzasyon dönemi]
+//         her eleman {tl_pct, hedef_tl, satis_tl}
+//  hedef_tl/satis_tl eksikse (manuel girilmiş dönem) kümülatif real,
+//  tl_pct'lerin basit ortalamasına düşer (detail.approx = true).
+// ══════════════════════════════════════════════════════════════
+function calcKompEkFromRows(rows3) {
+  const BAZ_TL_REAL = 55000;
+  const curRow = rows3[rows3.length - 1];
+
   // KOŞUL-1: kompanzasyon döneminin kendi realizasyonu >= %95
   const kendiReal = curRow.tl_pct || 0;
   if (kendiReal < 95) {
@@ -137,15 +155,18 @@ function calcKompanzasyonEkPrimi(ttt, currentGenel, periodKeyOverride) {
   }
 
   // KOŞUL-2: 3 dönemin kümülatif (6 aylık) TL real'i >= %91
-  const all3 = priorRows.map(p => p.row).concat([curRow]);
-  const sumHedef = all3.reduce((s, r) => s + (r.hedef_tl || 0), 0);
-  const sumSatis = all3.reduce((s, r) => s + (r.satis_tl || 0), 0);
-  const kumulatifReal = sumHedef > 0 ? (sumSatis / sumHedef * 100) : 0;
+  const hasTotals = rows3.every(r => r.hedef_tl > 0 && r.satis_tl >= 0 && r.satis_tl !== null);
+  const sumHedef = hasTotals ? rows3.reduce((s, r) => s + (r.hedef_tl || 0), 0) : 0;
+  const sumSatis = hasTotals ? rows3.reduce((s, r) => s + (r.satis_tl || 0), 0) : 0;
+  const kumulatifReal = hasTotals
+    ? (sumSatis / sumHedef * 100)
+    : rows3.reduce((s, r) => s + (r.tl_pct || 0), 0) / rows3.length;
+  const approx = !hasTotals;
   if (kumulatifReal < 91) {
     return {
       ekPrim: 0, eligible: false,
       reason: `6 aylık kümülatif TL realizasyonu (%${kumulatifReal.toFixed(1)}) %91'in altında.`,
-      detail: { kendiReal, kumulatifReal }
+      detail: { kendiReal, kumulatifReal, approx }
     };
   }
 
@@ -153,7 +174,7 @@ function calcKompanzasyonEkPrimi(ttt, currentGenel, periodKeyOverride) {
   // eksi 3 dönemde zaten ödenmiş (her biri kendi %100 sınırlı) TL Real Primi.
   const carpanKumulatif = getCarpan(kumulatifReal);
   const yeniToplamOdeme = 3 * carpanKumulatif * BAZ_TL_REAL;
-  const zatenOdenen = all3.reduce((s, r) => {
+  const zatenOdenen = rows3.reduce((s, r) => {
     const kendiCarpan = (r.tl_pct >= 91) ? getCarpan(Math.min(r.tl_pct || 0, 100)) : 0;
     return s + kendiCarpan * BAZ_TL_REAL;
   }, 0);
@@ -163,7 +184,30 @@ function calcKompanzasyonEkPrimi(ttt, currentGenel, periodKeyOverride) {
     ekPrim,
     eligible: true,
     reason: 'Kompanzasyon primi hak edildi.',
-    detail: { kendiReal, kumulatifReal, carpanKumulatif, yeniToplamOdeme, zatenOdenen, sumHedef, sumSatis, periods: siblingKeys.concat([curKey]) }
+    detail: { kendiReal, kumulatifReal, carpanKumulatif, yeniToplamOdeme, zatenOdenen, sumHedef, sumSatis, approx }
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Dönem prim dökümü — SAF hesap (canlı GENEL'den bağımsız)
+//  calcPrimForTTT / calcPrim ile AYNI iş kuralı: TL Real %100 sınırlı,
+//  Portföy sabit %100 çarpanı, MI&GI eşiği effReal>=70.
+//  Kullanım: Prim Hesapla → "Geçmiş Dönem" tablosu (prim-gecmis.js).
+// ══════════════════════════════════════════════════════════════
+function calcPrimBreakdown(o) {
+  const BAZ_TL_REAL = 55000, BAZ_MIGI = 14000;
+  const effReal = o.effReal || 0, primPuani = o.primPuani || 0;
+  const mi = (o.mi > 0) ? o.mi : 100, gi = (o.gi > 0) ? o.gi : 100;
+  const carpan = effReal >= 91 ? getCarpan(Math.min(effReal, 100)) : 0;
+  const tlRealPrimDonemlik = carpan * BAZ_TL_REAL;
+  const ekPrim = o.ekPrim || 0;
+  const portfoyPrim = (effReal >= 91 && primPuani >= 91) ? 0.20 * BAZ_TL_REAL * getCarpan(100) : 0;
+  const migiKatsayi = effReal >= 70 ? getMiGiKatsayi(Math.round(mi), Math.round(gi)) : 0;
+  const migiPrim = migiKatsayi * BAZ_MIGI;
+  return {
+    carpan, tlRealPrimDonemlik, ekPrim, tlRealPrim: tlRealPrimDonemlik + ekPrim,
+    portfoyPrim, migiKatsayi, migiPrim,
+    toplamPrim: tlRealPrimDonemlik + ekPrim + portfoyPrim + migiPrim
   };
 }
 
@@ -388,9 +432,14 @@ function calcPrimFromArchivedPeriod(ttt, periodKey) {
   const migiRowsAll = archMigi.filter(r => r.person === ttt);
   const _migiLatest = migiRowsAll.reduce((max, r) => Math.max(max, _migiDonemNum(r.donem)), 0);
   const migiRows    = migiRowsAll.filter(r => _migiDonemNum(r.donem) === _migiLatest);
-  const hasMigi = migiRows.length > 0;
-  const miAvg = hasMigi ? migiRows.reduce((s, r) => s + (r.mi || 100), 0) / migiRows.length : null;
-  const giAvg = hasMigi ? migiRows.reduce((s, r) => s + (r.bi || 100), 0) / migiRows.length : null;
+  let hasMigi = migiRows.length > 0;
+  let miAvg = hasMigi ? migiRows.reduce((s, r) => s + (r.mi || 100), 0) / migiRows.length : null;
+  let giAvg = hasMigi ? migiRows.reduce((s, r) => s + (r.bi || 100), 0) / migiRows.length : null;
+  // MI_GIGI.csv (düzeltilmiş IMS ile dönem sonu +2 ay gelen KESİN değer) varsa onu tercih et.
+  if (typeof getMiGiDonem === 'function' && typeof yearOfPeriodKey === 'function') {
+    const _mg = getMiGiDonem(ttt, yearOfPeriodKey(resolvedKey), resolvedKey);
+    if (_mg) { hasMigi = true; miAvg = _mg.mi; giAvg = _mg.gi; }
+  }
 
   const BAZ_TL_REAL = 55000;
   const BAZ_MIGI    = 14000;
