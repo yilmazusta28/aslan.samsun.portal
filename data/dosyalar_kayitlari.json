@@ -158,27 +158,7 @@
       "kisiBasi": 850,
       "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
       "syncedAt": "2026-09-17T15:57:54.940Z"
-    },
-    {
-      "id": "dsy_mu2erks8_e9yki9_YIL",
-      "tip": "planlanan",
-      "bolge": "SAMSUN",
-      "ttt": "YILMAZ USTA",
-      "brick": "GIRESUN MERKEZ -2",
-      "tarih": "2026-09-16",
-      "enteredAt": "2026-09-15T08:26:53.816Z",
-      "updatedAt": "2026-09-16T17:53:35.367Z",
-      "grup": "ASLAN",
-      "bm": "ŞENOL YILMAZ",
-      "urun": "FAMTREC",
-      "unite": "GİRESUN ÜNİ. EĞT. ARAŞ. HAST.",
-      "klinik": "FTR",
-      "katilimci": 12,
-      "maliyet": 10200,
-      "kisiBasi": 850,
-      "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
-      "syncedAt": "2026-09-16T17:53:36.256Z"
     }
   ],
-  "updatedAt": "2026-10-01T12:13:02.143Z"
+  "updatedAt": "2026-10-01T12:13:04.676Z"
 }
