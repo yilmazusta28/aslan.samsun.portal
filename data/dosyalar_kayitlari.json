@@ -1,25 +1,6 @@
 {
   "kayitlar": [
     {
-      "id": "dsy_mu4bvlh0_ntqckt_YIL",
-      "tip": "gerceklesen",
-      "bolge": "SAMSUN",
-      "ttt": "YILMAZ USTA",
-      "brick": "GIRESUN BULANCAK+PIRAZIZ",
-      "tarih": "2026-09-16",
-      "enteredAt": "2026-09-16T16:41:34.836Z",
-      "grup": "ASLAN",
-      "bm": "ŞENOL YILMAZ",
-      "urun": "FAMTREC",
-      "unite": "GİRESUN ÜNİ. EĞT. ARAŞ. HAST",
-      "klinik": "FTR",
-      "katilimci": 16,
-      "maliyet": 13150,
-      "kisiBasi": 821.875,
-      "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
-      "syncedAt": "2026-09-16T16:41:39.095Z"
-    },
-    {
       "id": "dsy_mu2e9gzc_1bbq3j_YIL",
       "tip": "gerceklesen",
       "bolge": "SAMSUN",
@@ -80,5 +61,5 @@
       "syncedAt": "2026-09-16T17:52:21.795Z"
     }
   ],
-  "updatedAt": "2026-10-01T12:13:21.300Z"
+  "updatedAt": "2026-10-01T12:13:23.645Z"
 }
