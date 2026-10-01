@@ -1,4 +1,24 @@
 {
-  "kayitlar": [],
-  "updatedAt": "2026-10-01T12:13:32.890Z"
+  "kayitlar": [
+    {
+      "id": "dsy_mupi0yua_zwcauu_YIL",
+      "tip": "planlanan",
+      "bolge": "SAMSUN",
+      "ttt": "YILMAZ USTA",
+      "brick": "ORDU MERKEZ -3",
+      "tarih": "2026-10-13",
+      "enteredAt": "2026-10-01T12:16:52.834Z",
+      "grup": "ASLAN",
+      "bm": "ŞENOL YILMAZ",
+      "urun": "GRİPORT COLD",
+      "unite": "ORDU ALTINORDU ASM",
+      "klinik": "A.HEK",
+      "katilimci": 3,
+      "maliyet": 2550,
+      "kisiBasi": 850,
+      "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
+      "syncedAt": "2026-10-01T12:16:53.655Z"
+    }
+  ],
+  "updatedAt": "2026-10-01T12:16:53.655Z"
 }
