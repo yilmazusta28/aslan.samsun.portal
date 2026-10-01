@@ -235,7 +235,7 @@
   function _injectStyles() {
     if (document.getElementById('voiceBriefingStyles')) return;
     var css =
-      '#vbFab{position:fixed;bottom:22px;right:20px;z-index:400;width:56px;height:56px;border-radius:50%;' +
+      '#vbFab{position:fixed;bottom:22px;right:20px;z-index:401;width:56px;height:56px;border-radius:50%;' +
       'background:linear-gradient(135deg,var(--c1),var(--c2));color:#fff;border:none;box-shadow:0 6px 20px rgba(79,0,140,.35);' +
       'font-size:24px;display:flex;align-items:center;justify-content:center;cursor:grab;transition:transform .15s;' +
       'touch-action:none;-webkit-user-select:none;user-select:none}' +
@@ -252,9 +252,13 @@
       '@media(max-width:768px){#vbFab{bottom:calc(74px + env(safe-area-inset-bottom,0))}}' +
       '#vbPanel{position:fixed;bottom:88px;right:20px;z-index:400;width:320px;max-width:92vw;background:var(--surf);' +
       'border:1px solid var(--border);border-radius:var(--card-radius);box-shadow:var(--card-shadow);' +
-      'padding:16px;display:none;font-family:inherit;color:var(--text)}' +
+      'padding:16px;display:none;font-family:inherit;color:var(--text);max-height:calc(100vh - 20px);overflow-y:auto}' +
       '#vbPanel.open{display:block}' +
-      '#vbPanel h4{margin:0 0 8px;font-size:14px;color:var(--c1);display:flex;align-items:center;gap:6px}' +
+      '#vbPanel h4{margin:0 0 8px;font-size:14px;color:var(--c1);display:flex;align-items:center;justify-content:space-between;gap:6px}' +
+      /* Kapat (✕): panel mikrofon butonunun üstüne gelse bile kapatılabilsin */
+      '#vbCloseBtn{flex:none;width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--surf2);' +
+      'color:var(--text);font-size:16px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit}' +
+      '#vbCloseBtn:active{transform:scale(.92)}' +
       '#vbStatus{font-size:12px;color:var(--dim);margin-bottom:10px;min-height:16px}' +
       '.vb-btn{width:100%;padding:10px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;' +
       'margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit}' +
@@ -383,7 +387,7 @@
     var panel = document.createElement('div');
     panel.id = 'vbPanel';
     panel.innerHTML =
-      '<h4>🎙️ Sesli Asistan</h4>' +
+      '<h4><span>🎙️ Sesli Asistan</span><button id="vbCloseBtn" type="button" aria-label="Kapat" title="Kapat">✕</button></h4>' +
       '<div id="vbStatus">Hazır</div>' +
       '<button id="vbPlayBtn" class="vb-btn vb-btn-primary">▶️ Bugünkü Brifingi Dinle</button>' +
       '<button id="vbStopBtn" class="vb-btn vb-btn-secondary" style="display:none">⏹️ Durdur</button>' +
@@ -392,8 +396,21 @@
 
     document.body.appendChild(fab);
     document.body.appendChild(panel);
+    document.addEventListener('scroll', _onAnyScroll, true);
     _applySavedFabPosition(fab);
     _makeDraggable(fab);
+
+    document.getElementById('vbCloseBtn').onclick = _closePanel;
+    // Panel dışına dokunma / Esc tuşu da paneli kapatır (konuşma/dinleme devam eder).
+    document.addEventListener('pointerdown', function (ev) {
+      if (!STATE.panelOpen) return;
+      var t = ev.target;
+      if (panel.contains(t) || fab.contains(t)) return;
+      _closePanel();
+    }, true);
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape') _closePanel();
+    });
 
     document.getElementById('vbPlayBtn').onclick = _onPlayClick;
     document.getElementById('vbStopBtn').onclick = function () { stopSpeaking(); };
@@ -419,9 +436,38 @@
     // NOT: gerçek yükseklik ancak 'open' sınıfı eklenip panel display:block
     // olduktan SONRA doğru ölçülebiliyor — bu yüzden konumlandırma class
     // değişiminden SONRA yapılıyor.
-    if (STATE.panelOpen) _positionPanelNearFab();
+    if (STATE.panelOpen) { _scrollBase = new WeakMap(); _positionPanelNearFab(); }
     var fab = document.getElementById('vbFab');
     if (fab) fab.classList.remove('vb-pulse');
+  }
+
+  // Paneli kapat (konuşma/dinleme DEVAM eder — sadece menü gizlenir).
+  function _closePanel() {
+    var panel = document.getElementById('vbPanel');
+    if (!panel || !STATE.panelOpen) return;
+    STATE.panelOpen = false;
+    panel.classList.remove('open');
+  }
+
+  // KULLANICI İSTEĞİ: işlem sırasında açık kalan sesli asistan menüsü, sayfa
+  // aşağı kaydırılınca (mikrofon butonu altta kaldığında) kapanmıyordu.
+  // Sayfa veya sayfa içindeki herhangi bir kaydırılabilir alan AŞAĞI
+  // kaydırılınca panel kapanır. Panelin kendi içindeki (transkript) kaydırma
+  // sayılmaz. Scroll olayı kabarcıklanmadığı için capture fazında dinlenir.
+  var _scrollBase = new WeakMap();
+  var SCROLL_CLOSE_PX = 12;   // bu kadar px aşağı kayınca kapan (titremeyi yok say)
+  function _onAnyScroll(e) {
+    if (!STATE.panelOpen) return;
+    var t = e.target;
+    var panel = document.getElementById('vbPanel');
+    if (t && t.nodeType === 1 && panel && panel.contains(t)) return;
+    var isDoc = (t === document || t === document.documentElement || t === document.body || !t || t.nodeType === 9);
+    var pos = isDoc ? (window.pageYOffset || document.documentElement.scrollTop || 0) : t.scrollTop;
+    var key = isDoc ? document : t;
+    var base = _scrollBase.get(key);
+    if (base === undefined) { _scrollBase.set(key, pos); return; }
+    if (pos - base > SCROLL_CLOSE_PX) _closePanel();
+    else if (pos < base) _scrollBase.set(key, pos);   // yukarı kayarsa referansı güncelle
   }
 
   function _setStatus(text) {
