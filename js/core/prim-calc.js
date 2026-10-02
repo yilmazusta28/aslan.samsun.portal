@@ -45,10 +45,32 @@ function getMiGiKatsayi(mi, gi) {
 }
 
 // Prim puanı hesapla (ürün ağırlıkları × real)
+// DÜZELTME: eski değerler (MOKSEFEN .15 / FAMTREC .15) GENEL_TABLO.csv'deki resmi
+// ağırlıklarla uyuşmuyordu. Güncel (5. dönem) resmi ağırlıklar: PANOCER 25 · ACİDPASS 25 ·
+// GRİPORT COLD 20 · FAMTREC 20 · MOKSEFEN 10. (GENEL'de `urun_agirlik` varsa o öncelikli.)
 const URUN_AGIRLIK = {
   'PANOCER': 0.25, 'ACİDPASS': 0.25,
-  'GRİPORT COLD': 0.20, 'MOKSEFEN': 0.15, 'FAMTREC': 0.15  // sıra: PANOCER·ACİDPASS·GRİPORT·MOKSEFEN·FAMTREC
+  'GRİPORT COLD': 0.20, 'MOKSEFEN': 0.10, 'FAMTREC': 0.20  // sıra: PANOCER·ACİDPASS·GRİPORT·MOKSEFEN·FAMTREC
 };
+// PDF: "Grupların ürün ağırlıkları dönemsel olarak değişebilir; dönem başında paylaşılır."
+// Geçmiş dönemlerin resmi ağırlıkları sistemde YOK. Bildiğiniz dönemi buraya yazın
+// (toplam = 1.0); yazılmayan dönemde (YTD_TL.csv kaynaklı geçmiş tablo) ağırlıklar
+// URUN_AGIRLIK'tan, o dönem hedefi olan ürünlere orantılanarak TAHMİN edilir (≈).
+const PERIOD_URUN_AGIRLIK = {
+  '5d': { 'PANOCER': 0.25, 'ACİDPASS': 0.25, 'GRİPORT COLD': 0.20, 'MOKSEFEN': 0.10, 'FAMTREC': 0.20 }
+  // '1d': {...}, '2d': {...}, 'k1': {...}, '4d': {...}, 'k2': {...}
+};
+
+// ── Portföy Primi (PDF: "TL realizasyon sonucuna göre hak edilen prim tutarına %20 ek ödenir;
+//    %20 ek ödeme en fazla %100 real'e göre yapılır"; MAX tablosunda Portföy 66.000 sabit kalır) ──
+// Tek merkez: TÜM modüller bunu kullanır. PORTFOY_ORANSAL=true → %20 × (dönemlik TL Real Primi,
+// real %100'de sınırlı). false → eski davranış: real ne olursa olsun sabit %20 × 55.000 × 1,0.
+const PORTFOY_ORANSAL = true;
+function calcPortfoyPrim(effReal, primPuani) {
+  if (!(effReal >= 91 && primPuani >= 91)) return 0;
+  const c = PORTFOY_ORANSAL ? getCarpan(Math.min(effReal, 100)) : getCarpan(100);
+  return 0.20 * 55000 * c;
+}
 
 // ══════════════════════════════════════════════════════════════
 //  KOMPANZASYON EK PRİMİ (1.A) — Resmi kural (2026 İLKO TTT Prim
@@ -201,7 +223,7 @@ function calcPrimBreakdown(o) {
   const carpan = effReal >= 91 ? getCarpan(Math.min(effReal, 100)) : 0;
   const tlRealPrimDonemlik = carpan * BAZ_TL_REAL;
   const ekPrim = o.ekPrim || 0;
-  const portfoyPrim = (effReal >= 91 && primPuani >= 91) ? 0.20 * BAZ_TL_REAL * getCarpan(100) : 0;
+  const portfoyPrim = calcPortfoyPrim(effReal, primPuani);
   const migiKatsayi = effReal >= 70 ? getMiGiKatsayi(Math.round(mi), Math.round(gi)) : 0;
   const migiPrim = migiKatsayi * BAZ_MIGI;
   return {
@@ -241,8 +263,11 @@ function calcPrimForTTT(ttt) {
   const migiRowsAll   = (typeof MIGI_TL_RAW !== 'undefined' ? MIGI_TL_RAW : []).filter(r => r.person === ttt);
   const _migiLatest    = migiRowsAll.reduce((max, r) => Math.max(max, _migiDonemNum(r.donem)), 0);
   const migiRows       = migiRowsAll.filter(r => _migiDonemNum(r.donem) === _migiLatest);
-  const miAvg     = migiRows.length ? migiRows.reduce((s, r) => s + (r.mi || 100), 0) / migiRows.length : 100;
-  const giAvg     = migiRows.length ? migiRows.reduce((s, r) => s + (r.bi || 100), 0) / migiRows.length : 100;
+  let miAvg     = migiRows.length ? migiRows.reduce((s, r) => s + (r.mi || 100), 0) / migiRows.length : 100;
+  let giAvg     = migiRows.length ? migiRows.reduce((s, r) => s + (r.bi || 100), 0) / migiRows.length : 100;
+  // MI & GIGI: kesin (MI_GIGI.csv) varsa o, yoksa sistem verisinden otomatik tahmin (bkz. migi-donem.js)
+  const _migiAuto = (typeof getMiGiOtomatik === 'function') ? getMiGiOtomatik(ttt) : null;
+  if (_migiAuto) { miAvg = _migiAuto.mi; giAvg = _migiAuto.gi; }
   const migiKatsayi = effReal >= 70 ? getMiGiKatsayi(Math.round(miAvg), Math.round(giAvg)) : 0;
   const BAZ_TL_REAL = 55000;
   const BAZ_MIGI    = 14000;
@@ -257,14 +282,8 @@ function calcPrimForTTT(ttt) {
   // Kompanzasyon Ek Primi (SADECE k1/k2 döneminde, koşulları sağlarsa)
   const _komp = (typeof calcKompanzasyonEkPrimi === 'function') ? calcKompanzasyonEkPrimi(ttt, GENEL) : { ekPrim: 0 };
   const tlRealPrim  = tlRealPrimDonemlik + (_komp.ekPrim || 0);
-  // RESMİ KURAL (2026 İLKO TTT Prim Sunumu — "Portföy Primi Nasıl Hak
-  // Edilir?"): "%20 ek ödeme EN FAZLA %100 REAL'E GÖRE yapılır." Yani
-  // Portföy Primi, TL Real Primi %100'ün üzerine çıksa bile (kompanzasyon
-  // döneminde olduğu gibi) HER ZAMAN %100'lük karşılıkla (çarpan=1.0)
-  // hesaplanır — yukarıdaki `carpan` (kompanzasyon döneminde >1 olabilir)
-  // burada KULLANILMAZ, ayrı bir sabit %100 çarpanı kullanılır.
-  const carpanPortfoy100 = getCarpan(100); // her zaman 1.0 — iş kuralı gereği sabit
-  const portfoyPrim = (effReal >= 91 && primPuani >= 91) ? 0.20 * BAZ_TL_REAL * carpanPortfoy100 : 0;
+  // Portföy Primi: calcPortfoyPrim() — PDF: hak edilen TL Real primine %20 ek, en fazla %100 real'e göre (bkz. PORTFOY_ORANSAL)
+  const portfoyPrim = calcPortfoyPrim(effReal, primPuani);
   const migiPrim    = migiKatsayi * BAZ_MIGI;
   return tlRealPrim + portfoyPrim + migiPrim;
 }
@@ -331,8 +350,10 @@ function calcPrimForTTTForecast(ttt) {
   const migiRowsAll   = (typeof MIGI_TL_RAW !== 'undefined' ? MIGI_TL_RAW : []).filter(r => r.person === ttt);
   const _migiLatest    = migiRowsAll.reduce((max, r) => Math.max(max, _migiDonemNum(r.donem)), 0);
   const migiRows       = migiRowsAll.filter(r => _migiDonemNum(r.donem) === _migiLatest);
-  const miAvg = migiRows.length ? migiRows.reduce((s, r) => s + (r.mi || 100), 0) / migiRows.length : 100;
-  const giAvg = migiRows.length ? migiRows.reduce((s, r) => s + (r.bi || 100), 0) / migiRows.length : 100;
+  let miAvg = migiRows.length ? migiRows.reduce((s, r) => s + (r.mi || 100), 0) / migiRows.length : 100;
+  let giAvg = migiRows.length ? migiRows.reduce((s, r) => s + (r.bi || 100), 0) / migiRows.length : 100;
+  const _migiAuto = (typeof getMiGiOtomatik === 'function') ? getMiGiOtomatik(ttt) : null;
+  if (_migiAuto) { miAvg = _migiAuto.mi; giAvg = _migiAuto.gi; }
   const migiKatsayi = effReal >= 70 ? getMiGiKatsayi(Math.round(miAvg), Math.round(giAvg)) : 0;
 
   const BAZ_TL_REAL = 55000;
@@ -341,8 +362,8 @@ function calcPrimForTTTForecast(ttt) {
   const carpan     = effReal >= 91 ? getCarpan(effRealCarpan) : 0;
   const tlRealPrim = carpan * BAZ_TL_REAL; // Kompanzasyon Ek Primi kasıtlı olarak dahil değil (yukarıdaki not)
 
-  const carpanPortfoy100 = getCarpan(100); // her zaman 1.0 — iş kuralı gereği sabit
-  const portfoyPrim = (effReal >= 91 && primPuani >= 91) ? 0.20 * BAZ_TL_REAL * carpanPortfoy100 : 0;
+  // Portföy Primi: calcPortfoyPrim() — PDF: hak edilen TL Real primine %20 ek, en fazla %100 real'e göre (bkz. PORTFOY_ORANSAL)
+  const portfoyPrim = calcPortfoyPrim(effReal, primPuani);
   const migiPrim    = migiKatsayi * BAZ_MIGI;
 
   return tlRealPrim + portfoyPrim + migiPrim;
@@ -435,9 +456,10 @@ function calcPrimFromArchivedPeriod(ttt, periodKey) {
   let hasMigi = migiRows.length > 0;
   let miAvg = hasMigi ? migiRows.reduce((s, r) => s + (r.mi || 100), 0) / migiRows.length : null;
   let giAvg = hasMigi ? migiRows.reduce((s, r) => s + (r.bi || 100), 0) / migiRows.length : null;
-  // MI_GIGI.csv (düzeltilmiş IMS ile dönem sonu +2 ay gelen KESİN değer) varsa onu tercih et.
-  if (typeof getMiGiDonem === 'function' && typeof yearOfPeriodKey === 'function') {
-    const _mg = getMiGiDonem(ttt, yearOfPeriodKey(resolvedKey), resolvedKey);
+  // MI_GIGI.csv (düzeltilmiş IMS ile dönem sonu +2 ay gelen KESİN değer) varsa o; yoksa
+  // sistem verisinden otomatik tahmin (bkz. getMiGiOtomatik — kesin gelince kendiliğinden değişir).
+  if (typeof getMiGiOtomatik === 'function') {
+    const _mg = getMiGiOtomatik(ttt, resolvedKey);
     if (_mg) { hasMigi = true; miAvg = _mg.mi; giAvg = _mg.gi; }
   }
 
@@ -454,8 +476,8 @@ function calcPrimFromArchivedPeriod(ttt, periodKey) {
     : { ekPrim: 0, eligible: false, reason: '' };
   const tlRealPrim = tlRealPrimDonemlik + (_komp.ekPrim || 0);
 
-  const carpanPortfoy100 = getCarpan(100);
-  const portfoyPrim = (effReal >= 91 && primPuani >= 91) ? 0.20 * BAZ_TL_REAL * carpanPortfoy100 : 0;
+  // Portföy Primi: calcPortfoyPrim() — PDF: hak edilen TL Real primine %20 ek, en fazla %100 real'e göre (bkz. PORTFOY_ORANSAL)
+  const portfoyPrim = calcPortfoyPrim(effReal, primPuani);
   const migiKatsayi = (effReal >= 70 && hasMigi) ? getMiGiKatsayi(Math.round(miAvg), Math.round(giAvg)) : 0;
   const migiPrim = migiKatsayi * BAZ_MIGI;
 

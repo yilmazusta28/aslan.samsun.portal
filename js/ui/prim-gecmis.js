@@ -19,6 +19,10 @@
   function _tl(v) { return (v || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' ₺'; }
   function _pct(v) { return (v == null) ? '—' : v.toFixed(1).replace('.', ',') + '%'; }
   function _clr(v) { return v > 0 ? 'color:#16A34A;font-weight:700' : 'color:#DC2626;font-weight:700'; }
+  var _AY = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+  function _donemAdi(d) { var p = String(d || '').split('/'); return p.length === 2 ? (_AY[(+p[0]) - 1] + ' ' + p[1]) : '—'; }
+  // PDF "Ödeme Takvimi" (baz IMS: dönem sonu +2 ay kesinleşmiş)
+  var _ODEME = { '1d': 'Mayıs', '2d': 'Temmuz', 'k1': 'Eylül', '4d': 'Kasım', '5d': 'Ocak (Ertesi yıl)', 'k2': 'Mart (Ertesi yıl)' };
   function _periods() { return (typeof PERIODS !== 'undefined') ? PERIODS : []; }
   function _ttt() { var el = document.getElementById('primTTT'); return el ? el.value : ''; }
 
@@ -34,7 +38,10 @@
     var rec = window.PrimLedger ? window.PrimLedger.get(year, p.key, ttt) : null;
     var mg = (typeof getMiGiDonem === 'function') ? getMiGiDonem(ttt, year, p.key) : null;
     var inProgress = (year === _yearOfPeriod(p) && p.key === effKey);
-    var row = { p: p, rec: rec, mg: mg, inProgress: inProgress, calc: null, komp: null };
+    // Kesinleşmiş MI&GIGI yoksa sistem verisinden otomatik tahmin (sadece 2026 — sistem verisi 2026'ya ait)
+    var auto = (!mg && rec && year === _yearOfPeriod(p) && typeof getMiGiOtomatik === 'function') ? getMiGiOtomatik(ttt, p.key) : null;
+    if (auto && auto.source === 'final') auto = null;
+    var row = { p: p, rec: rec, mg: mg, auto: auto, inProgress: inProgress, calc: null, komp: null };
     if (!rec) return row;
 
     var effReal = rec.genel.tl_pct || 0;
@@ -52,7 +59,7 @@
         row.komp = { eligible: false, ekPrim: 0, reason: 'Önceki 2 dönemin ürün verisi yok.' };
       }
     }
-    row.calc = calcPrimBreakdown({ effReal: effReal, primPuani: primPuani, mi: mg ? mg.mi : 100, gi: mg ? mg.gi : 100, ekPrim: ek });
+    row.calc = calcPrimBreakdown({ effReal: effReal, primPuani: primPuani, mi: mg ? mg.mi : (auto ? auto.mi : 100), gi: mg ? mg.gi : (auto ? auto.gi : 100), ekPrim: ek });
     row.effReal = effReal; row.primPuani = primPuani;
     return row;
   }
@@ -62,7 +69,7 @@
     if (r.mg && r.rec) return '<span style="color:#16A34A;font-weight:700">✅ Kesinleşti</span>';
     if (r.mg && !r.rec) return '<span style="color:#D97706;font-weight:700">📥 MI&amp;GIGI var, ürün % yok</span>';
     if (r.inProgress) return '<span style="color:#2563EB;font-weight:700">▶ Devam ediyor</span>';
-    if (r.rec) return '<span style="color:#D97706;font-weight:700">⏳ Tahmini (MI=GIGI=100)</span>';
+    if (r.rec) return '<span style="color:#D97706;font-weight:700">⏳ Tahmini (' + (r.auto ? 'sistem MI/GIGI' : 'MI=GIGI=100') + ')</span>';
     return '<span style="color:var(--dim)">— Veri yok</span>';
   }
 
@@ -92,7 +99,7 @@
     // Ürün bazlı dönem verisi: YTD_TL.csv (yüklü değilse arka planda çek, gelince yeniden çiz)
     if (!window.YTD_TL_DATA && typeof loadYtdTlData === 'function' && !window._pgYtdLoading) {
       window._pgYtdLoading = true;
-      loadYtdTlData().then(function () { window._pgYtdLoading = false; renderPrimGecmis(); })
+      loadYtdTlData().then(function () { window._pgYtdLoading = false; if (window.YTD_TL_DATA && typeof calcPrim === 'function' && _ttt()) calcPrim(); else renderPrimGecmis(); })
                      .catch(function () { window._pgYtdLoading = false; });
     }
     if (window.PrimLedger) { try { window.PrimLedger.captureAll(typeof GENEL !== 'undefined' ? GENEL : []); } catch (e) { /* sessiz */ } }
@@ -119,12 +126,15 @@
           return '<td style="text-align:right;padding:4px 5px">' + (x ? _pct(x.tl_pct) : '—') + '</td>';
         }).join('');
         cells = '<td style="text-align:right;padding:4px 5px;font-weight:700">' + _pct(r.effReal) + '</td>' + urunCells +
-          '<td style="text-align:right;padding:4px 5px">' + _pct(r.primPuani) + '</td>';
+          '<td style="text-align:right;padding:4px 5px" title="' + (r.rec.agirlikTahmini ? 'Bu dönemin resmi ürün ağırlıkları sistemde yok; tahmini ağırlıkla hesaplandı (portföy eşiği %91 etkilenebilir)' : 'Resmi ürün ağırlıklarıyla') + '">' + (r.rec.agirlikTahmini ? '≈' : '') + _pct(r.primPuani) + '</td>';
       } else {
         cells = '<td colspan="7" style="text-align:center;color:var(--dim);padding:4px 5px">Ürün bazlı veri yok (YTD_TL.csv içinde bu dönem için hedef bulunamadı)</td>';
       }
-      var mi = r.mg ? '<span style="color:' + getIndeksColor(r.mg.mi) + ';font-weight:700">' + r.mg.mi.toFixed(1).replace('.', ',') + '%</span>' : '<span style="color:var(--dim)">' + (c ? '100*' : '—') + '</span>';
-      var gi = r.mg ? '<span style="color:' + getIndeksColor(r.mg.gi) + ';font-weight:700">' + r.mg.gi.toFixed(1).replace('.', ',') + '</span>' : '<span style="color:var(--dim)">' + (c ? '100*' : '—') + '</span>';
+      var _aTip = r.auto ? ('Sistem verisinden tahmin — MI: ' + _donemAdi(r.auto.donem) + ' YTD' + (r.auto.giNote ? '; ' + r.auto.giNote : (r.auto.giFallback ? '; GIGI=100 varsayıldı' : '')) + ' — kesinleşmiş IMS gelince değişir') : '';
+      var mi = r.mg ? '<span style="color:' + getIndeksColor(r.mg.mi) + ';font-weight:700">' + r.mg.mi.toFixed(1).replace('.', ',') + '%</span>'
+        : (r.auto ? '<span title="' + _aTip + '" style="color:var(--dim)">≈' + r.auto.mi.toFixed(1).replace('.', ',') + '%</span>' : '<span style="color:var(--dim)">' + (c ? '100*' : '—') + '</span>');
+      var gi = r.mg ? '<span style="color:' + getIndeksColor(r.mg.gi) + ';font-weight:700">' + r.mg.gi.toFixed(1).replace('.', ',') + '</span>'
+        : (r.auto ? '<span title="' + _aTip + '" style="color:var(--dim)">≈' + r.auto.gi.toFixed(1).replace('.', ',') + '</span>' : '<span style="color:var(--dim)">' + (c ? '100*' : '—') + '</span>');
       var money = c ? ('<td style="text-align:right;padding:4px 5px"><span style="' + _clr(c.tlRealPrim) + '">' + _tl(c.tlRealPrim) + '</span>' +
           (c.ekPrim > 0 ? '<div style="font-size:8px;color:var(--dim)" title="' + (r.komp && r.komp.detail && r.komp.detail.approx ? 'Manuel girilen dönemlerde hedef/satış TL yok: kümülatif real, dönem real ortalamasından yaklaşık hesaplandı' : 'Kompanzasyon Ek Primi') + '">(+' + _tl(c.ekPrim) + ' komp.' + (r.komp && r.komp.detail && r.komp.detail.approx ? ' ≈' : '') + ')</div>' : '') + '</td>' +
         '<td style="text-align:right;padding:4px 5px"><span style="' + _clr(c.portfoyPrim) + '">' + _tl(c.portfoyPrim) + '</span></td>' +
@@ -135,7 +145,7 @@
         ? '<div style="font-size:8px;color:#D97706;max-width:150px;white-space:normal">Komp. ek prim yok: ' + r.komp.reason + '</div>' : '';
       var tr = '<tr style="border-bottom:1px solid var(--border)' + (r.inProgress ? ';background:rgba(37,99,235,.05)' : '') + '">' +
         '<td style="padding:4px 5px;white-space:nowrap;font-weight:700">' + pr.label + '<div style="font-size:8px;font-weight:400;color:var(--dim)">' + pr.months + '</div></td>' +
-        '<td style="padding:4px 5px;font-size:10px;white-space:nowrap">' + _statusBadge(r) + kompNote + '</td>' +
+        '<td style="padding:4px 5px;font-size:10px;white-space:nowrap">' + _statusBadge(r) + '<div style="font-size:8px;color:var(--dim)">Ödeme: ' + (_ODEME[pr.key] || '') + ' son hafta</div>' + kompNote + '</td>' +
         cells + '<td style="text-align:right;padding:4px 5px">' + mi + '</td><td style="text-align:right;padding:4px 5px">' + gi + '</td>' + money +
         '<td style="padding:4px 5px"><button title="Ürün % düzenle" onclick="pgToggleEdit(\'' + pr.key + '\')" style="border:1px solid var(--border);background:var(--surf);border-radius:5px;cursor:pointer;padding:2px 6px">✏️</button></td></tr>';
       if (_editKey === pr.key) tr += _editRowHtml(ttt, _year, r);
@@ -164,7 +174,7 @@
         '<div>⏳ MI&amp;GIGI bekleyen (tahmini): <strong style="color:#D97706">' + _tl(tahmini) + '</strong></div>' +
       '</div>' +
       '<div style="font-size:9px;color:var(--dim);background:var(--surf2);padding:8px;border-radius:6px;border:1px solid var(--border);margin-top:8px">' +
-        '* Prim, dönem bitiminden 2 ay sonra gelen (düzeltilmiş IMS\'li) MI &amp; GIGI ile kesinleşir; gelene kadar MI=GIGI=100 varsayılır (100*). ' +
+        '* Prim, dönem bitiminden 2 ay sonra gelen (düzeltilmiş IMS\'li) MI &amp; GIGI ile kesinleşir. Gelene kadar sistemdeki MI ve GIGI (Grup İçi Gelişim İndeksi) verisinden otomatik tahmin edilir (≈); veri yoksa 100* varsayılır. ' +
         'MI &amp; GIGI kaynağı: <code>MI_GIGI.csv</code>. Ürün bazlı hedef/satış/real değerleri <code>YTD_TL.csv</code> dosyasındaki dönem bloklarından okunur (manuel giriş gerekmez); ✏️ yalnızca o dosyada olmayan bir dönemi elle düzeltmek içindir.' +
       '</div>';
   }
@@ -182,6 +192,32 @@
   window.pgClearEdit = function (key) {
     if (!confirm('Bu dönemin manuel kaydı silinsin mi? (Arşiv/sync kaydı varsa otomatik geri gelir.)')) return;
     window.PrimLedger.remove(_year, key, _ttt()); _editKey = null; renderPrimGecmis();
+  };
+
+  // ── Prim Hesaplama Şablonu: MI & GIGI otomatik doldurma ──────────────
+  // Kesin MI_GIGI.csv değeri varsa o; yoksa sistem verisinden tahmin. Kullanıcı elle
+  // değiştirirse otomatik doldurma durur (↺ ile geri dönülür); temsilci değişince sıfırlanır.
+  var _miGiManual = false, _miGiLastTTT = null;
+  window.primMiGiManual = function (el) {
+    _miGiManual = !(el && el.value === '');          // alan boşaltılırsa tekrar otomatiğe dön
+  };
+  window.primMiGiReset = function () { _miGiManual = false; if (typeof calcPrim === 'function') calcPrim(); };
+  window.applyPrimMiGiAuto = function (ttt) {
+    var miEl = document.getElementById('primMI'), giEl = document.getElementById('primGI'), src = document.getElementById('primMiGiSrc');
+    if (!miEl || !giEl) return;
+    if (ttt !== _miGiLastTTT) { _miGiLastTTT = ttt; _miGiManual = false; }
+    var a = (typeof getMiGiOtomatik === 'function') ? getMiGiOtomatik(ttt) : null;
+    if (!_miGiManual && a) { miEl.value = a.mi.toFixed(1); giEl.value = a.gi.toFixed(1); }
+    if (!src) return;
+    if (_miGiManual) {
+      src.innerHTML = '✏️ Elle girildi · <a href="javascript:void(0)" onclick="primMiGiReset()" style="color:var(--c1)">↺ Otomatiğe dön</a>';
+    } else if (!a) {
+      src.innerHTML = '⚠️ Sistemde bu temsilci için MI &amp; GIGI verisi yok — 100 varsayılıyor, elle girebilirsiniz.';
+    } else if (a.source === 'final') {
+      src.innerHTML = '✅ Kesinleşmiş MI &amp; GIGI (MI_GIGI.csv)';
+    } else {
+      src.innerHTML = '🔄 Otomatik tahmin — sistem verisi (' + _donemAdi(a.donem) + (a.giFallback ? ', GIGI için veri yok → 100' : '') + '). ' + (a.giNote ? a.giNote + '. ' : '') + 'Kesinleşmiş IMS gelince otomatik güncellenir.';
+    }
   };
 
   window.renderPrimGecmis = renderPrimGecmis;

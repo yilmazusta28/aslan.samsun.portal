@@ -455,9 +455,11 @@ function buildPrimContext(ttt) {
     try {
       if (typeof calcPrimForTTT === 'function') totalPrim = calcPrimForTTT(ttt);
       if (typeof getCarpan === 'function' && realPct >= 91) {
-        var carpan = getCarpan(realPct);
+        var carpan = getCarpan(Math.min(realPct, 100));      // dönemlik prim %100 ile sınırlı (PDF)
         tlRealPrim  = Math.round(carpan * 55000);
-        portfoyPrim = (primPuani >= 91) ? Math.round(0.20 * 55000 * carpan) : 0;
+        portfoyPrim = (typeof calcPortfoyPrim === 'function')
+          ? Math.round(calcPortfoyPrim(realPct, primPuani))
+          : ((primPuani >= 91) ? Math.round(0.20 * 55000 * carpan) : 0);
       }
       // BUG DÜZELTMESİ: r.ttt → r.person, r.gi → r.bi + sadece EN GÜNCEL
       // döneme ait satırlar kullanılıyor (bkz. prim-calc.js düzeltme notu).

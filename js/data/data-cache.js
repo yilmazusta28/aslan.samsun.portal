@@ -36,6 +36,7 @@
         GENEL:                (typeof GENEL             !== 'undefined') ? GENEL             : [],
         KUTU:                 (typeof KUTU              !== 'undefined') ? KUTU              : [],
         MIGI_TL_RAW:          (typeof MIGI_TL_RAW       !== 'undefined') ? MIGI_TL_RAW       : [],
+        MIGI_TL_NATIONAL:     Array.isArray(window.MIGI_TL_NATIONAL) ? window.MIGI_TL_NATIONAL : [],
         MIGI_KUTU_RAW:        (typeof MIGI_KUTU_RAW     !== 'undefined') ? MIGI_KUTU_RAW     : [],
         MIGI_BRICK_TL_RAW:    (typeof MIGI_BRICK_TL_RAW !== 'undefined') ? MIGI_BRICK_TL_RAW : [],
         MIGI_BRICK_KUTU_RAW:  (typeof MIGI_BRICK_KUTU_RAW !== 'undefined') ? MIGI_BRICK_KUTU_RAW : []
@@ -78,6 +79,7 @@
       if (Array.isArray(payload.GENEL))             { GENEL.length = 0;             payload.GENEL.forEach(function(r){ GENEL.push(r); }); }
       if (Array.isArray(payload.KUTU))              { KUTU.length = 0;              payload.KUTU.forEach(function(r){ KUTU.push(r); }); }
       if (Array.isArray(payload.MIGI_TL_RAW))       { MIGI_TL_RAW.length = 0;       payload.MIGI_TL_RAW.forEach(function(r){ MIGI_TL_RAW.push(r); }); }
+      if (Array.isArray(payload.MIGI_TL_NATIONAL))  { window.MIGI_TL_NATIONAL = payload.MIGI_TL_NATIONAL; }
       if (Array.isArray(payload.MIGI_KUTU_RAW))     { MIGI_KUTU_RAW.length = 0;     payload.MIGI_KUTU_RAW.forEach(function(r){ MIGI_KUTU_RAW.push(r); }); }
       if (Array.isArray(payload.MIGI_BRICK_TL_RAW)) { MIGI_BRICK_TL_RAW.length = 0; payload.MIGI_BRICK_TL_RAW.forEach(function(r){ MIGI_BRICK_TL_RAW.push(r); }); }
       if (Array.isArray(payload.MIGI_BRICK_KUTU_RAW)) { MIGI_BRICK_KUTU_RAW.length = 0; payload.MIGI_BRICK_KUTU_RAW.forEach(function(r){ MIGI_BRICK_KUTU_RAW.push(r); }); }

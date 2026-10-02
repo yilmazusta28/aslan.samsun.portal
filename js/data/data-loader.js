@@ -35,7 +35,7 @@ function rebuildKutuFromIMS() {
 }
 
 // ── MI/GI Toplam CSV Parser ──────────────────────────────────
-function parseMiGiToplamCSV(csvText) {
+function parseMiGiToplamCSV(csvText, natOut) {
   if (!csvText || csvText.trim().startsWith('<')) return [];
   const pN = s => {
     s = String(s||'').trim().replace(/\s/g,'');
@@ -67,10 +67,16 @@ function parseMiGiToplamCSV(csvText) {
     const ayRaw  = (c[0] || '').toUpperCase();
     const person = (c[1] || '').trim();
     if (!ayRaw || !person) continue;
-    if (person.toUpperCase().includes('NATIONAL') || person.toUpperCase().includes('GİDİLMEYEN')) continue;
+    if (person.toUpperCase().includes('GİDİLMEYEN')) continue;
     const ayE = Object.entries(AY_MAP).find(([k]) => ayRaw.includes(k));
     if (!ayE) continue;
     const donem = ayE[1] + '/2026'; // "02/2026"
+    // NATIONAL satırı MIGI_TL_RAW'a KARIŞMAZ (tablolar/AI bozulmasın); yalnızca isteyen
+    // çağıran için ayrı diziye alınır → GIGI tahmini (Büyüme İnd. ÷ NATIONAL Büyüme İnd.).
+    if (person.toUpperCase().includes('NATIONAL')) {
+      if (Array.isArray(natOut)) natOut.push({ person, donem, ilac: 'GENEL', bi: pN(c[2]), evol: pN(c[3]), mi: pN(c[4]) });
+      continue;
+    }
 
     // GENEL satırı (tüm ürünler toplamı)
     records.push({
@@ -363,7 +369,7 @@ async function syncData(forceFresh) {
     const { genel: newGenel, imsTL: newImsTL, trSira: newTrSira, regions: newRegions } = parseGenelCSV(csvGenel);
 
     // TOPLAM dosyaları
-    if(csvMiGiTL)  { try{ const p=parseMiGiToplamCSV(csvMiGiTL);   MIGI_TL_RAW.length=0;      MIGI_TL_RAW.push(...p);      console.log('[TOPLAM-TL]',p.length); }catch(e){console.warn(e);} }
+    if(csvMiGiTL)  { try{ const _nat=[]; const p=parseMiGiToplamCSV(csvMiGiTL,_nat);   MIGI_TL_RAW.length=0;      MIGI_TL_RAW.push(...p);      window.MIGI_TL_NATIONAL=_nat;      console.log('[TOPLAM-TL]',p.length,'| NATIONAL:',_nat.length); }catch(e){console.warn(e);} }
     if(csvMiGiKutu){ try{ const p=parseMiGiToplamCSV(csvMiGiKutu); MIGI_KUTU_RAW.length=0;    MIGI_KUTU_RAW.push(...p);    console.log('[TOPLAM-KUTU]',p.length); }catch(e){console.warn(e);} }
     // BRICK dosyaları
     if(csvMiGiBTL)  { try{ const p=parseMiGiBrickCSV(csvMiGiBTL);   MIGI_BRICK_TL_RAW.length=0;   MIGI_BRICK_TL_RAW.push(...p);   console.log('[BRICK-TL]',p.length); }catch(e){console.warn(e);} }

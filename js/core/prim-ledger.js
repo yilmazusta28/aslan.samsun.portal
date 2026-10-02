@@ -60,21 +60,34 @@
   function _round(v) { return v == null ? null : Math.round(v * 100) / 100; }
 
   // Prim Puanı — calcPrimPuani ile AYNI kural (ürün real ≥70, tavan 130, ağırlıklı)
-  function _primPuani(urunler) {
-    var total = 0;
+  // Ağırlık önceliği: PERIOD_URUN_AGIRLIK[dönem] > kayıttaki resmi `agirlik` (GENEL) > URUN_AGIRLIK.
+  // PDF: grubun ağırlıkları toplamı %100 → dönemde hedefi olmayan ürün varsa kalanlar orantılanır.
+  // est=true: ağırlıklar tahmin (resmi dönem ağırlığı bilinmiyor).
+  function _agirliklar(urunler, key) {
+    var tbl = (typeof PERIOD_URUN_AGIRLIK !== 'undefined' && key) ? PERIOD_URUN_AGIRLIK[key] : null;
+    var w = {}, sum = 0, est = false;
     Object.keys(URUN_AGIRLIK).forEach(function (u) {
-      var r = urunler[u];
-      var real = r ? (r.tl_pct || 0) : 0;
-      if (real >= 70) {
-        var w = (r && r.agirlik > 0) ? r.agirlik : URUN_AGIRLIK[u];
-        total += Math.min(real, 130) * w;
-      }
+      var r = urunler[u]; if (!r) return;
+      var x;
+      if (tbl && tbl[u] > 0) x = tbl[u];
+      else if (r.agirlik > 0) x = r.agirlik;
+      else { x = URUN_AGIRLIK[u]; est = true; }
+      w[u] = x; sum += x;
+    });
+    if (sum > 0 && Math.abs(sum - 1) > 0.001) { Object.keys(w).forEach(function (u) { w[u] /= sum; }); est = est || !tbl; }
+    return { w: w, est: est };
+  }
+  function _primPuani(urunler, key) {
+    var a = _agirliklar(urunler, key), total = 0;
+    Object.keys(a.w).forEach(function (u) {
+      var real = urunler[u] ? (urunler[u].tl_pct || 0) : 0;
+      if (real >= 70) total += Math.min(real, 130) * a.w[u];
     });
     return total;
   }
 
   // GENEL dizisinden bir temsilcinin kaydını üret (yoksa null)
-  function _buildFromGenel(genelArr, ttt, source) {
+  function _buildFromGenel(genelArr, ttt, source, key) {
     var g = (genelArr || []).find(function (r) { return r.ttt === ttt && r.urun === 'GENEL TOPLAM'; });
     if (!g) return null;
     if (!(g.hedef_tl > 0) && !(g.tl_pct > 0)) return null;   // boş/sıfır dönem verisini kaydetme
@@ -85,7 +98,7 @@
                             agirlik: r.urun_agirlik > 0 ? r.urun_agirlik : null };
     });
     return {
-      genel: { tl_pct: _round(g.tl_pct || 0), prim_pct: g.prim_pct ? _round(g.prim_pct) : _round(_primPuani(urunler)),
+      genel: { tl_pct: _round(g.tl_pct || 0), prim_pct: g.prim_pct ? _round(g.prim_pct) : _round(_primPuani(urunler, key)),
                hedef_tl: g.hedef_tl || 0, satis_tl: g.satis_tl || 0 },
       urunler: urunler, source: source, savedAt: new Date().toISOString()
     };
@@ -113,8 +126,8 @@
       if (p && p.hedef > 0) urunler[u] = { tl_pct: _round(p.real || (p.satis / p.hedef * 100)), hedef_tl: p.hedef, satis_tl: p.satis, agirlik: null };
     });
     return {
-      genel: { tl_pct: _round(t.real || (t.satis / t.hedef * 100)), prim_pct: _round(_primPuani(urunler)), hedef_tl: t.hedef, satis_tl: t.satis },
-      urunler: urunler, source: 'ytd', savedAt: null
+      genel: { tl_pct: _round(t.real || (t.satis / t.hedef * 100)), prim_pct: _round(_primPuani(urunler, key)), hedef_tl: t.hedef, satis_tl: t.satis },
+      urunler: urunler, source: 'ytd', savedAt: null, agirlikTahmini: _agirliklar(urunler, key).est
     };
   }
 
@@ -137,7 +150,7 @@
       ALL_TTTS.forEach(function (t) {
         var cur = db.entries[kk] && db.entries[kk][t];
         if (cur && cur.source === 'manuel') return;           // manuel kayıt ezilmez
-        var rec = _buildFromGenel(genelArr, t, 'sync');
+        var rec = _buildFromGenel(genelArr, t, 'sync', eff.key);
         if (!rec) return;
         if (!db.entries[kk]) db.entries[kk] = {};
         db.entries[kk][t] = rec; changed = true;
@@ -153,7 +166,7 @@
         var ak = _k(_yearOf(key), key);
         ALL_TTTS.forEach(function (t) {
           if (db.entries[ak] && db.entries[ak][t]) return;
-          var rec = _buildFromGenel(arch.genel, t, 'arsiv');
+          var rec = _buildFromGenel(arch.genel, t, 'arsiv', key);
           if (!rec) return;
           if (!db.entries[ak]) db.entries[ak] = {};
           db.entries[ak][t] = rec; changed = true;
@@ -177,8 +190,8 @@
     });
     if (!any && !(genelReal > 0)) return false;
     var rec = {
-      genel: { tl_pct: _round(genelReal > 0 ? +genelReal : wsum), prim_pct: _round(_primPuani(urunler)), hedef_tl: null, satis_tl: null },
-      urunler: urunler, source: 'manuel', savedAt: new Date().toISOString()
+      genel: { tl_pct: _round(genelReal > 0 ? +genelReal : wsum), prim_pct: _round(_primPuani(urunler, key)), hedef_tl: null, satis_tl: null },
+      urunler: urunler, source: 'manuel', savedAt: new Date().toISOString(), agirlikTahmini: true
     };
     var kk = _k(year, key);
     if (!db.entries[kk]) db.entries[kk] = {};
@@ -232,7 +245,7 @@
       .catch(function () { return false; });
   }
 
-  window.PrimLedger = { get: get, hasYtd: function () { return !!window.YTD_TL_DATA; },
+  window.PrimLedger = { get: get, agirliklar: _agirliklar, hasYtd: function () { return !!window.YTD_TL_DATA; },
                          captureAll: captureAll, setManual: setManual, remove: remove,
                         exportYear: exportYear, hydrateRemote: hydrateRemote, primPuani: _primPuani };
 })();

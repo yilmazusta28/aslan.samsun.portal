@@ -33,6 +33,9 @@
   // (bkz. prim-calc.js'deki detaylı açıklama).
   var _migiDonemNum = function (d) { var p = String(d || '').split('/'); return p.length === 2 ? (+p[1] * 100 + +p[0]) : 0; };
   function _getMiGiAvg(ttt) {
+    // Kesin MI_GIGI varsa o, yoksa otomatik tahmin (migi-donem.js) — Prim Hesapla ile aynı değer
+    var _auto = (typeof getMiGiOtomatik === 'function') ? getMiGiOtomatik(ttt) : null;
+    if (_auto) return { mi: Math.round(_auto.mi), gi: Math.round(_auto.gi) };
     var allRows = (typeof MIGI_TL_RAW !== 'undefined' ? MIGI_TL_RAW : [])
       .filter(function (r) { return r.person === ttt; });
     var latest = allRows.reduce(function (max, r) { return Math.max(max, _migiDonemNum(r.donem)); }, 0);
@@ -105,8 +108,9 @@
     // döneminde %100'ü aşsa bile Portföy bundan etkilenmez (bkz.
     // js/core/prim-calc.js'deki aynı düzeltme).
     var carpanPortfoy100 = (typeof getCarpan === 'function') ? getCarpan(100) : 1;
-    var portfoyPrim = (targetReal >= 91 && primPuani >= 91)
-      ? 0.20 * BAZ_TL_REAL * carpanPortfoy100 : 0;
+    var portfoyPrim = (typeof calcPortfoyPrim === 'function')
+      ? calcPortfoyPrim(targetReal, primPuani)
+      : ((targetReal >= 91 && primPuani >= 91) ? 0.20 * BAZ_TL_REAL * carpanPortfoy100 : 0);
     var migiPrim    = migiKatsayi * BAZ_MIGI;
 
     return Math.round(tlRealPrim + portfoyPrim + migiPrim);

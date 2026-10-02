@@ -251,14 +251,14 @@ function _runEngineCore() {
   // ── Prim durumu hesapla (prim-calc.js fonksiyonları kullanılıyor) ───────────
   // ── Prim hesabı — prim-calc.js canonical fonksiyonlarıyla ───────────
   const _effReal   = gt?.tl_pct || 0;
-  const _carpan    = (typeof getCarpan    === 'function') ? getCarpan(_effReal)    : 0;
+  const _carpan    = (typeof getCarpan    === 'function') ? getCarpan(Math.min(_effReal, 100)) : 0;   // dönemlik prim %100 ile sınırlı (PDF)
   const BAZ_TL     = 55000;
   const BAZ_MIGI   = 14000;
   const primTL     = _effReal >= 91 ? BAZ_TL * _carpan : 0;
   const primPuan   = gt?.prim_pct || (typeof calcPrimPuani === 'function'
     ? calcPrimPuani(Object.fromEntries(urunRows.map(r=>[r.urun,r.tl_pct])), ttt)
     : 0);
-  const primPort   = (_effReal >= 91 && primPuan >= 91) ? (0.20 * BAZ_TL * _carpan) : 0;
+  const primPort   = (typeof calcPortfoyPrim === 'function') ? calcPortfoyPrim(_effReal, primPuan) : ((_effReal >= 91 && primPuan >= 91) ? (0.20 * BAZ_TL * _carpan) : 0);
   const primMIGI   = (() => {
     if (_effReal < 70 || !migiRows.length) return 0;
     const miArr    = migiRows.filter(r=>r.mi!=null);
@@ -270,7 +270,8 @@ function _runEngineCore() {
       ? getMiGiKatsayi(Math.round(miAvg), Math.round(giAvg)) : 0;
     return BAZ_MIGI * katsayi;
   })();
-  const toplamPrim = primTL + primPort + primMIGI;
+  // Kanonik toplam (kompanzasyon ek primi + otomatik/kesin MI&GIGI dahil); yoksa yerel toplam
+  const toplamPrim = (typeof calcPrimForTTT === 'function') ? calcPrimForTTT(ttt) : (primTL + primPort + primMIGI);
 
   // ── Günlük görev kartları oluştur ───────────────────────
   // ── Kart 1: Bugün Sat — tam genişlik (grid-column: 1/-1) ──────────

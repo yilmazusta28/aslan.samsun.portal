@@ -99,19 +99,19 @@
 <script src="js/core/period-archive-manager.js?v=20260705"></script>
 <script src="js/core/math-utils.js?v=20260705"></script>
 <script src="js/core/formatters.js?v=20260705"></script>
-<script src="js/core/prim-calc.js?v=20261001"></script>
-<script src="js/core/migi-donem.js?v=20261001"></script>
-<script src="js/core/prim-ledger.js?v=20261001"></script>
+<script src="js/core/prim-calc.js?v=20261002"></script>
+<script src="js/core/migi-donem.js?v=20261002"></script>
+<script src="js/core/prim-ledger.js?v=20261002"></script>
 <script src="js/data/data-normalizer.js?v=20260705"></script>
 <script src="js/data/csv-parser.js?v=20260705"></script>
 <script src="js/data/data-state.js?v=20260705"></script>
-<script src="js/data/data-loader.js?v=20261001"></script>
+<script src="js/data/data-loader.js?v=20261001b"></script>
 <script src="js/data/ytd-tl-loader.js?v=20260912"></script>
 <script src="js/data/tr-sira-loader.js?v=20260913"></script>
 <script src="js/data/charts.js?v=20260705"></script>
 <script src="js/data/storage.js?v=20260705"></script>
 <!-- PHASE 2.3.5: Data Cache Layer -->
-<script src="js/data/data-cache.js?v=20260705"></script>
+<script src="js/data/data-cache.js?v=20261001b"></script>
 <script src="js/utils/audio-utils.js?v=20260705"></script>
 <!-- PHASE23: UI Component Layer — extracted from index.html inline script -->
 <!-- Rollback: remove these 6 lines; PHASE23-STUB blocks in inline script reactivate -->
@@ -127,7 +127,7 @@
 <script src="js/ui/role-visibility.js?v=20260705"></script>
 <script src="js/ui/ytd-tl-page.js?v=20260912"></script>
 <script src="js/ui/tr-sira-panel.js?v=20260913"></script>
-<script src="js/ui/prim-gecmis.js?v=20261001"></script>
+<script src="js/ui/prim-gecmis.js?v=20261002"></script>
 <!-- END PHASE23 UI Layer -->
 <script src="js/core/runtime-patches.js?v=20260705"></script>
 <!-- PHASE 2.3.5: Performance Monitor + Health Check (console-only, no UI) -->
@@ -228,7 +228,7 @@
      ai-context.js Phase 3.2 bloğu try/catch ile sarılı — dosyalar yoksa context sağlam kalır.
   ─────────────────────────────────────────────────────────────────────── -->
 <script src="js/ai/simulator/target-simulator-engine.js?v=20260705"></script>
-<script src="js/ai/simulator/prim-simulator.js?v=20260705"></script>
+<script src="js/ai/simulator/prim-simulator.js?v=20261002"></script>
 <script src="js/ai/simulator/scenario-builder.js?v=20260705"></script>
 <script src="js/ai/simulator/action-planner.js?v=20260705"></script>
 <!-- END PHASE 3.2 Smart Target Simulator -->
@@ -537,11 +537,11 @@ window.DOSYALAR_DELETE_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/dos
      buildTerritoryContext, buildExecutiveContext
      — hepsi ai-context.js içinde tanımlandı, ayrı dosya yok -->
 
-<script src="js/ai/ai-context.js?v=20260705d"></script>
+<script src="js/ai/ai-context.js?v=20261002"></script>
 <script src="js/ai/ai-service.js?v=20260705c"></script>
 <script src="js/ai/voice-briefing.js?v=20261001b"></script>
 <script src="js/ai/learning-engine.js?v=20260705"></script>
-<script src="js/ai/ai-engine.js?v=20260728a"></script>
+<script src="js/ai/ai-engine.js?v=20261002"></script>
 <!-- PHASE 4.6.x: Recommendation Memory Layer
      AI tarafından üretilen önerileri (next best action) localStorage'da
      pharma_recommendation_memory_v1 altında saklar. window.RecommendationMemory
@@ -846,6 +846,7 @@ function calcPrim() {
     primPuani = calcPrimPuani(urunReals, ttt);
   }
 
+  if (typeof applyPrimMiGiAuto === 'function') { try { applyPrimMiGiAuto(ttt); } catch (e) { console.warn('[prim-migi-auto]', e.message); } }
   const mi = parseFloat(document.getElementById('primMI')?.value) || 100;
   const gi = parseFloat(document.getElementById('primGI')?.value) || 100;
 
@@ -872,13 +873,8 @@ function calcPrim() {
     ? calcKompanzasyonEkPrimi(ttt, GENEL)
     : { ekPrim: 0, eligible: false, reason: 'Modül yüklü değil' };
   const tlRealPrim   = tlRealPrimDonemlik + (_komp.ekPrim || 0);
-  // RESMİ KURAL (2026 İLKO TTT Prim Sunumu, "Portföy Primi Nasıl Hak
-  // Edilir?" — "%20 ek ödeme EN FAZLA %100 REAL'E GÖRE yapılır"):
-  // Portföy Primi HER ZAMAN %100'lük karşılıkla (çarpan=1.0) hesaplanır;
-  // TL Real Primi Kompanzasyon Ek Primi ile artsa bile Portföy bundan
-  // etkilenmeyip sabit kalır.
-  const carpanPortfoy100 = getCarpan(100); // her zaman 1.0
-  const portfoyPrim  = (effReal >= 91 && primPuani >= 91) ? 0.20 * BAZ_TL_REAL * carpanPortfoy100 : 0;
+  // Portföy Primi: calcPortfoyPrim() — PDF: hak edilen TL Real primine %20 ek, en fazla %100 real'e göre (bkz. PORTFOY_ORANSAL)
+  const portfoyPrim  = calcPortfoyPrim(effReal, primPuani);   // PDF: %20 × hak edilen TL Real primi (en fazla %100 real)
   const migiPrim     = migiKatsayi * BAZ_MIGI;
   const toplamPrim   = tlRealPrim + portfoyPrim + migiPrim;
 
@@ -7315,14 +7311,15 @@ function _buildEczaneDrawerRefresh(){
 
           <div style="margin-top:12px">
             <div style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:10px;color:#92400E">
-              ⚠️ <strong>Not:</strong> MI & GI değerleri manuel girilir. Dönem sonunda kesinleşir. Geçmiş dönemlerin kesinleşmiş MI &amp; GIGI'li primleri aşağıdaki tabloda.
+              ℹ️ <strong>Not:</strong> MI &amp; GIGI, kesinleşmiş IMS verisi (dönem sonu +2 ay) gelene kadar sistemdeki veriden otomatik tahmin edilir; kesinleşmiş değer (MI_GIGI.csv) gelince kendiliğinden onunla değişir. İsterseniz elle de girebilirsiniz. Geçmiş dönemler aşağıdaki tabloda.
             </div>
-            <label style="font-size:10px;font-weight:600;color:var(--dim);display:block;margin-bottom:4px">MI İndeksi <span style="color:#6B7280;font-weight:400">(dönem sonucu)</span></label>
-            <input type="number" class="inp" id="primMI" value="100" min="0" oninput="calcPrim()" style="width:100%" placeholder="Dönem MI sonucu...">
+            <label style="font-size:10px;font-weight:600;color:var(--dim);display:block;margin-bottom:4px">MI (Market İndeksi) <span style="color:#6B7280;font-weight:400">(dönem sonucu)</span></label>
+            <input type="number" class="inp" id="primMI" value="100" min="0" step="any" oninput="primMiGiManual(this);calcPrim()" style="width:100%" placeholder="Dönem MI sonucu...">
           </div>
           <div style="margin-top:8px">
-            <label style="font-size:10px;font-weight:600;color:var(--dim);display:block;margin-bottom:4px">GI (EVOL) İndeksi <span style="color:#6B7280;font-weight:400">(dönem sonucu)</span></label>
-            <input type="number" class="inp" id="primGI" value="100" min="0" oninput="calcPrim()" style="width:100%" placeholder="Dönem GI sonucu...">
+            <label style="font-size:10px;font-weight:600;color:var(--dim);display:block;margin-bottom:4px">GIGI (Grup İçi Gelişim İndeksi) <span style="color:#6B7280;font-weight:400">(dönem sonucu)</span></label>
+            <input type="number" class="inp" id="primGI" value="100" min="0" step="any" oninput="primMiGiManual(this);calcPrim()" style="width:100%" placeholder="Dönem GIGI sonucu...">
+            <div id="primMiGiSrc" style="font-size:10px;color:var(--dim);margin-top:4px"></div>
           </div>
         </div>
         <!-- Sonuç -->
