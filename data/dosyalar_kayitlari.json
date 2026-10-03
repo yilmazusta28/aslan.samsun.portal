@@ -47,6 +47,7 @@
       "brick": "ORDU FATSA",
       "tarih": "2026-10-08",
       "enteredAt": "2026-10-01T12:20:29.796Z",
+      "updatedAt": "2026-10-02T19:09:23.035Z",
       "grup": "ASLAN",
       "bm": "ŞENOL YILMAZ",
       "urun": "FAMTREC",
@@ -56,7 +57,7 @@
       "maliyet": 2400,
       "kisiBasi": 800,
       "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
-      "syncedAt": "2026-10-01T12:20:30.288Z"
+      "syncedAt": "2026-10-02T19:09:24.549Z"
     },
     {
       "id": "dsy_mupi7u0i_sddt5s_YIL",
@@ -85,6 +86,7 @@
       "brick": "ORDU MERKEZ -1",
       "tarih": "2026-10-20",
       "enteredAt": "2026-10-01T12:23:13.036Z",
+      "updatedAt": "2026-10-02T19:08:29.252Z",
       "grup": "ASLAN",
       "bm": "ŞENOL YILMAZ",
       "urun": "FAMTREC",
@@ -93,9 +95,9 @@
       "katilimci": 4,
       "maliyet": 3200,
       "kisiBasi": 800,
-      "yemek": "",
-      "syncedAt": "2026-10-01T12:23:13.555Z"
+      "yemek": "ALKOLSÜZ ÖĞLE YEMEĞİ",
+      "syncedAt": "2026-10-02T19:08:30.677Z"
     }
   ],
-  "updatedAt": "2026-10-01T15:40:59.817Z"
+  "updatedAt": "2026-10-02T19:09:24.549Z"
 }
