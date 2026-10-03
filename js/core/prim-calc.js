@@ -174,12 +174,14 @@ function calcKompanzasyonEkPrimi(ttt, currentGenel, periodKeyOverride) {
 //  hedef_tl/satis_tl eksikse (manuel girilmiş dönem) kümülatif real,
 //  tl_pct'lerin basit ortalamasına düşer (detail.approx = true).
 // ══════════════════════════════════════════════════════════════
-function calcKompEkFromRows(rows3) {
+function calcKompEkFromRows(rows3, opts) {
   const BAZ_TL_REAL = 55000;
   const curRow = rows3[rows3.length - 1];
+  // opts.round → eşik kontrolleri tam sayıya yuvarlanmış real ile (Geçmiş Dönem tablosu); varsayılan: ham değer
+  const _rd = (opts && opts.round) ? (v => Math.floor((+v || 0) + 0.5 + 1e-9)) : (v => v);
 
   // KOŞUL-1: kompanzasyon döneminin kendi realizasyonu >= %95
-  const kendiReal = curRow.tl_pct || 0;
+  const kendiReal = _rd(curRow.tl_pct || 0);
   if (kendiReal < 95) {
     return {
       ekPrim: 0, eligible: false,
@@ -192,9 +194,9 @@ function calcKompEkFromRows(rows3) {
   const hasTotals = rows3.every(r => r.hedef_tl > 0 && r.satis_tl >= 0 && r.satis_tl !== null);
   const sumHedef = hasTotals ? rows3.reduce((s, r) => s + (r.hedef_tl || 0), 0) : 0;
   const sumSatis = hasTotals ? rows3.reduce((s, r) => s + (r.satis_tl || 0), 0) : 0;
-  const kumulatifReal = hasTotals
+  const kumulatifReal = _rd(hasTotals
     ? (sumSatis / sumHedef * 100)
-    : rows3.reduce((s, r) => s + (r.tl_pct || 0), 0) / rows3.length;
+    : rows3.reduce((s, r) => s + (r.tl_pct || 0), 0) / rows3.length);
   const approx = !hasTotals;
   if (kumulatifReal < 91) {
     return {
@@ -209,7 +211,8 @@ function calcKompEkFromRows(rows3) {
   const carpanKumulatif = getCarpan(kumulatifReal);
   const yeniToplamOdeme = 3 * carpanKumulatif * BAZ_TL_REAL;
   const zatenOdenen = rows3.reduce((s, r) => {
-    const kendiCarpan = (r.tl_pct >= 91) ? getCarpan(Math.min(r.tl_pct || 0, 100)) : 0;
+    const rr = _rd(r.tl_pct || 0);
+    const kendiCarpan = (rr >= 91) ? getCarpan(Math.min(rr, 100)) : 0;
     return s + kendiCarpan * BAZ_TL_REAL;
   }, 0);
   const ekPrim = Math.max(0, yeniToplamOdeme - zatenOdenen);
@@ -230,8 +233,11 @@ function calcKompEkFromRows(rows3) {
 // ══════════════════════════════════════════════════════════════
 function calcPrimBreakdown(o) {
   const BAZ_TL_REAL = 55000, BAZ_MIGI = 14000;
-  const effReal = o.effReal || 0, primPuani = o.primPuani || 0;
-  const mi = (o.mi > 0) ? o.mi : 100, gi = (o.gi > 0) ? o.gi : 100;
+  // Geçmiş Dönem tablosu: TL Real, Prim Puanı, MI ve GIGI tam sayıya yuvarlanır (en yakın; .5 yukarı:
+  // 75,9→76 · 96,45→96 · 34,51→35). Tabloda GÖRÜNEN değer = eşik/matris hesabında KULLANILAN değer.
+  const _rd = v => Math.floor((+v || 0) + 0.5 + 1e-9);
+  const effReal = _rd(o.effReal), primPuani = _rd(o.primPuani);
+  const mi = _rd((o.mi > 0) ? o.mi : 100), gi = _rd((o.gi > 0) ? o.gi : 100);
   const carpan = effReal >= 91 ? getCarpan(Math.min(effReal, 100)) : 0;
   const tlRealPrimDonemlik = carpan * BAZ_TL_REAL;
   const ekPrim = o.ekPrim || 0;

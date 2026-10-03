@@ -17,6 +17,9 @@
   var _editKey = null;       // açık düzenleme satırının dönem anahtarı
 
   function _tl(v) { return (v || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' ₺'; }
+  // Tam sayı (en yakın, .5 yukarı): 75,9→76 · 96,45→96 · 34,51→35. Ham değer tooltip'te.
+  function _r0(v) { return Math.floor((+v || 0) + 0.5 + 1e-9); }
+  function _raw(v) { return (+v || 0).toFixed(2).replace('.', ','); }
   function _pct(v) { return (v == null) ? '—' : v.toFixed(1).replace('.', ',') + '%'; }
   function _clr(v) { return v > 0 ? 'color:#16A34A;font-weight:700' : 'color:#DC2626;font-weight:700'; }
   var _AY = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
@@ -64,7 +67,7 @@
       var sib = p.key === 'k1' ? ['1d', '2d'] : ['4d', '5d'];
       var rows = sib.map(function (k) { var r = window.PrimLedger.get(year, k, ttt); return r ? r.genel : null; });
       if (rows.every(Boolean)) {
-        row.komp = calcKompEkFromRows(rows.concat([rec.genel]));
+        row.komp = calcKompEkFromRows(rows.concat([rec.genel]), { round: true });
         ek = row.komp.ekPrim || 0;
       } else {
         row.komp = { eligible: false, ekPrim: 0, reason: 'Önceki 2 dönemin ürün verisi yok.' };
@@ -91,7 +94,7 @@
         '<input type="number" step="0.1" min="0" max="200" class="inp pg-in" data-u="' + u + '" value="' + v + '" style="width:80px;padding:4px 6px" placeholder="%"></div>';
     }).join('');
     var gv = r.rec && r.rec.source === 'manuel' ? r.rec.genel.tl_pct : '';
-    return '<tr><td colspan="14" style="background:var(--surf2);padding:10px;border-bottom:1px solid var(--border)">' +
+    return '<tr><td colspan="15" style="background:var(--surf2);padding:10px;border-bottom:1px solid var(--border)">' +
       '<div style="font-size:10px;font-weight:700;margin-bottom:6px">✏️ ' + r.p.label + ' — ürün bazlı TL Real % (resmi sonuç tablosundan)</div>' +
       '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end">' + inputs +
       '<div><label style="font-size:9px;font-weight:700;display:block">GENEL TL Real % <span style="font-weight:400;color:var(--dim)">(boşsa ağırlıklı ort.)</span></label>' +
@@ -147,22 +150,23 @@
           var x = r.rec.urunler[u];
           return '<td style="text-align:right;padding:4px 5px">' + (x ? _pct(x.tl_pct) : '—') + '</td>';
         }).join('');
-        cells = '<td style="text-align:right;padding:4px 5px;font-weight:700">' + _pct(r.effReal) + '</td>' + urunCells +
-          '<td style="text-align:right;padding:4px 5px" title="' + (r.puanKaynak === 'resmi' ? 'Resmi prim puanı (MI_GIGI.csv / GENEL)' : r.puanKaynak === 'elle' ? 'Elle girilen dönem ağırlıklarıyla hesaplandı' : 'Dönem ürün ağırlıklarıyla hesaplandı') + '">' + (r.puanKaynak === 'hesap' && r.rec.agirlikTahmini ? '≈' : '') + _pct(r.primPuani) + '</td>';
+        cells = '<td style="text-align:right;padding:4px 5px;font-weight:700" title="Ham değer: ' + _raw(r.effReal) + '">' + _r0(r.effReal) + '%</td>' + urunCells +
+          '<td style="text-align:right;padding:4px 5px" title="' + (r.puanKaynak === 'resmi' ? 'Resmi prim puanı (MI_GIGI.csv / GENEL)' : r.puanKaynak === 'elle' ? 'Elle girilen dönem ağırlıklarıyla hesaplandı' : 'Dönem ürün ağırlıklarıyla hesaplandı') + ' · ham: ' + _raw(r.primPuani) + '">' + (r.puanKaynak === 'hesap' && r.rec.agirlikTahmini ? '≈' : '') + _r0(r.primPuani) + '%</td>';
       } else {
         cells = '<td colspan="7" style="text-align:center;color:var(--dim);padding:4px 5px">Ürün bazlı veri yok (YTD_TL.csv içinde bu dönem için hedef bulunamadı)</td>';
       }
       var _aTip = r.auto ? ('Sistem verisinden tahmin — MI: ' + _donemAdi(r.auto.donem) + ' YTD' + (r.auto.giNote ? '; ' + r.auto.giNote : (r.auto.giFallback ? '; GIGI=100 varsayıldı' : '')) + ' — kesinleşmiş IMS gelince değişir') : '';
-      var mi = r.mg ? '<span style="color:' + getIndeksColor(r.mg.mi) + ';font-weight:700">' + r.mg.mi.toFixed(1).replace('.', ',') + '%</span>'
-        : (r.auto ? '<span title="' + _aTip + '" style="color:var(--dim)">≈' + r.auto.mi.toFixed(1).replace('.', ',') + '%</span>' : '<span style="color:var(--dim)">' + (c ? '100*' : '—') + '</span>');
-      var gi = r.mg ? '<span style="color:' + getIndeksColor(r.mg.gi) + ';font-weight:700">' + r.mg.gi.toFixed(1).replace('.', ',') + '</span>'
-        : (r.auto ? '<span title="' + _aTip + '" style="color:var(--dim)">≈' + r.auto.gi.toFixed(1).replace('.', ',') + '</span>' : '<span style="color:var(--dim)">' + (c ? '100*' : '—') + '</span>');
-      var money = (c && r.inProgress) ? '<td colspan="4" style="text-align:center;color:var(--dim);font-size:10px" title="Dönem sürüyor — üstteki Prim Hesaplama Şablonu ile hesaplayın">— dönem sürüyor —</td>' : c ? ('<td style="text-align:right;padding:4px 5px"><span style="' + _clr(c.tlRealPrim) + '">' + _tl(c.tlRealPrim) + '</span>' +
+      var mi = r.mg ? '<span title="Ham değer: ' + _raw(r.mg.mi) + '" style="color:' + getIndeksColor(r.mg.mi) + ';font-weight:700">' + _r0(r.mg.mi) + '%</span>'
+        : (r.auto ? '<span title="' + _aTip + ' · ham: ' + _raw(r.auto.mi) + '" style="color:var(--dim)">≈' + _r0(r.auto.mi) + '%</span>' : '<span style="color:var(--dim)">' + (c ? '100*' : '—') + '</span>');
+      var gi = r.mg ? '<span title="Ham değer: ' + _raw(r.mg.gi) + '" style="color:' + getIndeksColor(r.mg.gi) + ';font-weight:700">' + _r0(r.mg.gi) + '</span>'
+        : (r.auto ? '<span title="' + _aTip + ' · ham: ' + _raw(r.auto.gi) + '" style="color:var(--dim)">≈' + _r0(r.auto.gi) + '</span>' : '<span style="color:var(--dim)">' + (c ? '100*' : '—') + '</span>');
+      var money = (c && r.inProgress) ? '<td colspan="5" style="text-align:center;color:var(--dim);font-size:10px" title="Dönem sürüyor — üstteki Prim Hesaplama Şablonu ile hesaplayın">— dönem sürüyor —</td>' : c ? ('<td style="text-align:right;padding:4px 5px"><span style="' + _clr(c.tlRealPrim) + '">' + _tl(c.tlRealPrim) + '</span>' +
           (c.ekPrim > 0 ? '<div style="font-size:8px;color:var(--dim)" title="' + (r.komp && r.komp.detail && r.komp.detail.approx ? 'Manuel girilen dönemlerde hedef/satış TL yok: kümülatif real, dönem real ortalamasından yaklaşık hesaplandı' : 'Kompanzasyon Ek Primi') + '">(+' + _tl(c.ekPrim) + ' komp.' + (r.komp && r.komp.detail && r.komp.detail.approx ? ' ≈' : '') + ')</div>' : '') + '</td>' +
         '<td style="text-align:right;padding:4px 5px"><span style="' + _clr(c.portfoyPrim) + '">' + _tl(c.portfoyPrim) + '</span></td>' +
-        '<td style="text-align:right;padding:4px 5px"><span style="' + _clr(c.migiPrim) + '">' + _tl(c.migiPrim) + '</span><div style="font-size:8px;color:var(--dim)">' + c.migiKatsayi + 'x</div></td>' +
+        '<td style="text-align:right;padding:4px 5px;font-weight:700" title="MI &amp; GIGI matris katsayısı × 14.000 ₺ baz prim"><span style="' + _clr(c.migiKatsayi) + '">' + String(c.migiKatsayi).replace('.', ',') + 'x</span></td>' +
+        '<td style="text-align:right;padding:4px 5px"><span style="' + _clr(c.migiPrim) + '">' + _tl(c.migiPrim) + '</span></td>' +
         '<td style="text-align:right;padding:4px 5px;font-weight:800;color:var(--c1)">' + _tl(c.toplamPrim) + '</td>')
-        : '<td colspan="4"></td>';
+        : '<td colspan="5"></td>';
       var kompNote = (r.komp && !r.komp.eligible && c && (pr.key === 'k1' || pr.key === 'k2'))
         ? '<div style="font-size:8px;color:#D97706;max-width:150px;white-space:normal">Komp. ek prim yok: ' + r.komp.reason + '</div>' : '';
       var tr = '<tr style="border-bottom:1px solid var(--border)' + (r.inProgress ? ';background:rgba(37,99,235,.05)' : '') + '">' +
@@ -188,9 +192,9 @@
         '<div style="font-size:11px"><strong>' + ttt + '</strong> · ' + yearSel + '</div>' +
         '<button onclick="PrimLedger.exportYear(\'' + _year + '\')" title="arsiv/ klasörüne commit edin — tüm cihazlar görsün" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surf);font-size:10px;cursor:pointer">⬇️ Kayıtları indir (arsiv/)</button>' +
       '</div>' +
-      '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="width:100%;font-size:10.5px;border-collapse:collapse;min-width:900px">' +
+      '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="width:100%;font-size:10.5px;border-collapse:collapse;min-width:960px">' +
         '<thead><tr style="border-bottom:2px solid var(--c1)"><th style="text-align:left;padding:4px 5px;font-size:9px">Dönem</th><th style="text-align:left;padding:4px 5px;font-size:9px">Durum</th>' +
-        th('TL Real') + urunHeads + th('Prim Puanı') + th('MI') + th('GIGI') + th('TL Real Primi') + th('Portföy') + th('MI&amp;GI Primi') + th('TOPLAM') + '<th></th></tr></thead>' +
+        th('TL Real') + urunHeads + th('Prim Puanı') + th('MI') + th('GIGI') + th('TL Real Primi') + th('Portföy') + th('MI&amp;GI Çarpan') + th('MI&amp;GI Primi') + th('TOPLAM') + '<th></th></tr></thead>' +
         '<tbody>' + trs + '</tbody></table></div>' +
       '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:11px">' +
         '<div>✅ Kesinleşen toplam: <strong style="color:#16A34A">' + _tl(kesin) + '</strong></div>' +
@@ -198,7 +202,7 @@
       '</div>' +
       '<div style="font-size:9px;color:var(--dim);background:var(--surf2);padding:8px;border-radius:6px;border:1px solid var(--border);margin-top:8px">' +
         '* Prim, dönem bitiminden 2 ay sonra gelen (düzeltilmiş IMS\'li) MI &amp; GIGI ile kesinleşir. Gelene kadar sistemdeki MI ve GIGI (Grup İçi Gelişim İndeksi) verisinden otomatik tahmin edilir (≈); veri yoksa 100* varsayılır. ' +
-        'MI &amp; GIGI kaynağı: <code>MI_GIGI.csv</code> (ham veriden formülle hesaplanır). Ürün bazlı hedef/satış/real değerleri <code>YTD_TL.csv</code> dosyasındaki dönem bloklarından okunur (manuel giriş gerekmez); ✏️ yalnızca o dosyada olmayan bir dönemi elle düzeltmek içindir.' +
+        'TL Real, Prim Puanı, MI ve GIGI tam sayıya yuvarlanır (en yakın; 75,9→76 · 96,45→96 · 34,51→35); ham değer üzerine gelince görünür. MI &amp; GIGI kaynağı: <code>MI_GIGI.csv</code> (ham veriden formülle hesaplanır). Ürün bazlı hedef/satış/real değerleri <code>YTD_TL.csv</code> dosyasındaki dönem bloklarından okunur (manuel giriş gerekmez); ✏️ yalnızca o dosyada olmayan bir dönemi elle düzeltmek içindir.' +
       '</div>';
   }
 
