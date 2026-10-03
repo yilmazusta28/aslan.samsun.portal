@@ -89,6 +89,9 @@
         (_isEnisTok ? 'Tıbbi Tanıtım Temsilcisi' : 'Uzman Tıbbi Tanıtım Temsilcisi');
     }
 
+    // Temsilci filtresi kilidi (YILMAZ USTA / ŞENOL YILMAZ / admin hariç herkes yalnız kendi verisi)
+    if (typeof window.applyTttLock === 'function') { try { window.applyTttLock(); } catch (_e) {} }
+
     console.debug('[role-visibility] Rol uygulandı:', role);
   }
 
