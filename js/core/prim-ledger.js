@@ -41,9 +41,9 @@
   function _read() {
     try {
       var o = JSON.parse(localStorage.getItem(LS) || 'null');
-      if (o && o.entries) return o;
+      if (o && o.entries) { if (!o.weights) o.weights = {}; return o; }
     } catch (e) { console.warn('[prim-ledger] okuma hatası:', e.message); }
-    return { v: 1, entries: {} };
+    return { v: 1, entries: {}, weights: {} };
   }
   function _write(o) {
     try { localStorage.setItem(LS, JSON.stringify(o)); return true; }
@@ -63,22 +63,35 @@
   // Ağırlık önceliği: PERIOD_URUN_AGIRLIK[dönem] > kayıttaki resmi `agirlik` (GENEL) > URUN_AGIRLIK.
   // PDF: grubun ağırlıkları toplamı %100 → dönemde hedefi olmayan ürün varsa kalanlar orantılanır.
   // est=true: ağırlıklar tahmin (resmi dönem ağırlığı bilinmiyor).
-  function _agirliklar(urunler, key) {
-    var tbl = (typeof PERIOD_URUN_AGIRLIK !== 'undefined' && key) ? PERIOD_URUN_AGIRLIK[key] : null;
+  // Ağırlık tablosu önceliği: kullanıcının kaydettiği (⚖️) > PERIOD_URUN_AGIRLIK > kayıttaki resmi
+  // `agirlik` (GENEL) > URUN_AGIRLIK (tahmin). Tabloda 0 yazan ürün gerçekten 0 ağırlıklıdır.
+  function getWeights(year, key) {
+    var w = _read().weights[_k(year, key)];
+    return w || null;
+  }
+  function _weightTable(year, key) {
+    var saved = year ? getWeights(year, key) : null;
+    if (saved) return { tbl: saved, custom: true };
+    var d = (typeof PERIOD_URUN_AGIRLIK !== 'undefined' && key) ? PERIOD_URUN_AGIRLIK[key] : null;
+    return { tbl: d || null, custom: false };
+  }
+  function _agirliklar(urunler, key, year) {
+    var wt = _weightTable(year || _yearOf(key), key), tbl = wt.tbl;
     var w = {}, sum = 0, est = false;
     Object.keys(URUN_AGIRLIK).forEach(function (u) {
-      var r = urunler[u]; if (!r) return;
+      var r = urunler[u];
       var x;
-      if (tbl && tbl[u] > 0) x = tbl[u];
-      else if (r.agirlik > 0) x = r.agirlik;
-      else { x = URUN_AGIRLIK[u]; est = true; }
+      if (tbl && Object.prototype.hasOwnProperty.call(tbl, u)) x = +tbl[u] || 0;
+      else { if (!r) return; if (r.agirlik > 0) x = r.agirlik; else { x = URUN_AGIRLIK[u]; est = true; } }
       w[u] = x; sum += x;
     });
+    // Hedefi olmayan (kayıtta bulunmayan) ürünün ağırlığı toplamdan düşer → kalanlar %100'e orantılanır
+    Object.keys(w).forEach(function (u) { if (!urunler[u]) { sum -= w[u]; delete w[u]; } });
     if (sum > 0 && Math.abs(sum - 1) > 0.001) { Object.keys(w).forEach(function (u) { w[u] /= sum; }); est = est || !tbl; }
-    return { w: w, est: est };
+    return { w: w, est: est, custom: wt.custom };
   }
-  function _primPuani(urunler, key) {
-    var a = _agirliklar(urunler, key), total = 0;
+  function _primPuani(urunler, key, year) {
+    var a = _agirliklar(urunler, key, year), total = 0;
     Object.keys(a.w).forEach(function (u) {
       var real = urunler[u] ? (urunler[u].tl_pct || 0) : 0;
       if (real >= 70) total += Math.min(real, 130) * a.w[u];
@@ -87,7 +100,7 @@
   }
 
   // GENEL dizisinden bir temsilcinin kaydını üret (yoksa null)
-  function _buildFromGenel(genelArr, ttt, source, key) {
+  function _buildFromGenel(genelArr, ttt, source, key, year) {
     var g = (genelArr || []).find(function (r) { return r.ttt === ttt && r.urun === 'GENEL TOPLAM'; });
     if (!g) return null;
     if (!(g.hedef_tl > 0) && !(g.tl_pct > 0)) return null;   // boş/sıfır dönem verisini kaydetme
@@ -98,7 +111,7 @@
                             agirlik: r.urun_agirlik > 0 ? r.urun_agirlik : null };
     });
     return {
-      genel: { tl_pct: _round(g.tl_pct || 0), prim_pct: g.prim_pct ? _round(g.prim_pct) : _round(_primPuani(urunler, key)),
+      genel: { tl_pct: _round(g.tl_pct || 0), prim_pct: g.prim_pct ? _round(g.prim_pct) : _round(_primPuani(urunler, key, year)),
                hedef_tl: g.hedef_tl || 0, satis_tl: g.satis_tl || 0 },
       urunler: urunler, source: source, savedAt: new Date().toISOString()
     };
@@ -126,8 +139,8 @@
       if (p && p.hedef > 0) urunler[u] = { tl_pct: _round(p.real || (p.satis / p.hedef * 100)), hedef_tl: p.hedef, satis_tl: p.satis, agirlik: null };
     });
     return {
-      genel: { tl_pct: _round(t.real || (t.satis / t.hedef * 100)), prim_pct: _round(_primPuani(urunler, key)), hedef_tl: t.hedef, satis_tl: t.satis },
-      urunler: urunler, source: 'ytd', savedAt: null, agirlikTahmini: _agirliklar(urunler, key).est
+      genel: { tl_pct: _round(t.real || (t.satis / t.hedef * 100)), prim_pct: _round(_primPuani(urunler, key, year)), hedef_tl: t.hedef, satis_tl: t.satis },
+      urunler: urunler, source: 'ytd', savedAt: null, agirlikTahmini: _agirliklar(urunler, key, year).est
     };
   }
 
@@ -150,7 +163,7 @@
       ALL_TTTS.forEach(function (t) {
         var cur = db.entries[kk] && db.entries[kk][t];
         if (cur && cur.source === 'manuel') return;           // manuel kayıt ezilmez
-        var rec = _buildFromGenel(genelArr, t, 'sync', eff.key);
+        var rec = _buildFromGenel(genelArr, t, 'sync', eff.key, _yearOf(eff.key));
         if (!rec) return;
         if (!db.entries[kk]) db.entries[kk] = {};
         db.entries[kk][t] = rec; changed = true;
@@ -166,7 +179,7 @@
         var ak = _k(_yearOf(key), key);
         ALL_TTTS.forEach(function (t) {
           if (db.entries[ak] && db.entries[ak][t]) return;
-          var rec = _buildFromGenel(arch.genel, t, 'arsiv', key);
+          var rec = _buildFromGenel(arch.genel, t, 'arsiv', key, _yearOf(key));
           if (!rec) return;
           if (!db.entries[ak]) db.entries[ak] = {};
           db.entries[ak][t] = rec; changed = true;
@@ -190,13 +203,34 @@
     });
     if (!any && !(genelReal > 0)) return false;
     var rec = {
-      genel: { tl_pct: _round(genelReal > 0 ? +genelReal : wsum), prim_pct: _round(_primPuani(urunler, key)), hedef_tl: null, satis_tl: null },
+      genel: { tl_pct: _round(genelReal > 0 ? +genelReal : wsum), prim_pct: _round(_primPuani(urunler, key, year)), hedef_tl: null, satis_tl: null },
       urunler: urunler, source: 'manuel', savedAt: new Date().toISOString(), agirlikTahmini: true
     };
     var kk = _k(year, key);
     if (!db.entries[kk]) db.entries[kk] = {};
     db.entries[kk][ttt] = rec;
     return _write(db);
+  }
+
+  // Dönem ürün ağırlıkları (tüm temsilcilere uygulanır). w = {PANOCER:.30,...} (toplam ≈ 1)
+  function setWeights(year, key, w) {
+    var db = _read(), clean = {}, sum = 0;
+    URUN_ORDER.forEach(function (u) { var v = +w[u]; clean[u] = (isNaN(v) || v < 0) ? 0 : v; sum += clean[u]; });
+    if (!(sum > 0)) return false;
+    URUN_ORDER.forEach(function (u) { clean[u] = Math.round(clean[u] / sum * 10000) / 10000; });   // toplam 1,0'a normalle
+    db.weights[_k(year, key)] = clean;
+    return _write(db);
+  }
+  function clearWeights(year, key) {
+    var db = _read(), kk = _k(year, key);
+    if (db.weights[kk]) { delete db.weights[kk]; return _write(db); }
+    return false;
+  }
+  // Etkin ağırlıklar (UI için): {w:{ürün:oran}, custom:bool}  — urunler yoksa tabloyu olduğu gibi döndürür
+  function effectiveWeights(year, key) {
+    var wt = _weightTable(year, key), out = {};
+    URUN_ORDER.forEach(function (u) { out[u] = (wt.tbl && wt.tbl[u] != null) ? +wt.tbl[u] : (URUN_AGIRLIK[u] || 0); });
+    return { w: out, custom: wt.custom };
   }
 
   function remove(year, key, ttt) {
@@ -209,8 +243,9 @@
   }
 
   function exportYear(year) {
-    var db = _read(), out = { v: 1, year: String(year), entries: {}, exportedAt: new Date().toISOString() };
+    var db = _read(), out = { v: 1, year: String(year), entries: {}, weights: {}, exportedAt: new Date().toISOString() };
     Object.keys(db.entries).forEach(function (k) { if (k.indexOf(year + '|') === 0) out.entries[k] = db.entries[k]; });
+    Object.keys(db.weights).forEach(function (k) { if (k.indexOf(year + '|') === 0) out.weights[k] = db.weights[k]; });
     if (typeof document === 'undefined') return false;
     var blob = new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' });
     var url = URL.createObjectURL(blob), a = document.createElement('a');
@@ -231,6 +266,7 @@
       .then(function (payload) {
         if (!payload || !payload.entries) return false;
         var db = _read(), changed = false;
+        Object.keys(payload.weights || {}).forEach(function (kk) { if (!db.weights[kk]) { db.weights[kk] = payload.weights[kk]; changed = true; } });
         Object.keys(payload.entries).forEach(function (kk) {
           Object.keys(payload.entries[kk]).forEach(function (t) {
             var remote = payload.entries[kk][t], local = db.entries[kk] && db.entries[kk][t];
@@ -245,7 +281,7 @@
       .catch(function () { return false; });
   }
 
-  window.PrimLedger = { get: get, agirliklar: _agirliklar, hasYtd: function () { return !!window.YTD_TL_DATA; },
+  window.PrimLedger = { get: get, agirliklar: _agirliklar, getWeights: getWeights, setWeights: setWeights, clearWeights: clearWeights, effectiveWeights: effectiveWeights, hasYtd: function () { return !!window.YTD_TL_DATA; },
                          captureAll: captureAll, setManual: setManual, remove: remove,
                         exportYear: exportYear, hydrateRemote: hydrateRemote, primPuani: _primPuani };
 })();

@@ -267,7 +267,7 @@ function _runEngineCore() {
     const miAvg    = miArr.reduce((s,r)=>s+r.mi,0) / miArr.length;
     const giAvg    = giArr.reduce((s,r)=>s+r.gi,0) / giArr.length;
     const katsayi  = (typeof getMiGiKatsayi === 'function')
-      ? getMiGiKatsayi(Math.round(miAvg), Math.round(giAvg)) : 0;
+      ? getMiGiKatsayi(miAvg, giAvg) : 0;
     return BAZ_MIGI * katsayi;
   })();
   // Kanonik toplam (kompanzasyon ek primi + otomatik/kesin MI&GIGI dahil); yoksa yerel toplam

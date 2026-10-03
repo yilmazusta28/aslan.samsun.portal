@@ -36,12 +36,18 @@ function getCarpan(real_pct) {
 }
 
 // MI & GI matrisinden katsayı al
+// Matris ALT DİLİME göre okunur (kullanıcı onayı): değer hangi aralıktaysa o aralığın ALT sınırı
+// kullanılır — örn. MI 117 → 110, GIGI 99,9 → 95. 80'in altı → 80 sütunu/satırı, 150 ve üstü → 150.
+// Ham (yuvarlanmamış) değer verin; 2 ondalıkla kesilir (yüzer-nokta gürültüsüne karşı).
 function getMiGiKatsayi(mi, gi) {
-  const MI_COLS  = [80,85,90,95,100,110,120,130,140,150];
-  const GI_ROWS  = [80,85,90,95,100,110,120,130,140,150];
-  const snapMI   = MI_COLS.reduce((a,b) => Math.abs(b-mi)<Math.abs(a-mi)?b:a);
-  const snapGI   = GI_ROWS.reduce((a,b) => Math.abs(b-gi)<Math.abs(a-gi)?b:a);
-  return MIGI_MATRIX[snapGI]?.[snapMI] ?? 0;
+  const BINS = [80,85,90,95,100,110,120,130,140,150];
+  const floorBin = v => {
+    const x = Math.round((+v || 0) * 100) / 100;
+    let b = BINS[0];
+    for (const k of BINS) if (x >= k) b = k;
+    return b;
+  };
+  return MIGI_MATRIX[floorBin(gi)]?.[floorBin(mi)] ?? 0;
 }
 
 // Prim puanı hesapla (ürün ağırlıkları × real)
@@ -53,12 +59,18 @@ const URUN_AGIRLIK = {
   'GRİPORT COLD': 0.20, 'MOKSEFEN': 0.10, 'FAMTREC': 0.20  // sıra: PANOCER·ACİDPASS·GRİPORT·MOKSEFEN·FAMTREC
 };
 // PDF: "Grupların ürün ağırlıkları dönemsel olarak değişebilir; dönem başında paylaşılır."
-// Geçmiş dönemlerin resmi ağırlıkları sistemde YOK. Bildiğiniz dönemi buraya yazın
-// (toplam = 1.0); yazılmayan dönemde (YTD_TL.csv kaynaklı geçmiş tablo) ağırlıklar
-// URUN_AGIRLIK'tan, o dönem hedefi olan ürünlere orantılanarak TAHMİN edilir (≈).
+// Varsayılan dönem ağırlıkları (toplam 1,0). Sayfadaki "Geçmiş Dönem Prim Hesabı" tablosunda
+// her dönem için ağırlıklar elle de değiştirilebilir (⚖️) — o kayıt bu tabloya öncelikli.
+//  • 1.–3. dönem: MI_GIGI.csv'deki resmi PRİM PUANI sütununa en küçük kareler uyumuyla bulundu
+//    (PANOCER 30 · ACİDPASS 30 · GRİPORT 23 · MOKSEFEN 17 · FAMTREC 0; 21 kişi-dönemde sapma ≤0,04 puan).
+//  • 4. dönem ve sonrası: GENEL_TABLO.csv'deki resmi ağırlıklar (değişene kadar aynı kabul edilir).
 const PERIOD_URUN_AGIRLIK = {
-  '5d': { 'PANOCER': 0.25, 'ACİDPASS': 0.25, 'GRİPORT COLD': 0.20, 'MOKSEFEN': 0.10, 'FAMTREC': 0.20 }
-  // '1d': {...}, '2d': {...}, 'k1': {...}, '4d': {...}, 'k2': {...}
+  '1d': { 'PANOCER': 0.30, 'ACİDPASS': 0.30, 'GRİPORT COLD': 0.23, 'MOKSEFEN': 0.17, 'FAMTREC': 0 },
+  '2d': { 'PANOCER': 0.30, 'ACİDPASS': 0.30, 'GRİPORT COLD': 0.23, 'MOKSEFEN': 0.17, 'FAMTREC': 0 },
+  'k1': { 'PANOCER': 0.30, 'ACİDPASS': 0.30, 'GRİPORT COLD': 0.23, 'MOKSEFEN': 0.17, 'FAMTREC': 0 },
+  '4d': { 'PANOCER': 0.25, 'ACİDPASS': 0.25, 'GRİPORT COLD': 0.20, 'MOKSEFEN': 0.10, 'FAMTREC': 0.20 },
+  '5d': { 'PANOCER': 0.25, 'ACİDPASS': 0.25, 'GRİPORT COLD': 0.20, 'MOKSEFEN': 0.10, 'FAMTREC': 0.20 },
+  'k2': { 'PANOCER': 0.25, 'ACİDPASS': 0.25, 'GRİPORT COLD': 0.20, 'MOKSEFEN': 0.10, 'FAMTREC': 0.20 }
 };
 
 // ── Portföy Primi (PDF: "TL realizasyon sonucuna göre hak edilen prim tutarına %20 ek ödenir;
@@ -224,7 +236,7 @@ function calcPrimBreakdown(o) {
   const tlRealPrimDonemlik = carpan * BAZ_TL_REAL;
   const ekPrim = o.ekPrim || 0;
   const portfoyPrim = calcPortfoyPrim(effReal, primPuani);
-  const migiKatsayi = effReal >= 70 ? getMiGiKatsayi(Math.round(mi), Math.round(gi)) : 0;
+  const migiKatsayi = effReal >= 70 ? getMiGiKatsayi(mi, gi) : 0;
   const migiPrim = migiKatsayi * BAZ_MIGI;
   return {
     carpan, tlRealPrimDonemlik, ekPrim, tlRealPrim: tlRealPrimDonemlik + ekPrim,
@@ -268,7 +280,7 @@ function calcPrimForTTT(ttt) {
   // MI & GIGI: kesin (MI_GIGI.csv) varsa o, yoksa sistem verisinden otomatik tahmin (bkz. migi-donem.js)
   const _migiAuto = (typeof getMiGiOtomatik === 'function') ? getMiGiOtomatik(ttt) : null;
   if (_migiAuto) { miAvg = _migiAuto.mi; giAvg = _migiAuto.gi; }
-  const migiKatsayi = effReal >= 70 ? getMiGiKatsayi(Math.round(miAvg), Math.round(giAvg)) : 0;
+  const migiKatsayi = effReal >= 70 ? getMiGiKatsayi(miAvg, giAvg) : 0;
   const BAZ_TL_REAL = 55000;
   const BAZ_MIGI    = 14000;
   // RESMİ KURAL DÜZELTMESİ: TL Real Primi HER dönemde (normal veya
@@ -354,7 +366,7 @@ function calcPrimForTTTForecast(ttt) {
   let giAvg = migiRows.length ? migiRows.reduce((s, r) => s + (r.bi || 100), 0) / migiRows.length : 100;
   const _migiAuto = (typeof getMiGiOtomatik === 'function') ? getMiGiOtomatik(ttt) : null;
   if (_migiAuto) { miAvg = _migiAuto.mi; giAvg = _migiAuto.gi; }
-  const migiKatsayi = effReal >= 70 ? getMiGiKatsayi(Math.round(miAvg), Math.round(giAvg)) : 0;
+  const migiKatsayi = effReal >= 70 ? getMiGiKatsayi(miAvg, giAvg) : 0;
 
   const BAZ_TL_REAL = 55000;
   const BAZ_MIGI    = 14000;
@@ -478,7 +490,7 @@ function calcPrimFromArchivedPeriod(ttt, periodKey) {
 
   // Portföy Primi: calcPortfoyPrim() — PDF: hak edilen TL Real primine %20 ek, en fazla %100 real'e göre (bkz. PORTFOY_ORANSAL)
   const portfoyPrim = calcPortfoyPrim(effReal, primPuani);
-  const migiKatsayi = (effReal >= 70 && hasMigi) ? getMiGiKatsayi(Math.round(miAvg), Math.round(giAvg)) : 0;
+  const migiKatsayi = (effReal >= 70 && hasMigi) ? getMiGiKatsayi(miAvg, giAvg) : 0;
   const migiPrim = migiKatsayi * BAZ_MIGI;
 
   const toplamPrim = tlRealPrim + portfoyPrim + migiPrim;

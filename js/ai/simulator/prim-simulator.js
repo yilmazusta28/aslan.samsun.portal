@@ -35,7 +35,7 @@
   function _getMiGiAvg(ttt) {
     // Kesin MI_GIGI varsa o, yoksa otomatik tahmin (migi-donem.js) — Prim Hesapla ile aynı değer
     var _auto = (typeof getMiGiOtomatik === 'function') ? getMiGiOtomatik(ttt) : null;
-    if (_auto) return { mi: Math.round(_auto.mi), gi: Math.round(_auto.gi) };
+    if (_auto) return { mi: _auto.mi, gi: _auto.gi };
     var allRows = (typeof MIGI_TL_RAW !== 'undefined' ? MIGI_TL_RAW : [])
       .filter(function (r) { return r.person === ttt; });
     var latest = allRows.reduce(function (max, r) { return Math.max(max, _migiDonemNum(r.donem)); }, 0);

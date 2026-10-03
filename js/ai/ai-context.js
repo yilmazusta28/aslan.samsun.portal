@@ -467,10 +467,16 @@ function buildPrimContext(ttt) {
       var migiRowsAll = (typeof MIGI_TL_RAW !== 'undefined' ? MIGI_TL_RAW : []).filter(function (r) { return r.person === ttt; });
       var migiLatest = migiRowsAll.reduce(function (max, r) { return Math.max(max, _migiDonemNum(r.donem)); }, 0);
       var migiRows = migiRowsAll.filter(function (r) { return _migiDonemNum(r.donem) === migiLatest; });
-      if (migiRows.length && typeof getMiGiKatsayi === 'function') {
-        var miAvg = migiRows.reduce(function (s, r) { return s + (r.mi || 100); }, 0) / migiRows.length;
-        var giAvg = migiRows.reduce(function (s, r) { return s + (r.bi || 100); }, 0) / migiRows.length;
-        migiPrim  = Math.round(getMiGiKatsayi(Math.round(miAvg), Math.round(giAvg)) * 14000);
+      if (typeof getMiGiKatsayi === 'function') {
+        // Kesin MI_GIGI.csv (ham veriden hesaplanan) → yoksa otomatik tahmin; hiçbiri yoksa eski satırlar
+        var _mgAuto = (typeof getMiGiOtomatik === 'function') ? getMiGiOtomatik(ttt) : null;
+        if (_mgAuto) {
+          migiPrim = Math.round(getMiGiKatsayi(_mgAuto.mi, _mgAuto.gi) * 14000);
+        } else if (migiRows.length) {
+          var miAvg = migiRows.reduce(function (s, r) { return s + (r.mi || 100); }, 0) / migiRows.length;
+          var giAvg = migiRows.reduce(function (s, r) { return s + (r.bi || 100); }, 0) / migiRows.length;
+          migiPrim  = Math.round(getMiGiKatsayi(miAvg, giAvg) * 14000);
+        }
       }
     } catch (pe) { /* silent */ }
 
