@@ -206,22 +206,33 @@ function calcKompEkFromRows(rows3, opts) {
     };
   }
 
-  // HESAPLAMA: kümülatif sonuca göre 3 dönem "yeniden kapatılmış" gibi ödeme,
-  // eksi 3 dönemde zaten ödenmiş (her biri kendi %100 sınırlı) TL Real Primi.
+  // HESAPLAMA (resmi "1.KOMPANSASYON" tablosuyla doğrulandı — 7 temsilci, TL kısmı birebir):
+  //   yeniToplam   = 3 × çarpan(3 dönemlik kümülatif real) × baz        ("3 DÖNEM KARŞILIĞI")
+  //   önceki ödenen= önceki 2 dönemde ödenen TL Real primi (her biri kendi %100 sınırlı)
+  //   KALAN ÖDEME  = yeniToplam − önceki ödenen
+  //   dönem primi  = komp. döneminin KENDİ real'ine göre çarpan × baz — %100 ile SINIRLANMAZ
+  //   TL Real primi (toplama giren) = MAX(KALAN ÖDEME, sınırsız dönem primi)
+  //   ek prim = o toplam − (%100 sınırlı dönem primi; ayrıca ödenen kısım)
+  // Not: eski formül yalnız KALAN ÖDEME'yi alıyordu; dönem real'i %100'ün üzerindeyse ve KALAN ÖDEME
+  // dönemin sınırsız primini aşmıyorsa (örn. real %101 → %105 çarpan) tutar eksik çıkıyordu.
+  const rdTL = v => Math.round(v);
   const carpanKumulatif = getCarpan(kumulatifReal);
-  const yeniToplamOdeme = 3 * carpanKumulatif * BAZ_TL_REAL;
-  const zatenOdenen = rows3.reduce((s, r) => {
-    const rr = _rd(r.tl_pct || 0);
-    const kendiCarpan = (rr >= 91) ? getCarpan(Math.min(rr, 100)) : 0;
-    return s + kendiCarpan * BAZ_TL_REAL;
-  }, 0);
-  const ekPrim = Math.max(0, yeniToplamOdeme - zatenOdenen);
+  const yeniToplamOdeme = rdTL(3 * carpanKumulatif * BAZ_TL_REAL);
+  const odenen = r => { const rr = _rd(r.tl_pct || 0); return (rr >= 91) ? getCarpan(Math.min(rr, 100)) * BAZ_TL_REAL : 0; };
+  const oncekiOdenen = rdTL(rows3.slice(0, -1).reduce((s, r) => s + odenen(r), 0));
+  const kalanOdeme = yeniToplamOdeme - oncekiOdenen;
+  const donemPrimSinirli  = rdTL(odenen(curRow));
+  const donemPrimSinirsiz = rdTL(kendiReal >= 91 ? getCarpan(kendiReal) * BAZ_TL_REAL : 0);
+  const tlToplam = Math.max(kalanOdeme, donemPrimSinirsiz);
+  const ekPrim = Math.max(0, tlToplam - donemPrimSinirli);
+  const zatenOdenen = oncekiOdenen + donemPrimSinirli;
 
   return {
     ekPrim,
     eligible: true,
     reason: 'Kompanzasyon primi hak edildi.',
-    detail: { kendiReal, kumulatifReal, carpanKumulatif, yeniToplamOdeme, zatenOdenen, sumHedef, sumSatis, approx }
+    detail: { kendiReal, kumulatifReal, carpanKumulatif, yeniToplamOdeme, zatenOdenen, oncekiOdenen, kalanOdeme,
+              donemPrimSinirsiz, tlToplam, sumHedef, sumSatis, approx }
   };
 }
 
@@ -239,15 +250,15 @@ function calcPrimBreakdown(o) {
   const effReal = _rd(o.effReal), primPuani = _rd(o.primPuani);
   const mi = _rd((o.mi > 0) ? o.mi : 100), gi = _rd((o.gi > 0) ? o.gi : 100);
   const carpan = effReal >= 91 ? getCarpan(Math.min(effReal, 100)) : 0;
-  const tlRealPrimDonemlik = carpan * BAZ_TL_REAL;
-  const ekPrim = o.ekPrim || 0;
+  const tlRealPrimDonemlik = Math.round(carpan * BAZ_TL_REAL);
+  const ekPrim = Math.round(o.ekPrim || 0);
   const portfoyPrim = calcPortfoyPrim(effReal, primPuani);
   const migiKatsayi = effReal >= 70 ? getMiGiKatsayi(mi, gi) : 0;
-  const migiPrim = migiKatsayi * BAZ_MIGI;
+  const migiPrim = Math.round(migiKatsayi * BAZ_MIGI);
   return {
     carpan, tlRealPrimDonemlik, ekPrim, tlRealPrim: tlRealPrimDonemlik + ekPrim,
-    portfoyPrim, migiKatsayi, migiPrim,
-    toplamPrim: tlRealPrimDonemlik + ekPrim + portfoyPrim + migiPrim
+    portfoyPrim: Math.round(portfoyPrim), migiKatsayi, migiPrim,
+    toplamPrim: tlRealPrimDonemlik + ekPrim + Math.round(portfoyPrim) + migiPrim
   };
 }
 
