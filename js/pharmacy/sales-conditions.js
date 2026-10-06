@@ -1094,8 +1094,8 @@
           '</td>';
         }).join('');
         return '<tr>' +
-          '<td style="font-weight:600;font-size:12px">' + e.eczane + '</td>' +
-          '<td style="font-size:10px;color:var(--dim)">' + e.brick + '</td>' +
+          '<td style="font-weight:600;font-size:12px">' + pvEsc(e.eczane) + '</td>' +
+          '<td style="font-size:10px;color:var(--dim)">' + pvEsc(e.brick) + '</td>' +
           '<td style="text-align:center;font-weight:700;font-size:12px;color:var(--c1)">' + e._toplamOngoru + '</td>' +
           urunCells +
         '</tr>';

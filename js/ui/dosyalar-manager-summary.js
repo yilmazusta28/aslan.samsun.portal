@@ -111,7 +111,7 @@
 
     rows.forEach(function (r) {
       html += '<tr>' +
-        '<td style="font-weight:700;white-space:nowrap">' + r.ttt + '</td>' +
+        '<td style="font-weight:700;white-space:nowrap">' + pvEsc(r.ttt) + '</td>' +
         TIP_SIRA.map(function (t) {
           var n = r.adet[t] || 0;
           return '<td style="text-align:center;color:' + (n ? 'var(--fg)' : 'var(--dim)') + '">' + n + '</td>';

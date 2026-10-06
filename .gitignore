@@ -1,0 +1,4 @@
+
+# Geliştirici-yerel dosyalar (yol/kullanıcı adı sızdırır)
+.claude/settings.local.json
+.claude/*.local.*

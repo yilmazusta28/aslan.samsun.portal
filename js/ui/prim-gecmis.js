@@ -18,6 +18,8 @@
 
   function _tl(v) { return (v || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' ₺'; }
   // Tam sayı (en yakın, .5 yukarı): 75,9→76 · 96,45→96 · 34,51→35. Ham değer tooltip'te.
+  // HTML kaçışı: uzaktan gelen (arsiv/PRIM_KAYIT_*.json) veya CSV kaynaklı metinler innerHTML'e ham basılmaz
+  function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function _r0(v) { return Math.floor((+v || 0) + 0.5 + 1e-9); }
   function _raw(v) { return (+v || 0).toFixed(2).replace('.', ','); }
   function _pct(v) { return (v == null) ? '—' : v.toFixed(1).replace('.', ',') + '%'; }
@@ -112,7 +114,7 @@
         '<button onclick="pgSaveWeights(\'' + r.p.key + '\')" style="padding:6px 12px;border-radius:6px;border:1px solid var(--c1);background:var(--c1);color:#fff;font-size:11px;font-weight:600;cursor:pointer">💾 Ağırlıkları kaydet</button>' +
         (r.wInfo.custom ? '<button onclick="pgClearWeights(\'' + r.p.key + '\')" style="padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surf);font-size:11px;cursor:pointer">↺ Varsayılana dön</button>' : '') +
         '</div></div>' +
-      (r.rec ? '<div style="font-size:9px;color:var(--dim);margin-top:6px">Mevcut kayıt kaynağı: ' + r.rec.source + (r.rec.savedAt ? ' · ' + String(r.rec.savedAt).slice(0, 10) : '') + '</div>' : '') +
+      (r.rec ? '<div style="font-size:9px;color:var(--dim);margin-top:6px">Mevcut kayıt kaynağı: ' + _esc(r.rec.source) + (r.rec.savedAt ? ' · ' + _esc(String(r.rec.savedAt).slice(0, 10)) : '') + '</div>' : '') +
       '</td></tr>';
   }
 
@@ -189,7 +191,7 @@
 
     body.innerHTML =
       '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">' +
-        '<div style="font-size:11px"><strong>' + ttt + '</strong> · ' + yearSel + '</div>' +
+        '<div style="font-size:11px"><strong>' + _esc(ttt) + '</strong> · ' + yearSel + '</div>' +
         '<button onclick="PrimLedger.exportYear(\'' + _year + '\')" title="arsiv/ klasörüne commit edin — tüm cihazlar görsün" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surf);font-size:10px;cursor:pointer">⬇️ Kayıtları indir (arsiv/)</button>' +
       '</div>' +
       '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="width:100%;font-size:10.5px;border-collapse:collapse;min-width:960px">' +

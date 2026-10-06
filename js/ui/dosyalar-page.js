@@ -129,7 +129,7 @@
         console.warn('[dosyalar-page] form indirme hatası, sekmede açılıyor:', err.message);
         // Son çare: en azından yeni sekmede aç, kullanıcı oradan "Farklı
         // Kaydet" ile indirebilsin.
-        window.open(url, '_blank');
+        pvOpen(url);
       })
       .finally(function () {
         if (btnEl) { btnEl.innerHTML = originalHtml; btnEl.disabled = false; }
@@ -145,10 +145,10 @@
     // PDF: tarayıcı zaten kendi PDF görüntüleyicisiyle (yazdır ikonu dahil)
     // açabiliyor, Google Docs Viewer'a gerek yok — doğrudan yeni sekmede aç.
     if (/\.pdf($|\?)/i.test(url)) {
-      window.open(url, '_blank');
+      pvOpen(url);
       return;
     }
-    window.open('https://docs.google.com/viewer?url=' + encodeURIComponent(url) + '&embedded=false', '_blank');
+    pvOpen('https://docs.google.com/viewer?url=' + encodeURIComponent(pvSafeUrl(url)) + '&embedded=false');
   };
 
   function _fixedFormsHtml() {
@@ -604,7 +604,7 @@
     '<div class="card mb16">' +
       '<div class="card-hd">' +
         '<span class="card-title" id="dsy_' + tip + '_cardTitle">➕ ' + TIP_LABELS[tip] + ' — Yeni Kayıt</span>' +
-        '<span class="card-badge">' + ttt + '</span>' +
+        '<span class="card-badge">' + pvEsc(ttt) + '</span>' +
       '</div>' +
       '<div class="card-body">' +
         '<div class="section-h">Otomatik Bilgiler</div>' +
@@ -842,14 +842,14 @@
           var canEdit = manager || r.ttt === me;
           var actions = canEdit
             ? '<div style="display:flex;gap:6px;white-space:nowrap">' +
-                '<button onclick="_dsyEdit(\'' + tip + '\',\'' + r.id + '\')" style="padding:4px 9px;border-radius:6px;border:1px solid var(--border);background:var(--surf);color:var(--c1);font-size:10px;font-weight:700;cursor:pointer">✏️ Düzenle</button>' +
-                '<button onclick="_dsyDelete(\'' + tip + '\',\'' + r.id + '\')" style="padding:4px 9px;border-radius:6px;border:1px solid #FCA5A5;background:#FEF2F2;color:#DC2626;font-size:10px;font-weight:700;cursor:pointer">🗑️ Sil</button>' +
+                '<button onclick="_dsyEdit(\'' + tip + '\',' + pvJsArg(r.id) + ')" style="padding:4px 9px;border-radius:6px;border:1px solid var(--border);background:var(--surf);color:var(--c1);font-size:10px;font-weight:700;cursor:pointer">✏️ Düzenle</button>' +
+                '<button onclick="_dsyDelete(\'' + tip + '\',' + pvJsArg(r.id) + ')" style="padding:4px 9px;border-radius:6px;border:1px solid #FCA5A5;background:#FEF2F2;color:#DC2626;font-size:10px;font-weight:700;cursor:pointer">🗑️ Sil</button>' +
               '</div>'
             : '<span style="color:var(--dim);font-size:10px">—</span>';
           return '<tr>' + cols.map(function (c) {
             var v = r[c.key];
             if (c.money) v = (typeof fTL === 'function') ? fTL(v) : v;
-            return '<td>' + (v == null || v === '' ? '—' : v) + '</td>';
+            return '<td>' + (v == null || v === '' ? '—' : pvEsc(v)) + '</td>';
           }).join('') + '<td>' + actions + '</td></tr>';
         }).join('');
 

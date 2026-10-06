@@ -2,14 +2,18 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
+<!-- GÜVENLİK: Content-Security-Policy. script-src'te 'unsafe-inline' şimdilik gerekli (satır içi onclick/script çok);
+     harici script kaynağı YOK (kütüphaneler vendor/). Yeni bir dış adrese bağlanılacaksa connect-src'e eklenmeli. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://raw.githubusercontent.com; connect-src 'self' blob: https://samsun.yilmazusta28.workers.dev https://raw.githubusercontent.com https://github.com https://api.github.com; frame-src 'self' blob: https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PHARMA VISION Satış Portalı</title>
 <link rel="icon" type="image/png" href="images/aslan.png">
 <link rel="shortcut icon" type="image/png" href="images/aslan.png">
 <link rel="apple-touch-icon" href="images/aslan.png">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="vendor/chart.umd.min.js?v=4.4.1"></script>
+<script src="vendor/papaparse.min.js?v=5.4.1"></script>
+<script src="vendor/xlsx.full.min.js?v=0.18.5"></script>
 <!-- ═══════════════════════════════════════════════════════════════
      MODÜL YÜKLEMESİ — PHARMA VISION Satış Portalı
      Yükleme sırası (bağımlılık sırasına göre):
@@ -94,6 +98,7 @@
       kendi başlıklarına ve docs/ klasöründeki FAZ raporlarına bakın.
      ═══════════════════════════════════════════════════════════════ -->
 <script src="js/core/async-guard.js?v=20260705"></script>
+<script src="js/core/security.js?v=20261008"></script>
 <script src="js/core/constants.js?v=20261001"></script>
 <script src="js/core/date-utils.js?v=20260705d"></script>
 <script src="js/core/period-archive-manager.js?v=20260705"></script>
@@ -464,12 +469,12 @@ window.DOSYALAR_SYNC_WORKER_URL   = 'https://samsun.yilmazusta28.workers.dev/dos
 window.DOSYALAR_UPDATE_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/dosyalar-update';
 window.DOSYALAR_DELETE_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/dosyalar-delete';
 </script>
-<script src="js/ui/dosyalar-page.js?v=20260915"></script>
+<script src="js/ui/dosyalar-page.js?v=20261008"></script>
 <!-- FAZ 22.1: Yönetici paneli (page6) "📁 Dosyalar Özeti" kartı.
      dosyalar-page.js'in PV_DOSYALAR_API köprüsünü kullanır — bu yüzden
      ONDAN SONRA yüklenmeli. Rollback: bu satırı sil; page6'deki
      #mgrDosyalarOzet kartı boş kalır, başka hiçbir şey etkilenmez. -->
-<script src="js/ui/dosyalar-manager-summary.js?v=20260916"></script>
+<script src="js/ui/dosyalar-manager-summary.js?v=20261008"></script>
 <!-- END FAZ 19.0 -->
 <!-- FAZ 10.4: Rakip Intelligence ↔ Outcome Köprüsü
      competitive-adapter.js (CSV kampanya) ile outcome-tracker.js arasında
@@ -484,7 +489,7 @@ window.DOSYALAR_DELETE_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/dos
      davranışa döner. -->
 <script>window.SARTLAR_SYNC_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/sartlar-sync';</script>
 <script>window.HABER_SYNC_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/haber-sync';</script>
-<script src="js/pharmacy/sales-conditions.js?v=20260705"></script>
+<script src="js/pharmacy/sales-conditions.js?v=20261008"></script>
 
 <!-- FAZ 6.4: Rakip Satış Şartları Yöneticisi (AI_MIMARI_ANALIZ_VE_YOL_HARITASI.md §9.1, §16)
      sales-conditions.js'in (yukarıda, Phase 4.7) {min,bonus} şemasını
