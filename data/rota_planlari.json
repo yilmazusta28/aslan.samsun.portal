@@ -107,7 +107,8 @@
           "ORDU MERKEZ -3"
         ],
         "3": [
-          "ORDU FATSA"
+          "ORDU DOGU ILCELER",
+          "ORDU GUNEY ILCELER -1"
         ],
         "4": [
           "ORDU DOGU ILCELER",
@@ -381,5 +382,5 @@
       }
     }
   },
-  "updatedAt": "2026-10-08T17:00:02.213Z"
+  "updatedAt": "2026-10-08T17:00:03.506Z"
 }
