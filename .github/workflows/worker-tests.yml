@@ -1,0 +1,17 @@
+name: Worker & güvenlik testleri
+on:
+  push:
+    paths: ['worker/**', 'tools/**', 'js/core/security.js', '.github/workflows/worker-tests.yml']
+  pull_request:
+    paths: ['worker/**', 'tools/**', 'js/core/security.js']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - run: node worker/pv-auth-module.test.mjs
+      - run: node worker/worker.test.mjs

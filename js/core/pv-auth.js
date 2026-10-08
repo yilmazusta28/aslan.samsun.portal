@@ -53,18 +53,62 @@ async function _pvSha256Hex(str) {
   return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
 }
 
+// ── FAZ 2: SUNUCU TARAFLI OTURUM ─────────────────────────────────────────────
+// window.PV_SERVER_AUTH=true (index.html) → giriş worker'daki /auth/login ile yapılır (kişiye özel şifre),
+// imzalı jeton sessionStorage'a yazılır ve her istekte `Authorization: Bearer` gönderilir. Worker kimliği
+// JETONDAN okur; X-PV-User yalnız teşhis içindir. Bayrak false iken (varsayılan) davranış ESKİSİYLE aynıdır.
+// Geçiş: worker PV_AUTH_MODE=both → herkes taşınınca strict → ardından _PV_WORKER_KEY / VALID_PASS silinir.
+var PV_WORKER_BASE = 'https://samsun.yilmazusta28.workers.dev';
+var _PV_SESSION_KEY = 'pv_session_v1';
+
+function _pvSession() {
+  try {
+    var o = JSON.parse(sessionStorage.getItem(_PV_SESSION_KEY) || 'null');
+    if (o && o.token && o.exp * 1000 > Date.now() + 30000) return o;     // süresi dolmak üzere olanı kullanma
+  } catch (e) { /* sessionStorage kapalı/bozuk */ }
+  return null;
+}
+async function pvServerLogin(user, pass) {
+  try {
+    var res = await fetch(PV_WORKER_BASE + '/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: user, pass: pass })
+    });
+    var j = await res.json().catch(function () { return {}; });
+    if (res.ok && j.token) {
+      sessionStorage.setItem(_PV_SESSION_KEY, JSON.stringify({ token: j.token, user: j.user, role: j.role, exp: j.exp }));
+      return { ok: true, user: j.user, role: j.role };
+    }
+    if (res.status === 429) return { ok: false, message: 'Çok fazla hatalı deneme — 15 dakika sonra tekrar deneyin.' };
+    if (res.status === 501) return { ok: false, message: 'Sunucu girişi henüz yapılandırılmadı.' };
+    return { ok: false, message: 'Kullanıcı adı veya şifre hatalı.' };
+  } catch (e) {
+    return { ok: false, message: 'Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin.' };
+  }
+}
+function pvClearSession() { try { sessionStorage.removeItem(_PV_SESSION_KEY); } catch (e) { /* yoksay */ } }
+
+var _pvExpiredShown = false;
+function _pvSessionExpired() {                       // jeton yok/doldu → giriş ekranını yeniden göster (bir kez)
+  if (_pvExpiredShown) return; _pvExpiredShown = true;
+  var ls = document.getElementById('loginScreen'), er = document.getElementById('loginErr');
+  if (ls) ls.style.display = '';
+  if (er) { er.textContent = 'Oturum süresi doldu — lütfen yeniden giriş yapın.'; er.style.display = 'block'; }
+}
+
 // Worker'a atılan HER istekte kullanılacak header'ları üretir.
 // Kullanım: const headers = await pvAuthHeaders();
 //           fetch(url, { headers: Object.assign({'Content-Type':'application/json'}, headers), ... })
 async function pvAuthHeaders() {
-  var win = Math.floor(Date.now() / 1000 / _PV_AUTH_WINDOW_SEC);
-  var token = await _pvSha256Hex(_PV_WORKER_KEY + ':' + win);
-  return {
-    'X-PV-Auth': token,
-    // Sadece log/teşhis amaçlı — worker tarafında doğrulanmıyor, güvenlik
-    // kararı buna dayanmıyor.
-    'X-PV-User': encodeURIComponent((typeof LOGGED_IN_USER !== 'undefined' && LOGGED_IN_USER) || '')
-  };
+  var who = encodeURIComponent((typeof LOGGED_IN_USER !== 'undefined' && LOGGED_IN_USER) || '');
+  var ses = _pvSession();
+  if (ses) return { 'Authorization': 'Bearer ' + ses.token, 'X-PV-User': who };      // sunucu taraflı oturum
+  if (window.PV_SERVER_AUTH === true) _pvSessionExpired();
+  if (typeof _PV_WORKER_KEY === 'string' && _PV_WORKER_KEY) {                         // eski mod / geçiş dönemi
+    var win = Math.floor(Date.now() / 1000 / _PV_AUTH_WINDOW_SEC);
+    var token = await _pvSha256Hex(_PV_WORKER_KEY + ':' + win);
+    return { 'X-PV-Auth': token, 'X-PV-User': who };
+  }
+  return { 'X-PV-User': who };
 }
 
 console.debug('[pv-auth] Yüklendi — worker istekleri artık X-PV-Auth ile imzalanacak.');

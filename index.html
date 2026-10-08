@@ -143,7 +143,8 @@
      artık X-PV-Auth doğrulaması istiyor. Bu dosya, worker'a istek atan
      TÜM dosyalardan (aşağıdaki ai/, pharmacy/sales-conditions.js) ÖNCE
      yüklenmeli. -->
-<script src="js/core/pv-auth.js?v=20260915"></script>
+<script>window.PV_SERVER_AUTH = false; /* FAZ 2: worker deploy + PV_USERS hazır olunca true yapın (docs/SECURITY_ROADMAP.md) */</script>
+<script src="js/core/pv-auth.js?v=20261009"></script>
 <!-- AI MİMARİ STABİLİZASYONU: IMS Adapter Katmanı
      Gerçek parseIMSCSV() çıktısını (ttt, brick, ilac, is_mkt, toplam, h1..h9)
      tüm AI motorlarının kullandığı ORTAK, NORMALİZE EDİLMİŞ bir modele
@@ -2795,6 +2796,16 @@ function doLogin(){
   const user=document.getElementById('loginUser').value.trim();
   const pass=document.getElementById('loginPass').value;
   const errEl=document.getElementById('loginErr');
+  // FAZ 2: sunucu taraflı giriş (window.PV_SERVER_AUTH=true). Kişiye özel şifre worker'da doğrulanır;
+  // başarılıysa aşağıdaki mevcut oturum açma akışı bir kez daha çalıştırılır. Bayrak false → eski davranış.
+  if(window.PV_SERVER_AUTH===true && !window._pvServerOk){
+    errEl.style.display='none';
+    pvServerLogin(user,pass).then(function(r){
+      if(r&&r.ok){ window._pvServerOk=true; document.getElementById('loginUser').value=r.user; doLogin(); }
+      else { errEl.textContent=(r&&r.message)||'Kullanıcı adı veya şifre hatalı.'; errEl.style.display='block'; }
+    });
+    return;
+  }
   // AUDIT5 sertleştirmesi: eskiden sadece VALID_USERS'ta TEK TEK yazılmış
   // büyük/küçük harf varyantlarıyla birebir (.toLowerCase()) karşılaştırılıyordu.
   // JS'in VARSAYILAN toLowerCase()/toUpperCase() metodu Türkçe locale
@@ -2807,7 +2818,8 @@ function doLogin(){
   // karşı dayanıklı hale getiriyor — şifre kontrolü değişmedi, sadece
   // kullanıcı adı eşleşmesi gevşetildi.
   const isUserOk=VALID_USERS.some(u=>stripTR(u).toLowerCase()===stripTR(user).toLowerCase());
-  if(isUserOk&&pass===VALID_PASS){
+  if(isUserOk&&(pass===VALID_PASS||window._pvServerOk===true)){
+    window._pvServerOk=false;
     document.getElementById('loginScreen').style.display='none';
     errEl.style.display='none';
     SoundFX.giris();
