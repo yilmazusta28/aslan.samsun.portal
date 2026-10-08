@@ -118,10 +118,7 @@
         ]
       },
       "2": {
-        "1": [
-          "GIRESUN MERKEZ -1",
-          "GIRESUN MERKEZ -2"
-        ],
+        "1": [],
         "2": [
           "ORDU MERKEZ -1",
           "ORDU MERKEZ -2",
@@ -381,5 +378,5 @@
       }
     }
   },
-  "updatedAt": "2026-10-08T17:00:07.487Z"
+  "updatedAt": "2026-10-08T17:00:26.433Z"
 }
