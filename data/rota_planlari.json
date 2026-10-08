@@ -120,11 +120,7 @@
       "2": {
         "1": [],
         "2": [],
-        "3": [
-          "ORDU BATI ILCELER",
-          "ORDU DOGU ILCELER",
-          "ORDU GUNEY ILCELER -1"
-        ],
+        "3": [],
         "4": [
           "ORDU FATSA"
         ],
@@ -374,5 +370,5 @@
       }
     }
   },
-  "updatedAt": "2026-10-08T17:00:27.834Z"
+  "updatedAt": "2026-10-08T17:00:29.181Z"
 }
