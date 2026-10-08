@@ -119,11 +119,7 @@
       },
       "2": {
         "1": [],
-        "2": [
-          "ORDU MERKEZ -1",
-          "ORDU MERKEZ -2",
-          "ORDU MERKEZ -3"
-        ],
+        "2": [],
         "3": [
           "ORDU BATI ILCELER",
           "ORDU DOGU ILCELER",
@@ -378,5 +374,5 @@
       }
     }
   },
-  "updatedAt": "2026-10-08T17:00:26.433Z"
+  "updatedAt": "2026-10-08T17:00:27.834Z"
 }
