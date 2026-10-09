@@ -28,9 +28,10 @@ Yapıldı (hepsi testli: `node worker/pv-auth-module.test.mjs` 16, `node worker/
 
 ### Devreye alma (sırayla, her adım geri alınabilir)
 1. **Worker'ı deploy et:** `worker/worker.js`'i Cloudflare'e yükle. `PV_JWT_SECRET` tanımlı olmadığı için hâlâ `legacy` çalışır → kesinti yok.
-2. **Gizli değerler** (`wrangler secret put …`): `PV_JWT_SECRET` (`openssl rand -base64 32`) ve `PV_USERS`:
-   her kişi için `node tools/make-user-hash.mjs "AYKUT DİNLER" rep` çıktısını tek JSON'da birleştir
-   (`ŞENOL YILMAZ`/`ADMIN` → `admin`, `YILMAZ USTA` → `manager`, diğerleri `rep`). İsteğe bağlı KV: `PV_KV` bağla (deneme sınırı + AI günlük sınırı için; `PV_AI_DAILY_LIMIT` varsayılan 300).
+2. **Hesaplar + gizli değerler:** `python tools/make_users.py` → `guvenlik_cikti/` altında `pv_users.json`, `pv_jwt_secret.txt`, `sifreler.txt` üretir
+   (10 hesap: ŞENOL YILMAZ/ADMIN → admin, YILMAZ USTA → manager, 7 temsilci → rep; klasör `.gitignore`'dadır, GitHub'a GİTMEZ).
+   Cloudflare → Worker → Settings → Variables and Secrets: `PV_USERS` (pv_users.json'ın içeriği) ve `PV_JWT_SECRET` (pv_jwt_secret.txt) — ikisi de **Secret**.
+   Önerilen: KV namespace oluşturup `PV_KV` adıyla bağla (deneme sınırı + AI günlük sınırı KV olmadan çalışmaz). Unutulan şifre: `python tools/make_users.py --yenile "AD SOYAD"`.
 3. **Dene:** `curl -X POST https://<worker>/auth/login -d '{"user":"AYKUT DİNLER","pass":"…"}'` → `token` dönmeli. Bu aşamada mod otomatik `both`.
 4. **Siteyi aç:** `index.html`'de `window.PV_SERVER_AUTH = true` → yayınla. Herkes kişisel şifresiyle girer (eski ortak şifre artık çalışmaz).
 5. **Herkes taşınınca:** `PV_AUTH_MODE=strict` → sızmış eski anahtar işe yaramaz.

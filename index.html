@@ -2800,7 +2800,9 @@ function doLogin(){
   // başarılıysa aşağıdaki mevcut oturum açma akışı bir kez daha çalıştırılır. Bayrak false → eski davranış.
   if(window.PV_SERVER_AUTH===true && !window._pvServerOk){
     errEl.style.display='none';
-    pvServerLogin(user,pass).then(function(r){
+    // Yazılan ad (kursad karadag / Kürşad Karadağ …) → sunucudaki kanonik büyük harfli ad (KÜRŞAD KARADAĞ)
+    const canon=VALID_USERS.find(u=>u===u.toLocaleUpperCase('tr-TR')&&stripTR(u).toLowerCase()===stripTR(user).toLowerCase())||user;
+    pvServerLogin(canon,pass).then(function(r){
       if(r&&r.ok){ window._pvServerOk=true; document.getElementById('loginUser').value=r.user; doLogin(); }
       else { errEl.textContent=(r&&r.message)||'Kullanıcı adı veya şifre hatalı.'; errEl.style.display='block'; }
     });
