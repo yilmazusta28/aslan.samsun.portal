@@ -154,8 +154,7 @@
      artık X-PV-Auth doğrulaması istiyor. Bu dosya, worker'a istek atan
      TÜM dosyalardan (aşağıdaki ai/, pharmacy/sales-conditions.js) ÖNCE
      yüklenmeli. -->
-<script src="js/core/pv-config.js?v=1"></script>
-<script src="js/core/pv-auth.js?v=20261011"></script>
+<script src="js/core/pv-auth.js?v=20261012"></script>
 <!-- AI MİMARİ STABİLİZASYONU: IMS Adapter Katmanı
      Gerçek parseIMSCSV() çıktısını (ttt, brick, ilac, is_mkt, toplam, h1..h9)
      tüm AI motorlarının kullandığı ORTAK, NORMALİZE EDİLMİŞ bir modele
@@ -2804,15 +2803,15 @@ function _autoSelTTT(fallback) {
 }
 
 
-const VALID_PASS='ilko2030';
 
 function doLogin(){
   const user=document.getElementById('loginUser').value.trim();
   const pass=document.getElementById('loginPass').value;
   const errEl=document.getElementById('loginErr');
-  // FAZ 2: sunucu taraflı giriş (window.PV_SERVER_AUTH=true). Kişiye özel şifre worker'da doğrulanır;
-  // başarılıysa aşağıdaki mevcut oturum açma akışı bir kez daha çalıştırılır. Bayrak false → eski davranış.
-  if(window.PV_SERVER_AUTH===true && !window._pvServerOk){
+  // Sunucu taraflı giriş (zorunlu). Kişiye özel şifre worker'da doğrulanır;
+  // başarılıysa aşağıdaki mevcut oturum açma akışı bir kez daha çalıştırılır.
+  // (Eski ortak şifre VALID_PASS ve PV_SERVER_AUTH bayrağı kaldırıldı.)
+  if(!window._pvServerOk){
     errEl.style.display='none';
     // Yazılan ad (kursad karadag / Kürşad Karadağ …) → sunucudaki kanonik büyük harfli ad (KÜRŞAD KARADAĞ)
     const canon=VALID_USERS.find(u=>u===u.toLocaleUpperCase('tr-TR')&&stripTR(u).toLowerCase()===stripTR(user).toLowerCase())||user;
@@ -2834,7 +2833,7 @@ function doLogin(){
   // karşı dayanıklı hale getiriyor — şifre kontrolü değişmedi, sadece
   // kullanıcı adı eşleşmesi gevşetildi.
   const isUserOk=VALID_USERS.some(u=>stripTR(u).toLowerCase()===stripTR(user).toLowerCase());
-  if(isUserOk&&(pass===VALID_PASS||window._pvServerOk===true)){
+  if(isUserOk&&window._pvServerOk===true){
     window._pvServerOk=false;
     document.getElementById('loginScreen').style.display='none';
     errEl.style.display='none';
