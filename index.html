@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <!-- GÜVENLİK: Content-Security-Policy. script-src'te 'unsafe-inline' şimdilik gerekli (satır içi onclick/script çok);
      harici script kaynağı YOK (kütüphaneler vendor/). Yeni bir dış adrese bağlanılacaksa connect-src'e eklenmeli. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://raw.githubusercontent.com; connect-src 'self' blob: https://samsun.yilmazusta28.workers.dev https://raw.githubusercontent.com https://github.com https://api.github.com; frame-src 'self' blob: https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://raw.githubusercontent.com; media-src 'self' data: blob:; connect-src 'self' blob: data: https://samsun.yilmazusta28.workers.dev https://raw.githubusercontent.com https://github.com https://api.github.com; frame-src 'self' blob: https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PHARMA VISION Satış Portalı</title>
@@ -116,7 +116,19 @@
 <script src="js/data/storage.js?v=20260705"></script>
 <!-- PHASE 2.3.5: Data Cache Layer -->
 <script src="js/data/data-cache.js?v=20261001b"></script>
-<script src="js/utils/audio-utils.js?v=20260705"></script>
+<script>
+/* AÇILIŞ HIZI: ses motoru (417 KB, gömülü MP3/WAV) giriş ekranını geciktirmesin. Önce sessiz taslak (çağrılar
+   hata vermez), sayfa çizildikten sonra gerçek modül (js/utils/audio-utils.js) arka planda yüklenir. */
+(function () {
+  var noop = function () {};
+  var taslak = function () { try { return new Proxy({}, { get: function () { return noop; } }); } catch (e) { return {}; } };
+  window.SoundFX = taslak(); window.HapticFX = taslak();
+  var yuklendi = false;
+  function yukle() { if (yuklendi || !window.pvLoadScript) return; yuklendi = true; pvLoadScript('js/utils/audio-utils.js?v=20261012').catch(function () { yuklendi = false; }); }
+  if (document.readyState === 'complete') setTimeout(yukle, 0);
+  else window.addEventListener('load', function () { setTimeout(yukle, 0); });
+})();
+</script>
 <!-- PHASE23: UI Component Layer — extracted from index.html inline script -->
 <!-- Rollback: remove these 6 lines; PHASE23-STUB blocks in inline script reactivate -->
 <script src="js/ui/ui-helpers.js?v=20260705"></script>
