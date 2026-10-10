@@ -6196,6 +6196,17 @@ function buildCompetitionAlerts(ttt){
 // bir uyarı satırı üretir. Not: Bu, önceden kaldırılmış olan genel
 // "rakip uyarısı" özelliğinden FARKLIDIR — sadece ANİ SIÇRAMALARI
 // hedefler, her rakip hareketini değil.
+// Takip edilen rakipler (kullanıcı isteği): yalnız bu ilaçlar için uyarı üretilir.
+// Karşılaştırma büyük/küçük harf, Türkçe harf (İ/ı/Ş…) ve boşluk/tire farkından
+// etkilenmez: "FAMODİN PLUS" = "FAMODINPLUS" = "famodin-plus".
+const RAKIP_TAKIP_LISTESI = [
+  'PANTACTIVE','PANTO','PULCET','TRIGAST','FAMODINPLUS','MOXAI',
+  'AVELOX','KATARIN','AFERIN','GRIBEXCOLDFLUE','BRUFEN'
+];
+function _rakipAnahtar(s){
+  return stripTR(String(s||'')).toUpperCase().replace(/[^A-Z0-9]/g,'');
+}
+const _RAKIP_TAKIP_SET = new Set(RAKIP_TAKIP_LISTESI.map(_rakipAnahtar));
 function buildRakipSpikeAlerts(ttt){
   const alerts=[];
   const curWeek=_currentWeekNumInPeriod();
@@ -6210,7 +6221,7 @@ function buildRakipSpikeAlerts(ttt){
   tttList.forEach(t=>{
     ALL_GROUPS.forEach(grp=>{
       const ownIlac=OWN_IMS[grp];
-      const rakipRows=IMS.filter(r=>r.ttt===t&&r.ilac_grubu===grp&&r.ilac!==ownIlac&&!r.is_mkt);
+      const rakipRows=IMS.filter(r=>r.ttt===t&&r.ilac_grubu===grp&&r.ilac!==ownIlac&&!r.is_mkt&&_RAKIP_TAKIP_SET.has(_rakipAnahtar(r.ilac)));
       rakipRows.forEach(r=>{
         const guncel=r[wKey]||0;
         if(guncel<=0) return;
@@ -6219,7 +6230,7 @@ function buildRakipSpikeAlerts(ttt){
         const ort=gecmis.reduce((s,v)=>s+v,0)/gecmis.length;
         if(ort>0 && guncel>=ort*1.75 && (guncel-ort)>=5){
           const prefix=ttt==='ŞENOL YILMAZ'?`[${t.split(' ')[0]}] `:'';
-          alerts.push(`🟠 ${prefix}<strong>${r.brick}</strong> — ${GRP_LBL[grp]}: rakip <strong>${r.ilac}</strong> bu hafta <strong>${guncel} kutu</strong> çıkış yaptı (önceki ort. ${ort.toFixed(0)} kutu) — dikkat!`);
+          alerts.push(`🟡 ${prefix}<strong>${r.brick}</strong> — ${GRP_LBL[grp]}: rakip <strong>${r.ilac}</strong> bu hafta <strong>${guncel} kutu</strong> çıkış yaptı (önceki ort. ${ort.toFixed(0)} kutu) — dikkat!`);
         }
       });
     });
