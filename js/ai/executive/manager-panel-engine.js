@@ -743,10 +743,45 @@
     }
   }
 
+  // ── Kutu çevrimi: YTD_TL.csv + YTD_KUTU.csv ──────────────────────────
+  // Temsilcinin cari dönemdeki ürün bazlı kutu/TL oranı (hedef ve satış için AYRI): faktör =
+  // YTD_KUTU / YTD_TL. Brick TL × faktör = brick kutu; böylece brick kutuları toplamı
+  // YTD_KUTU'daki temsilci değerleriyle tutar. YTD verisi yoksa IMS TL birim fiyatına bölmeye düşer.
+  function _ytdKutuFactors(ttt) {
+    var tl = window.YTD_TL_DATA, ku = window.YTD_KUTU_DATA, per = window.BRICK_TL_PERIOD;
+    if (!tl || !ku || !per || !tl.data[per] || !ku.data[per]) return null;
+    var kt = window.brickTlKey(ttt);
+    function find(ds) {
+      var rows = ds.data[per] || [];
+      for (var i = 0; i < rows.length; i++) if (window.brickTlKey(rows[i].personel) === kt) return rows[i];
+      return null;
+    }
+    var a = find(tl), b = find(ku);
+    if (!a || !b) return null;
+    var out = {};
+    Object.keys(a.products).forEach(function (k) {
+      var t = a.products[k], q = b.products[k];
+      if (!q) return;
+      out[k] = { h: (t.hedef > 0 && q.hedef > 0) ? q.hedef / t.hedef : null,
+                 s: (t.satis > 0 && q.satis > 0) ? q.satis / t.satis : null };
+    });
+    return out;
+  }
+  function _ytdEnsureLoaded() {
+    if ((!window.YTD_TL_DATA || !window.YTD_KUTU_DATA) && !window.__ytdForBrickTried && typeof window.loadYtdAllData === 'function') {
+      window.__ytdForBrickTried = true;
+      Promise.resolve(window.loadYtdAllData(false)).then(function () {
+        var sel = document.getElementById('mgrTttSelect');
+        if (sel && sel.value) renderManagerBrickDetail(sel.value, 'mgrBrickDetailBody');
+      }).catch(function () {});
+    }
+  }
+
   // @returns [{ brick, sira, hedefTL, satisTL, kalanTL, pp, fromCsv }] — sira artan
   function buildManagerBrickDetail(ttt) {
     if (!ttt) return [];
     _brickTlEnsureLoaded();
+    _ytdEnsureLoaded();
 
     // 3a) Kendi kutu hacmi (IMS, is_mkt:false) → brick bazlı tahmini TL ağırlığı
     var brickMap = {}; // BRICK -> { estTL, ppiVals:[] }
@@ -807,6 +842,7 @@
     var satisTotal = gt ? (gt.satis_tl || 0) : 0;
 
     var csvLoaded = _brickTlLoaded();
+    var ytdFac = _ytdKutuFactors(ttt);
     var keys = Object.keys(brickMap);
     var estTotal = keys.reduce(function (s, k) { return s + brickMap[k].estTL; }, 0);
     var productShareMap = _buildBrickProductShareMap(ttt);
@@ -847,12 +883,15 @@
           var cu = byUrun[window.brickTlKey(urun)];
           if (!cu) return products[idx];
           var price = (typeof IMS_TL_MAP !== 'undefined' && IMS_TL_MAP[urun]) || 0;
-          if (price > 0) { hedefKutu += cu.hedef / price; satisKutu += cu.satis / price; }
-          if (!(cu.pazar > 0) || !(price > 0)) return { urun: urun, ourShare: null };
+          var yf = ytdFac && ytdFac[window.brickTlKey(urun).replace(/ /g, '_')];
+          var fH = (yf && yf.h) || (price > 0 ? 1 / price : 0);   // TL → kutu (hedef)
+          var fS = (yf && yf.s) || (price > 0 ? 1 / price : 0);   // TL → kutu (satış)
+          hedefKutu += cu.hedef * fH; satisKutu += cu.satis * fS;
+          if (!(cu.pazar > 0) || !(fS > 0)) return { urun: urun, ourShare: null };
           return {
             urun: urun,
             ourShare: cu.satis / cu.pazar * 100,
-            ownTotal: cu.satis / price, mktTotal: cu.pazar / price,
+            ownTotal: cu.satis * fS, mktTotal: cu.pazar * fS,
             ownTotalTL: cu.satis, mktTotalTL: cu.pazar
           };
         });
@@ -1152,7 +1191,7 @@
       });
     }
 
-    html += '<div style="font-size:9px;color:var(--dim);margin-top:10px;font-style:italic">' + (rows.some(function (r) { return r.fromCsv; }) ? '* Hedef/Satış/Kalan TL ve Performans%, Brick_TL_Hedef.csv\'deki brick bazlı gerçek verilerden (5 ürünün toplamı) alınmıştır. Kutu = TL ÷ ürünün IMS TL birim fiyatı; ürün PP = ürün satışı ÷ ürün pazarı (TL).' : '* Hedef/Satış/Kalan TL, brick bazlı gerçek CSV verisi bulunmadığından, temsilcinin toplam hedefinin brick bazlı kendi kutu hacmine göre ORANTILI DAĞITILMASIYLA tahmin edilmiştir.') + '</div>';
+    html += '<div style="font-size:9px;color:var(--dim);margin-top:10px;font-style:italic">' + (rows.some(function (r) { return r.fromCsv; }) ? '* Hedef/Satış/Kalan TL ve Performans%, Brick_TL_Hedef.csv\'deki brick bazlı gerçek verilerden (5 ürünün toplamı) alınmıştır. Kutu = brick TL değeri × temsilcinin ürün bazlı YTD_KUTU/YTD_TL oranı (YTD verisi yoksa IMS TL birim fiyatına bölünür); ürün PP = ürün satışı ÷ ürün pazarı (TL), pazar kutusu yaklaşıktır.' : '* Hedef/Satış/Kalan TL, brick bazlı gerçek CSV verisi bulunmadığından, temsilcinin toplam hedefinin brick bazlı kendi kutu hacmine göre ORANTILI DAĞITILMASIYLA tahmin edilmiştir.') + '</div>';
 
     return html;
   }

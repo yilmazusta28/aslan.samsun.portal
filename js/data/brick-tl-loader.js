@@ -45,6 +45,13 @@ function parseBrickTlCSV(text) {
   const hi = grid.findIndex(r => brickTlKey(r[0]) === 'BRICK');
   if (hi < 2) throw new Error('Başlık satırı (BRİCK) bulunamadı');
   const titleRow = grid[hi - 2];
+  // Dönem etiketi (örn. "2026/5D" → "5.DÖNEM") — YTD_TL/YTD_KUTU'da doğru dönem bloğunu bulmak için
+  window.BRICK_TL_PERIOD = null;
+  grid[hi - 1].some(c => {
+    const pm = String(c || '').match(/(\d{4})\s*\/\s*(\d)\s*D/i);
+    if (pm) { window.BRICK_TL_PERIOD = pm[2] + '.DÖNEM'; return true; }
+    return false;
+  });
   const labelRow = grid[hi];
 
   // Ürün blokları: başlık satırında dolu hücre = blok başı, sonraki dolu hücreye kadar sürer
