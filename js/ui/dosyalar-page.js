@@ -297,6 +297,37 @@
     ]
   };
 
+  // Excel çıktısı sütunları (kullanıcı isteği — başlıklar ve SIRA birebir bu şekilde).
+  // Ekrandaki tablolar TABLE_COLS'u kullanmaya devam eder. "no" = satır sıra numarası.
+  // Yemek başlığındaki satır sonu (\n) bilerek var: orijinal şablonda başlık iki satırlı.
+  var EXCEL_COLS = {
+    temsil: [
+      { key: 'bolge', label: 'Bölge' }, { key: 'grup', label: 'Grup' }, { key: 'urun', label: 'Ürün' },
+      { key: 'tarih', label: 'Tarih' }, { key: 'ttt', label: 'BM/TTT' }, { key: 'unite', label: 'Ünite' },
+      { key: 'brick', label: 'Bulunduğu Brick' }, { key: 'hekimSayisi', label: 'Hekim Sayısı' },
+      { key: 'butce', label: 'Bütçe' }, { key: 'brans', label: 'Branş' },
+      { key: 'sunumTemsil', label: 'SUNUM / TEMSİL ' }, { key: 'ay', label: 'AY' }
+    ],
+    planlanan: [
+      { key: 'no', label: 'NO' }, { key: 'bolge', label: 'BÖLGE' }, { key: 'grup', label: 'GRUP' },
+      { key: 'urun', label: 'SUNUM YAPILACAK ÜRÜN' }, { key: 'tarih', label: ' TARİHİ' },
+      { key: 'ttt', label: 'SUNUM YAPACAK KİŞİ' }, { key: 'unite', label: 'SUNUM YAPILACAK ÜNİTE' },
+      { key: 'klinik', label: 'KLİNİK' }, { key: 'brick', label: 'BULUNDUĞU BRİK' },
+      { key: 'katilimci', label: 'TAHMİNİ KATILIMCI' }, { key: 'kisiBasi', label: 'KİŞİ BAŞI' },
+      { key: 'maliyet', label: 'TAHMİNİ MALİYET' },
+      { key: 'yemek', label: 'AKŞAM YADA ÖĞLE YEMEĞİ VE \nALKOLLÜ / ALKOLSÜZ BELİRTİLMELİ' }
+    ],
+    gerceklesen: [
+      { key: 'bolge', label: 'BÖLGE' }, { key: 'grup', label: 'GRUP' },
+      { key: 'urun', label: 'SUNUM YAPILAN ÜRÜN' }, { key: 'tarih', label: 'TARİH' },
+      { key: 'ttt', label: 'SUNUM YAPAN KİŞİ' }, { key: 'unite', label: 'SUNUM YAPILAN ÜNİTE' },
+      { key: 'klinik', label: 'KLİNİK' }, { key: 'brick', label: 'BULUNDUĞU BRİK' },
+      { key: 'katilimci', label: 'GERÇEKLEŞEN KATILIMCI' }, { key: 'kisiBasi', label: 'KİŞİ BAŞI' },
+      { key: 'maliyet', label: 'GERÇEKLEŞEN MALİYET' },
+      { key: 'yemek', label: 'AKŞAM YADA ÖĞLE YEMEĞİ VE \nALKOLLÜ / ALKOLSÜZ' }
+    ]
+  };
+
   // ── Yerel (localStorage) okuma/yazma — FAZ 19.0 İLE AYNI ──────────────
   function _loadLocal() {
     try {
@@ -499,7 +530,9 @@
   }
 
   // ── Temsilcinin kendi brick'lerini bul (IMS verisinden) — FAZ 19.0 İLE AYNI ─
-  function getTTTBricks(ttt) {
+  // Kullanıcı isteği: Temsil Masraf Detay / Planlanan / Gerçekleşen Merkez Ödeme
+  // formlarında ortak "333" seçeneği YOK. Kongre formu eskisi gibi 333'ü içerir.
+  function getTTTBricks(ttt, tip) {
     var set = {};
     try {
       if (typeof IMS !== 'undefined' && Array.isArray(IMS)) {
@@ -509,7 +542,7 @@
       }
     } catch (e) { /* IMS henüz yüklenmemiş olabilir */ }
     var list = Object.keys(set).sort();
-    if (list.indexOf('333') === -1) list.push('333');
+    if (tip === 'kongre' && list.indexOf('333') === -1) list.push('333');
     return list;
   }
 
@@ -569,11 +602,11 @@
         '<select class="inp" id="' + id + '" style="width:100%">' + _optionsHtml(f.options) + '</select></div>';
     }
     if (f.type === 'brick') {
-      var bricks = getTTTBricks(ttt);
+      var bricks = getTTTBricks(ttt, tip);
       var onchange = (tip === 'kongre') ? ' onchange="_dsyBrickChanged(\'' + tip + '\')"' : '';
       return '<div><label class="dsy-lbl">' + f.label + '</label>' +
         '<select class="inp" id="' + id + '" style="width:100%"' + onchange + '>' + _optionsHtml(bricks) + '</select>' +
-        '<div style="font-size:9px;color:var(--dim);margin-top:3px">Kendi brick\'lerin listelenir — 333 (ortak brick) her zaman seçenekler arasındadır.</div></div>';
+        '<div style="font-size:9px;color:var(--dim);margin-top:3px">' + (tip === 'kongre' ? 'Kendi brick\'lerin listelenir — 333 (ortak brick) her zaman seçenekler arasındadır.' : 'Kendi brick\'lerin listelenir.') + '</div></div>';
     }
     if (f.type === 'computed' || f.type === 'sira') {
       return '<div><label class="dsy-lbl">' + f.label + '</label>' +
@@ -883,10 +916,16 @@
 
     ['temsil', 'planlanan', 'gerceklesen'].forEach(function (tip) {
       var rows = _visibleRecordsForTip(tip, all);
-      var cols = TABLE_COLS[tip].filter(function (c) { return manager || !c.managerOnly; });
-      var sheetData = rows.map(function (r) {
+      var cols = EXCEL_COLS[tip];
+      var sheetData = rows.map(function (r, idx) {
         var row = {};
-        cols.forEach(function (c) { row[c.label] = r[c.key] == null ? '' : r[c.key]; });
+        cols.forEach(function (c) {
+          var v;
+          if (c.key === 'no') v = idx + 1;
+          else if (c.key === 'ay') v = r.ay || (r.tarih ? _ayFromTarih(r.tarih) : '');
+          else v = r[c.key];
+          row[c.label] = v == null ? '' : v;
+        });
         return row;
       });
       var ws = XLSX.utils.json_to_sheet(sheetData);
