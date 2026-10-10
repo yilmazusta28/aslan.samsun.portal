@@ -1,63 +1,21 @@
-// ══════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════
 //  PHARMA VISION PORTAL  ·  js/core/pv-auth.js
-//  GÜVENLİK DÜZELTMESİ — worker.js'teki tüm senkron endpoint'leri
-//  (AI proxy dahil) artık kimlik doğrulaması istiyor.
+//  Sunucu taraflı oturum (worker PV_AUTH_MODE=strict ile çalışır)
 //
-//  Mekanizma: paylaşılan gizli bir anahtardan (_PV_WORKER_KEY — LOGIN
-//  şifresinden BİLEREK AYRI tutuldu, bkz. aşağıdaki not) 5 dakikada bir
-//  değişen bir SHA-256 token üretilir ve her worker isteğinde
-//  `X-PV-Auth` header'ında gönderilir. worker.js aynı hesaplamayı
-//  env.PORTAL_PASSWORD ile yapıp karşılaştırır.
+//  - Giriş: worker'daki /auth/login (kişiye özel şifre; şifre istemcide
+//    SAKLANMAZ, doğrulama sunucuda yapılır).
+//  - Dönen imzalı jeton sessionStorage'a yazılır ve worker'a atılan her
+//    istekte `Authorization: Bearer <jeton>` olarak gönderilir.
+//  - ESKİ ortak anahtar (_PV_WORKER_KEY / X-PV-Auth) ve VALID_PASS
+//    istemciden KALDIRILDI. Worker'da PORTAL_PASSWORD secret'ı da silinmeli.
 //
-//  ÖNEMLİ — GERÇEKÇİ TEHDİT MODELİ: Bu anahtar client-side JS'te durduğu
-//  için (tıpkı VALID_PASS gibi) GitHub Pages kaynağını inceleyen KARARLI
-//  bir kişiyi durdurmaz. Amacı: worker URL'ini bulan ANONİM bot/tarayıcı
-//  script'lerinin (Anthropic/GitHub kotasını sessizce tüketmesini) ve
-//  yakalanmış bir isteğin süresiz tekrar oynatılmasını (token'lar ~5-10
-//  dk sonra geçersiz olur) engellemek. Gerçek (login'e bağlı, sızma
-//  riski taşımayan) yetkilendirme için üretim yeniden yapımında
-//  sunucu tarafı oturum/JWT önerilir (bkz. Doküman İnceleme Raporu).
-//
-//  _PV_WORKER_KEY'in VALID_PASS'ten (giriş şifresi) FARKLI tutulmasının
-//  nedeni: bu token'lar ağ isteklerinde/loglarda görünebilir; login
-//  şifresiyle aynı olsaydı, bu iz sürülebilir kanaldan giriş şifresi de
-//  dolaylı olarak ifşa olabilirdi. Bu iki değeri birbirinden bağımsız
-//  tutmak, biri sızsa bile diğerini etkilemez.
-//
-//  DEPLOY ADIMI (bir kerelik):
-//    1) Aşağıdaki _PV_WORKER_KEY değerini uzun/rastgele bir dizeyle
-//       değiştir (ör. `openssl rand -hex 32` ile üretilebilir).
-//    2) Cloudflare Worker'da AYNI değeri secret olarak tanımla:
-//         wrangler secret put PORTAL_PASSWORD
-//       (worker.js env.PORTAL_PASSWORD olarak okuyor)
-//    3) Bu dosyayı index.html'e, LOGIN script bloğundan SONRA,
-//       ai-service.js / ai-engine.js / saha-gozlem-store.js /
-//       stock-entry-adapter.js / route-plan-input.js /
-//       sales-conditions.js dosyalarından ÖNCE ekle:
-//         <script src="js/core/pv-auth.js"></script>
+//  Kullanım: const headers = await pvAuthHeaders();
+//            fetch(url, { headers: Object.assign({'Content-Type':'application/json'}, headers), ... })
 //
 //  Yükleme sırası: LOGIN script bloğu SONRASI, worker'a istek atan
-//  TÜM dosyalardan ÖNCESİ.
-// ══════════════════════════════════════════════════════════════════════
+//  TÜM dosyalardan ÖNCESİ (index.html'deki mevcut sıra değişmez).
+// ═════════════════════════════════════════════════════════════════
 
-// GÜNCELLENDİ: openssl rand -hex 32 ile üretilen gerçek anahtar. Cloudflare
-// Worker tarafında `wrangler secret put PORTAL_PASSWORD` ile AYNI değer
-// tanımlanmalı — ikisi eşleşmezse worker tüm istekleri 401 ile reddeder.
-const _PV_WORKER_KEY = '7b2b3bc61f9ee32200e191a4190ececd8be1ee299eb10936aa95f305d4af615f';
-
-const _PV_AUTH_WINDOW_SEC = 300; // worker.js'teki PV_AUTH_WINDOW_SEC ile AYNI olmalı
-
-async function _pvSha256Hex(str) {
-  const enc = new TextEncoder().encode(str);
-  const buf = await crypto.subtle.digest('SHA-256', enc);
-  return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
-}
-
-// ── FAZ 2: SUNUCU TARAFLI OTURUM ─────────────────────────────────────────────
-// window.PV_SERVER_AUTH=true (index.html) → giriş worker'daki /auth/login ile yapılır (kişiye özel şifre),
-// imzalı jeton sessionStorage'a yazılır ve her istekte `Authorization: Bearer` gönderilir. Worker kimliği
-// JETONDAN okur; X-PV-User yalnız teşhis içindir. Bayrak false iken (varsayılan) davranış ESKİSİYLE aynıdır.
-// Geçiş: worker PV_AUTH_MODE=both → herkes taşınınca strict → ardından _PV_WORKER_KEY / VALID_PASS silinir.
 var PV_WORKER_BASE = 'https://samsun.yilmazusta28.workers.dev';
 var _PV_SESSION_KEY = 'pv_session_v1';
 
@@ -68,6 +26,7 @@ function _pvSession() {
   } catch (e) { /* sessionStorage kapalı/bozuk */ }
   return null;
 }
+
 async function pvServerLogin(user, pass) {
   try {
     var res = await fetch(PV_WORKER_BASE + '/auth/login', {
@@ -86,6 +45,7 @@ async function pvServerLogin(user, pass) {
     return { ok: false, message: 'Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin.' };
   }
 }
+
 function pvClearSession() { try { sessionStorage.removeItem(_PV_SESSION_KEY); } catch (e) { /* yoksay */ } }
 
 var _pvExpiredShown = false;
@@ -99,19 +59,12 @@ function _pvSessionExpired() {                       // jeton doldu → giriş e
 }
 
 // Worker'a atılan HER istekte kullanılacak header'ları üretir.
-// Kullanım: const headers = await pvAuthHeaders();
-//           fetch(url, { headers: Object.assign({'Content-Type':'application/json'}, headers), ... })
 async function pvAuthHeaders() {
   var who = encodeURIComponent((typeof LOGGED_IN_USER !== 'undefined' && LOGGED_IN_USER) || '');
   var ses = _pvSession();
-  if (ses) return { 'Authorization': 'Bearer ' + ses.token, 'X-PV-User': who };      // sunucu taraflı oturum
-  if (window.PV_SERVER_AUTH === true) _pvSessionExpired();
-  if (typeof _PV_WORKER_KEY === 'string' && _PV_WORKER_KEY) {                         // eski mod / geçiş dönemi
-    var win = Math.floor(Date.now() / 1000 / _PV_AUTH_WINDOW_SEC);
-    var token = await _pvSha256Hex(_PV_WORKER_KEY + ':' + win);
-    return { 'X-PV-Auth': token, 'X-PV-User': who };
-  }
-  return { 'X-PV-User': who };
+  if (ses) return { 'Authorization': 'Bearer ' + ses.token, 'X-PV-User': who };
+  _pvSessionExpired();                                // oturum yok/doldu → yeniden giriş iste
+  return { 'X-PV-User': who };                         // jetonsuz istek: worker (strict) 401 döner
 }
 
-console.debug('[pv-auth] Yüklendi — worker istekleri artık X-PV-Auth ile imzalanacak.');
+console.debug('[pv-auth] Yüklendi — worker istekleri imzalı jeton (Bearer) ile yapılacak.');
