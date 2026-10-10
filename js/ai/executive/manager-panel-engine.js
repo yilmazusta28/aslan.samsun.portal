@@ -724,9 +724,29 @@
     return (IMS_TL_MAP && IMS_TL_MAP[r.ilac]) || 0;
   }
 
-  // @returns [{ brick, sira, hedefTL, satisTL, kalanTL, pp }] — sira artan
+  // ── Brick bazlı GERÇEK hedef/satış (Brick_TL_Hedef.csv — bkz. js/data/brick-tl-loader.js) ──
+  // Eskiden TTT toplamı brick'lere kutu hacmine ORANTILI dağıtılıyordu; bu yüzden
+  // Performans% her brick'te ve alt toplamda AYNI çıkıyordu. Artık hedef/satış her
+  // brick için CSV'deki 5 ürünün toplamından gelir, Performans% = satış / hedef (brick bazlı).
+  function _brickTlLoaded() {
+    return !!(window.BRICK_TL_HEDEF && Object.keys(window.BRICK_TL_HEDEF).length);
+  }
+  function _brickTlRecord(key) {
+    var m = window.BRICK_TL_HEDEF;
+    if (!m) return null;
+    var k = (typeof window.brickTlKey === 'function') ? window.brickTlKey(key) : key;
+    return m[k] || null;
+  }
+  function _brickTlEnsureLoaded() {
+    if (!window.BRICK_TL_HEDEF && !window.BRICK_TL_TRIED && typeof window.loadBrickTlHedef === 'function') {
+      window.loadBrickTlHedef(false);
+    }
+  }
+
+  // @returns [{ brick, sira, hedefTL, satisTL, kalanTL, pp, fromCsv }] — sira artan
   function buildManagerBrickDetail(ttt) {
     if (!ttt) return [];
+    _brickTlEnsureLoaded();
 
     // 3a) Kendi kutu hacmi (IMS, is_mkt:false) → brick bazlı tahmini TL ağırlığı
     var brickMap = {}; // BRICK -> { estTL, ppiVals:[] }
@@ -786,6 +806,7 @@
     var hedefTotal = gt ? (gt.hedef_tl || 0) : 0;
     var satisTotal = gt ? (gt.satis_tl || 0) : 0;
 
+    var csvLoaded = _brickTlLoaded();
     var keys = Object.keys(brickMap);
     var estTotal = keys.reduce(function (s, k) { return s + brickMap[k].estTL; }, 0);
     var productShareMap = _buildBrickProductShareMap(ttt);
@@ -793,8 +814,14 @@
     var rows = keys.map(function (key) {
       var b = brickMap[key];
       var weight = estTotal > 0 ? (b.estTL / estTotal) : 0;
-      var satisTL = satisTotal * weight;
-      var hedefTL = hedefTotal * weight;
+      // Brick bazlı gerçek veri (CSV) varsa o; CSV yüklüyken bu brick satırı yoksa 0;
+      // CSV hiç yüklenemediyse eski orantılı tahmine düş.
+      var csvRec = _brickTlRecord(key);
+      var fromCsv = !!csvRec;
+      var satisTL, hedefTL;
+      if (fromCsv)        { satisTL = csvRec.satis; hedefTL = csvRec.hedef; }
+      else if (csvLoaded) { satisTL = 0;            hedefTL = 0; }
+      else                { satisTL = satisTotal * weight; hedefTL = hedefTotal * weight; }
       var kalanTL = Math.max(0, hedefTL - satisTL);
       var pp = b.ppiVals.length ? (b.ppiVals.reduce(function (s, v) { return s + v; }, 0) / b.ppiVals.length) : null;
       // Ürünsel pazar payı — URUN_ORDER sırasıyla, bu brick için varsa
@@ -816,6 +843,7 @@
         satisTL: satisTL,
         kalanTL: kalanTL,
         pp: pp,
+        fromCsv: fromCsv,
         products: products
       };
     });
@@ -891,6 +919,12 @@
     var gt = (GENEL || []).find(function (r) { return r.ttt === ttt && r.urun === 'GENEL TOPLAM'; }) || {};
     var hedefTotal = gt.hedef_tl || 0;
     var satisTotal = gt.satis_tl || 0;
+    // Brick bazlı gerçek veri (CSV) varsa alt toplam = brick satırlarının toplamı
+    // (Brick_TL_Hedef.csv toplamı GENEL TOPLAM ile tutuyor); Performans% = Σsatış/Σhedef.
+    if (rows.some(function (r) { return r.fromCsv; })) {
+      hedefTotal = rows.reduce(function (s, r) { return s + (r.hedefTL || 0); }, 0);
+      satisTotal = rows.reduce(function (s, r) { return s + (r.satisTL || 0); }, 0);
+    }
     var kalanTotal = Math.max(0, hedefTotal - satisTotal);
     var perfTotal = hedefTotal > 0 ? (satisTotal / hedefTotal * 100) : null;
 
@@ -1073,7 +1107,7 @@
       });
     }
 
-    html += '<div style="font-size:9px;color:var(--dim);margin-top:10px;font-style:italic">* Hedef/Satış/Kalan TL, brick bazlı gerçek CSV verisi bulunmadığından, temsilcinin toplam hedefinin brick bazlı kendi kutu hacmine göre ORANTILI DAĞITILMASIYLA tahmin edilmiştir.</div>';
+    html += '<div style="font-size:9px;color:var(--dim);margin-top:10px;font-style:italic">' + (rows.some(function (r) { return r.fromCsv; }) ? '* Hedef/Satış/Kalan TL ve Performans%, Brick_TL_Hedef.csv\'deki brick bazlı gerçek verilerden (5 ürünün toplamı) alınmıştır.' : '* Hedef/Satış/Kalan TL, brick bazlı gerçek CSV verisi bulunmadığından, temsilcinin toplam hedefinin brick bazlı kendi kutu hacmine göre ORANTILI DAĞITILMASIYLA tahmin edilmiştir.') + '</div>';
 
     return html;
   }
