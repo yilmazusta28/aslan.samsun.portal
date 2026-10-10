@@ -836,9 +836,33 @@
           ownTotalTL: rec.ownTotalTL, mktTotalTL: rec.mktTotalTL
         } : { urun: urun, ourShare: null };
       });
+      // Brick_TL_Hedef.csv varsa: ürün bazlı PP = ürün satış TL / ürün PAZAR TL (CSV'deki PAZAR P. ile aynı),
+      // kutu = TL ÷ ürünün IMS TL birim fiyatı (IMS_TL_MAP). Hedef/satış kutusu 5 ürünün kutu toplamıdır.
+      var hedefKutu = null, satisKutu = null;
+      if (fromCsv) {
+        hedefKutu = 0; satisKutu = 0;
+        var byUrun = {};
+        (csvRec.urunler || []).forEach(function (u) { byUrun[window.brickTlKey(u.urun)] = u; });
+        products = (URUN_ORDER || []).map(function (urun, idx) {
+          var cu = byUrun[window.brickTlKey(urun)];
+          if (!cu) return products[idx];
+          var price = (typeof IMS_TL_MAP !== 'undefined' && IMS_TL_MAP[urun]) || 0;
+          if (price > 0) { hedefKutu += cu.hedef / price; satisKutu += cu.satis / price; }
+          if (!(cu.pazar > 0) || !(price > 0)) return { urun: urun, ourShare: null };
+          return {
+            urun: urun,
+            ourShare: cu.satis / cu.pazar * 100,
+            ownTotal: cu.satis / price, mktTotal: cu.pazar / price,
+            ownTotalTL: cu.satis, mktTotalTL: cu.pazar
+          };
+        });
+      }
       return {
         brick: key,
         sira: siraMap[key] || 9999,
+        hedefKutu: hedefKutu,
+        satisKutu: satisKutu,
+        kalanKutu: fromCsv ? Math.max(0, hedefKutu - satisKutu) : null,
         hedefTL: hedefTL,
         satisTL: satisTL,
         kalanTL: kalanTL,
@@ -872,6 +896,13 @@
     var body = document.getElementById(containerId || 'mgrBrickDetailBody');
     if (!body) return;
     var rows = buildManagerBrickDetail(ttt);
+    var kutuMode = (mgrBrickUnit === 'KUTU');
+    var fmtU = kutuMode ? fK : fTL;
+    var ths = document.querySelectorAll('#mgrBrickDetailTable thead th');
+    if (ths.length >= 5) {
+      var uLbl = kutuMode ? 'Kutu' : 'TL';
+      ths[2].textContent = 'Hedef ' + uLbl; ths[3].textContent = 'Satış ' + uLbl; ths[4].textContent = 'Kalan ' + uLbl;
+    }
     var colCount = 6 + (URUN_ORDER || []).length;
     if (!rows.length) {
       body.innerHTML = '<tr><td colspan="' + colCount + '" style="text-align:center;color:var(--dim);padding:14px">Bu temsilci için brick verisi bulunamadı.</td></tr>';
@@ -882,6 +913,12 @@
       // Performans% = brick bazlı hedef gerçekleşme oranı (satış TL / hedef TL)
       // — pazar payı (IMS PPI) ile KARIŞTIRILMASIN diye ayrı hesaplanıyor.
       var perf = r.hedefTL > 0 ? (r.satisTL / r.hedefTL * 100) : null;
+      // Kutu modunda: değerler kutu (TL ÷ IMS TL fiyatı); Performans% de kutu toplamlarından
+      var hV = r.hedefTL, sV = r.satisTL, kV = r.kalanTL;
+      if (kutuMode) {
+        hV = r.hedefKutu; sV = r.satisKutu; kV = r.kalanKutu;
+        perf = (hV != null && hV > 0) ? (sV / hV * 100) : null;
+      }
       // NOT (0₺ vs "veri yok"): hedef/satış, o brickteki KENDİ ÜRÜN kutu
       // hacminin (bu dönem, IMS toplam alanı) TTT toplamı içindeki payına
       // göre TAHMİN ediliyor (bkz. dosya başı NOT). PP değeri ayrı bir
@@ -891,9 +928,9 @@
       // (IMS 'toplam' alanı) sıfır demektir. Yanıltıcı "0₺" yerine bunu
       // açıkça belirtiyoruz.
       var noVolume = (r.hedefTL === 0 && r.satisTL === 0 && r.pp != null);
-      var hedefCell = noVolume ? '<span style="color:var(--dim);font-style:italic;font-size:10px">bu dönem hacim yok</span>' : fTL(r.hedefTL);
-      var satisCell = noVolume ? '<span style="color:var(--dim);font-style:italic;font-size:10px">bu dönem hacim yok</span>' : fTL(r.satisTL);
-      var kalanCell = noVolume ? '—' : fTL(r.kalanTL);
+      var hedefCell = noVolume ? '<span style="color:var(--dim);font-style:italic;font-size:10px">bu dönem hacim yok</span>' : fmtU(hV);
+      var satisCell = noVolume ? '<span style="color:var(--dim);font-style:italic;font-size:10px">bu dönem hacim yok</span>' : fmtU(sV);
+      var kalanCell = noVolume ? '—' : fmtU(kV);
       var productCells = (r.products || []).map(function (p) { return _renderProductShareCell(p); }).join('');
       return '<tr>' +
         '<td class="mono" style="' + (top333 ? 'font-weight:700;color:var(--c1)' : 'color:var(--dim)') + '">' + (r.sira >= 9999 ? '—' : r.sira) + '</td>' +
@@ -927,6 +964,14 @@
     }
     var kalanTotal = Math.max(0, hedefTotal - satisTotal);
     var perfTotal = hedefTotal > 0 ? (satisTotal / hedefTotal * 100) : null;
+    if (kutuMode) {
+      if (rows.some(function (r) { return r.fromCsv; })) {
+        hedefTotal = rows.reduce(function (s, r) { return s + (r.hedefKutu || 0); }, 0);
+        satisTotal = rows.reduce(function (s, r) { return s + (r.satisKutu || 0); }, 0);
+        kalanTotal = Math.max(0, hedefTotal - satisTotal);
+        perfTotal = hedefTotal > 0 ? (satisTotal / hedefTotal * 100) : null;
+      } else { hedefTotal = satisTotal = kalanTotal = perfTotal = null; }
+    }
 
     var productTotalCells = (URUN_ORDER || []).map(function (urun, idx) {
       var ownSum = 0, mktSum = 0, ownTLSum = 0, mktTLSum = 0, has = false;
@@ -948,9 +993,9 @@
     html += '<tr class="toplam-row" style="border-top:2px solid var(--border);background:var(--surf2,#F7F9FC)">' +
       '<td></td>' +
       '<td style="font-weight:800">Σ Alt Toplam</td>' +
-      '<td class="mono" style="font-weight:800">' + fTL(hedefTotal) + '</td>' +
-      '<td class="mono" style="font-weight:800">' + fTL(satisTotal) + '</td>' +
-      '<td class="mono" style="font-weight:800;color:var(--c2)">' + fTL(kalanTotal) + '</td>' +
+      '<td class="mono" style="font-weight:800">' + fmtU(hedefTotal) + '</td>' +
+      '<td class="mono" style="font-weight:800">' + fmtU(satisTotal) + '</td>' +
+      '<td class="mono" style="font-weight:800;color:var(--c2)">' + fmtU(kalanTotal) + '</td>' +
       '<td>' + (perfTotal == null ? '<span class="mono">—</span>' : '<span class="bdg ' + pCls(perfTotal) + '" style="font-weight:800">' + fPct(perfTotal) + '</span>') + '</td>' +
       productTotalCells +
       '</tr>';
@@ -1107,7 +1152,7 @@
       });
     }
 
-    html += '<div style="font-size:9px;color:var(--dim);margin-top:10px;font-style:italic">' + (rows.some(function (r) { return r.fromCsv; }) ? '* Hedef/Satış/Kalan TL ve Performans%, Brick_TL_Hedef.csv\'deki brick bazlı gerçek verilerden (5 ürünün toplamı) alınmıştır.' : '* Hedef/Satış/Kalan TL, brick bazlı gerçek CSV verisi bulunmadığından, temsilcinin toplam hedefinin brick bazlı kendi kutu hacmine göre ORANTILI DAĞITILMASIYLA tahmin edilmiştir.') + '</div>';
+    html += '<div style="font-size:9px;color:var(--dim);margin-top:10px;font-style:italic">' + (rows.some(function (r) { return r.fromCsv; }) ? '* Hedef/Satış/Kalan TL ve Performans%, Brick_TL_Hedef.csv\'deki brick bazlı gerçek verilerden (5 ürünün toplamı) alınmıştır. Kutu = TL ÷ ürünün IMS TL birim fiyatı; ürün PP = ürün satışı ÷ ürün pazarı (TL).' : '* Hedef/Satış/Kalan TL, brick bazlı gerçek CSV verisi bulunmadığından, temsilcinin toplam hedefinin brick bazlı kendi kutu hacmine göre ORANTILI DAĞITILMASIYLA tahmin edilmiştir.') + '</div>';
 
     return html;
   }

@@ -53,14 +53,15 @@ function parseBrickTlCSV(text) {
   const blocks = [];
   starts.forEach((st, bi) => {
     const end = bi + 1 < starts.length ? starts[bi + 1] : labelRow.length;
-    let hedefCol = -1, satisCol = -1;
+    let hedefCol = -1, satisCol = -1, pazarCol = -1;
     for (let j = st; j < end; j++) {
       const k = brickTlKey(labelRow[j]);
       if (hedefCol < 0 && k === 'HEDEF') hedefCol = j;
       else if (satisCol < 0 && k === 'SATIS') satisCol = j;   // ilk SATIŞ = dönem satışı (SON HAFTA SATIŞ değil)
+      else if (pazarCol < 0 && k === 'PAZAR') pazarCol = j;   // PAZAR (TL) — 'PAZAR P.' değil
     }
     if (hedefCol >= 0 && satisCol >= 0) {
-      blocks.push({ urun: titleRow[st].replace(/\[.*?\]/g, '').trim(), hedefCol, satisCol });
+      blocks.push({ urun: titleRow[st].replace(/\[.*?\]/g, '').trim(), hedefCol, satisCol, pazarCol });
     }
   });
   if (!blocks.length) throw new Error('Ürün blokları (HEDEF/SATIŞ) bulunamadı');
@@ -78,7 +79,8 @@ function parseBrickTlCSV(text) {
       const s = parseN(r[b.satisCol]);
       rec.hedef += h;
       rec.satis += s;
-      rec.urunler.push({ urun: b.urun, hedef: h, satis: s });
+      const pz = b.pazarCol >= 0 ? parseN(r[b.pazarCol]) : 0;
+      rec.urunler.push({ urun: b.urun, hedef: h, satis: s, pazar: pz });
     });
     rec.real = rec.hedef > 0 ? (rec.satis / rec.hedef * 100) : null;
   });
