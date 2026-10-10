@@ -76,6 +76,7 @@ async function pvServerLogin(user, pass) {
     var j = await res.json().catch(function () { return {}; });
     if (res.ok && j.token) {
       sessionStorage.setItem(_PV_SESSION_KEY, JSON.stringify({ token: j.token, user: j.user, role: j.role, exp: j.exp }));
+      _pvExpiredShown = false;                         // yeni oturum → ileride süre dolunca tekrar uyarılabilsin
       return { ok: true, user: j.user, role: j.role };
     }
     if (res.status === 429) return { ok: false, message: 'Çok fazla hatalı deneme — 15 dakika sonra tekrar deneyin.' };
@@ -88,7 +89,9 @@ async function pvServerLogin(user, pass) {
 function pvClearSession() { try { sessionStorage.removeItem(_PV_SESSION_KEY); } catch (e) { /* yoksay */ } }
 
 var _pvExpiredShown = false;
-function _pvSessionExpired() {                       // jeton yok/doldu → giriş ekranını yeniden göster (bir kez)
+function _pvSessionExpired() {                       // jeton doldu → giriş ekranını yeniden göster (bir kez)
+  // Yalnız giriş YAPILMIŞ bir oturum için: giriş ekranındayken (henüz kimse girmemişken) "süre doldu" gösterme
+  if (typeof LOGGED_IN_USER === 'undefined' || !LOGGED_IN_USER) return;
   if (_pvExpiredShown) return; _pvExpiredShown = true;
   var ls = document.getElementById('loginScreen'), er = document.getElementById('loginErr');
   if (ls) ls.style.display = '';
