@@ -876,7 +876,7 @@
   // düzeninde 3 sayfa (Temsil Masraf Detay / Planlanan Merkez Ödeme /
   // Gerçekleşen Merkez Ödeme).
   window.exportMasrafExcel = function () {
-    if (typeof XLSX === 'undefined') { alert('Excel kütüphanesi yüklenemedi.'); return; }
+    if (typeof XLSX === 'undefined') { pvEnsureXlsx().then(window.exportMasrafExcel, function () { alert('Excel kütüphanesi yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.'); }); return; }
     var manager = _isManager();
     var all = _mergedRecords(_remoteCache);
     var wb = XLSX.utils.book_new();
@@ -898,7 +898,7 @@
   };
 
   window.exportKongreExcel = function () {
-    if (typeof XLSX === 'undefined') { alert('Excel kütüphanesi yüklenemedi.'); return; }
+    if (typeof XLSX === 'undefined') { pvEnsureXlsx().then(window.exportKongreExcel, function () { alert('Excel kütüphanesi yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.'); }); return; }
     var manager = _isManager();
     var all = _mergedRecords(_remoteCache);
     var rows = _visibleRecordsForTip('kongre', all);

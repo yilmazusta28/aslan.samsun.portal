@@ -36,6 +36,25 @@
     return window.open(s, '_blank', 'noopener,noreferrer');
   }
 
+  // ── Tembel script yükleme: yalnız gerektiğinde indirilen büyük kütüphaneler (açılışı geciktirmesin) ──
+  // xlsx (861 KB / 309 KB gzip) yalnız Excel dışa aktarımında kullanılır → ilk açılışta YÜKLENMEZ.
+  function pvLoadScript(src) {
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = src; s.onload = function () { resolve(); };
+      s.onerror = function () { s.remove(); reject(new Error('Betik yüklenemedi: ' + src)); };
+      document.head.appendChild(s);
+    });
+  }
+  var _xlsxPromise = null;
+  function pvEnsureXlsx() {
+    if (typeof XLSX !== 'undefined') return Promise.resolve();
+    if (!_xlsxPromise) _xlsxPromise = pvLoadScript('vendor/xlsx.full.min.js?v=0.18.5').catch(function (e) { _xlsxPromise = null; throw e; });
+    return _xlsxPromise;
+  }
+
+  window.pvLoadScript = pvLoadScript;
+  window.pvEnsureXlsx = pvEnsureXlsx;
   window.pvEsc = pvEsc;
   window.pvJsArg = pvJsArg;
   window.pvSafeUrl = pvSafeUrl;

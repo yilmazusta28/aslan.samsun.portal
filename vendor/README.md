@@ -7,7 +7,7 @@ Artık npm paketlerinin birebir dosyaları repoda; `SHA256SUMS.txt` ile doğrula
 |---|---|---|---|
 | chart.umd.min.js | chart.js (`dist/chart.umd.js`) | 4.4.1 | MIT |
 | papaparse.min.js | papaparse | 5.4.1 | MIT |
-| xlsx.full.min.js | xlsx (SheetJS) | 0.18.5 | Apache-2.0 |
+| xlsx.full.min.js | xlsx (SheetJS) | 0.18.5 | Apache-2.0 — **tembel yüklenir** (`pvEnsureXlsx()`, yalnız Excel dışa aktarımında) |
 
 Güncelleme: `npm pack <paket>@<sürüm>` → dosyayı kopyala → `sha256sum *.js > SHA256SUMS.txt` → index.html'deki `?v=` değerini artır.
 Not: xlsx 0.18.5 için bilinen açıklar (CVE-2023-30533, CVE-2024-22363) var; uygulama yalnızca DIŞA AKTARMA

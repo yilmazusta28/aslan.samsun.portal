@@ -13,7 +13,6 @@
 <link rel="apple-touch-icon" href="images/aslan.png">
 <script src="vendor/chart.umd.min.js?v=4.4.1"></script>
 <script src="vendor/papaparse.min.js?v=5.4.1"></script>
-<script src="vendor/xlsx.full.min.js?v=0.18.5"></script>
 <!-- ═══════════════════════════════════════════════════════════════
      MODÜL YÜKLEMESİ — PHARMA VISION Satış Portalı
      Yükleme sırası (bağımlılık sırasına göre):
@@ -98,7 +97,7 @@
       kendi başlıklarına ve docs/ klasöründeki FAZ raporlarına bakın.
      ═══════════════════════════════════════════════════════════════ -->
 <script src="js/core/async-guard.js?v=20260705"></script>
-<script src="js/core/security.js?v=20261008"></script>
+<script src="js/core/security.js?v=20261010"></script>
 <script src="js/core/constants.js?v=20261001"></script>
 <script src="js/core/date-utils.js?v=20260705d"></script>
 <script src="js/core/period-archive-manager.js?v=20260705"></script>
@@ -143,7 +142,7 @@
      artık X-PV-Auth doğrulaması istiyor. Bu dosya, worker'a istek atan
      TÜM dosyalardan (aşağıdaki ai/, pharmacy/sales-conditions.js) ÖNCE
      yüklenmeli. -->
-<script>window.PV_SERVER_AUTH = true; /* FAZ 2: worker deploy + PV_USERS hazır olunca true yapın (docs/SECURITY_ROADMAP.md) */</script>
+<script>window.PV_SERVER_AUTH = false; /* FAZ 2: worker deploy + PV_USERS hazır olunca true yapın (docs/SECURITY_ROADMAP.md) */</script>
 <script src="js/core/pv-auth.js?v=20261009"></script>
 <!-- AI MİMARİ STABİLİZASYONU: IMS Adapter Katmanı
      Gerçek parseIMSCSV() çıktısını (ttt, brick, ilac, is_mkt, toplam, h1..h9)
@@ -470,7 +469,7 @@ window.DOSYALAR_SYNC_WORKER_URL   = 'https://samsun.yilmazusta28.workers.dev/dos
 window.DOSYALAR_UPDATE_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/dosyalar-update';
 window.DOSYALAR_DELETE_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/dosyalar-delete';
 </script>
-<script src="js/ui/dosyalar-page.js?v=20261008"></script>
+<script src="js/ui/dosyalar-page.js?v=20261010"></script>
 <!-- FAZ 22.1: Yönetici paneli (page6) "📁 Dosyalar Özeti" kartı.
      dosyalar-page.js'in PV_DOSYALAR_API köprüsünü kullanır — bu yüzden
      ONDAN SONRA yüklenmeli. Rollback: bu satırı sil; page6'deki
@@ -2280,11 +2279,14 @@ function sortEczane(key) {
 // eczaneSortKey/eczaneSortAsc) _eczaneData üzerinden türetilir, böylece
 // ekranda görülen sıralama/arama ile indirilen dosya tutarlı olur.
 function exportEczaneToExcel() {
-  try {
-    if (typeof XLSX === 'undefined') {
+  // xlsx tembel yüklenir (ilk açılışı hızlı tutmak için): yoksa önce indir, sonra bu fonksiyonu yeniden çağır
+  if (typeof XLSX === 'undefined') {
+    pvEnsureXlsx().then(exportEczaneToExcel, function () {
       alert('Excel dışa aktarma kütüphanesi yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.');
-      return;
-    }
+    });
+    return;
+  }
+  try {
     if (typeof SoundFX !== 'undefined' && SoundFX.click) SoundFX.click();
     const data = _eczaneData || [];
     if (!data.length) { alert('Aktarılacak eczane verisi bulunamadı.'); return; }
