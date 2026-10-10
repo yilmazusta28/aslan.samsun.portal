@@ -36,6 +36,10 @@
   'use strict';
 
   var LS_KEY_PREFIX = 'pv_voice_briefing_';
+  // Sesli asistan açık/kapalı anahtarı (sidebar'da Gece Modu butonunun altında).
+  // VARSAYILAN: KAPALI — kullanıcı açana kadar buton/panel görünmez ve arka
+  // planda brifing için AI çağrısı yapılmaz.
+  var LS_KEY_ENABLED = 'pv_voice_enabled'; // '1' = açık, yoksa/'0' = kapalı
 
   var STATE = {
     briefingText: null,
@@ -110,7 +114,7 @@
   }
 
   function speak(text, onend) {
-    if (!_supportsTTS() || !text) { if (onend) onend(); return; }
+    if (!_isEnabled() || !_supportsTTS() || !text) { if (onend) onend(); return; }
     try { window.speechSynthesis.cancel(); } catch (e) { /* sessiz */ } // önceki okumayı kes
     var chunks = _splitForSpeech(text);
     var i = 0;
@@ -590,7 +594,11 @@
   window.initVoiceBriefing = function () {
     try {
       _injectStyles();
+      _syncToggleUI();
+      if (!_isEnabled()) return;   // varsayılan KAPALI: buton/panel/brifing yok
       _renderUI();
+      _setFabVisible(true);
+      if (STATE.ready) { _updatePanelStatus(); return; } // daha önce hazırlandıysa tekrar üretme
       var ttt = _getTTT();
       if (!ttt) { console.warn('[voice-briefing] Temsilci bulunamadı, otomatik brifing atlandı.'); return; }
       if (!_supportsTTS()) return; // ses okuma desteklenmiyorsa arka plan üretimi gereksiz
@@ -607,5 +615,47 @@
       console.error('[voice-briefing] init hata:', e);
     }
   };
+
+  // ── Açık/Kapalı anahtarı ────────────────────────────────────────────
+  function _isEnabled() {
+    try { return localStorage.getItem(LS_KEY_ENABLED) === '1'; } catch (e) { return false; }
+  }
+
+  function _setFabVisible(visible) {
+    var fab = document.getElementById('vbFab');
+    if (fab) fab.style.display = visible ? '' : 'none';
+  }
+
+  // Sidebar anahtarının görünümünü (etiket + kaydırıcı) mevcut duruma eşitler.
+  function _syncToggleUI() {
+    var on = _isEnabled();
+    var btn = document.getElementById('sidebarVoiceBtn');
+    var label = document.getElementById('sidebarVoiceLabel');
+    var track = document.getElementById('sidebarVoiceToggle');
+    var knob = document.getElementById('sidebarVoiceKnob');
+    if (btn) btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    if (label) label.textContent = on ? 'Sesli Asistan: Açık' : 'Sesli Asistan: Kapalı';
+    if (track) track.style.background = on ? 'rgba(139,92,246,.7)' : 'rgba(255,255,255,.2)';
+    if (knob) knob.style.transform = on ? 'translateX(16px)' : 'translateX(0)';
+  }
+
+  function _setEnabled(on) {
+    try { localStorage.setItem(LS_KEY_ENABLED, on ? '1' : '0'); } catch (e) { /* sessiz */ }
+    if (on) {
+      window.initVoiceBriefing();
+    } else {
+      stopSpeaking();
+      _stopListening();
+      _closePanel();
+      _setFabVisible(false);
+    }
+    _syncToggleUI();
+  }
+
+  window.toggleVoiceAssistant = function () { _setEnabled(!_isEnabled()); };
+
+  // Sayfa yüklenince (giriş yapılmadan önce de) anahtarın doğru görünmesi için.
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _syncToggleUI);
+  else _syncToggleUI();
 
 })();

@@ -557,7 +557,7 @@ window.DOSYALAR_DELETE_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/dos
 
 <script src="js/ai/ai-context.js?v=20261003"></script>
 <script src="js/ai/ai-service.js?v=20260705c"></script>
-<script src="js/ai/voice-briefing.js?v=20261001b"></script>
+<script src="js/ai/voice-briefing.js?v=20261010a"></script>
 <script src="js/ai/learning-engine.js?v=20260705"></script>
 <script src="js/ai/ai-engine.js?v=20261003"></script>
 <!-- PHASE 4.6.x: Recommendation Memory Layer
@@ -6852,6 +6852,28 @@ function _buildEczaneDrawerRefresh(){
         style="width:36px;height:20px;border-radius:10px;background:rgba(255,255,255,.2);
         position:relative;transition:background .25s;flex-shrink:0">
         <span id="sidebarDarkKnob"
+          style="position:absolute;top:2px;left:2px;width:16px;height:16px;
+          border-radius:50%;background:#fff;transition:transform .25s;display:block"></span>
+      </span>
+    </button>
+
+    <!-- Sesli Asistan Aç/Kapat (Sidebar) — varsayılan KAPALI -->
+    <button onclick="if(typeof toggleVoiceAssistant==='function')toggleVoiceAssistant()" id="sidebarVoiceBtn"
+      type="button" aria-pressed="false"
+      style="width:100%;display:flex;align-items:center;justify-content:space-between;
+      background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);
+      border-radius:11px;padding:10px 14px;cursor:pointer;
+      font-family:'Poppins',sans-serif;font-size:11px;font-weight:600;
+      color:rgba(255,255,255,.7);margin-bottom:10px;
+      transition:background .2s,border-color .2s">
+      <span style="display:flex;align-items:center;gap:8px">
+        <span>🎙️</span>
+        <span id="sidebarVoiceLabel">Sesli Asistan: Kapalı</span>
+      </span>
+      <span id="sidebarVoiceToggle"
+        style="width:36px;height:20px;border-radius:10px;background:rgba(255,255,255,.2);
+        position:relative;transition:background .25s;flex-shrink:0">
+        <span id="sidebarVoiceKnob"
           style="position:absolute;top:2px;left:2px;width:16px;height:16px;
           border-radius:50%;background:#fff;transition:transform .25s;display:block"></span>
       </span>
