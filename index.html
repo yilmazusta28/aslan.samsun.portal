@@ -2241,6 +2241,15 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
       <div id="teamLearningCard" style="display:none;padding:12px 16px"></div>
     </div>
 
+    <!-- ═══ AI Kullanım & Maliyet (yalnız yönetici; worker POST /ai-usage) ═══ -->
+    <div class="card mb16">
+      <div class="card-hd" onclick="const p=this.nextElementSibling;const open=p.style.display==='none';p.style.display=open?'block':'none';if(open&&window.renderAiUsagePanel)renderAiUsagePanel();">
+        <span class="card-title">💸 AI Kullanım &amp; Maliyet</span>
+        <span class="card-badge" style="margin-left:auto;background:#FEF3C7;color:#92400E">Yalnız Yönetici</span>
+      </div>
+      <div id="aiUsageCard" style="display:none;padding:12px 16px"></div>
+    </div>
+
     <!-- ═══════════════════════════════════════════════════════════
          BÖLÜM 3 — TEMSİLCİ ANALİZİ
          (Brick bazlı detay + AI destekli pazar analizi özeti)
@@ -2586,6 +2595,7 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
 <script src="js/ai/executive/executive-summary-engine.js?v=20260705"></script>
 <script src="js/ai/executive/executive-engine.js?v=20260705"></script>
 <script src="js/ai/executive/manager-panel-engine.js?v=20261010"></script>
+<script src="js/ai/executive/ai-usage-panel.js?v=20261011"></script>
 <script src="js/ai/executive/team-learning-engine.js?v=20260705"></script>
 <script src="js/ai/memory/ai-memory.js?v=20260705"></script>
 <script src="js/ai/core/pharmacy-adapter.js?v=20260705"></script>

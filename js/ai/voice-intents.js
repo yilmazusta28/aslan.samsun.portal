@@ -56,6 +56,9 @@
   }
 
   // ── veri erişimi ────────────────────────────────────────────────
+  // DİKKAT: GENEL satırlarındaki `kalan_tl` işaretlidir (satış − hedef → hedef altındayken NEGATİF,
+  // aşılınca POZİTİF). Konuşmada "kalan" her zaman hedefe kalan pozitif miktardır → kendimiz hesaplarız.
+  function _kalan(r) { return Math.max(0, (+r.hedef_tl || 0) - (+r.satis_tl || 0)); }
   function _total(ttt) {
     try { return GENEL.find(function (r) { return r.ttt === ttt && r.urun === 'GENEL TOPLAM'; }) || null; } catch (e) { return null; }
   }
@@ -193,7 +196,7 @@
     if (RX_KUTU.test(nq)) return null;   // ürün bazlı kutu özeti kurallı katmanda yok → LLM
     var r = urunRow;
     var t = r.urun + ': hedef ' + sayTL(r.hedef_tl) + ', satış ' + sayTL(r.satis_tl) +
-      ', gerçekleşme ' + sayPct(r.tl_pct) + '. Kalan ' + sayTL(r.kalan_tl != null ? r.kalan_tl : Math.max(0, r.hedef_tl - r.satis_tl)) + '.';
+      ', gerçekleşme ' + sayPct(r.tl_pct) + '. Kalan ' + sayTL(_kalan(r)) + '.';
     if (RX_PP.test(nq)) {
       var rows = _bricks(ttt), own = 0, mkt = 0;
       rows.forEach(function (b) {
@@ -217,7 +220,8 @@
     }
     var g = _total(ttt);
     if (!g) return null;
-    var kalan = g.kalan_tl != null ? g.kalan_tl : Math.max(0, g.hedef_tl - g.satis_tl);
+    var kalan = _kalan(g);
+    if (!(kalan > 0)) return 'Hedefini tamamlamışsın: hedef ' + sayTL(g.hedef_tl) + ', satış ' + sayTL(g.satis_tl) + '. Tebrikler.';
     var t = 'Hedefine ' + sayTL(kalan) + ' kaldı. Hedef ' + sayTL(g.hedef_tl) + ', satışın ' + sayTL(g.satis_tl) + '.';
     var rr = _rr(ttt);
     if (rr && rr.remainingDays > 0) {
@@ -305,6 +309,81 @@
     return ctx;
   }
 
+  // ── SABAH BRİFİNGİ: daraltılmış bağlam + ücretsiz şablon ────────
+  // Eskiden brifing, TÜM bağlamla (~9-10K token) Sonnet'e gidiyordu (cihaz başına günde 1 kez,
+  // ses asistanı açıkken girişte otomatik). Brifingin ihtiyacı olan bölümler: genel durum,
+  // rota/eczane, ürün ağırlığı, rakip/brick dikkati.
+  function _cap(t, n) { t = String(t || ''); return t.length > n ? t.slice(0, n) + '…' : t; }
+
+  var BRIEFING_RX = /BOLGE SATIS VERILERI|GENEL PERFORMANS|PROJEKSIYON ANALIZI|URUN BAZLI PERFORMANS|KALAN HEDEF|SURE OZETI|PAZAR & RAKIP|ECZANE VERISI|BRICK ANALIZI/;
+
+  function briefingContext(ttt) {
+    var full = '';
+    try { full = (typeof buildTTTContext === 'function') ? buildTTTContext(ttt) : ''; } catch (e) { full = ''; }
+    if (!full) return '';
+    var ctx = _sections(full).filter(function (sec) { return sec.title === '' || BRIEFING_RX.test(sec.title); })
+      .map(function (sec) { return /PAZAR & RAKIP/.test(sec.title) ? _cap(sec.body.join('\n'), 1800) : sec.body.join('\n'); })
+      .join('\n');
+    ctx += _brickSummary(ttt);
+    try { if (typeof window.buildRouteContext === 'function') ctx += '\n' + _cap(window.buildRouteContext(ttt), 2500); } catch (e) { /* opsiyonel */ }
+    return ctx;
+  }
+
+  function _firstName(ttt) {
+    var f = String(ttt || '').split(' ')[0] || '';
+    return f ? f.charAt(0).toLocaleUpperCase('tr-TR') + f.slice(1).toLocaleLowerCase('tr-TR') : '';
+  }
+  var PRIO = { URGENT: 'acil ziyaret', OPPORTUNITY: 'fırsat', RECOVERY: 'kazanım' };
+
+  // LLM'siz, tamamen motor verisinden konuşma dilinde brifing (0 TL). LLM başarısız olduğunda
+  // (günlük limit, ağ, kota) ya da kullanıcı 'template' modunu seçtiyse kullanılır.
+  function briefingTemplate(ttt) {
+    var parts = [], g = _total(ttt);
+    if (!g || !(g.hedef_tl > 0)) return null;
+    var rr = _rr(ttt);
+    var kalan = _kalan(g);
+    // (1) günaydın + genel durum
+    var s1 = 'Günaydın ' + _firstName(ttt) + '. Gerçekleşmen ' + sayPct(g.tl_pct != null ? g.tl_pct : g.satis_tl / g.hedef_tl * 100) +
+      (kalan > 0 ? ', hedefine ' + sayTL(kalan) + ' kaldı' : ', hedefi tamamlamışsın');
+    if (rr && rr.remainingDays > 0) s1 += ' ve dönemde ' + rr.remainingDays + ' iş günü var';
+    s1 += '.';
+    if (rr && rr.projectedMonthEnd > 0) s1 += ' Mevcut tempoyla dönem sonu tahminim ' + sayPct(rr.projectedMonthEnd / g.hedef_tl * 100) + '.';
+    parts.push(s1);
+    // (2) bugünkü rota
+    try {
+      // Rota durumu başka temsilciye ait olabilir → önce bu temsilci için tazele, sonra tttFilter'ı doğrula
+      if (typeof window.buildRouteContext === 'function') window.buildRouteContext(ttt);
+      var ro = window.ROUTE_OPTIMIZER, t = (ro && ro.tttFilter === ttt) ? ro.todayRoute : null;
+      if (t && t.pharmacies && t.pharmacies.length) {
+        var ph = t.pharmacies.slice(0, 3).map(function (p, i) {
+          return (i === 0 ? 'önce ' : i === 1 ? 'sonra ' : 'ardından ') + p.eczane + (PRIO[p.priority] ? ', ' + PRIO[p.priority] : '');
+        });
+        var s2 = 'Bugünkü rotan ' + t.brick + ' bölgesi: ' + ph.join('; ') + '.';
+        if (t.expectedBoxes > 0) s2 += ' Günün beklentisi yaklaşık ' + Math.round(t.expectedBoxes) + ' kutu.';
+        parts.push(s2);
+      }
+    } catch (e) { /* rota yoksa atla */ }
+    // (3) ürün ağırlığı: kalan TL'si en yüksek ürün
+    var prods = _products(ttt).filter(function (r) { return r.hedef_tl > 0; });
+    if (prods.length) {
+      var kal = _kalan;
+      var top = prods.slice().sort(function (a, b) { return kal(b) - kal(a); })[0];
+      parts.push('Bugün ağırlığı ' + top.urun + ' üzerine ver; gerçekleşmesi ' + sayPct(top.tl_pct != null ? top.tl_pct : top.satis_tl / top.hedef_tl * 100) +
+        ' ve ' + sayTL(kal(top)) + ' açığı var.');
+    }
+    // (4) dikkat edilecek brick: kalan hedefi en yüksek
+    var bk = _bricks(ttt).filter(function (r) { return r.hedefTL > 0; });
+    if (bk.length) {
+      var wb = bk.slice().sort(function (a, b) { return b.kalanTL - a.kalanTL; })[0];
+      parts.push('Dikkat edeceğin brick ' + wb.brick + ': gerçekleşme ' + sayPct(wb.satisTL / wb.hedefTL * 100) + ', kalan ' + sayTL(wb.kalanTL) + '.');
+    }
+    // (5) kapanış
+    var pct = g.tl_pct != null ? g.tl_pct : g.satis_tl / g.hedef_tl * 100;
+    var projPct = (rr && rr.projectedMonthEnd > 0) ? rr.projectedMonthEnd / g.hedef_tl * 100 : pct;
+    parts.push(projPct >= 100 ? 'Tempon iyi, aynen devam.' : 'Kalan günlerde her ziyaret önemli, sen yaparsın. Kolay gelsin.');
+    return parts.join(' ');
+  }
+
   // ── ana yönlendirici ────────────────────────────────────────────
   function route(ttt, question) {
     var nq = _norm(question);
@@ -341,6 +420,6 @@
     return res;   // null → çağıran eski tam bağlama düşer
   }
 
-  window.VoiceIntents = { route: route, lastTier: null,
+  window.VoiceIntents = { route: route, briefingContext: briefingContext, briefingTemplate: briefingTemplate, lastTier: null,
     _t: { sayTL: sayTL, sayPct: sayPct, sayKutu: sayKutu, norm: _norm, scoped: _scopedContext } };
 })();

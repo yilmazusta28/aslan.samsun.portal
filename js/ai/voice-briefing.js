@@ -204,6 +204,11 @@
     'Sana yalnızca soruyla ilgili veri bölümleri verildi: verideki sayıları aynen kullan, veride olmayan sayı üretme; ' +
     'sorulan konu verilen bölümlerde yoksa bunu kısaca söyle.';
 
+  var BRIEFING_MODEL = 'claude-haiku-4-5-20251001';   // gerekirse 'claude-sonnet-5' yap
+  function _briefingMode() {
+    try { return localStorage.getItem('pv_briefing_mode') || 'llm'; } catch (e) { return 'llm'; }
+  }
+
   async function generateBriefing(ttt, force) {
     var cacheKey = LS_KEY_PREFIX + ttt;
     if (!force) {
@@ -215,14 +220,35 @@
     if (typeof fetchAI !== 'function') {
       throw new Error('AI servisi yüklenemedi (fetchAI bulunamadı) — sayfayı yenileyin.');
     }
-    var context = _buildBriefingContext(ttt);
-    var text = await fetchAI({
-      model: 'claude-sonnet-5',
-      max_tokens: 700,
-      system: BRIEFING_SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: context + '\n\nGörev: Bugünkü sesli brifingi hazırla. Temsilci: ' + ttt }]
-    });
-    try { localStorage.setItem(cacheKey, JSON.stringify({ date: _todayStr(), text: text })); } catch (e) { /* sessiz */ }
+    // MALİYET: Brifing eskiden TÜM bağlamla (~9-10K token) Sonnet'e gidiyordu. Artık:
+    //   • yalnız brifingin ihtiyaç duyduğu bölümler (genel durum, rota, ürün, rakip/brick) → ~2-3K token
+    //   • küçük model (Haiku) — BRIEFING_MODEL
+    //   • LLM başarısız olursa (günlük limit, ağ, kota) ücretsiz şablon brifing (LLM'siz, motor verisi)
+    //   • localStorage 'pv_briefing_mode' = 'template' → hiç LLM çağırmadan sıfır maliyetli brifing
+    var VI = window.VoiceIntents;
+    var text = null, viaLLM = false;
+    if (_briefingMode() === 'template' && VI && VI.briefingTemplate) {
+      try { text = VI.briefingTemplate(ttt); } catch (e) { text = null; }
+    }
+    if (!text) {
+      try {
+        var context = (VI && VI.briefingContext && VI.briefingContext(ttt)) || _buildBriefingContext(ttt);
+        text = await fetchAI({
+          model: BRIEFING_MODEL,
+          max_tokens: 500,
+          system: BRIEFING_SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: context + '\n\nGörev: Bugünkü sesli brifingi hazırla. Temsilci: ' + ttt }]
+        });
+        viaLLM = true;
+      } catch (llmErr) {
+        var tpl = null;
+        try { tpl = VI && VI.briefingTemplate ? VI.briefingTemplate(ttt) : null; } catch (e2) { tpl = null; }
+        if (!tpl) throw llmErr;
+        console.warn('[voice-briefing] LLM brifing başarısız, şablon brifing kullanıldı:', llmErr.message);
+        return tpl;   // başarısız denemeyi önbelleğe ALMA: LLM sonra tekrar denenebilsin
+      }
+    }
+    try { localStorage.setItem(cacheKey, JSON.stringify({ date: _todayStr(), text: text, via: viaLLM ? 'llm' : 'template' })); } catch (e) { /* sessiz */ }
     return text;
   }
 
