@@ -200,7 +200,9 @@
     'Sen İLKO İlaç PHARMA VISION portalının sesli asistanısın. Temsilci sana sesli soru soruyor. ' +
     'Cevabı KISA (en fazla 80 kelime), doğal konuşma dilinde, markdown kullanmadan, somut sayı/eczane/brick ' +
     'isimleriyle Türkçe ver — resmi rapor dili değil, karşılıklı sohbet dili kullan. ' +
-    'Emin olmadığın bir şey varsa tahmin uydurma, elindeki veriyle en iyi cevabı ver.';
+    'Emin olmadığın bir şey varsa tahmin uydurma, elindeki veriyle en iyi cevabı ver. ' +
+    'Sana yalnızca soruyla ilgili veri bölümleri verildi: verideki sayıları aynen kullan, veride olmayan sayı üretme; ' +
+    'sorulan konu verilen bölümlerde yoksa bunu kısaca söyle.';
 
   async function generateBriefing(ttt, force) {
     var cacheKey = LS_KEY_PREFIX + ttt;
@@ -224,12 +226,22 @@
     return text;
   }
 
+  // MALİYET: Eskiden her sesli soruda TÜM bağlam (~9-10K token) Sonnet'e gidiyordu.
+  // Artık js/ai/voice-intents.js soruyu yönlendirir:
+  //   Kademe 0 → kurallı cevap, LLM çağrılmaz (0 TL)
+  //   Kademe 1 → yalnız ilgili veri bölümleri + küçük model (Haiku)
+  //   Kademe 2 → strateji/neden soruları: ilgili bölümler + Sonnet
+  // voice-intents yüklenmediyse/başarısız olursa eski tam-bağlam yoluna düşülür.
   async function askQuestion(ttt, question) {
     if (typeof fetchAI !== 'function') throw new Error('AI servisi bulunamadı.');
-    var context = _buildBriefingContext(ttt);
+    var plan = null;
+    try { if (window.VoiceIntents) plan = window.VoiceIntents.route(ttt, question); }
+    catch (e) { console.warn('[voice-briefing] yönlendirici hatası:', e.message); }
+    if (plan && plan.tier === 0 && plan.text) return plan.text;
+    var context = (plan && plan.context) ? plan.context : _buildBriefingContext(ttt);
     return await fetchAI({
-      model: 'claude-sonnet-5',
-      max_tokens: 500,
+      model: (plan && plan.model) || 'claude-sonnet-5',
+      max_tokens: (plan && plan.maxTokens) || 500,
       system: QA_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: context + '\n\nSesli soru: ' + question }]
     });
