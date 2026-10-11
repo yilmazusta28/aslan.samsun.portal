@@ -195,7 +195,15 @@ async function sendAiMsgWithText(text) {
     '- Dönemin sonundaysa (kalan gün < %30): gerçekçi acil eylem planı, somut günlük kutu/TL hedefi ver\n' +
     'Yanıtlar: Net, somut sayılı, uygulanabilir Türkçe. Brick ve eczane isimleri ile öner.';
 
-  aiChatHistory.push({ role: 'user', content: context + '\n\nSoru/Görev: ' + text });
+  // MALİYET DÜZELTMESİ: Eskiden her kullanıcı mesajına TÜM veri bağlamı (~9-10K token) gömülüyor
+  // ve slice(-6) ile son 3 mesaj (= 3 kopya bağlam) yeniden gönderiliyordu → girdi her mesajda
+  // ~3 katına çıkıyordu. Artık geçmiş yalnız düz soru/cevap; bağlam isteğe BİR KEZ, system
+  // bloğu olarak eklenir ve prompt cache'e (cache_control) alınır → 2. mesajdan itibaren
+  // bağlam cache'ten (~%90 ucuz) okunur.
+  // Temsilci değiştiyse eski temsilcinin sohbeti yeni bağlamla karışmasın diye geçmiş sıfırlanır.
+  if (window.__aiChatTTT && window.__aiChatTTT !== _reqTTT) aiChatHistory.length = 0;
+  window.__aiChatTTT = _reqTTT;
+  aiChatHistory.push({ role: 'user', content: text });
 
   // Phase 2.3.5 — TASK 1: Safe memory cap (preserve newest messages)
   var MAX_CHAT_HISTORY = 50;
@@ -204,11 +212,18 @@ async function sendAiMsgWithText(text) {
   }
 
   try {
+    // API ilk mesajın 'user' olmasını bekler: slice(-6) çift/tek uzunlukta assistant ile başlayabilir.
+    var _msgs = aiChatHistory.slice(-6);
+    while (_msgs.length && _msgs[0].role !== 'user') _msgs.shift();
     var reply = await fetchAI({
       model: 'claude-sonnet-5',
       max_tokens: 4096,
-      system: systemPrompt,
-      messages: aiChatHistory.slice(-6)
+      system: [
+        { type: 'text', text: systemPrompt },
+        { type: 'text', text: 'GÜNCEL VERİ BAĞLAMI (temsilci: ' + _reqTTT + '):\n' + context,
+          cache_control: { type: 'ephemeral' } }
+      ],
+      messages: _msgs
     });
 
     // B-02-5: Stale response koruması
@@ -243,6 +258,8 @@ async function sendAiMsgWithText(text) {
     } catch (_memErr) { /* silent — hafıza hatası AI akışını bozmaz */ }
 
   } catch (err) {
+    // Başarısız istekte cevapsız kalan kullanıcı mesajını geçmişten çıkar (art arda 2 user mesajı oluşmasın)
+    if (aiChatHistory.length && aiChatHistory[aiChatHistory.length - 1].role === 'user') aiChatHistory.pop();
     var errEl = document.getElementById(loadId);
     var isProxy = err.message && (
       err.message.includes('fetch') ||
