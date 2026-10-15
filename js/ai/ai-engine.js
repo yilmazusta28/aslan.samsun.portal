@@ -76,12 +76,13 @@ function renderEngine() {
   const _emvKalanCalc = (gt && gt.hedef_tl > 0)
     ? Math.max(0, gt.hedef_tl - (gt.satis_tl || 0))
     : 0;
-  const _emvKalan = _emvKalanRaw > 0 ? _emvKalanRaw : _emvKalanCalc;
+  const _emvKalan = _emvKalanCalc; // hedef − satış (≥0); CSV işaretine bağlı değil
   document.getElementById('emv_ttt').textContent   = engineSelTTT.split(' ')[0];
   document.getElementById('emv_real').textContent  = gt ? fPct(gt.tl_pct) : '—';
   document.getElementById('emv_real').className    = 'engine-meta-val ' + (gt?.tl_pct>=91?'good':gt?.tl_pct>=70?'warn':'danger');
   document.getElementById('emv_gun').textContent   = rem + ' gün';
   document.getElementById('emv_kalan').textContent = gt ? fTL(_emvKalan) : '—';
+  document.getElementById('emv_kalan').className   = 'engine-meta-val ' + (gt && _emvKalan > 0 ? 'danger' : 'good');
   document.getElementById('emv_donem').textContent = cur ? cur.label : '—';
   document.getElementById('engineTttBadge').textContent = engineSelTTT;
 

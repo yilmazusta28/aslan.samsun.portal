@@ -125,7 +125,7 @@ function cardEkipRankRow(r, idx, trSira) {
     <td style="font-weight:600;cursor:pointer;color:var(--c1)" onclick="selectTTT('${r.ttt}')">${r.ttt}</td>
     <td class="mono">${fTL(r.hedef_tl)}</td>
     <td class="mono" style="font-weight:700">${fTL(r.satis_tl)}</td>
-    <td class="mono ${r.kalan_tl < 0 ? 'negative' : 'positive'}">${fTL(r.kalan_tl)}</td>
+    <td class="mono ${(r.hedef_tl - r.satis_tl) > 0 ? 'negative' : 'positive'}">${fTL(r.hedef_tl - r.satis_tl)}</td>
     <td>${cardPctBadge(r.tl_pct)}</td>
     <td><span class="bdg bdg-blue" style="${ppStyle}">${fPct(pp)}</span></td>
     <td>${cardProgressBar(r.tl_pct, 80)}</td>

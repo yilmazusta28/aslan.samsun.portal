@@ -146,7 +146,7 @@
       el.innerHTML = '<div style="font-size:11px;color:var(--dim)">Bölge toplamı satırı (ŞENOL YILMAZ) CSV\'de bulunamadı.</div>';
       return;
     }
-    var kalan = (gt.kalan_tl > 0) ? gt.kalan_tl : Math.max(0, (gt.hedef_tl || 0) - (gt.satis_tl || 0));
+    var kalan = Math.max(0, (gt.hedef_tl || 0) - (gt.satis_tl || 0));
     var real = gt.tl_pct || 0;
     var realColor = real >= 100 ? '#16A34A' : real >= 91 ? '#059669' : real >= 70 ? '#D97706' : '#DC2626';
 
@@ -242,7 +242,7 @@
         '<td style="font-weight:' + (isNational || isSamsun ? '800' : '600') + '">' + label + '</td>' +
         '<td class="mono">' + fTL(r.hedef_tl || 0) + '</td>' +
         '<td class="mono" style="font-weight:700">' + fTL(r.satis_tl || 0) + '</td>' +
-        '<td class="mono ' + ((r.kalan_tl || 0) > 0 ? 'negative' : 'positive') + '">' + fTL(r.kalan_tl || 0) + '</td>' +
+        '<td class="mono ' + (((r.hedef_tl||0)-(r.satis_tl||0)) > 0 ? 'negative' : 'positive') + '">' + fTL(((r.hedef_tl||0)-(r.satis_tl||0))) + '</td>' +
         '<td class="mono" style="font-weight:700;color:' + pctColor + '">' + fPct(pct) + '</td>' +
         '<td class="mono">' + fPct(r.prim_pct || 0) + '</td>' +
         '<td><div class="prog" style="width:80px"><div class="prog-fill" style="width:' + barPct + '%;background:' + barColor + '"></div></div></td>' +
@@ -396,7 +396,7 @@
         '<td style="font-weight:700;color:' + (URUN_CLR[r.urun] || 'var(--c1)') + '">' + r.urun + '</td>' +
         '<td class="mono">' + fTL(r.hedef_tl) + '</td>' +
         '<td class="mono" style="font-weight:700">' + fTL(r.satis_tl) + '</td>' +
-        '<td class="mono ' + (r.kalan_tl > 0 ? 'negative' : 'positive') + '">' + fTL(r.kalan_tl) + '</td>' +
+        '<td class="mono ' + (((r.hedef_tl||0)-(r.satis_tl||0)) > 0 ? 'negative' : 'positive') + '">' + fTL(((r.hedef_tl||0)-(r.satis_tl||0))) + '</td>' +
         '<td><span class="bdg ' + pCls(r.tl_pct) + '">' + fPct(r.tl_pct) + '</span></td>' +
         '<td><div class="prog" style="width:80px"><div class="prog-fill ' + barCls(r.tl_pct) + '" style="width:' + pct + '%;background:' + barColor + '"></div></div></td>' +
         '<td class="mono">' + fPct(r.prim_pct) + '</td>' +
@@ -413,7 +413,7 @@
       '<td style="font-weight:800">Σ Alt Toplam</td>' +
       '<td class="mono" style="font-weight:800">' + fTL(gen.hedef_tl) + '</td>' +
       '<td class="mono" style="font-weight:800">' + fTL(gen.satis_tl) + '</td>' +
-      '<td class="mono ' + (gen.kalan_tl > 0 ? 'negative' : 'positive') + '" style="font-weight:800">' + fTL(gen.kalan_tl) + '</td>' +
+      '<td class="mono ' + (((gen.hedef_tl||0)-(gen.satis_tl||0)) > 0 ? 'negative' : 'positive') + '" style="font-weight:800">' + fTL((gen.hedef_tl||0)-(gen.satis_tl||0)) + '</td>' +
       '<td><span class="bdg ' + pCls(gen.tl_pct) + '">' + fPct(gen.tl_pct) + '</span></td>' +
       '<td></td>' +
       '<td class="mono" style="font-weight:800">' + fPct(gen.prim_pct) + '</td>' +

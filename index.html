@@ -6341,7 +6341,7 @@ function renderGenelTablo(){
       <td style="font-weight:600;cursor:pointer;color:var(--c1)" onclick="selectTTT('${r.ttt}')">${r.ttt}</td>
       <td class="mono">${fTL(r.hedef_tl)}</td>
       <td class="mono" style="font-weight:700">${fTL(r.satis_tl)}</td>
-      <td class="mono ${r.kalan_tl<0?'negative':'positive'}">${fTL(r.kalan_tl)}</td>
+      <td class="mono ${(r.hedef_tl-r.satis_tl)>0?'negative':'positive'}">${fTL(r.hedef_tl-r.satis_tl)}</td>
       <td><span class="bdg ${pCls(r.tl_pct)}">${fPct(r.tl_pct)}</span></td>
       <td><span class="bdg bdg-blue" style="${pp>=91?'background:#16A34A;color:#fff':pp>=70?'background:#D97706;color:#fff':''}">${fPct(pp)}</span></td>
       <td><div class="prog" style="width:80px"><div class="prog-fill ${barCls(r.tl_pct)}" style="width:${Math.min(r.tl_pct,100)}%"></div></div></td>
@@ -6396,12 +6396,12 @@ function renderTTTDetail(){
   // calcPrimForTTT: prim hesaplama sayfasından son değeri al, yoksa GENEL'den hesapla
   const _toplamPrim = calcPrimForTTT(selTTT);
 
-  // Kalan TL: pozitif (hedef aşıldı) → yeşil, negatif (borç var) → açık kırmızı + eksi
-  const _kalanTL  = gen.kalan_tl;
-  const _kalanCol = _kalanTL >= 0 ? '#34D399' : '#FCA5A5';
-  const _kalanTxt = _kalanTL >= 0
-    ? fTL(_kalanTL) + ' ✓'
-    : '\u2212' + fTL(Math.abs(_kalanTL));
+  // Kalan TL = hedef − satış: pozitif (hedefe kalan) → açık kırmızı, ≤0 (hedef aşıldı) → yeşil + ✓
+  const _kalanTL  = (gen.hedef_tl || 0) - (gen.satis_tl || 0);
+  const _kalanCol = _kalanTL > 0 ? '#FCA5A5' : '#34D399';
+  const _kalanTxt = _kalanTL > 0
+    ? fTL(_kalanTL)
+    : '+' + fTL(Math.abs(_kalanTL)) + ' ✓';
 
   document.getElementById('tttSummaryBox').innerHTML=`
     <div class="tsb-layout">
@@ -6483,7 +6483,7 @@ function renderTTTDetail(){
     <td style="font-weight:700;color:${URUN_CLR[r.urun]||'var(--c1)'}">${r.urun}</td>
     <td class="mono">${fTL(r.hedef_tl)}</td>
     <td class="mono" style="font-weight:700">${fTL(r.satis_tl)}</td>
-    <td class="mono ${r.kalan_tl<0?'negative':'positive'}">${fTL(r.kalan_tl)}</td>
+    <td class="mono ${(r.hedef_tl-r.satis_tl)>0?'negative':'positive'}">${fTL(r.hedef_tl-r.satis_tl)}</td>
     <td><span class="bdg ${pCls(r.tl_pct)}">${fPct(r.tl_pct)}</span></td>
     <td><div class="prog" style="width:80px"><div class="prog-fill ${barCls(r.tl_pct)}" style="width:${Math.min(r.tl_pct,100)}%;background:${URUN_CLR[r.urun]||'var(--c3)'}"></div></div></td>
     <td class="mono">${fPct(r.prim_pct)}</td>
@@ -6492,7 +6492,7 @@ function renderTTTDetail(){
     <td style="font-weight:800">Σ Alt Toplam</td>
     <td class="mono" style="font-weight:800">${fTL(gen.hedef_tl)}</td>
     <td class="mono" style="font-weight:800">${fTL(gen.satis_tl)}</td>
-    <td class="mono ${gen.kalan_tl<0?'negative':'positive'}" style="font-weight:800">${fTL(gen.kalan_tl)}</td>
+    <td class="mono ${(gen.hedef_tl-gen.satis_tl)>0?'negative':'positive'}" style="font-weight:800">${fTL(gen.hedef_tl-gen.satis_tl)}</td>
     <td><span class="bdg ${pCls(gen.tl_pct)}">${fPct(gen.tl_pct)}</span></td>
     <td></td>
     <td class="mono" style="font-weight:800">${fPct(gen.prim_pct)}</td>
@@ -6558,9 +6558,9 @@ function renderManagerHeroBanner() {
          onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
     : '';
 
-  const kalanTL  = sg.kalan_tl || 0;
-  const kalanCol = kalanTL >= 0 ? '#34D399' : '#FCA5A5';
-  const kalanTxt = kalanTL >= 0 ? fTL(kalanTL) + ' ✓' : '\u2212' + fTL(Math.abs(kalanTL));
+  const kalanTL  = (sg.hedef_tl || 0) - (sg.satis_tl || 0); // hedef − satış: >0 hedefe kalan (kırmızı), ≤0 aşıldı (yeşil)
+  const kalanCol = kalanTL > 0 ? '#FCA5A5' : '#34D399';
+  const kalanTxt = kalanTL > 0 ? fTL(kalanTL) : '+' + fTL(Math.abs(kalanTL)) + ' ✓';
 
   // TR Sırası (bkz. renderTTTDetail() içindeki AYNI mantık — TR_SIRA_MAP)
   const mgrTrSira = (typeof TR_SIRA_MAP !== 'undefined' ? TR_SIRA_MAP[mgrName] : 0) || 0;

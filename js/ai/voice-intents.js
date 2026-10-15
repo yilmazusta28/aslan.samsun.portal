@@ -56,8 +56,8 @@
   }
 
   // ── veri erişimi ────────────────────────────────────────────────
-  // DİKKAT: GENEL satırlarındaki `kalan_tl` işaretlidir (satış − hedef → hedef altındayken NEGATİF,
-  // aşılınca POZİTİF). Konuşmada "kalan" her zaman hedefe kalan pozitif miktardır → kendimiz hesaplarız.
+  // NOT: GENEL satırlarındaki `kalan_tl` (R sütunu) = hedef − satış (hedef altındayken POZİTİF,
+  // aşılınca NEGATİF). Konuşmada "kalan" her zaman hedefe kalan pozitif miktardır → 0'a kırpıp hesaplarız.
   function _kalan(r) { return Math.max(0, (+r.hedef_tl || 0) - (+r.satis_tl || 0)); }
   function _total(ttt) {
     try { return GENEL.find(function (r) { return r.ttt === ttt && r.urun === 'GENEL TOPLAM'; }) || null; } catch (e) { return null; }
