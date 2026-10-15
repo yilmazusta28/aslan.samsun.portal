@@ -2140,6 +2140,7 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
     <div class="insight mb16">
       <div class="insight-title">🏢 Bölge Özet Analizi</div>
       <div class="insight-body" id="mgrBolgeOzetBody">Yükleniyor…</div>
+      <div class="ana-insight-stats" id="mgrBolgeOzetStats" style="display:none"></div>
     </div>
     <div id="mgrBolgeAlertBox" style="display:none" class="alert-box mb16">
       <div class="alert-title">⚠️ Dikkat — Bölge Genelinde İade Uyarıları</div>
@@ -5991,27 +5992,76 @@ function renderAna(){
 // 3) Gerekli Pazar Payı: temsilcinin hedefi / o ürün grubundaki TOPLAM
 //    PAZAR büyüklüğü (TÜM ürünler + rakipler dahil, TL) — GENEL_TABLO.csv
 //    "TOP.PAZAR TL" kolonundan (bkz. csv-parser.js toplam_pazar_tl).
+// ── Hedef Payı (National / Bölge) dönemlik dondurma yardımcıları ─────
+const HEDEF_PAYI_LS_KEY = 'pv_hedef_payi_v1';
+function _hedefPayiPeriodKey() {
+  try {
+    if (window.PeriodArchiveManager && typeof window.PeriodArchiveManager.getCurrentPeriodKey === 'function') {
+      const k = window.PeriodArchiveManager.getCurrentPeriodKey();
+      if (k) return String(k);
+    }
+  } catch (e) { /* silent */ }
+  const d = new Date();
+  return 'm' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+function _hedefPayiRead() {
+  try {
+    const o = JSON.parse(localStorage.getItem(HEDEF_PAYI_LS_KEY) || 'null');
+    if (o && o.period === _hedefPayiPeriodKey() && o.data) return o;
+  } catch (e) { /* silent */ }
+  return { period: _hedefPayiPeriodKey(), data: {} };
+}
+function _hedefPayiFrozen(ttt) {
+  const rec = _hedefPayiRead().data[ttt] || {};
+  return { national: rec.national != null ? rec.national : null, bolge: rec.bolge != null ? rec.bolge : null };
+}
+function _hedefPayiSave(ttt, field, val) {
+  if (val == null || !isFinite(val)) return;
+  try {
+    const o = _hedefPayiRead();
+    o.data[ttt] = o.data[ttt] || {};
+    o.data[ttt][field] = val;
+    localStorage.setItem(HEDEF_PAYI_LS_KEY, JSON.stringify(o));
+  } catch (e) { /* silent */ }
+}
+window.resetHedefPayiDondu = function () { try { localStorage.removeItem(HEDEF_PAYI_LS_KEY); } catch (e) {} };
+
 function computeHedefOranlari(ttt) {
   const gen = GENEL.find(r => r.ttt === ttt && r.urun === 'GENEL TOPLAM') || {};
   const hedefTl = gen.hedef_tl || 0;
 
-  // 1) National Payı
-  let nationalPct = null;
-  const nationalRegion = (typeof REGION_RANKING !== 'undefined' ? REGION_RANKING : []).find(r => r.bolge === 'NATIONAL');
-  const ulkeGeneliTTTSayisi = (typeof window.TR_SIRA_FULL !== 'undefined' && window.TR_SIRA_FULL)
-    ? window.TR_SIRA_FULL.filter(r => r.ttt !== 'NATIONAL').length : 0;
-  if (nationalRegion && nationalRegion.hedef_tl > 0 && ulkeGeneliTTTSayisi > 0) {
-    const esitPay = nationalRegion.hedef_tl / ulkeGeneliTTTSayisi;
-    if (esitPay > 0) nationalPct = hedefTl / esitPay * 100;
+  // 1) + 2) National Payı / Bölge Payı — DÖNEM BOYUNCA SABİT.
+  // Kullanıcı isteği: haftalık IMS/GENEL/TR_SIRA verisi her yenilendiğinde bu iki
+  // oran değişiyordu (pay/payda her hafta yeniden hesaplanıyordu). Artık ilk
+  // GEÇERLİ hesap (tüm girdiler > 0) dönem+temsilci bazında kaydedilir ve
+  // sonraki yenilemelerde AYNEN kullanılır. Yeni dönemde otomatik yenilenir.
+  // Elle sıfırlamak için konsoldan: resetHedefPayiDondu()
+  const fro = _hedefPayiFrozen(ttt);
+  let nationalPct = fro.national;
+  let bolgePct = fro.bolge;
+
+  if (nationalPct == null) {
+    // National hedefi: önce GENEL_TABLO NATIONAL satırı, yoksa TR_SIRA.csv NATIONAL satırı
+    const nationalRegion = (typeof REGION_RANKING !== 'undefined' ? REGION_RANKING : []).find(r => r.bolge === 'NATIONAL');
+    const trFull = (typeof window.TR_SIRA_FULL !== 'undefined' && window.TR_SIRA_FULL) ? window.TR_SIRA_FULL : null;
+    const trNat = trFull ? trFull.find(r => r.ttt === 'NATIONAL') : null;
+    const nationalHedef = (nationalRegion && nationalRegion.hedef_tl > 0) ? nationalRegion.hedef_tl
+                        : (trNat && trNat.hedef > 0 ? trNat.hedef : 0);
+    const ulkeGeneliTTTSayisi = trFull ? trFull.filter(r => r.ttt !== 'NATIONAL').length : 0;
+    if (nationalHedef > 0 && ulkeGeneliTTTSayisi > 0 && hedefTl > 0) {
+      nationalPct = hedefTl / (nationalHedef / ulkeGeneliTTTSayisi) * 100;
+      _hedefPayiSave(ttt, 'national', nationalPct);
+    }
   }
 
-  // 2) Bölge (Samsun) Payı — Şenol Yılmaz'ın GENEL TOPLAM satırı = bölge toplamı
-  let bolgePct = null;
-  const bolgeGen = GENEL.find(r => r.ttt === 'ŞENOL YILMAZ' && r.urun === 'GENEL TOPLAM') || {};
-  const samsunTTTSayisi = (typeof ALL_TTTS !== 'undefined' ? ALL_TTTS.length : 0);
-  if (bolgeGen.hedef_tl > 0 && samsunTTTSayisi > 0) {
-    const esitPay = bolgeGen.hedef_tl / samsunTTTSayisi;
-    if (esitPay > 0) bolgePct = hedefTl / esitPay * 100;
+  if (bolgePct == null) {
+    // Bölge (Samsun) — Şenol Yılmaz'ın GENEL TOPLAM satırı = bölge toplamı
+    const bolgeGen = GENEL.find(r => r.ttt === 'ŞENOL YILMAZ' && r.urun === 'GENEL TOPLAM') || {};
+    const samsunTTTSayisi = (typeof ALL_TTTS !== 'undefined' ? ALL_TTTS.length : 0);
+    if (bolgeGen.hedef_tl > 0 && samsunTTTSayisi > 0 && hedefTl > 0) {
+      bolgePct = hedefTl / (bolgeGen.hedef_tl / samsunTTTSayisi) * 100;
+      _hedefPayiSave(ttt, 'bolge', bolgePct);
+    }
   }
 
   // 3) Gerekli Pazar Payı
@@ -6072,6 +6122,35 @@ function showAisInfo(key, el) {
   showInfoPopover(el, info.title, info.html);
 }
 
+// Hedef Payı chip'lerinin HTML'i — "Genel Durum" ve yönetici sayfasındaki
+// Bölge Özet Analizi AYNI fonksiyonu kullanır.
+function buildHedefOranChipsHtml(o) {
+  // FAZ 23: her chip'e opsiyonel infoKey verilirse tıklanınca
+  // AIS_INFO_TEXTS'ten açıklama balonu açılır (showAisInfo()).
+  const chip = (label, val, isPct, infoKey) => {
+    const shown = val==null ? '—' : (isPct ? val.toFixed(0)+'%' : val);
+    const cls = val==null ? '' : (typeof pCls==='function' ? pCls(val) : '');
+    const clickable = infoKey ? ' info-chip" onclick="showAisInfo(\'' + infoKey + '\',this)' : '';
+    const pin = infoKey ? '<span class="info-pin">ⓘ</span>' : '';
+    return `<div class="ais-chip${clickable}"><span class="ais-label">${label}${pin}</span><span class="ais-val bdg ${cls}">${shown}</span></div>`;
+  };
+  return `
+    ${chip('TL National Payı', o.nationalPct, true, 'national')}
+    ${chip('TL Bölge Payı', o.bolgePct, true, 'bolge')}
+    <div class="ais-chip info-chip" onclick="showAisInfo('pazar',this)">
+      <span class="ais-label">Gerekli Pazar Payı<span class="info-pin">ⓘ</span></span>
+      <span class="ais-val bdg ${o.pazarPct!=null?pCls(o.pazarPct):''}">${o.pazarPct!=null?o.pazarPct.toFixed(1)+'%':'Veri yok'}</span>
+      ${o.pazarBuyuklukTl>0?`<span class="ais-sub">Pazar: ${fTL(o.pazarBuyuklukTl)} · Hedef: ${fTL(o.hedefTl)}</span>`:''}
+    </div>
+    <div class="ais-chip info-chip" onclick="showAisInfo('forecastTl',this)">
+      <span class="ais-label">Forecast TL<span class="info-pin">ⓘ</span></span>
+      <span class="ais-val bdg">${o.forecastTl!=null?fTL(o.forecastTl):'Veri yok'}</span>
+      <span class="ais-sub">Dönem Sonu Tahmini TL</span>
+    </div>
+    ${chip('Forecast %', o.forecastPct, true, 'forecastPct')}
+  `;
+}
+
 function renderAnaInsight(){
   const ekip=GENEL.filter(r=>r.urun==='GENEL TOPLAM'&&r.ttt!=='ŞENOL YILMAZ');
   const sorted=[...ekip].sort((a,b)=>b.tl_pct-a.tl_pct);
@@ -6097,30 +6176,7 @@ function renderAnaInsight(){
     // ── YENİ: Hedef Payı Oranları (National / Bölge / Gerekli Pazar Payı) ──
     if (statsEl) {
       const o = computeHedefOranlari(selTTT);
-      // FAZ 23: her chip'e opsiyonel infoKey verilirse tıklanınca
-      // AIS_INFO_TEXTS'ten açıklama balonu açılır (showAisInfo()).
-      const chip = (label, val, isPct, infoKey) => {
-        const shown = val==null ? '—' : (isPct ? val.toFixed(0)+'%' : val);
-        const cls = val==null ? '' : (typeof pCls==='function' ? pCls(val) : '');
-        const clickable = infoKey ? ' info-chip" onclick="showAisInfo(\'' + infoKey + '\',this)' : '';
-        const pin = infoKey ? '<span class="info-pin">ⓘ</span>' : '';
-        return `<div class="ais-chip${clickable}"><span class="ais-label">${label}${pin}</span><span class="ais-val bdg ${cls}">${shown}</span></div>`;
-      };
-      statsEl.innerHTML = `
-        ${chip('TL National Payı', o.nationalPct, true, 'national')}
-        ${chip('TL Bölge Payı', o.bolgePct, true, 'bolge')}
-        <div class="ais-chip info-chip" onclick="showAisInfo('pazar',this)">
-          <span class="ais-label">Gerekli Pazar Payı<span class="info-pin">ⓘ</span></span>
-          <span class="ais-val bdg ${o.pazarPct!=null?pCls(o.pazarPct):''}">${o.pazarPct!=null?o.pazarPct.toFixed(1)+'%':'Veri yok'}</span>
-          ${o.pazarBuyuklukTl>0?`<span class="ais-sub">Pazar: ${fTL(o.pazarBuyuklukTl)} · Hedef: ${fTL(o.hedefTl)}</span>`:''}
-        </div>
-        <div class="ais-chip info-chip" onclick="showAisInfo('forecastTl',this)">
-          <span class="ais-label">Forecast TL<span class="info-pin">ⓘ</span></span>
-          <span class="ais-val bdg">${o.forecastTl!=null?fTL(o.forecastTl):'Veri yok'}</span>
-          <span class="ais-sub">Dönem Sonu Tahmini TL</span>
-        </div>
-        ${chip('Forecast %', o.forecastPct, true, 'forecastPct')}
-      `;
+      statsEl.innerHTML = buildHedefOranChipsHtml(o);
       statsEl.style.display='flex';
     }
 

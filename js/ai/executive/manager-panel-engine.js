@@ -286,7 +286,34 @@
         alertBox.style.display = 'none';
       }
     }
+    var _sel = document.getElementById('mgrTttSelect');
+    renderManagerBolgeOzetStats(_sel ? _sel.value : '');
   }
+
+  // Bölge Özet Analizi altındaki oran chip'leri (TL National Payı, TL Bölge Payı,
+  // Gerekli Pazar Payı, Forecast). Temsilci seçiliyken gösterilir; hesap ve chip
+  // HTML'i "Genel Durum" sayfasıyla AYNI (index.html computeHedefOranlari /
+  // buildHedefOranChipsHtml) — tek kaynak. National/Bölge payı dönem boyunca
+  // SABİT tutulur (bkz. computeHedefOranlari).
+  function renderManagerBolgeOzetStats(ttt) {
+    var box = document.getElementById('mgrBolgeOzetStats');
+    if (!box) return;
+    if (!ttt || typeof computeHedefOranlari !== 'function' || typeof buildHedefOranChipsHtml !== 'function') {
+      box.style.display = 'none'; box.innerHTML = '';
+      return;
+    }
+    // TR_SIRA (Türkiye TTT sayısı) henüz yüklenmediyse yükle, gelince yeniden çiz
+    if (!window.TR_SIRA_FULL && typeof loadTrSiraData === 'function' && !window.__mgrTrSiraTried) {
+      window.__mgrTrSiraTried = true;
+      Promise.resolve(loadTrSiraData(false)).then(function () {
+        var s2 = document.getElementById('mgrTttSelect');
+        renderManagerBolgeOzetStats(s2 ? s2.value : '');
+      }).catch(function () {});
+    }
+    box.innerHTML = buildHedefOranChipsHtml(computeHedefOranlari(ttt));
+    box.style.display = 'flex';
+  }
+  window.renderManagerBolgeOzetStats = renderManagerBolgeOzetStats;
 
   // ── 0c) BÖLGE ÜRÜN BAZLI PERFORMANS ──────────────────────────────────
   // renderTTTDetail()'deki tttUrunBody tablosuyla AYNI kolonlar, ama
@@ -858,7 +885,10 @@
       if (fromCsv)        { satisTL = csvRec.satis; hedefTL = csvRec.hedef; }
       else if (csvLoaded) { satisTL = 0;            hedefTL = 0; }
       else                { satisTL = satisTotal * weight; hedefTL = hedefTotal * weight; }
-      var kalanTL = Math.max(0, hedefTL - satisTL);
+      // Kalan = Hedef − Satış (İŞARETLİ; hedefi aşan brick negatif). Eskiden her satır
+      // Math.max(0,…) ile 0'a kırpılıyordu → aşan bricklerin fazlası kaybolur, sütun
+      // toplamı ile Σ Alt Toplam (Hedef−Satış) birbirini tutmuyordu.
+      var kalanTL = hedefTL - satisTL;
       var pp = b.ppiVals.length ? (b.ppiVals.reduce(function (s, v) { return s + v; }, 0) / b.ppiVals.length) : null;
       // Ürünsel pazar payı — URUN_ORDER sırasıyla, bu brick için varsa
       // MarketShareEngine kaydı (yoksa null → tabloda "—").
@@ -901,7 +931,7 @@
         sira: siraMap[key] || 9999,
         hedefKutu: hedefKutu,
         satisKutu: satisKutu,
-        kalanKutu: fromCsv ? Math.max(0, hedefKutu - satisKutu) : null,
+        kalanKutu: fromCsv ? (hedefKutu - satisKutu) : null,
         hedefTL: hedefTL,
         satisTL: satisTL,
         kalanTL: kalanTL,
@@ -976,7 +1006,7 @@
         '<td style="font-weight:600">' + r.brick + '</td>' +
         '<td class="mono">' + hedefCell + '</td>' +
         '<td class="mono">' + satisCell + '</td>' +
-        '<td class="mono" style="color:var(--c2);font-weight:700">' + kalanCell + '</td>' +
+        '<td class="mono ' + ((kV != null && kV < 0) ? 'negative' : 'positive') + '" style="font-weight:700">' + kalanCell + '</td>' +
         '<td>' + (perf == null ? '<span class="mono">—</span>' : '<span class="bdg ' + pCls(perf) + '">' + fPct(perf) + '</span>') + '</td>' +
         productCells +
         '</tr>';
@@ -1001,13 +1031,13 @@
       hedefTotal = rows.reduce(function (s, r) { return s + (r.hedefTL || 0); }, 0);
       satisTotal = rows.reduce(function (s, r) { return s + (r.satisTL || 0); }, 0);
     }
-    var kalanTotal = Math.max(0, hedefTotal - satisTotal);
+    var kalanTotal = hedefTotal - satisTotal; // işaretli — satır toplamı ile birebir tutar
     var perfTotal = hedefTotal > 0 ? (satisTotal / hedefTotal * 100) : null;
     if (kutuMode) {
       if (rows.some(function (r) { return r.fromCsv; })) {
         hedefTotal = rows.reduce(function (s, r) { return s + (r.hedefKutu || 0); }, 0);
         satisTotal = rows.reduce(function (s, r) { return s + (r.satisKutu || 0); }, 0);
-        kalanTotal = Math.max(0, hedefTotal - satisTotal);
+        kalanTotal = hedefTotal - satisTotal;
         perfTotal = hedefTotal > 0 ? (satisTotal / hedefTotal * 100) : null;
       } else { hedefTotal = satisTotal = kalanTotal = perfTotal = null; }
     }
@@ -1034,7 +1064,7 @@
       '<td style="font-weight:800">Σ Alt Toplam</td>' +
       '<td class="mono" style="font-weight:800">' + fmtU(hedefTotal) + '</td>' +
       '<td class="mono" style="font-weight:800">' + fmtU(satisTotal) + '</td>' +
-      '<td class="mono" style="font-weight:800;color:var(--c2)">' + fmtU(kalanTotal) + '</td>' +
+      '<td class="mono ' + ((kalanTotal != null && kalanTotal < 0) ? 'negative' : 'positive') + '" style="font-weight:800">' + fmtU(kalanTotal) + '</td>' +
       '<td>' + (perfTotal == null ? '<span class="mono">—</span>' : '<span class="bdg ' + pCls(perfTotal) + '" style="font-weight:800">' + fPct(perfTotal) + '</span>') + '</td>' +
       productTotalCells +
       '</tr>';
@@ -1185,7 +1215,9 @@
             line += '. <em>' + dominant.ilac + '</em>, son aktif haftasında (' + la.idx + '. hafta) ' + fK(la.val) + ' kutu sattı (dönem toplamı ' + fK(dominant.toplam || 0) + ' kutu).';
           }
         }
-        line += ' Kalan hedef: <strong style="color:var(--c2)">' + fTL(fb.kalanTL) + '</strong>.';
+        line += (fb.kalanTL < 0)
+          ? ' Hedef aşıldı: <strong style="color:#16A34A">+' + fTL(-fb.kalanTL) + '</strong>.'
+          : ' Kalan hedef: <strong style="color:var(--c2)">' + fTL(fb.kalanTL) + '</strong>.';
         line += '</div>';
         html += line;
       });
@@ -1238,6 +1270,8 @@
     var ttt = sel ? sel.value : '';
     renderManagerBrickDetail(ttt, 'mgrBrickDetailBody');
     renderManagerAiAnaliz(ttt, 'mgrAiAnalizBody');
+    // Bölge Özet Analizi → seçili temsilcinin TL National / Bölge Payı vb. chip'leri
+    renderManagerBolgeOzetStats(ttt);
     // FAZ 13.4 — "Takım Öğrenmesi & Peer Benchmark" kartı bu değere bağlı
     // (bkz. index.html renderTeamLearningCard()). Kart o an açıksa (display
     // !== 'none'), temsilci değişince "SİZİN İÇİN ÖNERİ" bölümü de canlı
