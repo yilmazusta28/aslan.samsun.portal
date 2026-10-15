@@ -1,6 +1,6 @@
 // ══════════════════════════════════════════════════════════════
 //  js/data/brick-tl-loader.js — Brick bazlı GERÇEK Hedef/Satış TL
-//  Kaynak CSV: ./Brick_TL_Hedef.csv (repo kökü) — YENI IMS .xlsm içindeki
+//  Kaynak CSV: ./BRICK_TL_HEDEF.csv (repo kökü) — YENI IMS .xlsm içindeki
 //  "BRICK TL HEDEF" sayfasının haftalık otomasyonla üretilen çıktısı.
 //
 //  CSV YAPISI (';' ayraçlı, Türkçe sayı biçimi):
@@ -18,7 +18,7 @@
 // ══════════════════════════════════════════════════════════════
 
 // GitHub Pages büyük/küçük harfe duyarlı: repodaki gerçek ad önce denenir.
-const GS_BRICK_TL_URLS = ["./Brick_TL_Hedef.csv", "./BRICK_TL_HEDEF.csv"];
+const GS_BRICK_TL_URLS = ["./BRICK_TL_HEDEF.csv", "./Brick_TL_Hedef.csv"];
 
 // { BRICK_ANAHTARI: { brick, hedef, satis, real, urunler:[{urun,hedef,satis}] } }
 window.BRICK_TL_HEDEF     = null;

@@ -107,7 +107,12 @@
         if (!res.ok) throw new Error('HTTP ' + res.status);
         return res.json();
       })
-      .then(function (data) { return (data && Array.isArray(data.observations)) ? data.observations : null; })
+      .then(function (data) {
+        if (!data) return null;
+        // worker /gozlem-sync listeyi 'gozlemler' anahtarıyla yazar
+        if (Array.isArray(data.gozlemler)) return data.gozlemler;
+        return Array.isArray(data.observations) ? data.observations : null;
+      })
       .catch(function (e) {
         console.warn('[saha-gozlem-store] GitHub\'dan ekip gözlem verisi okunamadı (yerel fallback kullanılacak):', e && e.message);
         return null;
