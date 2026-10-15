@@ -242,7 +242,7 @@
         '<td style="font-weight:' + (isNational || isSamsun ? '800' : '600') + '">' + label + '</td>' +
         '<td class="mono">' + fTL(r.hedef_tl || 0) + '</td>' +
         '<td class="mono" style="font-weight:700">' + fTL(r.satis_tl || 0) + '</td>' +
-        '<td class="mono ' + ((r.kalan_tl || 0) < 0 ? 'negative' : 'positive') + '">' + fTL(r.kalan_tl || 0) + '</td>' +
+        '<td class="mono ' + ((r.kalan_tl || 0) > 0 ? 'negative' : 'positive') + '">' + fTL(r.kalan_tl || 0) + '</td>' +
         '<td class="mono" style="font-weight:700;color:' + pctColor + '">' + fPct(pct) + '</td>' +
         '<td class="mono">' + fPct(r.prim_pct || 0) + '</td>' +
         '<td><div class="prog" style="width:80px"><div class="prog-fill" style="width:' + barPct + '%;background:' + barColor + '"></div></div></td>' +
@@ -396,7 +396,7 @@
         '<td style="font-weight:700;color:' + (URUN_CLR[r.urun] || 'var(--c1)') + '">' + r.urun + '</td>' +
         '<td class="mono">' + fTL(r.hedef_tl) + '</td>' +
         '<td class="mono" style="font-weight:700">' + fTL(r.satis_tl) + '</td>' +
-        '<td class="mono ' + (r.kalan_tl < 0 ? 'negative' : 'positive') + '">' + fTL(r.kalan_tl) + '</td>' +
+        '<td class="mono ' + (r.kalan_tl > 0 ? 'negative' : 'positive') + '">' + fTL(r.kalan_tl) + '</td>' +
         '<td><span class="bdg ' + pCls(r.tl_pct) + '">' + fPct(r.tl_pct) + '</span></td>' +
         '<td><div class="prog" style="width:80px"><div class="prog-fill ' + barCls(r.tl_pct) + '" style="width:' + pct + '%;background:' + barColor + '"></div></div></td>' +
         '<td class="mono">' + fPct(r.prim_pct) + '</td>' +
@@ -413,7 +413,7 @@
       '<td style="font-weight:800">Σ Alt Toplam</td>' +
       '<td class="mono" style="font-weight:800">' + fTL(gen.hedef_tl) + '</td>' +
       '<td class="mono" style="font-weight:800">' + fTL(gen.satis_tl) + '</td>' +
-      '<td class="mono ' + (gen.kalan_tl < 0 ? 'negative' : 'positive') + '" style="font-weight:800">' + fTL(gen.kalan_tl) + '</td>' +
+      '<td class="mono ' + (gen.kalan_tl > 0 ? 'negative' : 'positive') + '" style="font-weight:800">' + fTL(gen.kalan_tl) + '</td>' +
       '<td><span class="bdg ' + pCls(gen.tl_pct) + '">' + fPct(gen.tl_pct) + '</span></td>' +
       '<td></td>' +
       '<td class="mono" style="font-weight:800">' + fPct(gen.prim_pct) + '</td>' +
@@ -1006,7 +1006,7 @@
         '<td style="font-weight:600">' + r.brick + '</td>' +
         '<td class="mono">' + hedefCell + '</td>' +
         '<td class="mono">' + satisCell + '</td>' +
-        '<td class="mono ' + ((kV != null && kV < 0) ? 'negative' : 'positive') + '" style="font-weight:700">' + kalanCell + '</td>' +
+        '<td class="mono ' + ((kV != null && kV > 0) ? 'negative' : (kV != null ? 'positive' : '')) + '" style="font-weight:700">' + kalanCell + '</td>' +
         '<td>' + (perf == null ? '<span class="mono">—</span>' : '<span class="bdg ' + pCls(perf) + '">' + fPct(perf) + '</span>') + '</td>' +
         productCells +
         '</tr>';
@@ -1064,7 +1064,7 @@
       '<td style="font-weight:800">Σ Alt Toplam</td>' +
       '<td class="mono" style="font-weight:800">' + fmtU(hedefTotal) + '</td>' +
       '<td class="mono" style="font-weight:800">' + fmtU(satisTotal) + '</td>' +
-      '<td class="mono ' + ((kalanTotal != null && kalanTotal < 0) ? 'negative' : 'positive') + '" style="font-weight:800">' + fmtU(kalanTotal) + '</td>' +
+      '<td class="mono ' + ((kalanTotal != null && kalanTotal > 0) ? 'negative' : (kalanTotal != null ? 'positive' : '')) + '" style="font-weight:800">' + fmtU(kalanTotal) + '</td>' +
       '<td>' + (perfTotal == null ? '<span class="mono">—</span>' : '<span class="bdg ' + pCls(perfTotal) + '" style="font-weight:800">' + fPct(perfTotal) + '</span>') + '</td>' +
       productTotalCells +
       '</tr>';
