@@ -311,7 +311,14 @@ function parseGenelCSV(csvText) {
         if (isRegionTotalRow && looksLikeName) {
           // Ek güvenlik: aynı bölge adı CSV'de (beklenmedik bir sebeple)
           // birden fazla kez geçse bile, sadece İLK geçerli satır alınır.
-          const alreadyHave = regions.some(r => r.bolge === rawName.toUpperCase());
+          const _bName = rawName.toUpperCase();
+          const _prevIdx = regions.findIndex(r => r.bolge === _bName);
+          // Aynı bölge adı birden fazla GENEL TOPLAM satırında geçerse (örn. üstte boş/0 blok,
+          // altta dolu blok) İLK satır değil DOLU olan kazanır; ikisi de boşsa ilki kalır.
+          const _newHedef = parseN(c[15]), _newSatis = parseN(c[16]);
+          const _prevEmpty = _prevIdx >= 0 && !(regions[_prevIdx].hedef_tl || regions[_prevIdx].satis_tl);
+          if (_prevIdx >= 0 && _prevEmpty && (_newHedef || _newSatis)) regions.splice(_prevIdx, 1);
+          const alreadyHave = regions.some(r => r.bolge === _bName);
           if (!alreadyHave) {
             const regionTrSira = Math.round(parseN(c[9]));  // J: TR SIRA
             const regionTlPct  = normPct(c[18]);             // S: TL%
@@ -394,6 +401,29 @@ function parseGenelCSV(csvText) {
   console.log('[parseGenelCSV] Parsed', genel.length, 'rows. First:', JSON.stringify(genel[0]));
   console.log('[parseGenelCSV] GENEL TOPLAM:',
     JSON.stringify(genel.filter(r=>r.urun==='GENEL TOPLAM').map(r=>({ttt:r.ttt,tl:r.tl_pct,h:r.hedef_tl,s:r.satis_tl}))));
+  // ── NATIONAL boşsa bölge toplamından türet ────────────────────────
+  // GENEL_TABLO.csv'de NATIONAL satırının P/Q/R/S hücreleri bazen boş geliyor (Excel'de
+  // ulusal toplam hücresi hesaplanmadığında). Excel'in kendi tanımıyla NATIONAL = tüm bölgelerin
+  // (SAMSUN dahil) toplamıdır (dolu olduğu dönemde birebir tutuyor) → boşsa aynı toplamı hesapla.
+  (function () {
+    const nat = regions.find(r => r.bolge === 'NATIONAL');
+    if (!nat || nat.hedef_tl || nat.satis_tl) return;
+    const others = regions.filter(r => r.bolge !== 'NATIONAL');
+    let hedef = 0, satis = 0;
+    others.forEach(r => { hedef += r.hedef_tl || 0; satis += r.satis_tl || 0; });
+    if (!others.some(r => r.bolge === 'SAMSUN')) {
+      const sg = genel.find(g => g.ttt === 'ŞENOL YILMAZ' && g.urun === 'GENEL TOPLAM');
+      if (sg) { hedef += sg.hedef_tl || 0; satis += sg.satis_tl || 0; }
+    }
+    if (hedef > 0) {
+      nat.hedef_tl = hedef;
+      nat.satis_tl = satis;
+      nat.kalan_tl = hedef - satis;
+      nat.tl_pct   = parseFloat((satis / hedef * 100).toFixed(2));
+      nat.hesaplanan = true; // CSV'den değil, bölge toplamından türetildi
+    }
+  })();
+
   if (regions.length) {
     console.log('[parseGenelCSV] Bölge/Ulusal satırları:', JSON.stringify(regions));
   }

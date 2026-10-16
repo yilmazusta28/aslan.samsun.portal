@@ -1186,3 +1186,14 @@ th.info-th:hover{color:var(--c1)}
   border-left:none;border-top:none;
   border-right:1px solid var(--border);border-bottom:1px solid var(--border);
 }
+
+/* ── MOBİL: uzun rozetli kart başlıkları (başlık + açıklama alt satıra) ── */
+@media(max-width:640px){
+  .card-hd:has(> .card-badge){flex-wrap:wrap;row-gap:6px}
+  .card-hd:has(> .card-badge) > .card-title{flex:1 1 100%}
+  .card-hd:has(> .card-badge) > .card-badge{flex:0 1 auto;margin-left:0;white-space:normal;line-height:1.35;max-width:100%}
+  /* Yatay kayan kutu tablolarında Ürün sütunu sabit kalsın */
+  #kutuTable th:first-child,#mgrKutuTable th:first-child,
+  #kutuTable td:first-child,#mgrKutuTable td:first-child{position:sticky;left:0;z-index:2;background:var(--surf);box-shadow:1px 0 0 var(--border)}
+  #kutuTable th:first-child,#mgrKutuTable th:first-child{background:var(--surf2);z-index:3}
+}

@@ -235,8 +235,18 @@
       var pctColor = pct >= 100 ? '#16A34A' : pct >= 91 ? '#059669' : pct >= 70 ? '#D97706' : '#DC2626';
       var rowBg = isNational ? 'background:rgba(79,0,140,.06)' : (isSamsun ? 'background:rgba(5,150,105,.06)' : '');
       var label = (isNational ? '🇹🇷 ' : (isSamsun ? '🏢 ' : '')) + r.bolge;
+      if (isNational && r.hesaplanan) label += ' <span style="font-size:9px;font-weight:600;color:var(--dim)" title="CSV\'de boş; bölge toplamından hesaplandı">(bölge toplamı)</span>';
       var barPct = Math.min(pct, 100);
       var barColor = pctColor;
+      // NATIONAL için ulusal veri henüz yayınlanmadıysa (hedef/satış/TL% hepsi 0) sıfır göstermek
+      // yanıltıcı → '—' göster.
+      var noNat = isNational && !(r.hedef_tl || r.satis_tl || r.tl_pct);
+      if (noNat) {
+        return '<tr style="' + rowBg + '" title="Ulusal veri henüz yayınlanmadı">' +
+          '<td style="font-weight:700">—</td>' +
+          '<td style="font-weight:800">' + label + '</td>' +
+          '<td class="mono" colspan="6" style="color:var(--dim);font-size:11px">Ulusal veri henüz yayınlanmadı</td></tr>';
+      }
       return '<tr style="' + rowBg + '">' +
         '<td style="font-weight:700">' + (isNational ? '—' : (r.tr_sira > 0 ? '#' + r.tr_sira : '—')) + '</td>' +
         '<td style="font-weight:' + (isNational || isSamsun ? '800' : '600') + '">' + label + '</td>' +
