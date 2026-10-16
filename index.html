@@ -5653,7 +5653,7 @@ function goPage(i, keepSidebarOpen){
   // render ediliyor. "Ayarlar & Referans"ta varsayılan alt-sekme
   // ('satis_sartlari') ise goAyarSubTab(0) ile tetikleniyor (aşağıda).
   if(i===0)renderAna();
-  else if(i===1){ renderPazar(); if(typeof pvSyncSubNav==='function') pvSyncSubNav('navsub_perf_pazar'); }
+  else if(i===1){ renderPazar(); if(typeof pvSyncSubNav==='function') pvSyncSubNav('navsub_perf_' + (PERF_SUBTABS[_perfActiveSubTab] || 'pazar')); /* görünen alt-sekmeyi koru: mobil grup butonu goPage(1)'i çağırınca vurgu Pazar Analizi'ne sıfırlanmasın */ }
   else if(i===2){ initMigi1(); initMigi2(); if(typeof pvSyncSubNav==='function') pvSyncSubNav('navsub_perf_migi'); }
   else if(i===3){ buildPrimInputs(); syncPrimFromCalc(); }
   else if(i===4){ if(typeof renderAiAsistan==='function') renderAiAsistan(); }
@@ -5662,7 +5662,7 @@ function goPage(i, keepSidebarOpen){
   // FAZ 8.2 — Yönetici sekmesi
   else if(i===7){ if(typeof renderManagerHeroBanner==='function') renderManagerHeroBanner(); if(typeof renderManagerExtra==='function') renderManagerExtra(); /* FAZ 22.1 */ if(typeof renderDosyalarManagerSummary==='function') renderDosyalarManagerSummary(); }
   // FAZ 19.0 — Dosyalar sayfası (bkz. js/ui/dosyalar-page.js)
-  else if(i===8){ if(typeof renderDosyalarPage==='function') renderDosyalarPage(); if(typeof pvSyncSubNav==='function') pvSyncSubNav('navsub_dsy_masraf'); }
+  else if(i===8){ if(typeof renderDosyalarPage==='function') renderDosyalarPage(); if(typeof pvSyncSubNav==='function'){ const _dsyCur=['sabit','masraf','kongre'].find(function(n){const e=document.getElementById('dsyMain_'+n);return e && e.style.display!=='none';}) || 'masraf'; pvSyncSubNav('navsub_dsy_'+_dsyCur); } }
 }
 
 // ── PERFORMANS SAYFASI ALT-SEKMELERİ ────────────────────────
