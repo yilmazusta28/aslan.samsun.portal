@@ -286,11 +286,15 @@ Object.assign(window, {
  *  Renk: ≤30 yeşil, ≤60 turuncu, üstü kırmızı.
  * @param {number} n       TR sırası (0/boş → '—')
  * @param {string} [size]  'sm' | 'lg' (varsayılan: normal)
+ * @param {string} [tone]  'g'|'o'|'r'|'n' — verilirse sıraya göre değil bu renk kullanılır
  * @returns {string} HTML
  */
-function trRankBadge(n, size) {
+function trRankBadge(n, size, tone) {
   n = parseInt(n, 10);
   if (!n || n <= 0) return '—';
-  var c = n <= 30 ? 'rk-tg' : (n <= 60 ? 'rk-to' : 'rk-tr');
+  // tone verilirse (bölge sıralaması: NATIONAL'a göre) eşik yerine o renk kullanılır:
+  // 'g' yeşil, 'o' turuncu, 'r' kırmızı, 'n' nötr
+  var c = tone === 'g' ? 'rk-tg' : tone === 'o' ? 'rk-to' : tone === 'r' ? 'rk-tr' : tone === 'n' ? 'rk-n'
+        : (n <= 30 ? 'rk-tg' : (n <= 60 ? 'rk-to' : 'rk-tr'));
   return '<span class="rk ' + c + (size ? ' rk-' + size : '') + '" title="TR Sırası: ' + n + '">' + n + '</span>';
 }

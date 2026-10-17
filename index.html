@@ -6573,8 +6573,12 @@ function renderManagerHeroBanner() {
 
   // TR Sırası (bkz. renderTTTDetail() içindeki AYNI mantık — TR_SIRA_MAP)
   const mgrTrSira = (typeof TR_SIRA_MAP !== 'undefined' ? TR_SIRA_MAP[mgrName] : 0) || 0;
-  const mgrTrCol  = mgrTrSira <= 30 ? '#34D399' : mgrTrSira <= 60 ? '#FCD34D' : '#F87171';
-  const mgrTrTag  = mgrTrSira ? (mgrTrSira <= 30 ? '🏆 İlk 30' : mgrTrSira <= 60 ? '🥈 İlk 60' : '📊 Sıralamada') : '—';
+  // Bölge sıralaması: renk NATIONAL TL%'sine göre (üstünde/eşit yeşil, altında kırmızı); "İlk 30" etiketi yok
+  const _mgrNat   = (typeof REGION_RANKING !== 'undefined' ? REGION_RANKING : []).find(function (x) { return x.bolge === 'NATIONAL'; });
+  const _mgrNatPct = _mgrNat ? (_mgrNat.tl_pct || 0) : 0;
+  const mgrTrTone = _mgrNatPct > 0 ? ((sg.tl_pct || 0) >= _mgrNatPct ? 'g' : 'r') : 'n';
+  const mgrTrCol  = mgrTrTone === 'g' ? '#34D399' : mgrTrTone === 'r' ? '#F87171' : 'rgba(255,255,255,.7)';
+  const mgrTrTag  = '';
 
   el.innerHTML = `
     <div class="tsb-layout">
@@ -6620,8 +6624,7 @@ function renderManagerHeroBanner() {
       <div class="tsb-rank-col" style="flex-direction:column;gap:10px">
         <div class="tsb-rank-badge">
           <div class="tsb-rank-lbl">TR Sırası</div>
-          <div class="tsb-rank-num" style="color:${mgrTrCol}">${trRankBadge(mgrTrSira,'lg')}</div>
-          <div class="tsb-rank-tag" style="color:${mgrTrCol}">${mgrTrTag}</div>
+          <div class="tsb-rank-num" style="color:${mgrTrCol}">${trRankBadge(mgrTrSira,'lg',mgrTrTone)}</div>
         </div>
         <button onclick="openBolgeGeneliMotoru()" style="font-size:11px;font-weight:700;padding:9px 14px;background:rgba(255,255,255,.16);color:#fff;border:1.5px solid rgba(255,255,255,.3);border-radius:10px;cursor:pointer;display:inline-flex;flex-direction:column;align-items:center;gap:2px;white-space:nowrap">
           <span>🚀 Bölge Geneli</span>

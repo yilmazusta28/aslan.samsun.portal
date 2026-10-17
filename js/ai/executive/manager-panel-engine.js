@@ -228,6 +228,10 @@
         'Bölge sıralaması verisi yok — GENEL_TABLO.csv\'ye NATIONAL/bölge satırları henüz eklenmemiş olabilir.</td></tr>';
       return;
     }
+    // Sıra dairesinin rengi NATIONAL'a göre: bölgenin TL%'si ulusal TL%'nin üstünde/eşitse yeşil,
+    // altındaysa kırmızı (ulusal TL% yoksa nötr).
+    var _natRow = rows.find(function (x) { return x.bolge === 'NATIONAL'; });
+    var natPct  = _natRow ? (_natRow.tl_pct || 0) : 0;
     body.innerHTML = rows.map(function (r) {
       var isNational = r.bolge === 'NATIONAL';
       var isSamsun   = r.bolge === 'SAMSUN';
@@ -248,7 +252,7 @@
           '<td class="mono" colspan="6" style="color:var(--dim);font-size:11px">Ulusal veri henüz yayınlanmadı</td></tr>';
       }
       return '<tr style="' + rowBg + '">' +
-        '<td style="font-weight:700">' + (isNational ? '—' : trRankBadge(r.tr_sira)) + '</td>' +
+        '<td style="font-weight:700">' + (isNational ? '—' : trRankBadge(r.tr_sira, '', natPct > 0 ? (pct >= natPct ? 'g' : 'r') : 'n')) + '</td>' +
         '<td style="font-weight:' + (isNational || isSamsun ? '800' : '600') + '">' + label + '</td>' +
         '<td class="mono">' + fTL(r.hedef_tl || 0) + '</td>' +
         '<td class="mono" style="font-weight:700">' + fTL(r.satis_tl || 0) + '</td>' +
@@ -280,7 +284,7 @@
     var gt = (GENEL || []).find(function (r) { return r.ttt === MANAGER_NAME && r.urun === 'GENEL TOPLAM'; }) || {};
 
     el.innerHTML =
-      '🏢 <strong>Bölge Müdürü ' + MANAGER_NAME + '</strong> — Bölge toplam satış: <strong>' + fTL(gt.satis_tl) + '</strong> (' + fPct(gt.tl_pct) + ' hedef). TR Sırası: <strong>#' + (gt.tr_sira || '—') + '</strong>. ' +
+      '🏢 <strong>Bölge Müdürü ' + MANAGER_NAME + '</strong> — Bölge toplam satış: <strong>' + fTL(gt.satis_tl) + '</strong> (' + fPct(gt.tl_pct) + ' hedef). TR Sırası: <strong>' + (gt.tr_sira || '—') + '</strong>. ' +
       'Ekip ort. gerçekleşme: <strong>' + avg.toFixed(1) + '%</strong>. <strong>' + over70 + '/' + ekip.length + '</strong> temsilci %70 üstünde. ' +
       'Lider: <strong>' + (best ? best.ttt : '—') + '</strong> (' + fPct(best ? best.tl_pct : 0) + '). Gelişim gereken: <strong>' + (worst ? worst.ttt : '—') + '</strong> (' + fPct(worst ? worst.tl_pct : 0) + '). ' +
       'Bölge en güçlü ürün: <strong>' + (urunSatis[0] ? urunSatis[0].u : '—') + '</strong> (' + fTL(urunSatis[0] ? urunSatis[0].sum : 0) + ').';
