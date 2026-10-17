@@ -39,7 +39,7 @@ function renderTrSiraPanel() {
     // Samsun ekibinden biriyse (bölge=SAMSUN) satırı vurgula — kullanıcının
     // kendi bölgesini kalabalık listede kolayca fark etmesi için.
     const rowCls = isNational ? 'ytdtl-row-standard' : (isSamsun ? 'trsira-row-samsun' : '');
-    const siraTxt = isNational ? '—' : ('#' + r.sira);
+    const siraTxt = isNational ? '—' : trRankBadge(r.sira);
     return `<tr class="${rowCls}">
       <td style="font-weight:${isNational ? 800 : 600}">${siraTxt}</td>
       <td style="font-size:11px;${isSamsun ? 'font-weight:700;color:#0891B2' : 'color:var(--dim)'}">${r.bolge}</td>

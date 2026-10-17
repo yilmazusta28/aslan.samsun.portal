@@ -279,3 +279,18 @@ Object.assign(window, {
   uiToggleDisplay,
   uiScrollTop,
 });
+
+
+/* ── TR SIRASI daire rozeti ──────────────────────────────────
+ *  "#12" yerine her yerde aynı daire (SIRA sütunundaki .rk gibi).
+ *  Renk: ≤30 yeşil, ≤60 turuncu, üstü kırmızı.
+ * @param {number} n       TR sırası (0/boş → '—')
+ * @param {string} [size]  'sm' | 'lg' (varsayılan: normal)
+ * @returns {string} HTML
+ */
+function trRankBadge(n, size) {
+  n = parseInt(n, 10);
+  if (!n || n <= 0) return '—';
+  var c = n <= 30 ? 'rk-tg' : (n <= 60 ? 'rk-to' : 'rk-tr');
+  return '<span class="rk ' + c + (size ? ' rk-' + size : '') + '" title="TR Sırası: ' + n + '">' + n + '</span>';
+}

@@ -5833,7 +5833,7 @@ function buildTTTPicker(){
         <div class="tp-name">${isSenol?'🏢 ':''}<strong>${shortName}</strong></div>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:1px">
           <div class="tp-pct" style="color:${pCol}">${fPct(p)}</div>
-          <div style="font-size:8px;color:${trCol};font-weight:700">${isSenol?'BM':('#'+trSira)}</div>
+          <div style="font-size:8px;color:${trCol};font-weight:700">${isSenol?'BM':trRankBadge(trSira,'sm')}</div>
         </div>
         <div class="tp-prog"><div class="tp-prog-fill" style="width:${progW}%;background:${progCol}"></div></div>
       </div>
@@ -5864,7 +5864,7 @@ function renderTopBar(){
     }
     // Samsun bölge sıralaması (tr_sira) — sidebar Bölge Özeti
     const br=document.getElementById('sb_bolge_sira');
-    if(br) br.textContent=sg.tr_sira>0?('#'+sg.tr_sira):'—';
+    if(br) br.innerHTML=sg.tr_sira>0?trRankBadge(sg.tr_sira,'sm'):'—';
     // Eski topbar elementleri (hidden ama güncelle)
     const th=document.getElementById('tb_hedef');
     const ts=document.getElementById('tb_satis');
@@ -6177,9 +6177,9 @@ function renderAnaInsight(){
     const en=[...rows].sort((a,b)=>b.tl_pct-a.tl_pct)[0]||{};
     const dusuk=[...rows].sort((a,b)=>a.tl_pct-b.tl_pct)[0]||{};
     if(isSenol){
-      bodyHtml=`🏢 <strong>Bölge Müdürü ${selTTT}</strong> — Bölge toplam satış: <strong>${fTL(gen.satis_tl)}</strong> (${fPct(gen.tl_pct)} hedef). TR Sırası: <strong>#${gen.tr_sira||'—'}</strong>.`;
+      bodyHtml=`🏢 <strong>Bölge Müdürü ${selTTT}</strong> — Bölge toplam satış: <strong>${fTL(gen.satis_tl)}</strong> (${fPct(gen.tl_pct)} hedef). TR Sırası: <strong>${gen.tr_sira||'—'}</strong>.`;
     } else {
-      bodyHtml=`<strong>${selTTT}</strong> toplam <strong>${fTL(gen.satis_tl)}</strong> satış (${fPct(gen.tl_pct)} hedef). Güçlü ürün: <strong>${en.urun||'—'}</strong> (${fPct(en.tl_pct)}). Gelişim: <strong>${dusuk.urun||'—'}</strong> (${fPct(dusuk.tl_pct)}). TR Sırası: <strong>#${gen.tr_sira||'—'}</strong>.`;
+      bodyHtml=`<strong>${selTTT}</strong> toplam <strong>${fTL(gen.satis_tl)}</strong> satış (${fPct(gen.tl_pct)} hedef). Güçlü ürün: <strong>${en.urun||'—'}</strong> (${fPct(en.tl_pct)}). Gelişim: <strong>${dusuk.urun||'—'}</strong> (${fPct(dusuk.tl_pct)}). TR Sırası: <strong>${gen.tr_sira||'—'}</strong>.`;
     }
 
     // ── YENİ: Hedef Payı Oranları (National / Bölge / Gerekli Pazar Payı) ──
@@ -6346,7 +6346,7 @@ function renderGenelTablo(){
     const fcColor=_forecastColorHex(fcPct);
     return `<tr>
       <td><span class="rk ${i===0?'rk-1':i===1?'rk-2':i===2?'rk-3':'rk-n'}">${i+1}</span></td>
-      <td style="color:${trCol};font-weight:700">${trSira?'#'+trSira:'—'}</td>
+      <td>${trRankBadge(trSira)}</td>
       <td style="font-weight:600;cursor:pointer;color:var(--c1)" onclick="selectTTT('${r.ttt}')">${r.ttt}</td>
       <td class="mono">${fTL(r.hedef_tl)}</td>
       <td class="mono" style="font-weight:700">${fTL(r.satis_tl)}</td>
@@ -6461,7 +6461,7 @@ function renderTTTDetail(){
       <div class="tsb-rank-col">
         <div class="tsb-rank-badge">
           <div class="tsb-rank-lbl">TR Sırası</div>
-          <div class="tsb-rank-num" style="color:${_trCol}">#${_trSira||'—'}</div>
+          <div class="tsb-rank-num" style="color:${_trCol}">${trRankBadge(_trSira,'lg')}</div>
           <div class="tsb-rank-tag" style="color:${_trCol}">${_trSira?(_trSira<=30?'🏆 İlk 30':_trSira<=60?'🥈 İlk 60':'📊 Sıralamada'):'—'}</div>
         </div>
       </div>
@@ -6620,7 +6620,7 @@ function renderManagerHeroBanner() {
       <div class="tsb-rank-col" style="flex-direction:column;gap:10px">
         <div class="tsb-rank-badge">
           <div class="tsb-rank-lbl">TR Sırası</div>
-          <div class="tsb-rank-num" style="color:${mgrTrCol}">#${mgrTrSira || '—'}</div>
+          <div class="tsb-rank-num" style="color:${mgrTrCol}">${trRankBadge(mgrTrSira,'lg')}</div>
           <div class="tsb-rank-tag" style="color:${mgrTrCol}">${mgrTrTag}</div>
         </div>
         <button onclick="openBolgeGeneliMotoru()" style="font-size:11px;font-weight:700;padding:9px 14px;background:rgba(255,255,255,.16);color:#fff;border:1.5px solid rgba(255,255,255,.3);border-radius:10px;cursor:pointer;display:inline-flex;flex-direction:column;align-items:center;gap:2px;white-space:nowrap">

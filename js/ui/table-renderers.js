@@ -156,7 +156,7 @@ function renderTblEkipRanking(rows, trSiraMap, tbodyId) {
       <td>${pctBdg}</td>
       <td><span class="bdg bdg-blue" style="${ppStyle}">${fPct(pp)}</span></td>
       <td>${bar}</td>
-      <td style="color:${trCol};font-weight:700">${trSira ? '#' + trSira : '—'}</td>
+      <td>${trRankBadge(trSira)}</td>
     </tr>`;
   }).join(''));
 }

@@ -353,7 +353,7 @@ function _runEngineCore() {
     ...oppBricks.slice(0,4).map(b=>`
       <div class="risk-item ri-good">
         <div class="risk-item-name">🚀 ${b.brick}</div>
-        <div class="risk-item-detail">Sıra #${b.sira} · MI: ${b.mi?.toFixed(0)||'—'} · GI: ${b.gi?.toFixed(0)||'—'}<br>
+        <div class="risk-item-detail">Sıra ${b.sira} · MI: ${b.mi?.toFixed(0)||'—'} · GI: ${b.gi?.toFixed(0)||'—'}<br>
         Güçlü performans — payı artır!</div>
       </div>`),
     ...urunKPI.filter(r=>r.tl_pct>=91).map(r=>`

@@ -57,7 +57,7 @@ function cardRankBadge(trSira) {
   const tag = trSira
     ? (trSira <= 30 ? '🏆 İlk 30' : trSira <= 60 ? '🥈 İlk 60' : '📊 Sıralamada')
     : '—';
-  const num  = trSira ? '#' + trSira : '—';
+  const num  = trSira ? trRankBadge(trSira, 'lg') : '—';
   return `<div class="tsb-rank-col">
     <div class="tsb-rank-badge">
       <div class="tsb-rank-lbl">TR Sırası</div>

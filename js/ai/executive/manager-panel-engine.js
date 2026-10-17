@@ -248,7 +248,7 @@
           '<td class="mono" colspan="6" style="color:var(--dim);font-size:11px">Ulusal veri henüz yayınlanmadı</td></tr>';
       }
       return '<tr style="' + rowBg + '">' +
-        '<td style="font-weight:700">' + (isNational ? '—' : (r.tr_sira > 0 ? '#' + r.tr_sira : '—')) + '</td>' +
+        '<td style="font-weight:700">' + (isNational ? '—' : trRankBadge(r.tr_sira)) + '</td>' +
         '<td style="font-weight:' + (isNational || isSamsun ? '800' : '600') + '">' + label + '</td>' +
         '<td class="mono">' + fTL(r.hedef_tl || 0) + '</td>' +
         '<td class="mono" style="font-weight:700">' + fTL(r.satis_tl || 0) + '</td>' +

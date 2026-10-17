@@ -1197,3 +1197,13 @@ th.info-th:hover{color:var(--c1)}
   #kutuTable td:first-child,#mgrKutuTable td:first-child{position:sticky;left:0;z-index:2;background:var(--surf);box-shadow:1px 0 0 var(--border)}
   #kutuTable th:first-child,#mgrKutuTable th:first-child{background:var(--surf2);z-index:3}
 }
+
+/* ── TR SIRASI daire rozeti (trRankBadge) ── */
+.rk-tg{border-color:#16A34A;color:#16A34A;background:#ECFDF5}
+.rk-to{border-color:#D97706;color:#D97706;background:#FFFBEB}
+.rk-tr{border-color:#DC2626;color:#DC2626;background:#FEF2F2}
+.rk-sm{width:20px;height:20px;font-size:8px;border-width:1.5px}
+.rk-lg{width:40px;height:40px;font-size:15px;border-width:2.5px}
+[data-theme="dark"] .rk-tg{background:rgba(22,163,74,.18);color:#34D399;border-color:#34D399}
+[data-theme="dark"] .rk-to{background:rgba(217,119,6,.18);color:#FCD34D;border-color:#FCD34D}
+[data-theme="dark"] .rk-tr{background:rgba(220,38,38,.18);color:#F87171;border-color:#F87171}
