@@ -2,6 +2,14 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
+<!-- PERF: worker ve GitHub raw sunucularına bağlantıyı (DNS+TLS) sayfa açılırken hazırla -->
+<link rel="preconnect" href="https://samsun.yilmazusta28.workers.dev" crossorigin>
+<link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin>
+<script>
+/* PERF ölçümü: giriş → ilk ekran süresini konsola yazar ([PERF] tablosu). Davranışı etkilemez. */
+window.__pvPerf={t0:performance.now(),m:[],mark:function(n){this.m.push([n,Math.round(performance.now()-this.t0)]);},
+report:function(){try{var p=0,r=this.m.map(function(x){var o={adim:x[0],'toplam_ms':x[1],'adim_ms':x[1]-p};p=x[1];return o;});console.table(r);}catch(e){}}};
+</script>
 <!-- GÜVENLİK: Content-Security-Policy. script-src'te 'unsafe-inline' şimdilik gerekli (satır içi onclick/script çok);
      harici script kaynağı YOK (kütüphaneler vendor/). Yeni bir dış adrese bağlanılacaksa connect-src'e eklenmeli. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://raw.githubusercontent.com; media-src 'self' data: blob:; connect-src 'self' blob: data: https://samsun.yilmazusta28.workers.dev https://raw.githubusercontent.com https://github.com https://api.github.com; frame-src 'self' blob: https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'">
@@ -4833,6 +4841,7 @@ function _autoSelTTT(fallback) {
 
 
 function doLogin(){
+  if(window.__pvPerf&&!window._pvServerOk) window.__pvPerf.mark('giris-tiklandi');
   const user=document.getElementById('loginUser').value.trim();
   const pass=document.getElementById('loginPass').value;
   const errEl=document.getElementById('loginErr');
@@ -4844,7 +4853,7 @@ function doLogin(){
     // Yazılan ad (kursad karadag / Kürşad Karadağ …) → sunucudaki kanonik büyük harfli ad (KÜRŞAD KARADAĞ)
     const canon=VALID_USERS.find(u=>u===u.toLocaleUpperCase('tr-TR')&&stripTR(u).toLowerCase()===stripTR(user).toLowerCase())||user;
     pvServerLogin(canon,pass).then(function(r){
-      if(r&&r.ok){ window._pvServerOk=true; document.getElementById('loginUser').value=r.user; doLogin(); }
+      if(r&&r.ok){ if(window.__pvPerf) window.__pvPerf.mark('sunucu-girisi-tamam'); window._pvServerOk=true; document.getElementById('loginUser').value=r.user; doLogin(); }
       else { errEl.textContent=(r&&r.message)||'Kullanıcı adı veya şifre hatalı.'; errEl.style.display='block'; }
     });
     return;
@@ -7480,6 +7489,9 @@ window.addEventListener('DOMContentLoaded',()=>{
   // Login ekranını göster, app'i başlatma
   document.getElementById('loading').style.display='none';
   document.getElementById('loginUser').focus();
+  // PERF: kullanıcı kimlik bilgilerini yazarken kritik CSV'leri arka planda indirmeye başla
+  if(typeof pvPrefetchData==='function') pvPrefetchData();
+  if(window.__pvPerf) window.__pvPerf.mark('giris-ekrani-hazir');
   if(window._pvLoginQueued){
     window._pvLoginQueued=false;
     var _lb=document.querySelector('.login-btn'); if(_lb){_lb.disabled=false;_lb.textContent='GİRİŞ YAP';}

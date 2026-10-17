@@ -291,11 +291,10 @@
   async function loadPharmacyMultiMonth(year) {
     var files = window.pharmacyFileRegistry.filter(function (f) { return f.year === year; });
     if (!files.length) return [];
+    // PERF: aylar sırayla değil paralel indirilir (sıra korunur)
+    var parts = await Promise.all(files.map(function (f) { return loadPharmacyMonth(f.year, f.month); }));
     var all = [];
-    for (var i = 0; i < files.length; i++) {
-      var rows = await loadPharmacyMonth(files[i].year, files[i].month);
-      all = all.concat(rows);
-    }
+    parts.forEach(function (rows) { all = all.concat(rows); });
     return all;
   }
 
@@ -309,6 +308,7 @@
     // Tüm seçili yıl+ay kombinasyonlarını yükle
     var all = [];
     var loaded = {};
+    var jobs = [];   // PERF: aylar paralel indirilir, sıra korunur
     for (var yi = 0; yi < f.years.length; yi++) {
       var yr = f.years[yi];
       var ayList = (f.months && f.months.length)
@@ -322,10 +322,11 @@
         // Sadece bu yıl için geçerli aylar
         var available = getAvailableMonths(yr);
         if (available.indexOf(mo) === -1) continue;
-        var rows = await loadPharmacyMonth(yr, mo);
-        all = all.concat(rows);
+        jobs.push(loadPharmacyMonth(yr, mo));
       }
     }
+    var parts = await Promise.all(jobs);
+    parts.forEach(function (rows) { all = all.concat(rows); });
 
     window.pharmacyActiveData = all;
     // ECZANE_RAW'ı EZME — sadece pharmacyActiveData güncellenir

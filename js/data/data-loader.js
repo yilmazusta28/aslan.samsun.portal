@@ -243,9 +243,61 @@ function parseMiGiBrickCSV(csvText) {
 // sadece ilk boyamayı hızlandırır. Başarılı her fetch sonunda saveDataCache()
 // çağrılır. Rollback: bu bloğu ve dosya sonundaki saveDataCache() çağrısını
 // silmek yeterli, syncData() eskisi gibi çalışmaya devam eder.
+// ── PERF: ön-yükleme + güvenli CSV çekici (modül seviyesi) ───────────────
+async function _pvSafeGet(url, ts) {
+  const fileName = url.split('/').pop();
+  // 1. deneme: cache:no-store, redirect:follow (mode:cors YOK — preflight sorununu önler)
+  // 2. deneme: query string ile (CDN bypass)
+  const attempts = [
+    () => fetch(url, { cache: 'no-store', redirect: 'follow' }),
+    () => fetch(url + '?nocache=' + ts, { redirect: 'follow' }),
+  ];
+  for (const attempt of attempts) {
+    try {
+      const r = await attempt();
+      if (r.ok) {
+        const text = await r.text();
+        if (text && !text.trim().startsWith('<')) {
+          console.log('[OK]', fileName, text.length, 'chars');
+          return text;
+        }
+        console.warn('[WARN] CSV değil HTML geldi:', fileName);
+      } else {
+        console.warn('[HTTP ' + r.status + '] ' + fileName);
+      }
+    } catch(e) { console.warn('[ERR]', fileName, e.message); }
+  }
+  console.error('[FAIL] Yüklenemedi:', fileName, url);
+  return '';
+}
+
+// Giriş ekranı açıkken (kullanıcı kimlik bilgilerini yazarken / sunucu şifreyi doğrularken)
+// kritik CSV'leri arka planda indirmeye başlar. Bu CSV'ler zaten herkese açık (GitHub Pages),
+// yetkilendirme gerektirmez → güvenlik etkisi yok. Giriş başarısız olursa sadece boşa indirme olur.
+function pvPrefetchData() {
+  if (window._pvPrefetch || window.location.protocol === 'file:') return;
+  try {
+    const ts = Date.now();
+    const fetchOpts = { cache: 'no-store', mode: 'cors' };
+    const pf = { t: ts };
+    pf.ims   = fetch(GS_IMS_URL   + '?v=' + ts, fetchOpts);
+    pf.genel = fetch(GS_GENEL_URL + '?v=' + ts, fetchOpts);
+    pf.migiTL    = _pvSafeGet(GS_MIGI_TL_URL, ts);
+    pf.migiKutu  = _pvSafeGet(GS_MIGI_KUTU_URL, ts);
+    pf.migiBTL   = _pvSafeGet(GS_MIGI_BRICK_TL_URL, ts);
+    pf.migiBKutu = _pvSafeGet(GS_MIGI_BRICK_KUTU_URL, ts);
+    pf.rakip     = _pvSafeGet(GS_RAKIP_URL, ts);
+    // Yakalanmamış reddedilme uyarısı oluşmasın (syncData try/catch ile ele alıyor)
+    [pf.ims, pf.genel].forEach(function (pr) { pr.catch(function () {}); });
+    window._pvPrefetch = pf;
+  } catch (e) { window._pvPrefetch = null; }
+}
+window.pvPrefetchData = pvPrefetchData;
+
 async function syncData(forceFresh) {
   if (_syncLock) { console.log('[syncData] Zaten çalışıyor, atlandı'); return; }
   _syncLock = true;
+  if (window.__pvPerf) window.__pvPerf.mark('sync-basladi');
   const statusEl = document.getElementById('syncStatus');
   const loadMsg  = document.getElementById('loadMsg');
   statusEl.textContent = '⏳ Güncelleniyor…';
@@ -315,51 +367,46 @@ async function syncData(forceFresh) {
 
     // Üç tabloyu paralel çek
     // Kritik: IMS + GENEL (bunlar olmadan portal çalışmaz)
-    const [respIMS, respGenel] = await Promise.all([
-      fetch(GS_IMS_URL   + '?v=' + ts, fetchOpts),
-      fetch(GS_GENEL_URL + '?v=' + ts, fetchOpts),
-    ]);
-
-    // Tüm CSV'leri güvenli şekilde çek — biri başarısız olursa diğerleri devam eder
-    const safeGet = async (url) => {
-      const fileName = url.split('/').pop();
-      // 1. deneme: cache:no-store, redirect:follow (mode:cors YOK — preflight sorununu önler)
-      // 2. deneme: query string ile (CDN bypass)
-      const attempts = [
-        () => fetch(url, { cache: 'no-store', redirect: 'follow' }),
-        () => fetch(url + '?nocache=' + ts, { redirect: 'follow' }),
-      ];
-      for (const attempt of attempts) {
-        try {
-          const r = await attempt();
-          if (r.ok) {
-            const text = await r.text();
-            if (text && !text.trim().startsWith('<')) {
-              console.log('[OK]', fileName, text.length, 'chars');
-              return text;
-            }
-            console.warn('[WARN] CSV değil HTML geldi:', fileName);
-          } else {
-            console.warn('[HTTP ' + r.status + '] ' + fileName);
-          }
-        } catch(e) { console.warn('[ERR]', fileName, e.message); }
+    // PERF: Giriş ekranındayken başlatılmış ön-yükleme (pvPrefetchData) varsa onu kullan —
+    // indirme, şifre doğrulama süresiyle üst üste biner. Yoksa/başarısızsa eski yoldan çek.
+    const _pf = (!forceFresh && window._pvPrefetch && (Date.now() - window._pvPrefetch.t) < 120000) ? window._pvPrefetch : null;
+    window._pvPrefetch = null;   // tek kullanımlık; sonraki yenilemeler taze çeker
+    let respIMS, respGenel, csvIMS, csvGenel, csvMiGiTL, csvMiGiKutu, csvMiGiBTL, csvMiGiBKutu, csvRakip;
+    if (_pf) {
+      try {
+        [respIMS, respGenel] = await Promise.all([_pf.ims, _pf.genel]);
+        if (!respIMS.ok)   throw new Error('IMS_TABLO.csv yüklenemedi (HTTP ' + respIMS.status + ')');
+        if (!respGenel.ok) throw new Error('GENEL_TABLO.csv yüklenemedi (HTTP ' + respGenel.status + ')');
+        [csvIMS, csvGenel, csvMiGiTL, csvMiGiKutu, csvMiGiBTL, csvMiGiBKutu, csvRakip] = await Promise.all([
+          respIMS.text(), respGenel.text(), _pf.migiTL, _pf.migiKutu, _pf.migiBTL, _pf.migiBKutu, _pf.rakip
+        ]);
+        console.log('[PERF] ön-yükleme kullanıldı');
+      } catch (e) {
+        console.warn('[PERF] ön-yükleme başarısız, normal yükleme:', e && e.message);
+        respIMS = respGenel = null;
       }
-      console.error('[FAIL] Yüklenemedi:', fileName, url);
-      return '';
-    };
-
-    if (!respIMS.ok)   throw new Error('IMS_TABLO.csv yüklenemedi (HTTP ' + respIMS.status + ')');
-    if (!respGenel.ok) throw new Error('GENEL_TABLO.csv yüklenemedi (HTTP ' + respGenel.status + ')');
-
-    const [csvIMS, csvGenel, csvMiGiTL, csvMiGiKutu, csvMiGiBTL, csvMiGiBKutu, csvRakip] = await Promise.all([
-      respIMS.text(),
-      respGenel.text(),
-      safeGet(GS_MIGI_TL_URL),
-      safeGet(GS_MIGI_KUTU_URL),
-      safeGet(GS_MIGI_BRICK_TL_URL),
-      safeGet(GS_MIGI_BRICK_KUTU_URL),
-      safeGet(GS_RAKIP_URL),
-    ]);
+    }
+    if (!respIMS) {
+      respIMS   = null; // (aşağıdaki normal yol)
+      const fetchOpts = { cache: 'no-store', mode: 'cors' };
+      const ts = Date.now();
+      [respIMS, respGenel] = await Promise.all([
+        fetch(GS_IMS_URL   + '?v=' + ts, fetchOpts),
+        fetch(GS_GENEL_URL + '?v=' + ts, fetchOpts),
+      ]);
+      if (!respIMS.ok)   throw new Error('IMS_TABLO.csv yüklenemedi (HTTP ' + respIMS.status + ')');
+      if (!respGenel.ok) throw new Error('GENEL_TABLO.csv yüklenemedi (HTTP ' + respGenel.status + ')');
+      [csvIMS, csvGenel, csvMiGiTL, csvMiGiKutu, csvMiGiBTL, csvMiGiBKutu, csvRakip] = await Promise.all([
+        respIMS.text(),
+        respGenel.text(),
+        _pvSafeGet(GS_MIGI_TL_URL, ts),
+        _pvSafeGet(GS_MIGI_KUTU_URL, ts),
+        _pvSafeGet(GS_MIGI_BRICK_TL_URL, ts),
+        _pvSafeGet(GS_MIGI_BRICK_KUTU_URL, ts),
+        _pvSafeGet(GS_RAKIP_URL, ts),
+      ]);
+    }
+    if (window.__pvPerf) window.__pvPerf.mark('csv-indirildi');
 
     console.log('[CSV] TOPLAM-TL:', csvMiGiTL.length, 'TOPLAM-KUTU:', csvMiGiKutu.length,
       'BRICK-TL:', csvMiGiBTL.length, 'BRICK-KUTU:', csvMiGiBKutu.length);
@@ -625,6 +672,7 @@ async function syncData(forceFresh) {
     if (loadMsg) loadMsg.textContent = '❌ Veri yüklenemedi: ' + err.message;
     throw err;
   } finally {
+    if (window.__pvPerf) { window.__pvPerf.mark('sync-bitti'); if (!window._pvPerfReported) { window._pvPerfReported = true; window.__pvPerf.report(); } }
     setTimeout(() => { _syncLock = false; }, 3000);
   }
 }
