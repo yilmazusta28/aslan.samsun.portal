@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════════════════════
 //  js/data/ek-prim-loader.js — Ek Prim tablosu (Prim Hesapla sayfası)
-//  Kaynak CSV: ./EK_PRIM.csv (repo kökü) — YENI IMS .xlsm içindeki "EK-PRIM"
-//  sayfasının haftalık otomasyonla (ims_transform.py → FINAL_EXPORTS) üretilen çıktısı.
+//  Kaynak CSV: ./EK_PRIM.csv (A:E) + ./EK_PRIM_FAMTREC.csv (G:L) — YENI IMS .xlsm içindeki
+//  "EK-PRIM" sayfasındaki iki tablonun haftalık otomasyonla (ims_transform.py → FINAL_EXPORTS) üretilen çıktısı.
 //
 //  CSV YAPISI (';' ayraçlı, Türkçe sayı biçimi — Excel'in kendi CSV çıktısı gibi):
 //    Satır 1 : kampanya başlığı   (örn. GRİPORT COLD EK PRİM)
@@ -20,8 +20,9 @@
   if (window._EK_PRIM_LOADED) return;
   window._EK_PRIM_LOADED = true;
 
-  var URLS = ['./EK_PRIM.csv', './EK-PRIM.csv'];
-  window.EK_PRIM = null;          // { baslik, kolonlar:[...], satirlar:[[...]] }
+  // Her kaynak = EK-PRIM sayfasındaki bir tablo (A:E Griport Cold, G:L Famtrec). Eksik olan atlanır.
+  var SOURCES = ['./EK_PRIM.csv', './EK_PRIM_FAMTREC.csv'];
+  window.EK_PRIM = null;          // [ { baslik, kolonlar:[...], satirlar:[[...]] }, ... ]
   window.EK_PRIM_LOAD_ERROR = null;
 
   function key(s) {
@@ -64,18 +65,7 @@
     return el && el.value ? key(el.value) : '';
   }
 
-  function render() {
-    var body = document.getElementById('ekPrimBody');
-    var card = document.getElementById('ekPrimCard');
-    if (!body || !card) return;
-    var d = window.EK_PRIM;
-    if (!d) {
-      body.innerHTML = '<div style="color:var(--dim);font-size:11px;padding:10px 0">Ek prim tablosu bulunamadı' +
-        (window.EK_PRIM_LOAD_ERROR ? ' (' + esc(window.EK_PRIM_LOAD_ERROR) + ')' : '') + '.</div>';
-      return;
-    }
-    var only = myKey();
-    var sel = selectedKey();
+  function tableHtml(d, only, sel) {
     var rows = d.satirlar.filter(function (r) { return !only || key(r[0]) === only; });
     var last = d.kolonlar.length - 1;
     var th = d.kolonlar.map(function (c, i) {
@@ -89,34 +79,52 @@
       return '<tr style="' + (hl ? 'background:#EEF6FF;font-weight:600' : '') + '">' + r.map(function (c, i) {
         var st = 'padding:5px 8px;font-size:11px;border-bottom:1px solid var(--border);text-align:' + (i ? 'right' : 'left');
         if (i === last) st += ';color:' + (pos ? '#15803D' : 'var(--dim)') + ';font-weight:700';
+        c = String(c == null ? '' : c).replace(/^(-?\d+),00%$/, '$1%');   // 111,00% → 111%
         if (i === last && c && c !== '-') c += ' ₺';
         return '<td style="' + st + '">' + esc(c) + '</td>';
       }).join('') + '</tr>';
     }).join('');
     var foot = only ? '' :
-      '<tr><td colspan="' + last + '" style="padding:6px 8px;font-size:11px;font-weight:700">TOPLAM EK PRİM</td>' +
+      '<tr><td colspan="' + last + '" style="padding:6px 8px;font-size:11px;font-weight:700">TOPLAM ' + esc(d.kolonlar[last]) + '</td>' +
       '<td style="padding:6px 8px;font-size:11px;font-weight:700;text-align:right">' +
       total.toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' ₺</td></tr>';
-    var badge = document.getElementById('ekPrimBadge');
-    if (badge) badge.textContent = d.baslik;
-    body.innerHTML = rows.length
-      ? '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr>' + th + '</tr></thead><tbody>' + tr + foot + '</tbody></table></div>'
-      : '<div style="color:var(--dim);font-size:11px;padding:10px 0">Bu dönem için ek prim kaydınız bulunmuyor.</div>';
+    return '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;margin-bottom:6px">' + esc(d.baslik) + '</div>' +
+      (rows.length
+        ? '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr>' + th + '</tr></thead><tbody>' + tr + foot + '</tbody></table></div>'
+        : '<div style="color:var(--dim);font-size:11px">Bu dönem için kaydınız bulunmuyor.</div>') + '</div>';
   }
 
+  function render() {
+    var body = document.getElementById('ekPrimBody');
+    var card = document.getElementById('ekPrimCard');
+    if (!body || !card) return;
+    var list = window.EK_PRIM;
+    if (!list || !list.length) {
+      body.innerHTML = '<div style="color:var(--dim);font-size:11px;padding:10px 0">Ek prim tablosu bulunamadı' +
+        (window.EK_PRIM_LOAD_ERROR ? ' (' + esc(window.EK_PRIM_LOAD_ERROR) + ')' : '') + '.</div>';
+      return;
+    }
+    var only = myKey();
+    var sel = selectedKey();
+    var badge = document.getElementById('ekPrimBadge');
+    if (badge) badge.textContent = list.length + ' tablo';
+    body.innerHTML = list.map(function (d) { return tableHtml(d, only, sel); }).join('');
+  }
+
+  function fetchOne(u, ts) {
+    return fetch(u + '?v=' + ts, { cache: 'no-store' }).then(function (r) {
+      if (!r.ok) throw new Error(u + ' HTTP ' + r.status);
+      return r.text();
+    }).then(parse).catch(function (e) { return { _err: e && e.message || String(e) }; });
+  }
   function load() {
     var ts = Date.now();
-    var p = Promise.reject(new Error('başlatılmadı'));
-    URLS.forEach(function (u) {
-      p = p.catch(function () {
-        return fetch(u + '?v=' + ts, { cache: 'no-store' }).then(function (r) {
-          if (!r.ok) throw new Error('HTTP ' + r.status);
-          return r.text();
-        });
-      });
-    });
-    return p.then(function (t) { window.EK_PRIM = parse(t); window.EK_PRIM_LOAD_ERROR = null; })
-      .catch(function (e) { window.EK_PRIM = null; window.EK_PRIM_LOAD_ERROR = e && e.message || String(e); })
+    return Promise.all(SOURCES.map(function (u) { return fetchOne(u, ts); })).then(function (res) {
+      var ok = res.filter(function (d) { return !d._err; });
+      var bad = res.filter(function (d) { return d._err; });
+      window.EK_PRIM = ok.length ? ok : null;
+      window.EK_PRIM_LOAD_ERROR = bad.length ? bad.map(function (d) { return d._err; }).join('; ') : null;
+    }).catch(function (e) { window.EK_PRIM = null; window.EK_PRIM_LOAD_ERROR = e && e.message || String(e); })
       .then(render);
   }
   window.loadEkPrim = load;
