@@ -1230,9 +1230,10 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
         <div class="insight-body" id="calcInsightBody"></div>
       </div>
       <div class="scroll-x">
-        <table class="tbl" id="calcTable" style="min-width:960px">
+        <table class="tbl" id="calcTable" style="min-width:1040px">
           <thead><tr>
             <th>Ürün</th>
+            <th>Haf. Ort.</th>
             <th>Tahmini Kutu</th>
             <th>Tahmin Anamal TL</th>
             <th>Satış Kümülatif TL</th>
@@ -2529,11 +2530,11 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
 <script src="js/core/period-archive-manager.js?v=20260705"></script>
 <script src="js/core/math-utils.js?v=20260705"></script>
 <script src="js/core/formatters.js?v=20260705"></script>
-<script src="js/core/prim-calc.js?v=20261007"></script>
+<script src="js/core/prim-calc.js?v=20261020"></script>
 <script src="js/core/migi-donem.js?v=20261003"></script>
 <script src="js/core/prim-ledger.js?v=20261003"></script>
 <script src="js/data/data-normalizer.js?v=20260705"></script>
-<script src="js/data/csv-parser.js?v=20260705"></script>
+<script src="js/data/csv-parser.js?v=20261020"></script>
 <script src="js/data/data-state.js?v=20260705"></script>
 <script src="js/data/data-loader.js?v=20261001b"></script>
 <script src="js/data/ytd-tl-loader.js?v=20260912"></script>
@@ -2891,7 +2892,7 @@ function calcPrim() {
       const inp = document.getElementById(getPrimRealId(u));
       const val = inp?.value ? parseFloat(inp.value) : 0;
       const r2 = GENEL.find(g => g.ttt === ttt && g.urun === u);
-      const agirlik = (r2 && r2.urun_agirlik > 0) ? r2.urun_agirlik : (URUN_AGIRLIK[u] || 0.2);
+      const agirlik = (r2 && r2.urun_agirlik > 0) ? normAgirlik(r2.urun_agirlik) : (URUN_AGIRLIK[u] || 0.2);
       return s + val * agirlik;
     }, 0);
   }
@@ -7249,6 +7250,22 @@ function renderKutuTable(){
     </tr>` : '');
 }
 
+// IMS TL'ye göre haftalık kutu ortalaması (Haftalık Kutu Dökümü – IMS tablosundaki "Ort./Hft" ile AYNI hesap)
+const IMS_HFT_KEYS = ['h1','h2','h3','h4','h5','h6','h7','h8','h9'];
+function imsHaftaOrtKutu(r){
+  if(!r) return 0;
+  const p = IMS_TL_MAP[r.urun] || 1;
+  const nz = IMS_HFT_KEYS.map(w => r[w] > 0 ? Math.round(r[w] / p) : 0).filter(v => v > 0);
+  return nz.length ? Math.round(nz.reduce((a,b)=>a+b,0) / nz.length) : 0;
+}
+function imsHaftaOrtToplam(rows){
+  const tots = IMS_HFT_KEYS.map(w => rows.reduce((s,r) => {
+    const p = IMS_TL_MAP[r.urun] || 1;
+    return s + (r[w] > 0 ? Math.round(r[w] / p) : 0);
+  }, 0)).filter(v => v > 0);
+  return tots.length ? Math.round(tots.reduce((a,b)=>a+b,0) / tots.length) : 0;
+}
+
 // Calc table — ürünler alt alta (FAMTREC dahil)
 function renderCalcTable(){
   const rows=URUN_ORDER.map(urun=>{
@@ -7264,6 +7281,7 @@ function renderCalcTable(){
   document.getElementById('calcBody').innerHTML=rows.map(({urun,r})=>`
     <tr>
       <td style="font-weight:700;color:${URUN_CLR[urun]||'var(--c1)'};min-width:110px">${urun}</td>
+      <td class="mono" style="color:var(--c2);font-weight:700">${imsHaftaOrtKutu(r)>0?fK(imsHaftaOrtKutu(r)):'—'}</td>
       <td style="min-width:110px">
         <input class="inp" type="number" min="0" step="1" id="kutu_${urun.replace(/\s+/g,'_')}" value="0"
           style="width:100px;padding:5px 8px;font-size:12px" oninput="liveCalcRow('${urun}')">
@@ -7298,8 +7316,8 @@ function liveCalcRow(urun){
   const tahPct    = r.hedef_tl > 0 ? (toplamS / r.hedef_tl * 100) : 0;
 
   // ─── Ürün bazı prim puan katkısı (formül) ──────────────────
-  // CSV L sütunu = urun_agirlik
-  const agirlik = r.urun_agirlik > 0 ? r.urun_agirlik : (URUN_AGIRLIK[urun]||0);
+  // CSV L sütunu = urun_agirlik (yüzde olarak gelir → normAgirlik kesire çevirir)
+  const agirlik = r.urun_agirlik > 0 ? normAgirlik(r.urun_agirlik) : (URUN_AGIRLIK[urun]||0);
   let clampedReal = 0;
   if (tahPct >= 70) clampedReal = Math.min(tahPct, 130);
   const tahPrimPuan = clampedReal * agirlik;
@@ -7364,7 +7382,7 @@ function runCalcSummary(){
     const toplamS   = r.satis_tl + tahAnamal;
     const tahPct    = r.hedef_tl > 0 ? (toplamS / r.hedef_tl * 100) : 0;
 
-    const agirlik = r.urun_agirlik > 0 ? r.urun_agirlik : (URUN_AGIRLIK[urun]||0);
+    const agirlik = r.urun_agirlik > 0 ? normAgirlik(r.urun_agirlik) : (URUN_AGIRLIK[urun]||0);
     let clampedReal = 0;
     if (tahPct >= 70) clampedReal = Math.min(tahPct, 130);
     totPrimPuan += clampedReal * agirlik;
@@ -7377,9 +7395,11 @@ function runCalcSummary(){
 
   const totPct   = totH > 0 ? (totS / totH * 100) : 0;
   const totKalan = Math.max(0, totH - totS);
+  const totHftOrt = imsHaftaOrtToplam(URUN_ORDER.map(u=>GENEL.find(g=>g.ttt===selTTT_p2&&g.urun===u)).filter(r=>r&&r.hedef_tl>0));
 
   document.getElementById('calcFoot').innerHTML=`<tr class="toplam-row" style="border-top:2px solid var(--c1);background:rgba(79,0,140,.04)">
     <td style="font-weight:700;color:var(--c1)">TOPLAM</td>
+    <td class="mono" style="font-weight:700;color:var(--c2)">${totHftOrt>0?fK(totHftOrt):'—'}</td>
     <td></td>
     <td class="mono" style="font-weight:700;color:var(--c2)">${totAnamal>0?fTL(totAnamal):'—'}</td>
     <td class="mono" style="font-weight:700">${fTL(totS)}</td>
@@ -7446,8 +7466,7 @@ function renderWeeklyTable2(){
     imsKutuEl.innerHTML = imsRows.map(r => {
       const p = IMS_TL_MAP[r.urun] || 1;
       const vals = wk.map(w => r[w] > 0 ? Math.round(r[w] / p) : 0);
-      const nzV = vals.filter(v => v > 0);
-      const avg = nzV.length ? Math.round(nzV.reduce((a,b)=>a+b,0) / nzV.length) : 0;
+      const avg = imsHaftaOrtKutu(r);
       return `<tr>
         <td style="font-weight:700;color:${URUN_CLR[r.urun]||'var(--c1)'}">${r.urun}<span style="font-size:8px;font-weight:400;color:var(--dim);margin-left:4px">${p}₺</span></td>
         ${vals.map(v=>`<td class="mono" style="${v>0?'':'color:#A0AEC0'}">${v>0?fK(v):'—'}</td>`).join('')}

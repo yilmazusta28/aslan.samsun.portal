@@ -50,6 +50,15 @@ function getMiGiKatsayi(mi, gi) {
   return MIGI_MATRIX[floorBin(gi)]?.[floorBin(mi)] ?? 0;
 }
 
+// Ürün ağırlığını daima KESİR (0–1) olarak döndürür.
+// GENEL_TABLO.csv'de ağırlık "25" / "25%" (yüzde) olarak gelir; URUN_AGIRLIK ise 0.25 (kesir).
+// Normalize edilmezse real(96.4) × 25 = 2409 gibi hatalı prim puanı çıkar (doğrusu 24.1).
+// 1'den büyükse yüzde kabul edilip /100 yapılır; ≤1 ise zaten kesirdir.
+function normAgirlik(v) {
+  const x = +v || 0;
+  return x > 1 ? x / 100 : x;
+}
+
 // Prim puanı hesapla (ürün ağırlıkları × real)
 // DÜZELTME: eski değerler (MOKSEFEN .15 / FAMTREC .15) GENEL_TABLO.csv'deki resmi
 // ağırlıklarla uyuşmuyordu. Güncel (5. dönem) resmi ağırlıklar: PANOCER 25 · ACİDPASS 25 ·
@@ -405,7 +414,7 @@ function calcPrimPuani(urunReals, ttt) {
     if (real >= 70) {
       // CSV'den temsilciye ait ağırlığı al, yoksa sabit değeri kullan
       const r = ttt ? GENEL.find(g => g.ttt === ttt && g.urun === urun) : null;
-      const agirlik = (r && r.urun_agirlik > 0) ? r.urun_agirlik : (URUN_AGIRLIK[urun] || 0);
+      const agirlik = (r && r.urun_agirlik > 0) ? normAgirlik(r.urun_agirlik) : (URUN_AGIRLIK[urun] || 0);
       const cappedReal = Math.min(real, 130);
       total += cappedReal * agirlik;
     }
@@ -471,7 +480,7 @@ function calcPrimFromArchivedPeriod(ttt, periodKey) {
       const r2 = archGenel.find(g => g.ttt === ttt && g.urun === u);
       const real = r2 ? (r2.tl_pct || 0) : 0;
       if (real >= 70) {
-        const agirlik = (r2 && r2.urun_agirlik > 0) ? r2.urun_agirlik : (URUN_AGIRLIK[u] || 0);
+        const agirlik = (r2 && r2.urun_agirlik > 0) ? normAgirlik(r2.urun_agirlik) : (URUN_AGIRLIK[u] || 0);
         primPuani += Math.min(real, 130) * agirlik;
       }
     });

@@ -371,7 +371,7 @@ function parseGenelCSV(csvText) {
       ttt, urun,
       tr_sira:        tr_s,
       barem:          parseN(c[10]),
-      urun_agirlik:   parseN(c[11]),
+      urun_agirlik:   (typeof normAgirlik === 'function') ? normAgirlik(parseN(c[11])) : parseN(c[11]),  // L: kesir (0.25)
       ims_tl,
       hedef_tl:       parseN(c[15]),   // P
       satis_tl:       parseN(c[16]),   // Q
