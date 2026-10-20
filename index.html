@@ -7147,7 +7147,7 @@ function renderMarketDetailTable(grpData,drugs,bricks,ownIlac){
 function resetCalc(){
   URUN_ORDER.forEach(u=>{
     const k=u.replace(/\s+/g,'_');
-    const el=document.getElementById('kutu_'+k);if(el)el.value=0;
+    const el=document.getElementById('kutu_'+k);if(el)el.value='';
     ['ra_','rk_','rkal_','rp_','rpr_'].forEach(p=>{
       const e=document.getElementById(p+k);
       if(e){
@@ -7289,8 +7289,8 @@ function renderCalcTable(){
       <td style="font-weight:700;color:${URUN_CLR[urun]||'var(--c1)'};min-width:110px">${urun}</td>
       <td class="mono" style="color:var(--c2);font-weight:700">${imsHaftaOrtKutu(r)>0?fK(imsHaftaOrtKutu(r)):'—'}</td>
       <td style="min-width:110px">
-        <input class="inp" type="number" min="0" step="1" id="kutu_${urun.replace(/\s+/g,'_')}" value="0"
-          style="width:100px;padding:5px 8px;font-size:12px" oninput="liveCalcRow('${urun}')">
+        <input class="inp" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="0" id="kutu_${urun.replace(/\s+/g,'_')}" value=""
+          style="width:100px;padding:5px 8px;font-size:12px" onfocus="this.select()" oninput="this.value=this.value.replace(/\D/g,'').replace(/^0+(?=\d)/,'');liveCalcRow('${urun}')">
       </td>
       <td class="mono" id="ra_${urun.replace(/\s+/g,'_')}" style="color:var(--c2)">—</td>
       <td class="mono" id="rk_${urun.replace(/\s+/g,'_')}" style="min-width:130px">
