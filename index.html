@@ -2530,7 +2530,7 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
 <script src="js/core/period-archive-manager.js?v=20260705"></script>
 <script src="js/core/math-utils.js?v=20260705"></script>
 <script src="js/core/formatters.js?v=20260705"></script>
-<script src="js/core/prim-calc.js?v=20261020"></script>
+<script src="js/core/prim-calc.js?v=20261021"></script>
 <script src="js/core/migi-donem.js?v=20261003"></script>
 <script src="js/core/prim-ledger.js?v=20261003"></script>
 <script src="js/data/data-normalizer.js?v=20260705"></script>
@@ -2912,6 +2912,12 @@ function calcPrim() {
     primPuani = calcPrimPuani(urunReals, ttt);
   }
 
+  // YUKARI YUVARLAMA (kullanıcı kuralı): 90,46 → 91. Ekranda ham değer + yuvarlanmış değer gösterilir;
+  // eşik (≥91), çarpan ve Portföy kontrolü yuvarlanmış tam sayıyla yapılır.
+  const effRealRaw = effReal, primPuaniRaw = primPuani;
+  effReal   = ceilPct(effReal);
+  primPuani = ceilPct(primPuani);
+
   if (typeof applyPrimMiGiAuto === 'function') { try { applyPrimMiGiAuto(ttt); } catch (e) { console.warn('[prim-migi-auto]', e.message); } }
   const mi = parseFloat(document.getElementById('primMI')?.value) || 100;
   const gi = parseFloat(document.getElementById('primGI')?.value) || 100;
@@ -2972,11 +2978,11 @@ function calcPrim() {
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
             <span>TL Realizasyon</span>
-            <strong style="${effReal>=91?'color:#16A34A':'color:#DC2626'}">${effReal.toFixed(1)}% ${effReal>=91?'✅ (≥91%)':'❌ (<91%)'}${effReal>100?' <span style=\"color:#D97706;font-weight:600\">→ dönemlik prim için %100 sayılır</span>':''}</strong>
+            <strong style="${effReal>=91?'color:#16A34A':'color:#DC2626'}">${effRealRaw.toFixed(1)}%${effReal!==effRealRaw?' → '+effReal+'%':''} ${effReal>=91?'✅ (≥91%)':'❌ (<91%)'}${effReal>100?' <span style=\"color:#D97706;font-weight:600\">→ dönemlik prim için %100 sayılır</span>':''}</strong>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
             <span>Prim Puanı</span>
-            <strong style="${primPuani>=91?'color:#16A34A':'color:#DC2626'}">${primPuani.toFixed(1)}% ${primPuani>=91?'✅':' ⚠️ Portföy yok'}</strong>
+            <strong style="${primPuani>=91?'color:#16A34A':'color:#DC2626'}">${primPuaniRaw.toFixed(1)}%${primPuani!==primPuaniRaw?' → '+primPuani+'%':''} ${primPuani>=91?'✅':' ⚠️ Portföy yok'}</strong>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
             <span>MI İndeks</span>

@@ -50,6 +50,14 @@ function getMiGiKatsayi(mi, gi) {
   return MIGI_MATRIX[floorBin(gi)]?.[floorBin(mi)] ?? 0;
 }
 
+// Canlı prim hesabında TL Real % ve Prim Puanı % YUKARI yuvarlanır (kullanıcı kuralı):
+// 90,46 → 91 · 78,2 → 79 · 91,0 → 91. Eşik (≥91, ≥70) ve çarpan tablosu bu tam sayıyla çalışır.
+// 1e-6 payı, kayan nokta gürültüsünün (91,0000000001 → 92) yanlış yukarı atmasını engeller.
+function ceilPct(v) {
+  const x = +v || 0;
+  return Math.ceil(x - 1e-6) || 0;
+}
+
 // Ürün ağırlığını daima KESİR (0–1) olarak döndürür.
 // GENEL_TABLO.csv'de ağırlık "25" / "25%" (yüzde) olarak gelir; URUN_AGIRLIK ise 0.25 (kesir).
 // Normalize edilmezse real(96.4) × 25 = 2409 gibi hatalı prim puanı çıkar (doğrusu 24.1).
@@ -279,10 +287,10 @@ function calcPrimForTTT(ttt) {
   }
   const rGenel = GENEL.find(g => g.ttt === ttt && g.urun === 'GENEL TOPLAM');
   if (!rGenel) return 0;
-  const effReal   = rGenel.tl_pct || 0;
+  const effReal   = ceilPct(rGenel.tl_pct || 0);
   const urunRows  = GENEL.filter(g => g.ttt === ttt && g.urun !== 'GENEL TOPLAM' && g.urun !== 'DESTEVIT');
   const urunReals = Object.fromEntries(urunRows.map(r => [r.urun, r.tl_pct]));
-  const primPuani = rGenel.prim_pct || calcPrimPuani(urunReals, ttt);
+  const primPuani = ceilPct(rGenel.prim_pct || calcPrimPuani(urunReals, ttt));
   // MI/GI: MIGI_TL_RAW'dan bu TTT'nin EN GÜNCEL dönemine ait ortalamasını al
   // BUG DÜZELTMESİ: gerçek alan adı 'person'dır ('ttt' değil) ve "GI"
   // değeri 'bi' alanında tutulur ('gi' değil) — bkz. data-loader.js
@@ -367,7 +375,7 @@ function calcPrimForTTTForecast(ttt) {
   try { fc = generateForecast(ttt); } catch (e) { return calcPrimForTTT(ttt); }
   if (!fc || !(fc.projectedReal > 0)) return calcPrimForTTT(ttt);
 
-  const effReal = fc.projectedReal;
+  const effReal = ceilPct(fc.projectedReal);
 
   // Portföy Primi Puanı — forecast'ın kendi ürün bazlı tahminlerini
   // (productForecasts[].projectedReal) kullanır; forecast ürün kırılımı
@@ -392,6 +400,7 @@ function calcPrimForTTTForecast(ttt) {
   let giAvg = migiRows.length ? migiRows.reduce((s, r) => s + (r.bi || 100), 0) / migiRows.length : 100;
   const _migiAuto = (typeof getMiGiOtomatik === 'function') ? getMiGiOtomatik(ttt) : null;
   if (_migiAuto) { miAvg = _migiAuto.mi; giAvg = _migiAuto.gi; }
+  primPuani = ceilPct(primPuani);
   const migiKatsayi = effReal >= 70 ? getMiGiKatsayi(miAvg, giAvg) : 0;
 
   const BAZ_TL_REAL = 55000;
