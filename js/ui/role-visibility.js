@@ -13,7 +13,7 @@
 //
 //  Rol Kuralları:
 //    TEMSILCI: snav4 (AI Analiz), snav5 (Eczane Yönetimi), kendi verisi
-//    YONETICI: snav4, snav5, snav7 (Yönetici + Sayfa 3 / FAZ 12.2)
+//    YONETICI: snav4, snav5, snav7 (Yönetici + Sayfa 3 / FAZ 12.2); snav3 (Prim Hesapla) GİZLİ
 //
 //  Public API:
 //    getCurrentRole()      → 'TEMSILCI' | 'YONETICI'
@@ -67,6 +67,12 @@
   // 7'ye, Dosyalar'ı 7'den 8'e kaydırdı.
   var YONETICI_ONLY_IDS = ['snav7', 'mtb7', 'ntab7'];
 
+  // Kullanıcı isteği: Yönetici girişinde "Prim Hesapla" sayfası ayrı bir sayfa olarak
+  // görünmesin (masaüstü sidebar snav3, mobil alt bar mtb3, üst sekme ntab3).
+  // Yönetici primleri Yönetici sayfasındaki "💰 Prim Takip" bölümünden izler.
+  // Temsilciler için hiçbir şey değişmez. Rollback: bu satırı ve aşağıdaki döngüyü sil.
+  var YONETICI_HIDDEN_IDS = ['snav3', 'mtb3', 'ntab3'];
+
   function applyRoleVisibility() {
     var role = getCurrentRole();
 
@@ -74,6 +80,12 @@
       var el = document.getElementById(id);
       if (!el) return;
       el.style.display = (role === 'YONETICI') ? '' : 'none';
+    });
+
+    YONETICI_HIDDEN_IDS.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.style.display = (role === 'YONETICI') ? 'none' : '';
     });
 
     // Update sidebar role label if present
