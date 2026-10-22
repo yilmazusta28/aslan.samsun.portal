@@ -65,6 +65,20 @@
     return el && el.value ? key(el.value) : '';
   }
 
+  // ── Famtrec "Tekil Eczane Sayısı (Mevcut)": CSV değeri SOLUK gösterilir (salt görüntü) ──
+  //  Kolon, başlık metninden bulunur (CSV başlıkları değişirse kod değişmez):
+  //    1) "TEKİL" + "MEVCUT"  2) "ECZANE" + "MEVCUT"  3) başlığında "TEKİL" geçen tek kolon.
+  function fadedCol(d) {
+    if (key(d.baslik).indexOf('FAMTREC') < 0) return -1;
+    var ks = d.kolonlar.map(key), i, one = -1, n = 0;
+    for (i = 1; i < ks.length; i++) if (ks[i].indexOf('TEKIL') >= 0 && ks[i].indexOf('MEVCUT') >= 0) return i;
+    for (i = 1; i < ks.length; i++) if (ks[i].indexOf('ECZANE') >= 0 && ks[i].indexOf('MEVCUT') >= 0) return i;
+    for (i = 1; i < ks.length; i++) if (ks[i].indexOf('TEKIL') >= 0) { one = i; n++; }
+    return n === 1 ? one : -1;
+  }
+  // Önceki sürümde eklenen elle giriş kaldırıldı; kalan kayıtları temizle
+  try { localStorage.removeItem('pv_ekprim_manuel_v1'); } catch (e) { /* sessiz */ }
+
   function tableHtml(d, only, sel) {
     var rows = d.satirlar.filter(function (r) { return !only || key(r[0]) === only; });
     var last = d.kolonlar.length - 1;
@@ -72,6 +86,7 @@
       return '<th style="padding:6px 8px;text-align:' + (i ? 'right' : 'left') + ';font-size:10px;color:var(--dim);border-bottom:1px solid var(--border)">' + esc(c) + '</th>';
     }).join('');
     var total = 0;
+    var mc = fadedCol(d);
     var tr = rows.map(function (r) {
       var hl = (!only && sel && key(r[0]) === sel) || !!only;
       total += num(r[last]);
@@ -81,6 +96,9 @@
         if (i === last) st += ';color:' + (pos ? '#15803D' : 'var(--dim)') + ';font-weight:700';
         c = String(c == null ? '' : c).replace(/^(-?\d+),00%$/, '$1%');   // 111,00% → 111%
         if (i === last && c && c !== '-') c += ' ₺';
+        if (i === mc) {
+          return '<td style="' + st + ';opacity:.45" title="CSV değeri">' + esc(c || '—') + '</td>';
+        }
         return '<td style="' + st + '">' + esc(c) + '</td>';
       }).join('') + '</tr>';
     }).join('');
@@ -91,7 +109,8 @@
     return '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;margin-bottom:6px">' + esc(d.baslik) + '</div>' +
       (rows.length
         ? '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr>' + th + '</tr></thead><tbody>' + tr + foot + '</tbody></table></div>'
-        : '<div style="color:var(--dim);font-size:11px">Bu dönem için kaydınız bulunmuyor.</div>') + '</div>';
+        : '<div style="color:var(--dim);font-size:11px">Bu dönem için kaydınız bulunmuyor.</div>') +
+      '</div>';
   }
 
   function render() {
@@ -125,10 +144,23 @@
       window.EK_PRIM = ok.length ? ok : null;
       window.EK_PRIM_LOAD_ERROR = bad.length ? bad.map(function (d) { return d._err; }).join('; ') : null;
     }).catch(function (e) { window.EK_PRIM = null; window.EK_PRIM_LOAD_ERROR = e && e.message || String(e); })
-      .then(render);
+      .then(function () {
+        render();
+        // Yönetici sayfasındaki Prim Takip bölümü de yeni veriyle yenilensin
+        if (typeof window.renderPrimTakipPage === 'function') { try { window.renderPrimTakipPage(); } catch (e) { /* sessiz */ } }
+      });
   }
   window.loadEkPrim = load;
   window.renderEkPrim = render;
+
+  // Yönetici paneli (Prim Takip) için: yüklü Ek Prim tablolarının HTML'i. ttt boşsa tüm ekip + toplam,
+  // doluysa yalnızca o temsilcinin satırı. Veri yoksa null döner. (js/ui/prim-takip-page.js kullanır)
+  window.ekPrimTablesHtml = function (ttt) {
+    var list = window.EK_PRIM;
+    if (!list || !list.length) return null;
+    var only = ttt ? key(ttt) : null;
+    return list.map(function (d) { return tableHtml(d, only, ''); }).join('');
+  };
 
   function init() {
     load();

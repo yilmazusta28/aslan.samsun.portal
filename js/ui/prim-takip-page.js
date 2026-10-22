@@ -10,6 +10,10 @@
 //  TL Real primi %100 sınırlı çarpanla, Portföy ≥91/≥91, MI&GI ≥70.
 //  Bu sayfa SADECE OKUR — hiçbir veriyi/hesabı değiştirmez.
 //
+//  Bölümler: (1) Güncel dönem ekip tablosu · (2) Filtre çubuğu (temsilci / yıl / dönem)
+//  · (3) Geçmiş Dönem Prim Hesabı (temsilci sayfasındaki tabloyla aynı hesap — js/ui/prim-gecmis.js
+//  PrimGecmisMgr) · (4) Ek Prim Tablosu (EK_PRIM.csv — js/data/ek-prim-loader.js ekPrimTablesHtml).
+//
 //  Rollback: index.html'den #mgr-sec-primtakip + #mgrPrimTakip bloğunu, bu script
 //  satırını, "Prim Takip" pill'ini ve goPage() i===7 dalındaki renderPrimTakipPage çağrısını sil.
 // ══════════════════════════════════════════════════════════════
@@ -23,6 +27,11 @@
   var _sortKey = 'toplam';
   var _sortDir = -1;          // -1: büyükten küçüğe
   var _openRows = {};         // açık ürün detayı satırları
+
+  // Geçmiş Dönem / Ek Prim filtreleri ('' = tüm ekip / tüm dönemler)
+  var _fTtt = '';
+  var _fYear = '';
+  var _fPeriod = '';
 
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -128,6 +137,66 @@
     renderPrimTakipPage();
   }
 
+  function ptSetFilter(kind, val) {
+    if (kind === 'ttt') _fTtt = val || '';
+    else if (kind === 'year') _fYear = val || '';
+    else if (kind === 'period') _fPeriod = val || '';
+    else if (kind === 'clear') { _fTtt = ''; _fPeriod = ''; _fYear = ''; }
+    renderPrimTakipPage();
+  }
+
+  // Filtre çubuğu + Geçmiş Dönem kartı + Ek Prim kartı
+  function _historyHtml() {
+    var G = window.PrimGecmisMgr;
+    if (!G) {
+      return '<div class="card" style="margin-top:16px"><div class="card-body" style="font-size:12px;color:var(--dim)">Geçmiş dönem modülü (prim-gecmis.js) yüklenemedi.</div></div>';
+    }
+    G.ensure(renderPrimTakipPage);   // YTD_TL.csv yüklü değilse arka planda çek, gelince yeniden çiz
+
+    var years = G.years();
+    var curY = String(new Date().getFullYear());
+    var year = (_fYear && years.indexOf(_fYear) >= 0) ? _fYear : (years.indexOf(curY) >= 0 ? curY : years[0]);
+    var periods = G.periods();
+    var opt = function (v, l, sel) { return '<option value="' + _esc(v) + '"' + (sel ? ' selected' : '') + '>' + _esc(l) + '</option>'; };
+    var sty = 'padding:5px 8px;font-size:11px;max-width:100%';
+    var lab = 'font-size:9px;font-weight:700;letter-spacing:.05em;color:var(--dim);text-transform:uppercase;display:block;margin-bottom:2px';
+
+    var filterBar =
+      '<div class="card" style="margin-top:18px"><div class="card-body" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">' +
+        '<div><label style="' + lab + '">Temsilci</label><select class="inp" style="' + sty + ';min-width:170px" onchange="ptSetFilter(\'ttt\',this.value)">' +
+          opt('', 'Tüm ekip', !_fTtt) + ALL_TTTS.map(function (t) { return opt(t, t, t === _fTtt); }).join('') + '</select></div>' +
+        '<div><label style="' + lab + '">Yıl</label><select class="inp" style="' + sty + '" onchange="ptSetFilter(\'year\',this.value)">' +
+          years.map(function (y) { return opt(y, y, y === year); }).join('') + '</select></div>' +
+        '<div><label style="' + lab + '">Dönem</label><select class="inp" style="' + sty + ';min-width:170px" onchange="ptSetFilter(\'period\',this.value)">' +
+          opt('', 'Tüm dönemler', !_fPeriod) + periods.map(function (p) { return opt(p.key, p.label + ' · ' + p.months, p.key === _fPeriod); }).join('') + '</select></div>' +
+        ((_fTtt || _fPeriod) ? '<button onclick="ptSetFilter(\'clear\')" style="padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surf);font-size:11px;cursor:pointer">↺ Filtreyi temizle</button>' : '') +
+        '<div style="font-size:10px;color:var(--dim);flex:1 1 220px;line-height:1.4">Temsilci filtresi hem Geçmiş Dönem Prim Hesabını hem Ek Prim Tablosunu, yıl ve dönem filtresi Geçmiş Dönem tablosunu etkiler.</div>' +
+      '</div></div>';
+
+    var perLbl = '';
+    if (_fPeriod) { var pm = periods.filter(function (p) { return p.key === _fPeriod; })[0]; perLbl = pm ? pm.label : ''; }
+    var badge = [(_fTtt || 'Tüm ekip'), year, (perLbl || 'Tüm dönemler')].join(' · ');
+    var histCard =
+      '<div class="card" style="margin-top:16px">' +
+        '<div class="card-hd"><span class="card-title">📆 Geçmiş Dönem Prim Hesabı — MI &amp; GIGI</span><span class="card-badge">' + _esc(badge) + '</span></div>' +
+        '<div class="card-body">' + G.build({ ttt: _fTtt, year: year, period: _fPeriod }) + '</div>' +
+      '</div>';
+
+    var ek = (typeof window.ekPrimTablesHtml === 'function') ? window.ekPrimTablesHtml(_fTtt) : null;
+    var ekBody = ek ||
+      '<div style="color:var(--dim);font-size:11px;padding:6px 0">Ek prim tablosu bulunamadı veya yükleniyor' +
+      (window.EK_PRIM_LOAD_ERROR ? ' (' + _esc(window.EK_PRIM_LOAD_ERROR) + ')' : '') + '.</div>';
+    var ekCard =
+      '<div class="card" style="margin-top:16px">' +
+        '<div class="card-hd"><span class="card-title">🎯 Ek Prim Tablosu</span><span class="card-badge">' + _esc(_fTtt || 'Tüm ekip') + '</span></div>' +
+        '<div class="card-body">' + ekBody +
+          '<div style="font-size:10px;color:var(--dim);margin-top:2px">Ek prim kampanyaları döneme bağlı değildir (kampanya tablosu olduğu gibi gösterilir). Kompanzasyon ek primi yukarıdaki Geçmiş Dönem tablosunda (3. ve 6. dönem) yer alır.</div>' +
+        '</div>' +
+      '</div>';
+
+    return filterBar + histCard + ekCard;
+  }
+
   function renderPrimTakipPage() {
     var host = document.getElementById('mgrPrimTakip');
     if (!host) return;
@@ -230,7 +299,7 @@
           kpi('Prim Dışı', String(nYok), 'TL Real < %70 · MI&GI de yok', nYok ? '#DC2626' : '#059669') +
         '</div>' +
         '<div class="card">' +
-          '<div class="card-hd"><span class="card-title">Temsilci Prim Takibi</span>' +
+          '<div class="card-hd"><span class="card-title">Temsilci Prim Takibi — Güncel Dönem</span>' +
           '<span class="card-badge">Satıra tıkla → ürün bazlı Prim Puanı dökümü</span></div>' +
           '<div class="card-body-0 scroll-x"><table class="tbl" style="min-width:1100px">' +
           '<thead><tr>' + th + '</tr></thead><tbody>' + rowsHtml + foot + '</tbody></table></div>' +
@@ -239,12 +308,14 @@
           'TL Real ve Prim Puanı önce 1 ondalığa, sonra tam sayıya yuvarlanır (90,45 → 91 · 90,44 → 90). Mevcut prim, canlı GENEL / MI&amp;GI verisiyle hesaplanır; ' +
           'dönem sonu tahmini forecast motorundan gelir. %91 eşiğine kalan TL, gerçekleşmenin %90,45\'e ulaşması (→ 91\'e yuvarlanması) için gereken satıştır.' +
         '</div>' +
+        _historyHtml() +
       '</div>';
   }
 
   window.renderPrimTakipPage = renderPrimTakipPage;
   window.ptSort = ptSort;
   window.ptToggle = ptToggle;
+  window.ptSetFilter = ptSetFilter;
 
   // data-loader.js veri yüklenince renderManagerExtra()'yı çağırıyor; Yönetici sayfası
   // açıkken Prim Takip bölümü de otomatik yenilensin (çift sarmayı engelle).

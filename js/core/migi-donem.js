@@ -142,6 +142,28 @@
     var p = y && y[periodKey];
     return (p && p[_name(ttt)]) || null;
   }
+  // Bir dönemin MI/GIGI'si neden KESİN hesaplanamadı? (rozet ipucu — boş string: kesin var ya da sebep bulunamadı)
+  function getMiGiNeden(ttt, year, periodKey) {
+    if (getMiGiDonem(ttt, year, periodKey)) return '';
+    var raw = window.MIGI_RAW || {};
+    if (!Object.keys(raw).length) {
+      return Object.keys(window.MIGI_DONEM || {}).length
+        ? 'MI_GIGI.csv içinde bu dönem / temsilci için MI-GIGI değeri yok'
+        : 'MI_GIGI.csv henüz yüklenmedi veya boş';
+    }
+    var no = (PNO[periodKey] || '?') + 'D', blk = raw[periodKey], nm = _name(ttt), y = String(year), py = String(+y - 1);
+    if (!blk) return 'MI_GIGI.csv içinde ' + no + ' bloğu bulunamadı';
+    var cur = blk[nm] && blk[nm][y], prev = blk[nm] && blk[nm][py];
+    var nat = blk['NATIONAL'], nc = nat && nat[y], np = nat && nat[py];
+    if (!cur) return no + ' bloğunda temsilcinin ' + y + ' satışı yok';
+    if (!(cur.pazar > 0)) return no + ' bloğunda temsilcinin ' + y + ' PAZAR değeri yok (MI için gerekli)';
+    if (!prev) return no + ' bloğunda temsilcinin ' + py + ' satışı yok (GIGI tabanı)';
+    if (!nat) return no + ' bloğunda NATIONAL satırı yok';
+    if (!nc) return no + ' bloğunda NATIONAL ' + y + ' satışı yok';
+    if (!(nc.pazar > 0)) return no + ' bloğunda NATIONAL ' + y + ' PAZAR değeri yok';
+    if (!np) return no + ' bloğunda NATIONAL ' + py + ' satışı yok';
+    return '';
+  }
   function migiDonemYears() { return Object.keys(window.MIGI_DONEM).sort(); }
   function yearOfPeriodKey(periodKey) {
     var per = (typeof PERIODS !== 'undefined' ? PERIODS : []).find(function (x) { return x.key === periodKey; });
@@ -158,6 +180,8 @@
         window.MIGI_DONEM = parsed;
         console.log('[migi-donem] MI_GIGI.csv yüklendi:', migiDonemYears().join(', ') || '(kesin dönem yok)');
         if (typeof window.renderPrimGecmis === 'function') window.renderPrimGecmis();
+        // Yönetici sayfasındaki Prim Takip (Geçmiş Dönem) de kesin MI/GIGI ile yenilensin
+        if (typeof window.renderPrimTakipPage === 'function') { try { window.renderPrimTakipPage(); } catch (e) { /* sessiz */ } }
         return true;
       })
       .catch(function (e) { console.warn('[migi-donem] yüklenemedi (sessiz):', e && e.message); return false; });
@@ -263,6 +287,7 @@
   window.parseMiGiDonemCSV = parseMiGiDonemCSV;
   window.loadMiGiDonem     = loadMiGiDonem;
   window.getMiGiDonem      = getMiGiDonem;
+  window.getMiGiNeden      = getMiGiNeden;
   window.migiDonemYears    = migiDonemYears;
   window.yearOfPeriodKey   = yearOfPeriodKey;
 })();
