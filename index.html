@@ -857,6 +857,9 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
       <div class="nav-subitem" id="navsub_perf_ytd" onclick="event.stopPropagation();goPageSub(1,function(){goPerfSubTab(3)},this)">
         <span class="nav-subdot">●</span><span>📉 YTD TL&amp;Kutu</span>
       </div>
+      <div class="nav-subitem" id="navsub_perf_kongre" onclick="event.stopPropagation();goPageSub(1,function(){goPerfSubTab(4)},this)">
+        <span class="nav-subdot">●</span><span>🎪 Kongre Etkisi</span>
+      </div>
       <div class="nav-subitem" id="navsub_perf_migi" onclick="event.stopPropagation();goPageSub(2,null,this)">
         <span class="nav-subdot">●</span><span>🗺️ MI &amp; GI Takibi</span>
       </div>
@@ -1361,6 +1364,13 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
     </div>
   </div>
   </div><!-- /perfsub_ytd -->
+
+  <!-- ═══ 5. Kongre Etkisi — kongrelerin satışa/pazar payına karşılık bulup bulmadığı
+       (bkz. js/ui/kongre-etkisi.js · KONGRE_TAKIP_1.csv / KONGRE_TAKIP_2.csv / data/kongre_takvim.json).
+       Rollback: bu panel + navsub_perf_kongre + MTB_GROUPS satırı + PERF_SUBTABS 'kongre' + script satırı. ═══ -->
+  <div class="eczsub-panel" id="perfsub_kongre" style="display:none">
+    <div id="perfKongreEtkisi"><div style="padding:16px;color:var(--dim);font-size:12px">Yükleniyor…</div></div>
+  </div><!-- /perfsub_kongre -->
 </div><!-- /page1 (Performans) -->
 
 
@@ -2436,6 +2446,16 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
       <div class="card-body" id="mgrAiEgitimOzeti"></div>
     </div>
 
+    <!-- ═══ Kongre Etkisi (filtreli) — kongreler satışa/pazar payına karşılık buldu mu?
+         js/ui/kongre-etkisi.js · goPage(7) içinde renderKongreEtkisiManager() çağrılır ═══ -->
+    <div class="card mb16" id="mgrKongreEtkisiCard" style="border:1.5px solid rgba(245,158,11,.30)">
+      <div class="card-hd">
+        <span class="card-title">🎪 Kongre Etkisi Analizi</span>
+        <span class="card-badge" style="font-size:9px">Kongre → Brick → Ürün İvmesi</span>
+      </div>
+      <div class="card-body" id="mgrKongreEtkisi"><div style="padding:12px;color:var(--dim);font-size:12px">Yükleniyor…</div></div>
+    </div>
+
     <!-- ═══════════════════════════════════════════════════════════
          BÖLÜM 5 — KRİTİK AKSİYONLAR
          (Kullanıcı isteğiyle Saha Yönetimi bölümünden SONRAYA taşındı.)
@@ -2652,6 +2672,7 @@ window.DOSYALAR_DELETE_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/dos
 <script src="js/ui/dosyalar-page.js?v=20261013"></script>
 <script src="js/ui/dosyalar-manager-summary.js?v=20261008"></script>
 <script src="js/ui/prim-takip-page.js?v=20261022b"></script>
+<script src="js/ui/kongre-etkisi.js?v=20261024"></script>
 <script src="js/ai/core/competitive-outcome-linker.js?v=20260705"></script>
 <script>window.SARTLAR_SYNC_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/sartlar-sync';</script>
 <script>window.HABER_SYNC_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/haber-sync';</script>
@@ -5558,6 +5579,7 @@ const MTB_GROUPS = {
     { label: '📊 Pazar Payı Analizi', navId: 'navsub_perf_payi', action: function () { goPageSub(1, function () { goPerfSubTab(1); }); } },
     { label: '📈 Satış Takibi', navId: 'navsub_perf_takip', action: function () { goPageSub(1, function () { goPerfSubTab(2); }); } },
     { label: '📉 YTD TL&Kutu', navId: 'navsub_perf_ytd', action: function () { goPageSub(1, function () { goPerfSubTab(3); }); } },
+    { label: '🎪 Kongre Etkisi', navId: 'navsub_perf_kongre', action: function () { goPageSub(1, function () { goPerfSubTab(4); }); } },
     { label: '🗺️ MI & GI Takibi', navId: 'navsub_perf_migi', action: function () { goPageSub(2, null); } }
   ]},
   ecz: { title: 'Eczane Satış', items: [
@@ -5701,7 +5723,7 @@ function goPage(i, keepSidebarOpen){
   else if(i===5){ renderEczane(); if(typeof pvSyncSubNav==='function') pvSyncSubNav('navsub_ecz_'+_eczActiveSubTab); }
   else if(i===6){ if(typeof goAyarSubTab==='function') goAyarSubTab(_ayarActiveSubTab); }
   // FAZ 8.2 — Yönetici sekmesi
-  else if(i===7){ if(typeof renderManagerHeroBanner==='function') renderManagerHeroBanner(); if(typeof renderManagerExtra==='function') renderManagerExtra(); if(typeof renderPrimTakipPage==='function') renderPrimTakipPage(); /* FAZ 22.1 */ if(typeof renderDosyalarManagerSummary==='function') renderDosyalarManagerSummary(); }
+  else if(i===7){ if(typeof renderManagerHeroBanner==='function') renderManagerHeroBanner(); if(typeof renderManagerExtra==='function') renderManagerExtra(); if(typeof renderPrimTakipPage==='function') renderPrimTakipPage(); /* FAZ 22.1 */ if(typeof renderDosyalarManagerSummary==='function') renderDosyalarManagerSummary(); if(typeof renderKongreEtkisiManager==='function') renderKongreEtkisiManager(); }
   // FAZ 19.0 — Dosyalar sayfası (bkz. js/ui/dosyalar-page.js)
   else if(i===8){ if(typeof renderDosyalarPage==='function') renderDosyalarPage(); if(typeof pvSyncSubNav==='function'){ const _dsyCur=['sabit','masraf','kongre'].find(function(n){const e=document.getElementById('dsyMain_'+n);return e && e.style.display!=='none';}) || 'masraf'; pvSyncSubNav('navsub_dsy_'+_dsyCur); } }
 }
@@ -5711,7 +5733,7 @@ function goPage(i, keepSidebarOpen){
 // Varsayılan ('pazar') zaten goPage(1) içinde render ediliyor; burada sadece
 // görünürlük değişimi + diğer ikisinin (takip, ytd) ilk tıklamada bir kez
 // render edilmesi var.
-const PERF_SUBTABS = ['pazar', 'payi', 'takip', 'ytd'];
+const PERF_SUBTABS = ['pazar', 'payi', 'takip', 'ytd', 'kongre'];
 let _perfActiveSubTab = 0;
 
 function goPerfSubTab(idx) {
@@ -5743,6 +5765,9 @@ function goPerfSubTab(idx) {
         window._pvYtdRendered = true;
         if (typeof initYtdTlPage === 'function') initYtdTlPage();
       }
+      break;
+    case 'kongre':
+      if (typeof renderKongreEtkisi === 'function') renderKongreEtkisi('rep');   // js/ui/kongre-etkisi.js
       break;
   }
 }

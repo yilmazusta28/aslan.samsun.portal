@@ -1,0 +1,49 @@
+{
+  "not": "Kongre ayı: 1=Ocak … 12=Aralık. Boş (null) bırakılan kongrelerin etkisi hesaplanmaz. Alternatif olarak \"tarih\": \"YYYY-AA-GG\" da yazılabilir.",
+  "takvim": [
+    {
+      "kongre": "1.ACİL ASİSTAN OKULU",
+      "ay": null
+    },
+    {
+      "kongre": "2.ACİL ASİSTAN OKULU",
+      "ay": null
+    },
+    {
+      "kongre": "AİLE HEKİMLİĞİ ZİRVESİ",
+      "ay": null
+    },
+    {
+      "kongre": "ATİNA TOPLANTISI",
+      "ay": null
+    },
+    {
+      "kongre": "DAHİLİYE ZİRVESİ ANTALYA",
+      "ay": null
+    },
+    {
+      "kongre": "DAHUDER KONGRESİ",
+      "ay": null
+    },
+    {
+      "kongre": "İÇHASDER KONGRESİ",
+      "ay": null
+    },
+    {
+      "kongre": "MULTİDİSİPLİNER",
+      "ay": null
+    },
+    {
+      "kongre": "SBÜ ACİL",
+      "ay": null
+    },
+    {
+      "kongre": "ST PETERSBURG TOPLANTISI",
+      "ay": null
+    },
+    {
+      "kongre": "TATD KONGRESİ",
+      "ay": null
+    }
+  ]
+}
