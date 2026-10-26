@@ -12,17 +12,14 @@
 //                         (PANOCER / ACIDPASS / GRIPORT COLD: YTD-2 = geçen yıl, YTD-1 = bu yıl kutu, pazar payı,
 //                         EVO, TL; ayrıca TÜM ÜRÜNLER pazar payı/EVO).
 //
-//  YÖNTEM — KONGRE TARİHİNDEN BAĞIMSIZ, "geçen yıla göre artış / düşüş"
-//    Kongreye katılan hekimin bricti ve kongrede tanıtılan ürün için bu yılın YTD'si, geçen yılın aynı
-//    dönemiyle kıyaslanır:
-//      Kutu YoY %  = YTD-1 kutu ÷ YTD-2 kutu − 1                      (KONGRE_TAKIP_2)
-//      Pazar payı  = YTD-1 − YTD-2 (puan)                              (bilgi)
-//      EVO         = pazara göre gelişim (bu yıl pay ÷ geçen yıl pay ×100) (KONGRE_TAKIP_1 YTD, yoksa _2)
-//    Skor = (Kutu YoY ≥ +%10: +1 / ≤ −%10: −1) + (EVO ≥ 110: +1 / ≤ 90: −1)
-//    ≥2 İVME · 1 POZİTİF · 0 NÖTR · −1 ZAYIFLAMA · ≤−2 DÜŞÜŞ   (tek gösterge varsa: + POZİTİF / 0 NÖTR / − ZAYIFLAMA)
-//    Aylık katman (yalnız KONGRE_TAKIP_1'de olan kayıtlar): her ayın pazar payı geçen yılın aynı ayına göre ±,
-//    "kaç ayda geçen yılın üzerinde" ve "son 3 ay EVO'su YTD'ye göre ivme kazanıyor mu?".
-//  Not: Analiz zamansal birlikteliği gösterir; tek başına nedensellik kanıtı değildir.
+//  YÖNTEM — KONGRE TARİHİNDEN BAĞIMSIZ, BÖLGE (KONTROL GRUBU) KIYASLI
+//    Karar: kongreye hekim gönderilen brick–ürün, hiç hekim gönderilmeyen bölge bricklerinin (MI_GI-KUTU.csv)
+//    medyanıyla kıyaslanır: (EVO farkı ±10 puan) + (kutu büyüme indeksi farkı ±10 puan) → İvme/Pozitif/Nötr/Zayıflama/Düşüş.
+//    Bölge verisi yoksa yalnızca geçen yıla göre (Kutu YoY ±%10 + EVO 110/90) karar verilir.
+//    6 aylık dönemler: 1. altı ay (Oca–Haz), 2. altı ay (Tem–…), toplam; dönem EVO'su aylık veriden hesaplanır.
+//    Grup düzeyi: ürün bazında kongre vs kontrol medyan farkı + permütasyon p-değeri + fark seyri (seçilim kontrolü).
+//    Güven: hacim + kontrol büyüklüğü + sinyal uyumu. Oranlar benzersiz brick–ürün üzerinden.
+//  Not: Analiz kongre ile tutarlı sinyali gösterir; tek başına nedensellik kanıtı değildir.
 //
 //  GİZLİLİK: ttt-lock.js kuralı — kilitli temsilci yalnızca KENDİ satırlarını görür (arayüz kısıtı).
 //  Bağımlılık: yok (isTttLocked / LOGGED_IN_USER varsa kullanır). Classic script, ES module yok.
@@ -39,7 +36,8 @@
   var AY_KISA = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
   var AY_KEY = ['OCAK', 'SUBAT', 'MART', 'NISAN', 'MAYIS', 'HAZIRAN', 'TEMMUZ', 'AGUSTOS', 'EYLUL', 'EKIM', 'KASIM', 'ARALIK'];
   var PROD_BLOCKS = ['PANOCER', 'ACIDPASS', 'GRIPORT COLD'];     // KONGRE_TAKIP_2'de YTD bloğu olan ürünler
-  var ESIK = { kutuPct: 10, evoUst: 110, evoAlt: 90, momFark: 5, dusukHacim: 200 };
+  var SRC_MI = './MI_GI-KUTU.csv';            // bölgedeki TÜM brick × ürün (kontrol grubu için)
+  var ESIK = { kutuPct: 10, evoUst: 110, evoAlt: 90, momFark: 5, dusukHacim: 200, bolgeEvo: 10, bolgeBuy: 10, minKontrol: 8, permIter: 2000 };
 
   var VERDICT = {
     ivme:    { lbl: 'İVME YAKALADI', ic: '🚀', c: '#15803D', bg: 'rgba(22,163,74,.15)',   rank: 5 },
@@ -55,8 +53,8 @@
   var loadPromise = null;
   var RAW = { k1: '', k2: '' };   // ham CSV metinleri (Excel indirme yedeği için)
   var ST = {
-    rep: { ttt: null, urun: '', kongre: '', sonuc: '', sirala: 'iyi' },
-    mgr: { ttt: '', urun: '', kongre: '', sonuc: '', sirala: 'iyi' }
+    rep: { ttt: null, urun: '', kongre: '', sonuc: '', hekim: '', sirala: 'iyi' },
+    mgr: { ttt: '', urun: '', kongre: '', sonuc: '', hekim: '', sirala: 'iyi' }
   };
 
   // ───────────────────────── yardımcılar ─────────────────────────
@@ -190,6 +188,144 @@
     return { att: att, kongreAd: kongreAd, grp: grp, blocks: bl };
   }
 
+  // MI_GI-KUTU.csv: bölgedeki tüm brick × ürün için aylık (kümülatif) BÜYÜME / EVO / MARKET / PAZAR PAYI indeksleri
+  function parseMi(text) {
+    var g = grid(text), hi = -1, i, c;
+    for (i = 0; i < g.length; i++) { if (key(g[i][0]).indexOf('333 SIRA') === 0) { hi = i; break; } }
+    if (hi < 2) throw new Error('MI_GI-KUTU: başlık satırları bulunamadı');
+    var rm = g[hi - 2], rt = g[hi - 1], rp = g[hi], curM = null, curT = null, cols = [];
+    for (c = 4; c < rp.length; c++) {
+      if (rm[c]) { var pr = key(rm[c]).split(' '), ai = AY_KEY.indexOf(pr[pr.length - 1]); if (ai >= 0) curM = ai + 1; }
+      if (rt[c]) { var k = key(rt[c]); curT = k.indexOf('BUYUME') >= 0 ? 'buy' : (k.indexOf('EVOL') >= 0 ? 'evo' : (k.indexOf('MARKET') >= 0 ? 'mkt' : (k.indexOf('PAZAR') >= 0 ? 'pay' : null))); }
+      if (rp[c] && curM && curT) cols.push({ c: c, m: curM, t: curT, p: key(rp[c]) });
+    }
+    var rows = {}, bricks = [];
+    for (i = hi + 1; i < g.length; i++) {
+      var r = g[i]; if (!r[3]) continue;
+      var tb = key(r[2]) + '|' + key(r[3]), o = {};
+      bricks.push(tb);
+      cols.forEach(function (x) {
+        var v = numN(r[x.c]); if (v == null) return;
+        var pm = o[x.p] || (o[x.p] = {}), mm = pm[x.m] || (pm[x.m] = {});
+        mm[x.t] = v;
+      });
+      rows[tb] = o;
+    }
+    return { rows: rows, bricks: bricks };
+  }
+
+  function medianOf(a) {
+    if (!a.length) return null;
+    var b = a.slice().sort(function (x, y) { return x - y; }), n = b.length;
+    return n % 2 ? b[(n - 1) / 2] : (b[n / 2 - 1] + b[n / 2]) / 2;
+  }
+  function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; var t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  // İki grubun medyan farkı için permütasyon p-değeri (iki yönlü) — "bu fark şansa bağlı olabilir mi?"
+  function permP(A, C, iters) {
+    if (A.length < 2 || C.length < 2) return null;
+    var all = A.concat(C), nA = A.length, obs = Math.abs(medianOf(A) - medianOf(C)), cnt = 0, rnd = rng(20261026), i, j, k, t;
+    for (i = 0; i < iters; i++) {
+      for (j = all.length - 1; j > 0; j--) { k = Math.floor(rnd() * (j + 1)); t = all[j]; all[j] = all[k]; all[k] = t; }
+      if (Math.abs(medianOf(all.slice(0, nA)) - medianOf(all.slice(nA))) >= obs - 1e-9) cnt++;
+    }
+    return (cnt + 1) / (iters + 1);
+  }
+
+  // Kontrol grubu: hiç hekim gönderilmeyen bricklerin ürün bazlı aylık medyanları + bölge dağılımı
+  function buildRegion(mi, att, units) {
+    var expAny = {}, expProd = {}, R = { mi: mi, ctrl: {}, all: {}, meta: {}, expProd: expProd, expAny: expAny, grp: [] };
+    Object.keys(att).forEach(function (gk) { var p = gk.split('|'); expAny[p[1] + '|' + p[2]] = 1; });
+    units.forEach(function (u) { var tb = key(u.ttt) + '|' + key(u.brick); expAny[tb] = 1; (expProd[key(u.urun)] = expProd[key(u.urun)] || {})[tb] = 1; });
+    Object.keys(D && D.agg ? D.agg : {}).forEach(function (k) { var p = k.split('|'); (expProd[p[2]] = expProd[p[2]] || {})[p[0] + '|' + p[1]] = 1; });
+    var prods = {};
+    Object.keys(mi.rows).forEach(function (tb) { Object.keys(mi.rows[tb]).forEach(function (pk) { prods[pk] = 1; }); });
+    Object.keys(prods).forEach(function (pk) {
+      var months = {};
+      Object.keys(mi.rows).forEach(function (tb) {
+        var pm = mi.rows[tb][pk]; if (!pm) return;
+        Object.keys(pm).forEach(function (m) {
+          if (pm[m].evo == null) return;
+          var A = R.all[pk + '|' + m] || (R.all[pk + '|' + m] = { evo: [] });
+          A.evo.push(pm[m].evo); months[m] = (months[m] || 0) + 1;
+          if (!expAny[tb]) {
+            var C = R.ctrl[pk + '|' + m] || (R.ctrl[pk + '|' + m] = { evo: [], buy: [] });
+            C.evo.push(pm[m].evo); if (pm[m].buy != null) C.buy.push(pm[m].buy);
+          }
+        });
+      });
+      var ms = Object.keys(months).map(Number).filter(function (m) { return months[m] >= 10; }).sort(function (a, b) { return a - b; });
+      if (ms.length) R.meta[pk] = { months: ms, late: ms[ms.length - 1], early: ms.length >= 3 ? ms[1] : ms[0] };
+    });
+    // grup düzeyi: kongre brickleri vs kontrol — ürün bazında
+    Object.keys(R.meta).forEach(function (pk) {
+      var meta = R.meta[pk], tbs = Object.keys(expProd[pk] || {}).filter(function (tb) { return mi.rows[tb] && mi.rows[tb][pk]; });
+      function vals(m) {
+        var A = [];
+        tbs.forEach(function (tb) { var v = mi.rows[tb][pk][m]; if (v && v.evo != null) A.push(v.evo); });
+        var C = R.ctrl[pk + '|' + m];
+        return { A: A, C: C ? C.evo : [] };
+      }
+      var L = vals(meta.late);
+      if (!L.A.length || L.C.length < ESIK.minKontrol) return;
+      var seri = meta.months.map(function (m) { var v = vals(m); return (v.A.length && v.C.length >= ESIK.minKontrol) ? { m: m, gap: medianOf(v.A) - medianOf(v.C), a: medianOf(v.A), c: medianOf(v.C) } : null; }).filter(Boolean);
+      R.grp.push({ pk: pk, late: meta.late, nA: L.A.length, nC: L.C.length, medA: medianOf(L.A), medC: medianOf(L.C), gap: medianOf(L.A) - medianOf(L.C), seri: seri, p: permP(L.A, L.C, ESIK.permIter) });
+    });
+    return R;
+  }
+
+  // Bölge kıyası sonucundan (bolgeAt çıktısı) 5'li karar: EVO farkı ve kutu büyüme farkı, her biri ±10 puan eşikli
+  function durumFromBolge(b) {
+    if (!b) return null;
+    var rE = b.relEvo >= ESIK.bolgeEvo ? 1 : (b.relEvo <= -ESIK.bolgeEvo ? -1 : 0);
+    var rB = b.relBuy == null ? null : (b.relBuy >= ESIK.bolgeBuy ? 1 : (b.relBuy <= -ESIK.bolgeBuy ? -1 : 0));
+    if (rB == null) return { d: rE > 0 ? 'pozitif' : (rE < 0 ? 'zayif' : 'notr'), tek: true, karisik: false };
+    var t = rE + rB;
+    return { d: t >= 2 ? 'ivme' : t === 1 ? 'pozitif' : t === 0 ? 'notr' : t === -1 ? 'zayif' : 'dusus', tek: false, karisik: (rE * rB === -1) };
+  }
+
+  // Bir brick–ürünün belirli ayda (kümülatif) bölgeye göre durumu
+  function bolgeAt(u, m) {
+    if (!D || !D.reg) return null;
+    var R = D.reg, tb = key(u.ttt) + '|' + key(u.brick), pk = key(u.urun), row = R.mi.rows[tb];
+    if (!row || !row[pk] || !row[pk][m] || row[pk][m].evo == null) return null;
+    var C = R.ctrl[pk + '|' + m], A = R.all[pk + '|' + m];
+    if (!C || C.evo.length < ESIK.minKontrol) return null;
+    var v = row[pk][m], mb = medianOf(C.buy);
+    var le = A.evo.filter(function (x) { return x <= v.evo; }).length;
+    return { m: m, evo: v.evo, buy: v.buy, ctrlEvo: medianOf(C.evo), ctrlBuy: mb, n: C.evo.length, nAll: A.evo.length,
+      relEvo: v.evo - medianOf(C.evo), relBuy: (v.buy != null && mb != null) ? v.buy - mb : null, pct: Math.round(le / A.evo.length * 100) };
+  }
+  function bolgeOf(u) {
+    if (!D || !D.reg) return null;
+    var meta = D.reg.meta[key(u.urun)]; if (!meta) return null;
+    var b = bolgeAt(u, meta.late); if (!b) return null;
+    var e = bolgeAt(u, meta.early); b.relEvoEarly = e ? e.relEvo : null; b.earlyM = e ? e.m : null;
+    return b;
+  }
+
+  // ───────────────────────── 6 aylık dönemler ─────────────────────────
+  var DONEM = [{ k: 'h1', ad: '1. Altı Ay', a: 1, b: 6 }, { k: 'h2', ad: '2. Altı Ay', a: 7, b: 12 }];
+  // Dönem EVO'suna göre derece (tek metrik; geçen yıla göre pazara göre gelişim)
+  function gradeEvo(e) { return e == null ? 'veri' : (e >= 125 ? 'ivme' : (e >= 110 ? 'pozitif' : (e > 90 ? 'notr' : (e > 75 ? 'zayif' : 'dusus')))); }
+  // Dönem içindeki aylar için kutu toplamı, pazar payı (pazar büyüklüğüyle ağırlıklı), EVO
+  function periodStats(u, a, b) {
+    if (!u.ay) return null;
+    var L = [], m;
+    for (m = a; m <= b; m++) { var d = u.ay[m]; if (d && d.has && d.kutu != null) L.push({ m: m, d: d }); }
+    if (!L.length) return null;
+    var kutu = L.reduce(function (s2, x) { return s2 + x.d.kutu; }, 0), W = 0, S26 = 0, S25 = 0, ms26, ms25;
+    L.forEach(function (x) {
+      var d = x.d;
+      if (d.ms26 != null && d.ms26 > 0 && d.kutu > 0 && d.ms25 != null) { var mk = d.kutu / (d.ms26 / 100); W += mk; S26 += d.kutu; S25 += d.ms25 / 100 * mk; }
+    });
+    if (W > 0) { ms26 = S26 / W * 100; ms25 = S25 / W * 100; }
+    else { ms26 = mean(L.map(function (x) { return x.d.ms26; })); ms25 = mean(L.map(function (x) { return x.d.ms25; })); }
+    var evo = (ms25 != null && ms25 > 0 && ms26 != null) ? ms26 / ms25 * 100 : null;
+    return { a: a, b: b, n: L.length, ilk: L[0].m, son: L[L.length - 1].m, kutu: kutu, ortKutu: kutu / L.length, ms25: ms25, ms26: ms26,
+      pp: (ms25 != null && ms26 != null) ? ms26 - ms25 : null, evo: evo, durum: gradeEvo(evo) };
+  }
+  function donemAd(P) { return AY_KISA[P.ilk - 1] + (P.ilk !== P.son ? '–' + AY_KISA[P.son - 1] : ''); }
+
   // KONGRE_TAKIP_1 satırları + KONGRE_TAKIP_2'den gelen (ürün bloğu olan) kongre/brick/ürün kombinasyonları
   function buildUnits(rows1, p2) {
     var units = [], byId = {};
@@ -217,7 +353,7 @@
   }
 
   // ───────────────────────── analiz motoru ─────────────────────────
-  function analyze(u, att) {
+  function analyze(u, att, ctx) {
     var o = { durum: 'veri' }, y = u.yoy, t = u.ytd, m;
     o.k25 = y ? y.k25 : null;
     o.k26 = (y && y.k26 != null) ? y.k26 : (t ? t.kutu : null);
@@ -232,6 +368,15 @@
     // aylık katman (yalnız KONGRE_TAKIP_1 kayıtları)
     o.aylik = []; o.nUst = 0; o.evoL3 = null; o.mom = null; o.last = 0;
     o.ks = kutuStats(u);
+    // hekim yoğunluğu: aynı bricten aynı ürün için kaç hekim gönderilmiş
+    var hl = urunHekimleri(u, att);
+    o.hekimEsles = hl.length > 0;
+    o.hekimListe = hl.length ? hl : (att ? att.hekimler : []);
+    o.hekimN = o.hekimListe.length;
+    o.brickHekim = ctx ? Object.keys(ctx.hekim).length : o.hekimN;
+    o.brickKongre = ctx ? Object.keys(ctx.kongre).length : (att ? 1 : 0);
+    o.netHekim = (o.net != null && o.brickHekim > 0) ? o.net / o.brickHekim : null;
+    o.coklu = o.hekimN >= 2;
     if (u.ay) {
       for (m = 1; m <= 12; m++) {
         var d = u.ay[m];
@@ -245,17 +390,42 @@
     // karar
     var sK = o.kutuD == null ? null : (o.kutuD >= ESIK.kutuPct ? 1 : (o.kutuD <= -ESIK.kutuPct ? -1 : 0));
     var sE = o.evo == null ? null : (o.evo >= ESIK.evoUst ? 1 : (o.evo <= ESIK.evoAlt ? -1 : 0));
-    if (sK == null && sE == null) { o.yorum = 'Bu kayıt için geçen yıl karşılaştırması yapılabilecek veri (kutu / pazar payı) bulunmuyor.'; return o; }
     if (sK != null && sE != null) {
       var s = sK + sE;
       o.durum = s >= 2 ? 'ivme' : s === 1 ? 'pozitif' : s === 0 ? 'notr' : s === -1 ? 'zayif' : 'dusus';
       o.karisik = (sK * sE === -1);
-    } else {
+    } else if (sK != null || sE != null) {
       var one = sK != null ? sK : sE;
       o.durum = one > 0 ? 'pozitif' : (one < 0 ? 'zayif' : 'notr');
       o.tek = true;
     }
+    o.durumMutlak = o.durum;                       // geçen yıla göre (kontrolsüz) sonuç — bilgi amaçlı korunur
+    // 6 aylık dönemler (aylık veri olan kayıtlar)
+    o.donem = { h1: periodStats(u, 1, 6), h2: periodStats(u, 7, 12), tam: periodStats(u, 1, 12) };
+    // Bölge (kontrol grubu) kıyası: kongre dışı bricklerin medyanına göre — asıl karar bu olur
+    var bl = bolgeOf(u);
+    o.mod = 'mutlak';
+    if (bl) {
+      o.bolge = bl; o.mod = 'bolge';
+      var dv = durumFromBolge(bl);
+      o.durum = dv.d; o.tek = dv.tek; o.karisik = dv.karisik;
+      o.ekKutu = (o.k25 != null && o.k26 != null && bl.ctrlBuy != null) ? o.k26 - o.k25 * bl.ctrlBuy / 100 : null;   // bölge hızında büyüseydi beklenenden fark
+      // H1'e denk bölge farkı (MI kümülatif: Haziran = ilk 6 ay)
+      var meta = D && D.reg ? D.reg.meta[key(u.urun)] : null;
+      o.bolgeH1 = (meta && meta.months.indexOf(6) >= 0) ? bolgeAt(u, 6) : null;
+      var dh = durumFromBolge(o.bolgeH1);
+      o.durumH1B = dh ? dh.d : null;                                        // 1. altı ay (Haziran kümülatifi) — bölgeye göre
+      o.h2Delta = o.bolgeH1 ? bl.relEvo - o.bolgeH1.relEvo : null;           // H1 sonundan son aya bölgeye göre fark değişimi (2. altı ay yönü)
+      o.h2Yon = o.h2Delta == null ? null : (o.h2Delta >= ESIK.bolgeEvo ? 'guclendi' : (o.h2Delta <= -ESIK.bolgeEvo ? 'zayifladi' : 'sabit'));
+    }
+    if (o.durum === 'veri') { o.yorum = 'Bu kayıt için karşılaştırma yapılabilecek veri (kutu / pazar payı / bölge) bulunmuyor.'; return o; }
     o.dusukHacim = (o.k26 != null && o.k26 < ESIK.dusukHacim);
+    // güven düzeyi: hacim, kontrol grubu büyüklüğü, sinyal uyumu
+    var gv = (o.k26 == null || o.k26 < ESIK.dusukHacim) ? 0 : (o.k26 < 500 ? 1 : 2);
+    if (o.bolge && o.bolge.n < 12) gv = Math.min(gv, 1);
+    if (!o.bolge) gv = Math.min(gv, 1);
+    if (o.karisik) gv = Math.max(0, gv - 1);
+    o.guven = gv;
     o.yorum = yorum(u, o, att);
     return o;
   }
@@ -279,11 +449,89 @@
     };
   }
 
-  function bransOzet(att) {
+  // Bu kongrede bu ÜRÜN için gönderilen hekimler (KONGRE_TAKIP_2 "ÜRÜN 1 / ÜRÜN 2")
+  function urunHekimleri(u, att) {
+    if (!att) return [];
+    var uk = key(u.urun);
+    return att.hekimler.filter(function (h) { return h.urunler.some(function (pr) { return key(pr) === uk; }); });
+  }
+  // Aynı brick + ürün için TÜM kongrelerde gönderilen farklı hekim / kongre sayısı
+  function buildAgg(att) {
+    var agg = {};
+    Object.keys(att).forEach(function (gk) {
+      var parts = gk.split('|'), kg = parts[0], tt = parts[1], br = parts[2];
+      att[gk].hekimler.forEach(function (h) {
+        h.urunler.forEach(function (pr) {
+          var k = tt + '|' + br + '|' + key(pr), A = agg[k] || (agg[k] = { kongre: {}, hekim: {} });
+          A.kongre[kg] = 1; A.hekim[key(h.ad) + '|' + key(h.unite)] = 1;
+        });
+      });
+    });
+    return agg;
+  }
+  function bransOzet(att) { return bransOzetL(att.hekimler); }
+  function bransOzetL(list) {
     var c = {}, o = [];
-    att.hekimler.forEach(function (h) { var b = h.brans || 'Branş belirtilmemiş'; c[b] = (c[b] || 0) + 1; });
+    list.forEach(function (h) { var b = h.brans || 'Branş belirtilmemiş'; c[b] = (c[b] || 0) + 1; });
     Object.keys(c).sort(function (a, b) { return c[b] - c[a]; }).forEach(function (b) { o.push(b + ': ' + c[b]); });
     return o.slice(0, 4).join(', ');
+  }
+
+  var GUVEN = ['düşük', 'orta', 'yüksek'];
+  function lc(x) { return String(x).toLocaleLowerCase('tr'); }
+  function bolgeCumle(u, o) {
+    var b = o.bolge, t = 'Bölge kıyası (' + AY_ADI[b.m - 1] + ' itibarıyla): kongreye hekim gönderilmeyen ' + b.n + ' brickte ' + u.urun + ' EVO medyanı ' + fmt(b.ctrlEvo) +
+      (b.ctrlBuy != null ? ', kutu büyüme indeksi medyanı ' + fmt(b.ctrlBuy) : '') + '. Bu brickte EVO ' + fmt(b.evo) + ' (' + sgn(b.relEvo) + ' puan)' +
+      (b.relBuy != null ? ', kutu büyüme indeksi ' + fmt(b.buy) + ' (' + sgn(b.relBuy) + ' puan)' : '') + '; bölgedeki ' + b.nAll + ' brick içinde %' + b.pct + '\'lik dilimde.';
+    var A = o.durumMutlak, R = o.durum, pos = function (d) { return d === 'ivme' || d === 'pozitif'; }, neg = function (d) { return d === 'zayif' || d === 'dusus'; };
+    if (pos(A) && !pos(R)) t += ' Geçen yıla göre görülen artış bölge genelinde de var; bu artış kongreye atfedilemez.';
+    else if (!pos(A) && pos(R)) t += ' Mutlak değerler zayıf görünse de bölgedeki diğer bricklere göre daha iyi seyrediyor.';
+    else if (neg(A) && neg(R)) t += ' Hem geçen yıla hem bölgeye göre geride.';
+    if (o.ekKutu != null) t += ' Brick bölge büyüme hızında ilerleseydi beklenen kutuya göre ' + sgn(o.ekKutu) + ' kutu fark var.';
+    if (b.relEvoEarly != null && b.relEvo >= ESIK.bolgeEvo && b.relEvoEarly >= ESIK.bolgeEvo * 0.7) t += ' Bölgeye göre üstünlük ' + AY_ADI[b.earlyM - 1] + ' ayında da mevcuttu; fark sonradan oluşmamış, kongre öncesi seçilim etkisi olabilir.';
+    else if (b.relEvoEarly != null && b.relEvo >= ESIK.bolgeEvo && b.relEvoEarly < ESIK.bolgeEvo * 0.7) t += ' ' + AY_ADI[b.earlyM - 1] + ' ayında bölgeden belirgin ayrışmıyordu; fark sonradan açılmış.';
+    return t;
+  }
+  function bolgeKarar(o) {
+    switch (o.durum) {
+      case 'ivme': return 'Brick, kongreye hekim gönderilmeyen bricklere göre belirgin üstün: kongre katılımıyla tutarlı olumlu bir sinyal (nedensellik kanıtı değil; hekim gönderilen bricklerin baştan farklı olma ihtimali var). Ivmeyi korumak için hekimlere takip ziyareti planlanmalı.'.replace('Ivmeyi', 'İvmeyi');
+      case 'pozitif': return 'Brick bölge ortalamasının üzerinde ancak fark güçlü değil; hedefli takip ziyaretleriyle pekiştirilebilir.';
+      case 'notr': return 'Brick bölge ortalamasından ayrışmıyor: kongre katılımının ek bir etkisi bu verilerde görülmüyor. Hekimlerle sonuç odaklı görüşme önerilir.';
+      case 'zayif': return 'Brick bölge ortalamasının altında: kongre katılımına rağmen karşılık görülmüyor. Rakip aktivitesi, stok/erişim ve hekim geri bildirimi kontrol edilmeli.';
+      case 'dusus': return 'Brick bölgenin belirgin altında: kongre yatırımı bu bricte karşılık bulmamış görünüyor. Acil saha incelemesi önerilir.';
+    }
+    return '';
+  }
+  function donemCumle(o) {
+    var h1 = o.donem.h1, h2 = o.donem.h2, rk = function (d) { return VERDICT[d].rank; };
+    var t = 'Dönemsel: ' + DONEM[0].ad + ' (' + donemAd(h1) + ') EVO ' + fmt(h1.evo) + ' (' + lc(VERDICT[h1.durum].lbl) + '), ' + DONEM[1].ad + ' (' + donemAd(h2) + (h2.n < 6 ? ', kısmi: ' + h2.n + ' ay' : '') + ') EVO ' + fmt(h2.evo) + ' (' + lc(VERDICT[h2.durum].lbl) + '); aylık ortalama kutu ' + fmt(h1.ortKutu) + ' → ' + fmt(h2.ortKutu) + '.';
+    if (h1.evo != null && h2.evo != null) t += rk(h2.durum) > rk(h1.durum) ? ' İkinci yarıda pazara göre performans güçleniyor.' : (rk(h2.durum) < rk(h1.durum) ? ' İkinci yarıda pazara göre performans zayıflıyor.' : ' İki dönem benzer seyrediyor.');
+    if (o.bolgeH1 && o.bolge) {
+      t += ' Bölgeye göre: 1. altı ay sonunda fark ' + sgn(o.bolgeH1.relEvo) + ' puan, son ayda ' + sgn(o.bolge.relEvo) + ' puan → 2. altı ayda bölgeye göre ' + (o.h2Yon === 'guclendi' ? 'güçlendi' : (o.h2Yon === 'zayifladi' ? 'zayıfladı' : 'sabit kaldı')) + '.';
+      var c6 = o.bolgeH1.ctrlEvo, cL = o.bolge.ctrlEvo;
+      if (c6 != null && cL != null && cL - c6 <= -5) t += ' Kontrol grubunun EVO medyanı da ' + fmt(c6) + ' → ' + fmt(cL) + ' geriledi: mutlak EVO düşüşü kısmen bölge geneli bir eğilimdir.';
+    }
+    return t;
+  }
+
+  // Aynı bricten aynı ürün için birden fazla hekim gönderildiğinde ek değerlendirme
+  function cokluYorum(u, o) {
+    var t = [], br = {}, nb = 0;
+    o.hekimListe.forEach(function (h) { var b = h.brans || 'Branş belirtilmemiş'; if (!br[b]) { br[b] = 1; nb++; } });
+    t.push(nb === 1 ? 'Hekimlerin tamamı aynı branştan (' + Object.keys(br)[0] + '): yatırım tek hasta grubuna yoğunlaşmış.' : 'Hekimler ' + nb + ' farklı branştan: ürün birden çok hasta grubuna taşınmış.');
+    var nh = o.netHekim == null ? '' : ' (hekim başına ortalama ' + sgn(o.netHekim, Math.abs(o.netHekim) < 10 ? 1 : 0) + ' kutu)';
+    switch (o.durum) {
+      case 'ivme': case 'pozitif':
+        t.push('Çoklu hekim katılımı ile brickte artış birlikte görülüyor' + nh + '; yatırımın karşılık bulduğuna işaret ediyor. Ancak artışın hangi hekimden geldiği bu verilerle ayrıştırılamaz; hekim bazında reçete/ziyaret takibiyle doğrulanmalı.'); break;
+      case 'notr':
+        t.push('Aynı ürün için birden fazla hekim gönderilmesine rağmen brickte belirgin artış yok' + nh + '. Yatırım yoğunluğu sonuca yansımamış: hekim seçimi (potansiyel ve branş uyumu) ile kongre sonrası takip gözden geçirilmeli.'); break;
+      case 'zayif': case 'dusus':
+        t.push('Birden fazla hekim gönderilmesine rağmen brickte geriye gidiş var' + nh + '. Yatırım yoğun olduğu için hekim seçimi, kongre sonrası takip ve rakip aktivitesi öncelikle incelenmeli; sonraki kongrede hekim sayısı brickin potansiyeline göre ayarlanmalı ve her hekimden ayrı geri bildirim alınmalı.'); break;
+    }
+    if (o.brickKongre >= 2 || o.brickHekim > o.hekimN) {
+      t.push('Aynı brick–ürün için toplam ' + o.brickKongre + ' kongrede ' + o.brickHekim + ' farklı hekim gönderildi; brick sonucu bu kongrelerin birleşik etkisidir, tek bir kongreye atfedilemez.');
+    }
+    return t.join(' ');
   }
 
   function yorum(u, o, att) {
@@ -293,12 +541,14 @@
     if (o.ms25 != null) p.push('pazar payı %' + fmt(o.ms25, 1) + ' → %' + fmt(o.ms26, 1) + ' (' + sgn(o.ppD, 1) + ' puan)');
     if (o.evo != null) p.push('pazara göre gelişim (EVO) ' + fmt(o.evo));
     t.push(u.brick + ' bricki ' + u.urun + ' için geçen yılın aynı dönemine göre: ' + p.join('; ') + '.');
+    if (o.bolge) t.push(bolgeCumle(u, o));
     if (o.aylik.length) {
       var s = 'Aylık bazda ' + o.aylik.length + ' ayın ' + o.nUst + ' tanesinde pazar payı geçen yılın üzerinde';
       if (o.mom != null) s += '; son 3 ay EVO ortalaması ' + fmt(o.evoL3) + (o.mom >= ESIK.momFark ? ' (YTD\'nin üzerinde: ivme artıyor).' : (o.mom <= -ESIK.momFark ? ' (YTD\'nin altında: ivme yavaşlıyor).' : ' (YTD ile benzer).'));
       else s += '.';
       t.push(s);
     }
+    if (o.donem && o.donem.h1 && o.donem.h2) t.push(donemCumle(o));
     if (o.ks) {
       var k = o.ks, s2 = 'Aylık kutu çıkışı: ' + k.L.length + ' ayda toplam ' + fmt(k.toplam) + ', aylık ortalama ' + fmt(k.ort) + '; en yüksek ' + AY_ADI[k.mx.m - 1] + ' (' + fmt(k.mx.kutu) + '), en düşük ' + AY_ADI[k.mn.m - 1] + ' (' + fmt(k.mn.kutu) + ').';
       s2 += ' Son ay ' + AY_ADI[k.son.m - 1] + ' ' + fmt(k.son.kutu) + (k.son.mom != null ? ' (önceki aya göre ' + sgn(k.son.mom) + '%)' : '') + '.';
@@ -306,13 +556,19 @@
       t.push(s2);
     }
     if (att && att.sayi) {
-      t.push('Bu bricten kongreye ' + att.sayi + ' hekim katıldı (' + bransOzet(att) + '); sonuçlar hekim bazında değil, hekimlerin bulunduğu brickin ürün performansını yansıtır.');
+      if (o.coklu) {
+        t.push('Aynı bricten ' + o.hekimN + ' hekim ' + (o.hekimEsles ? u.urun + ' için ' : '') + 'bu kongreye gönderilmiş (' + bransOzetL(o.hekimListe) + ').' +
+          (o.hekimEsles ? '' : ' (Hekim satırlarında bu ürün eşleşmediği için kongreye katılan tüm hekimler sayıldı.)'));
+        t.push(cokluYorum(u, o));
+      } else {
+        t.push('Bu bricten kongreye ' + (o.hekimN || att.sayi) + ' hekim katıldı (' + bransOzet(att) + '); sonuçlar hekim bazında değil, hekimlerin bulunduğu brickin ürün performansını yansıtır.');
+      }
     }
     if (o.tumEvo != null && o.evo != null) {
       t.push('Brick genelinde (tüm ürünler) EVO ' + fmt(o.tumEvo) + '; ' + u.urun + ' ' +
         (o.evo >= o.tumEvo + 5 ? 'brick ortalamasının üzerinde' : (o.evo <= o.tumEvo - 5 ? 'brick ortalamasının altında' : 'brick ortalamasıyla benzer')) + ' seyrediyor.');
     }
-    switch (o.durum) {
+    if (o.bolge) t.push(bolgeKarar(o)); else switch (o.durum) {
       case 'ivme':
         t.push('Kongreye katılan hekimlerin bulunduğu bu bricte ürün satışta ve pazar payında geçen yıla göre belirgin yükselmiş: kongre yatırımı karşılığını buluyor. Benzer hekim profiliyle sürdürülebilir; ivmeyi korumak için takip ziyaretleri planlanmalı.'); break;
       case 'pozitif':
@@ -328,20 +584,34 @@
     if (o.karisik && o.durum !== 'notr') t.push('Kutu ve pazara göre gelişim zıt yönde — yorum temkinli yapılmalı.');
     if (o.kutuD != null && o.evo != null && o.kutuD >= ESIK.kutuPct && o.evo < 100) t.push('Kutu artışına rağmen EVO 100\'ün altında: artış pazarın genel büyümesinden kaynaklanıyor olabilir.');
     if (o.kutuD != null && o.evo != null && o.kutuD <= -ESIK.kutuPct && o.evo > 100) t.push('Kutu düşse de EVO 100\'ün üzerinde: düşüş pazar kaynaklı olabilir, pazara göre gelişim korunuyor.');
-    if (o.tek) t.push('Yalnızca tek gösterge (' + (o.kutuD != null ? 'kutu' : 'EVO') + ') mevcut olduğundan sonuç ön değerlendirmedir.');
+    if (o.tek) t.push('Yalnızca tek gösterge mevcut olduğundan sonuç ön değerlendirmedir.');
+    t.push('Güven düzeyi: ' + GUVEN[o.guven] + (o.mod === 'mutlak' ? ' (bölge kıyası yapılamadığı için sonuç yalnızca geçen yıla göredir; pazar/bölge kaynaklı büyüme ayrıştırılamadı)' : '') + '.');
     if (o.dusukHacim) t.push('Hacim düşük (YTD < ' + ESIK.dusukHacim + ' kutu); küçük sayılar yüzdeleri abartabilir.');
     return t.join(' ');
   }
 
   function attOf(u) { return (D && D.att[[key(u.kongre), key(u.ttt), key(u.brick)].join('|')]) || null; }
 
-  function buildItems() { return D.units.map(function (u) { var at = attOf(u); return { row: u, a: analyze(u, at), att: at }; }); }
+  function buildItems() {
+    return D.units.map(function (u) {
+      var at = attOf(u), ctx = D.agg ? D.agg[key(u.ttt) + '|' + key(u.brick) + '|' + key(u.urun)] : null;
+      return { row: u, a: analyze(u, at, ctx), att: at };
+    });
+  }
 
   function summarize(items) {
     var S = { kayit: items.length, olculen: 0, ivme: 0, pozitif: 0, notr: 0, zayif: 0, dusus: 0, veri: 0, net: 0, hekim: 0, oran: null };
-    var seenAtt = {}, seenNet = {};
+    var seenAtt = {}, seenNet = {}, seenHb = {};
+    S.tek = { kayit: 0, olculen: 0, ok: 0, hb: 0, hbN: 0 }; S.coklu = { kayit: 0, olculen: 0, ok: 0, hb: 0, hbN: 0 };
     items.forEach(function (it) {
       S[it.a.durum]++;
+      var G = it.a.coklu ? S.coklu : S.tek;
+      G.kayit++;
+      if (OLCULEN.indexOf(it.a.durum) >= 0) {
+        G.olculen++; if (it.a.durum === 'ivme' || it.a.durum === 'pozitif') G.ok++;
+        var hk = (it.a.coklu ? 'c|' : 't|') + [key(it.row.ttt), key(it.row.brick), key(it.row.urun)].join('|');
+        if (it.a.netHekim != null && !seenHb[hk]) { seenHb[hk] = 1; G.hb += it.a.netHekim; G.hbN++; }
+      }
       if (OLCULEN.indexOf(it.a.durum) >= 0) {
         S.olculen++;
         var nk = [key(it.row.ttt), key(it.row.brick), key(it.row.urun)].join('|');   // aynı brick+ürün birden çok kongrede geçse de bir kez
@@ -352,22 +622,40 @@
         if (!seenAtt[k]) { seenAtt[k] = 1; S.hekim += it.att.sayi; }
       }
     });
-    S.oran = S.olculen ? (S.ivme + S.pozitif) / S.olculen * 100 : null;
+    var seenU = {}; S.u = { n: 0, olc: 0, ok: 0, ivme: 0, pozitif: 0, notr: 0, zayif: 0, dusus: 0, veri: 0 };
+    items.forEach(function (it) {
+      var nk = [key(it.row.ttt), key(it.row.brick), key(it.row.urun)].join('|');
+      if (seenU[nk]) return; seenU[nk] = 1; S.u.n++; S.u[it.a.durum]++;
+      if (it.a.ekKutu != null && it.a.net != null) { S.ek = (S.ek || 0) + it.a.ekKutu; S.ekNet = (S.ekNet || 0) + it.a.net; }
+      if (OLCULEN.indexOf(it.a.durum) >= 0) { S.u.olc++; if (it.a.durum === 'ivme' || it.a.durum === 'pozitif') S.u.ok++; }
+    });
+    S.oran = S.u.olc ? S.u.ok / S.u.olc * 100 : null;      // aynı brick–ürün birden çok kongrede geçse de bir kez sayılır
+    [S.tek, S.coklu].forEach(function (G) { G.oran = G.olculen ? G.ok / G.olculen * 100 : null; G.hbOrt = G.hbN ? G.hb / G.hbN : null; });
     return S;
   }
 
   function ozetYorum(S, kapsam) {
     if (!S.kayit) return 'Seçili filtrelerde kongre kaydı bulunmuyor.';
     var t = [];
-    t.push(kapsam + ' için ' + S.kayit + ' kongre–brick–ürün kaydı var; ' + S.olculen + ' tanesi geçen yıl karşılaştırmasıyla ölçülebildi.');
-    if (S.olculen) {
-      t.push('Ölçülebilenlerin ' + (S.ivme + S.pozitif) + ' tanesinde (%' + fmt(S.oran) + ') geçen yıla göre artış görüldü' +
-        (S.ivme ? ' (' + S.ivme + ' tanesi güçlü ivme)' : '') + '; ' + (S.zayif + S.dusus) + ' tanesinde zayıflama/düşüş var, ' + S.notr + ' tanesi nötr.');
-      t.push('İlgili brick–ürünlerde yıllık (YTD) toplam kutu farkı ' + sgn(S.net) + ' kutu.');
-      if (S.oran >= 60) t.push('Genel tablo olumlu: kongre yatırımları ağırlıklı olarak satışa dönüşüyor.');
+    var U = S.u, reg = !!(D && D.reg);
+    t.push(kapsam + ' için ' + S.kayit + ' kongre kaydı, ' + U.n + ' benzersiz brick–ürün var; ' + U.olc + ' tanesi ' + (reg ? 'bölge (kontrol grubu) kıyasıyla' : 'geçen yıl karşılaştırmasıyla') + ' değerlendirilebildi.');
+    if (U.olc) {
+      t.push('Değerlendirilenlerin ' + U.ok + ' tanesinde (%' + fmt(S.oran) + ') ' + (reg ? 'bölge ortalamasının üzerinde performans' : 'geçen yıla göre artış') + ' görüldü' +
+        (U.ivme ? ' (' + U.ivme + ' tanesi güçlü)' : '') + '; ' + (U.zayif + U.dusus) + ' tanesi ' + (reg ? 'bölgenin altında' : 'geriledi') + ', ' + U.notr + ' tanesi ' + (reg ? 'bölgeyle aynı' : 'nötr') + '.');
+      t.push('İlgili brick–ürünlerde geçen yıla göre yıllık (YTD) toplam kutu farkı ' + sgn(S.net) + ' kutu.' +
+        (reg && S.ek != null && S.ekNet > 0 ? ' Aynı brick–ürünler bölge büyüme hızında ilerleseydi beklenen kutuya göre fark ' + sgn(S.ek) + ' kutu; ' + (S.ek <= 0 ? 'yani artışın tamamı bölge genelinde de görülen büyümeyle açıklanıyor, kongre brickleri bölge hızının ' + (S.ek < 0 ? 'bir miktar altında kalmış' : 'üzerine çıkamamış') + '.' : 'yani artışın yaklaşık %' + fmt(Math.max(0, Math.min(100, (1 - S.ek / S.ekNet) * 100))) + '\'i bölge genelinde de görülen büyümeyle açıklanıyor.') : ''));
+      if (S.oran >= 60) t.push('Genel tablo olumlu: kongre brickleri ağırlıklı olarak referansın üzerinde.');
       else if (S.oran >= 35) t.push('Genel tablo karışık: bazı kongreler karşılık buluyor, bazıları için takip gerekiyor.');
       else t.push('Genel tablo zayıf: kongre sonrası takip ziyaretleri ve hekim seçimi gözden geçirilmeli.');
     }
+    if (S.coklu.kayit) {
+      var c = S.coklu, k = S.tek, s4 = 'Aynı bricten aynı ürün için birden fazla hekim gönderilen ' + c.kayit + ' kayıtta karşılık oranı ' + (c.oran == null ? '—' : '%' + fmt(c.oran));
+      if (k.kayit) s4 += ', tek hekim gönderilen ' + k.kayit + ' kayıtta ' + (k.oran == null ? '—' : '%' + fmt(k.oran));
+      s4 += '.';
+      if (c.oran != null && k.oran != null) s4 += c.oran - k.oran >= 10 ? ' Çoklu hekim katılımı karşılığı artırıyor görünüyor (küçük örnek; kesin sonuç sayılmamalı, brickler baştan farklı olabilir).' : (c.oran - k.oran <= -10 ? ' Hekim sayısını artırmak tek başına karşılık getirmemiş görünüyor (küçük örnek; kesin sonuç sayılmamalı).' : ' Hekim sayısı karşılık oranını belirgin değiştirmiyor (küçük örnek).');
+      t.push(s4);
+    }
+    t.push(D && D.reg ? 'Değerlendirme, kongreye hekim gönderilmeyen bölge bricklerine göre yapıldı; oran benzersiz brick–ürün üzerinden hesaplandı.' : 'Bölge kıyası yapılamadı; değerlendirme yalnızca geçen yıla göredir.');
     if (S.veri) t.push(S.veri + ' kayıtta karşılaştırma verisi yetersiz.');
     return t.join(' ');
   }
@@ -383,12 +671,14 @@
     if (loadPromise) return loadPromise;
     loadPromise = Promise.all([
       fetchText(SRC1).then(function (t) { RAW.k1 = t; return parse1(t); }),
-      fetchText(SRC2).then(function (t) { RAW.k2 = t; return parse2(t); })
+      fetchText(SRC2).then(function (t) { RAW.k2 = t; return parse2(t); }),
+      fetchText(SRC_MI).then(parseMi).catch(function () { return null; })      // yoksa mutlak (geçen yıl) moduna düşer
     ]).then(function (res) {
       var kongreAd = {};
       Object.keys(res[1].kongreAd || {}).forEach(function (k) { kongreAd[k] = res[1].kongreAd[k]; });
       res[0].forEach(function (r) { kongreAd[key(r.kongre)] = r.kongre; });
-      D = { units: buildUnits(res[0], res[1]), att: res[1].att || {}, kongreler: kongreAd, err: null };
+      D = { units: buildUnits(res[0], res[1]), att: res[1].att || {}, agg: buildAgg(res[1].att || {}), kongreler: kongreAd, err: null, reg: null };
+      try { if (res[2]) D.reg = buildRegion(res[2], D.att, D.units); } catch (e) { D.reg = null; }
     }).catch(function (e) {
       D = { units: [], att: {}, kongreler: {}, err: (e && e.message) || String(e) };
     });
@@ -561,6 +851,33 @@
     return html + '</details>';
   }
 
+  function badge(d, sm) {
+    var v = VERDICT[d];
+    return '<span class="kg-badge" style="color:' + v.c + ';background:' + v.bg + (sm ? ';font-size:9px;padding:2px 7px' : '') + '">' + v.ic + ' ' + v.lbl + '</span>';
+  }
+  // 6 aylık dönemler: 1. altı ay · 2. altı ay · toplam (YTD) — durum = o dönemin EVO'suna göre derece
+  function donemTablo(it) {
+    var o = it.a, u = it.row, rows = [];
+    if (!o.donem || !(o.donem.h1 || o.donem.h2)) {
+      return '<div class="kg-note" style="margin:6px 0">Bu kayıt için aylık veri yok; yalnızca toplam (YTD) durum değerlendirildi.</div>';
+    }
+    function bd(m) { return m ? '<span class="' + deltaCls(m.relEvo, ESIK.bolgeEvo) + '">' + sgn(m.relEvo) + '</span>' : '—'; }
+    DONEM.forEach(function (D0) {
+      var P = o.donem[D0.k];
+      if (!P) { rows.push('<tr><td>' + D0.ad + '</td><td colspan="6" style="text-align:left;color:var(--dim)">veri yok</td></tr>'); return; }
+      var kisa = P.n < (D0.b - D0.a + 1);
+      rows.push('<tr><td style="font-weight:700">' + D0.ad + '<div class="kg-note">' + donemAd(P) + (kisa ? ' · kısmi (' + P.n + ' ay)' : '') + '</div></td><td>' + fmt(P.kutu) + '<div class="kg-note">ay ort. ' + fmt(P.ortKutu) + '</div></td><td>' +
+        (P.ms25 == null ? '—' : '%' + fmt(P.ms25, 1) + ' → %' + fmt(P.ms26, 1)) + '<div class="kg-note ' + deltaCls(P.pp, 0.5) + '">' + (P.pp == null ? '' : sgn(P.pp, 1) + ' puan') + '</div></td><td class="' + deltaCls(P.evo == null ? null : P.evo - 100, 10) + '"><b>' + fmt(P.evo) + '</b></td><td>' +
+        (D0.k === 'h1' ? bd(o.bolgeH1) : (o.h2Delta != null ? '<span class="' + (o.h2Yon === 'guclendi' ? 'kg-up' : (o.h2Yon === 'zayifladi' ? 'kg-dn' : 'kg-nt')) + '" title="H1 sonundan son aya bölgeye göre fark değişimi">Δ ' + sgn(o.h2Delta) + '</span>' : '—')) +
+        '</td><td>' + (D0.k === 'h1' ? (o.durumH1B ? badge(o.durumH1B, true) : '—') : (o.h2Yon ? '<span class="kg-badge" style="color:' + (o.h2Yon === 'guclendi' ? '#15803D' : (o.h2Yon === 'zayifladi' ? '#DC2626' : '#64748B')) + ';background:rgba(100,116,139,.12);font-size:9px;padding:2px 7px">' + (o.h2Yon === 'guclendi' ? '▲ bölgeye göre güçlendi' : (o.h2Yon === 'zayifladi' ? '▼ bölgeye göre zayıfladı' : '● bölgeye göre sabit')) + '</span>' : '—')) + '</td><td>' + badge(P.durum, true) + '</td></tr>');
+    });
+    var T = o.donem.tam, tk = o.k26 != null ? o.k26 : (T ? T.kutu : null), tms25 = o.ms25 != null ? o.ms25 : (T ? T.ms25 : null), tms26 = o.ms26 != null ? o.ms26 : (T ? T.ms26 : null), te = o.evo != null ? o.evo : (T ? T.evo : null);
+    rows.push('<tr style="background:var(--surf2)"><td style="font-weight:800">Toplam (YTD)<div class="kg-note">' + (T ? donemAd(T) : '') + '</div></td><td>' + fmt(tk) + (o.kutuD != null ? '<div class="kg-note ' + deltaCls(o.kutuD, ESIK.kutuPct) + '">' + sgn(o.kutuD) + '% geçen yıla göre</div>' : '') + '</td><td>' +
+      (tms25 == null ? '—' : '%' + fmt(tms25, 1) + ' → %' + fmt(tms26, 1)) + '<div class="kg-note ' + deltaCls(tms26 != null && tms25 != null ? tms26 - tms25 : null, 0.5) + '">' + (tms25 == null ? '' : sgn(tms26 - tms25, 1) + ' puan') + '</div></td><td class="' + deltaCls(te == null ? null : te - 100, 10) + '"><b>' + fmt(te) + '</b></td><td>' + bd(o.bolge) + '</td><td>' + (o.mod === 'bolge' ? badge(o.durum, true) : '—') + '</td><td>' + badge(gradeEvo(te), true) + '</td></tr>');
+    return '<div class="kg-cap">6 aylık dönemler — 1. altı ay · 2. altı ay · toplam</div><div class="kg-scroll"><table class="kg-tbl" style="min-width:420px"><thead><tr><th>Dönem</th><th>Kutu</th><th>Pazar payı (geçen yıl → bu yıl)</th><th>EVO</th><th>Bölgeye göre EVO farkı</th><th>Bölgeye göre durum</th><th>Mutlak durum (EVO)</th></tr></thead><tbody>' + rows.join('') + '</tbody></table></div>' +
+      '<div class="kg-note"><b>Bölgeye göre durum</b> asıl değerlendirmedir: kongreye hekim gönderilmeyen bricklerin medyanına kıyaslanır. 1. altı ay = Haziran kümülatifi, toplam = en güncel kümülatif; 2. altı ay tek başına ayrılamadığı için H1 sonundan son aya bölgeye göre fark değişimi (Δ) gösterilir. <b>Mutlak durum</b> yalnızca dönemin kendi EVO\'suna göredir (≥125 İvme · 110–125 Pozitif · 90–110 Nötr · 75–90 Zayıflama · &lt;75 Düşüş) ve bölge geneli eğilimleri (ör. yıl içinde düşen EVO) de yansıtır.</div>';
+  }
+
   function hekimBlock(it) {
     var at = it.att; if (!at || !at.hekimler.length) return '';
     var own = key(it.row.urun);
@@ -577,21 +894,26 @@
     var u = it.row, o = it.a, v = VERDICT[o.durum], sub = [];
     if (showTtt) sub.push(esc(u.ttt));
     sub.push(esc(u.brick));
-    if (it.att) sub.push(it.att.sayi + ' hekim katıldı');
+    if (it.att) sub.push(o.coklu ? '<b style="color:#2563EB">👥 Çoklu hekim: ' + o.hekimN + (o.hekimEsles ? ' (bu ürün)' : '') + '</b>' : (o.hekimN || it.att.sayi) + ' hekim katıldı');
     var html = '<div class="kg-card" style="border-left:4px solid ' + v.c + '"><div class="kg-card-hd"><div><div class="kg-title">🎪 ' + esc(u.kongre) +
       ' <span style="font-weight:600;color:var(--c1)">· ' + esc(u.urun) + '</span></div><div class="kg-sub">' + sub.join(' · ') + '</div></div>' +
-      '<span class="kg-badge" style="color:' + v.c + ';background:' + v.bg + '">' + v.ic + ' ' + v.lbl + '</span></div>';
+      '<span class="kg-badge" style="color:' + v.c + ';background:' + v.bg + '" title="' + (o.mod === 'bolge' ? 'Karar: kongreye hekim gönderilmeyen bricklere (bölge) göre' : 'Karar: yalnızca geçen yıla göre (bölge kıyası yok)') + '">' + v.ic + ' ' + v.lbl + (o.mod === 'bolge' ? ' · bölgeye göre' : '') + '</span></div>';
     html += '<div class="kg-body"><div>' + yoyBars(o);
     if (o.ks) html += '<div class="kg-cap">Aylık kutu çıkışı (renk: önceki aya göre · kesik çizgi: aylık ortalama)</div>' + kutuSvg(o);
     if (u.ay && o.aylik.length) html += '<div class="kg-cap">Aylık pazar payı farkı (bu yıl − geçen yıl, puan)</div>' + aylikSvg(u, o);
     if (!o.ks && !(u.ay && o.aylik.length)) html += '<div class="kg-note" style="margin-top:6px">Bu ürün için aylık veri yok; YTD karşılaştırma gösteriliyor.</div>';
     html += '</div><div>';
+    html += donemTablo(it);
     if (OLCULEN.indexOf(o.durum) >= 0) {
       html += '<div class="kg-chips">' +
         (o.kutuD != null ? chip('Kutu (geçen yıla göre)', fmt(o.k25) + ' → ' + fmt(o.k26) + ' <span class="' + deltaCls(o.kutuD, ESIK.kutuPct) + '">' + arrow(o.kutuD, ESIK.kutuPct) + sgn(o.kutuD) + '%</span>') : '') +
         (o.ms25 != null ? chip('Pazar payı', '%' + fmt(o.ms25, 1) + ' → %' + fmt(o.ms26, 1) + ' <span class="' + deltaCls(o.ppD, 0.5) + '">' + arrow(o.ppD, 0.5) + sgn(o.ppD, 1) + ' puan</span>') : '') +
         (o.evo != null ? chip('EVO (pazara göre gelişim)', '<span class="' + deltaCls(o.evo - 100, 10) + '">' + arrow(o.evo - 100, 10) + fmt(o.evo) + '</span>') : '') +
         (o.net != null ? chip('Yıllık ek kutu (YTD)', '<span class="' + deltaCls(o.net, 1) + '">' + sgn(o.net) + ' kutu</span>') : '') +
+        (o.bolge ? chip('Bölgeye göre EVO', '<span class="' + deltaCls(o.bolge.relEvo, ESIK.bolgeEvo) + '">' + arrow(o.bolge.relEvo, ESIK.bolgeEvo) + sgn(o.bolge.relEvo) + ' puan</span> <span class="kg-nt">· %' + o.bolge.pct + ' dilim</span>') : '') +
+        (o.ekKutu != null ? chip('Bölge hızına göre ek kutu', '<span class="' + deltaCls(o.ekKutu, 1) + '">' + sgn(o.ekKutu) + ' kutu</span>') : '') +
+        chip('Güven', '<span class="' + (o.guven >= 2 ? 'kg-up' : (o.guven === 0 ? 'kg-dn' : 'kg-nt')) + '">' + GUVEN[o.guven] + '</span>') +
+        (o.netHekim != null ? chip('Hekim başı ek kutu', '<span class="' + deltaCls(o.netHekim, 1) + '">' + sgn(o.netHekim, Math.abs(o.netHekim) < 10 ? 1 : 0) + '</span> <span class="kg-nt">· ' + o.brickHekim + ' hekim</span>') : '') +
         (o.tumEvo != null ? chip('Brick geneli EVO', fmt(o.tumEvo)) : '') +
         (o.aylik.length ? chip('Pay > geçen yıl', o.nUst + ' / ' + o.aylik.length + ' ay', o.nUst / o.aylik.length >= 0.6 ? 'kg-up' : (o.nUst / o.aylik.length <= 0.4 ? 'kg-dn' : 'kg-nt')) : '') +
         (o.ks ? chip('Aylık kutu (ort.)', fmt(o.ks.ort) + ' <span class="kg-nt">· toplam ' + fmt(o.ks.toplam) + '</span>') : '') +
@@ -668,6 +990,78 @@
       '<div class="kg-note" style="margin-bottom:6px">Hekim bazında satış verisi yoktur; her hekimin yanında, katıldığı kongredeki ürünlerin <b>bulunduğu brickteki</b> geçen yıla göre sonucu gösterilir (★ = hekime tanıtılan ürün). Aynı brickte birden çok hekim varsa hepsi aynı brick sonucunu paylaşır.</div>' +
       '<div class="kg-scroll"><table class="kg-tbl" style="min-width:420px"><thead><tr><th>Branş bazında karşılık</th><th>Hekim</th><th>Ölçülen hekim–ürün</th><th>İvme + Pozitif</th><th>Karşılık oranı</th></tr></thead><tbody>' + bt + '</tbody></table></div>' +
       '<div class="kg-scroll" style="margin-top:10px"><table class="kg-tbl kg-left" style="min-width:760px"><thead><tr><th>Hekim</th><th>Branş</th><th>Ünite · İl</th><th>Kongre</th>' + (showTtt ? '<th>Temsilci</th>' : '') + '<th>Brick</th><th>Ürün sonuçları (geçen yıla göre kutu)</th></tr></thead><tbody>' + tr + '</tbody></table></div>';
+  }
+
+  function yogunlukTablo(Sm) {
+    if (!Sm.coklu.kayit) return '';
+    function satir(ad, G) {
+      var bc = G.oran == null ? '#CBD5E1' : (G.oran >= 60 ? '#16A34A' : (G.oran >= 35 ? '#F59E0B' : '#DC2626'));
+      return '<tr><td style="font-weight:700">' + ad + '</td><td>' + G.kayit + '</td><td>' + G.olculen + '</td><td class="kg-up">' + G.ok + '</td>' +
+        '<td style="min-width:120px"><div style="display:flex;align-items:center;gap:6px"><div class="kg-bar" style="flex:1"><i style="width:' + (G.oran == null ? 0 : Math.min(100, G.oran)) + '%;background:' + bc + '"></i></div><b style="min-width:34px;text-align:right">' + (G.oran == null ? '—' : '%' + fmt(G.oran)) + '</b></div></td>' +
+        '<td class="' + deltaCls(G.hbOrt, 1) + '">' + (G.hbOrt == null ? '—' : sgn(G.hbOrt, Math.abs(G.hbOrt) < 10 ? 1 : 0)) + '</td></tr>';
+    }
+    return '<div class="kg-sec">👥 Hekim Yoğunluğu — aynı bricten aynı ürün için gönderilen hekim sayısı<i></i></div>' +
+      '<div class="kg-scroll"><table class="kg-tbl" style="min-width:480px"><thead><tr><th>Grup</th><th>Kayıt</th><th>Ölçülebilen</th><th>İvme + Pozitif</th><th>Karşılık oranı</th><th>Hekim başı ek kutu</th></tr></thead><tbody>' +
+      satir('Tek hekim', Sm.tek) + satir('Çoklu hekim (≥2)', Sm.coklu) + '</tbody></table></div>' +
+      '<div class="kg-note" style="margin-top:4px">Hekim başı ek kutu = brick–ürünün yıllık (YTD) ek kutusu ÷ o brick–ürün için tüm kongrelerde gönderilen farklı hekim sayısı. Hekim bazında satış verisi olmadığından brick sonucu hekimler arasında eşit paylaştırılır.</div>';
+  }
+
+  function bolgeTablo() {
+    if (!D.reg) return '<div class="kg-note" style="margin:8px 0;padding:8px 10px;border:1px dashed #D97706;border-radius:10px">⚠ <b>MI_GI-KUTU.csv</b> okunamadığı için bölge (kontrol grubu) kıyası yapılamadı; sonuçlar yalnızca geçen yıla göredir ve pazar/bölge kaynaklı büyüme ayrıştırılamaz.</div>';
+    var G = D.reg.grp.slice().sort(function (a, b) { return a.pk.localeCompare(b.pk, 'tr'); });
+    if (!G.length) return '';
+    var tr = G.map(function (g) {
+      var first = g.seri[0], last = g.seri[g.seri.length - 1], baştan = first && Math.abs(first.gap) >= 0.7 * Math.abs(g.gap) && Math.abs(g.gap) >= ESIK.bolgeEvo;
+      var yor;
+      if (Math.abs(g.gap) < ESIK.bolgeEvo) yor = 'Kongre bricklerinin performansı bölgeden ayrışmıyor.';
+      else if (g.gap < 0) yor = 'Kongre brickleri bölgenin altında.';
+      else if (baştan) yor = 'Üstünlük en baştan beri var: kongreden önce de farklıydılar (seçilim etkisi olabilir).';
+      else yor = 'Üstünlük zamanla açılmış: kongre ile tutarlı, ama kanıt değil.';
+      var pt = g.p == null ? '—' : (g.p < 0.05 ? 'p=' + fmt(g.p, 2) + ' (anlamlı)' : (g.p < 0.15 ? 'p=' + fmt(g.p, 2) + ' (zayıf kanıt)' : 'p=' + fmt(g.p, 2) + ' (şansa bağlı olabilir)'));
+      var sr = g.seri.map(function (x) { return AY_KISA[x.m - 1] + ' ' + sgn(x.gap); }).join(' · ');
+      return '<tr><td style="font-weight:700">' + esc(g.pk) + '</td><td>' + g.nA + '</td><td>' + g.nC + '</td><td>' + fmt(g.medA) + '</td><td>' + fmt(g.medC) + '</td><td class="' + deltaCls(g.gap, ESIK.bolgeEvo) + '"><b>' + sgn(g.gap) + '</b></td>' +
+        '<td style="text-align:left;font-size:10px">' + esc(sr) + '</td><td>' + esc(pt) + '</td><td style="text-align:left;min-width:200px">' + esc(yor) + '</td></tr>';
+    }).join('');
+    return '<div class="kg-sec">🧪 Bölge Kıyası — kongre brickleri ve kongreye hekim gönderilmeyen brickler<i></i></div>' +
+      '<div class="kg-scroll"><table class="kg-tbl kg-left" style="min-width:760px"><thead><tr><th>Ürün</th><th>Kongre brick</th><th>Kontrol brick</th><th>EVO medyan (kongre)</th><th>EVO medyan (kontrol)</th><th>Fark (puan)</th><th>Fark seyri (aylık kümülatif)</th><th>Şans testi</th><th>Yorum</th></tr></thead><tbody>' + tr + '</tbody></table></div>' +
+      '<div class="kg-note" style="margin-top:4px">Kontrol grubu = hiçbir kongreye hekim gönderilmeyen bölge brickleri (MI_GI-KUTU). Şans testi, kongre/kontrol etiketleri rastgele karıştırıldığında bu kadar fark görülme olasılığıdır (permütasyon; küçük p = fark şansa bağlı değil). Fark seyri artıyorsa üstünlük zamanla açılmıştır; baştan varsa seçilim etkisi olabilir.</div>';
+  }
+
+  function donemOzet(items) {
+    var seen = {}, C = { h1: {}, h2: {}, tam: {} }, geç = { iyi: 0, ayni: 0, kotu: 0 }, n = 0, k;
+    var ks = ['ivme', 'pozitif', 'notr', 'zayif', 'dusus', 'veri'];
+    ['h1', 'h2', 'tam'].forEach(function (d) { ks.forEach(function (x) { C[d][x] = 0; }); });
+    items.forEach(function (it) {
+      var nk = [key(it.row.ttt), key(it.row.brick), key(it.row.urun)].join('|');
+      if (seen[nk] || !it.a.donem || !(it.a.donem.h1 || it.a.donem.h2)) return; seen[nk] = 1; n++;
+      var d = it.a.donem, g1 = d.h1 ? d.h1.durum : 'veri', g2 = d.h2 ? d.h2.durum : 'veri', gt = gradeEvo(it.a.evo != null ? it.a.evo : (d.tam ? d.tam.evo : null));
+      C.h1[g1]++; C.h2[g2]++; C.tam[gt]++;
+      if (g1 !== 'veri' && g2 !== 'veri') { var a = VERDICT[g2].rank - VERDICT[g1].rank; if (a > 0) geç.iyi++; else if (a < 0) geç.kotu++; else geç.ayni++; }
+    });
+    if (!n) return '';
+    function satir(ad, X) {
+      var olc = X.ivme + X.pozitif + X.notr + X.zayif + X.dusus, ok = X.ivme + X.pozitif;
+      return '<tr><td style="font-weight:700">' + ad + '</td><td class="kg-up">' + X.ivme + '</td><td class="kg-up">' + X.pozitif + '</td><td class="kg-nt">' + X.notr + '</td><td class="kg-dn">' + X.zayif + '</td><td class="kg-dn">' + X.dusus + '</td><td>' + X.veri + '</td><td><b>' + (olc ? '%' + fmt(ok / olc * 100) : '—') + '</b></td></tr>';
+    }
+    var seenB = {}, B = { h1: {}, tam: {} }, Y = { guclendi: 0, sabit: 0, zayifladi: 0 }, nb = 0;
+    ks.forEach(function (x) { B.h1[x] = 0; B.tam[x] = 0; });
+    items.forEach(function (it) {
+      var nk = [key(it.row.ttt), key(it.row.brick), key(it.row.urun)].join('|');
+      if (seenB[nk] || it.a.mod !== 'bolge') return; seenB[nk] = 1; nb++;
+      B.h1[it.a.durumH1B || 'veri']++; B.tam[it.a.durum]++;
+      if (it.a.h2Yon) Y[it.a.h2Yon]++;
+    });
+    function satirB(ad, X) {
+      var olc = X.ivme + X.pozitif + X.notr + X.zayif + X.dusus, ok = X.ivme + X.pozitif;
+      return '<tr><td style="font-weight:700">' + ad + '</td><td class="kg-up">' + X.ivme + '</td><td class="kg-up">' + X.pozitif + '</td><td class="kg-nt">' + X.notr + '</td><td class="kg-dn">' + X.zayif + '</td><td class="kg-dn">' + X.dusus + '</td><td>' + X.veri + '</td><td><b>' + (olc ? '%' + fmt(ok / olc * 100) : '—') + '</b></td></tr>';
+    }
+    var bolgeBlok = nb ? '<div class="kg-cap" style="margin-top:8px">Bölgeye göre (asıl değerlendirme) — ' + nb + ' brick–ürün</div><div class="kg-scroll"><table class="kg-tbl" style="min-width:460px"><thead><tr><th>Dönem</th><th>İvme</th><th>Pozitif</th><th>Nötr</th><th>Zayıflama</th><th>Düşüş</th><th>Veri yok</th><th>Olumlu oranı</th></tr></thead><tbody>' +
+      satirB('1. Altı Ay (Haziran kümülatifi)', B.h1) + satirB('Toplam (en güncel kümülatif)', B.tam) + '</tbody></table></div>' +
+      '<div class="kg-note" style="margin-top:4px">2. altı ayın yönü (H1 sonundan son aya bölgeye göre fark değişimi): <b class="kg-up">' + Y.guclendi + ' güçlenen</b> · ' + Y.sabit + ' sabit · <b class="kg-dn">' + Y.zayifladi + ' zayıflayan</b>.</div>' : '';
+    return '<div class="kg-sec">🗓️ Dönemsel Durum — 1. altı ay · 2. altı ay · toplam<i></i></div>' + bolgeBlok + '<div class="kg-cap" style="margin-top:10px">Mutlak (geçen yıla göre, kontrolsüz)</div>' +
+      '<div class="kg-scroll"><table class="kg-tbl" style="min-width:460px"><thead><tr><th>Dönem (dönemin kendi EVO\'su)</th><th>İvme</th><th>Pozitif</th><th>Nötr</th><th>Zayıflama</th><th>Düşüş</th><th>Veri yok</th><th>Olumlu oranı</th></tr></thead><tbody>' +
+      satir('1. Altı Ay (Oca–Haz)', C.h1) + satir('2. Altı Ay (Tem–…, kısmi)', C.h2) + satir('Toplam (YTD)', C.tam) + '</tbody></table></div>' +
+      '<div class="kg-note" style="margin-top:4px">' + n + ' brick–ürün (aylık verisi olanlar). 1. → 2. altı ay geçişi: <b class="kg-up">' + geç.iyi + ' iyileşen</b> · ' + geç.ayni + ' aynı · <b class="kg-dn">' + geç.kotu + ' kötüleşen</b>. Mutlak dereceler bölge geneli eğilimleri de içerir (ör. yıl içinde düşen EVO); 2. altı ay henüz tamamlanmadığı için kısmidir.</div>';
   }
 
   function heatTable(items, showTtt) {
@@ -773,12 +1167,15 @@
   }
 
   function methodNote() {
-    return '<details class="kg-card" style="padding:10px 12px"><summary style="cursor:pointer;font-weight:700;color:var(--c1)">Yöntem ve sonuç tanımları</summary>' +
-      '<div class="kg-note" style="margin-top:8px">Analiz <b>kongre tarihinden bağımsızdır</b>: kongreye katılan hekimin bricti ve kongrede tanıtılan ürün için <b>bu yılın YTD\'si geçen yılın aynı dönemiyle</b> kıyaslanır.<br>' +
-      '<b>Kutu YoY %</b> = YTD-1 kutu ÷ YTD-2 kutu − 1 (KONGRE_TAKIP_2) · <b>Pazar payı</b> farkı = YTD-1 − YTD-2 (puan) · <b>EVO</b> = pazara göre gelişim (bu yıl payı ÷ geçen yıl payı × 100; 100 üstü = pazardan hızlı büyüme).<br>' +
-      'Skor: Kutu YoY ≥ +%10 (+1) / ≤ −%10 (−1); EVO ≥ 110 (+1) / ≤ 90 (−1). Toplam ≥2 <b>İvme</b>, 1 <b>Pozitif</b>, 0 <b>Nötr</b>, −1 <b>Zayıflama</b>, ≤−2 <b>Düşüş</b>. Tek gösterge varsa: + Pozitif, 0 Nötr, − Zayıflama.<br>' +
-      'Aylık grafik yalnızca KONGRE_TAKIP_1\'de bulunan kayıtlar içindir: her ayın pazar payı geçen yılın aynı ayıyla kıyaslanır; "Son 3 ay EVO" YTD EVO\'dan ≥5 puan yüksekse ivme artıyor, ≥5 puan düşükse yavaşlıyor sayılır.<br>' +
-      '<b>Aylık kutu</b>: KONGRE_TAKIP_1 dosyasındaki aylık kutu satışı ay ay çizilir (çubuk rengi = önceki aya göre ±%5), ortalama/en yüksek/en düşük ay ve son 3 ay eğilimi hesaplanır; geçen yılın aylık kutusu dosyada olmadığı için geçen yıl kıyası yalnızca YTD kutu ve aylık pazar payı üzerinden yapılır.<br><b>Hekim</b>: hekim bazında satış verisi yoktur; hekimlerin sonucu bulundukları brickin ürün performansıdır.<br>Bu analiz kongre katılımı ile aynı bricteki yıllık değişimi birlikte gösterir; tek başına nedensellik kanıtı değildir (rakip hamleleri, stok, mevsim gibi etkenler de olabilir). Yıllık YTD verisi PANOCER, ACIDPASS ve GRIPORT COLD için vardır; diğer ürünler (ör. FAMTREC) için yalnızca katılım bilgisi mevcuttur.</div></details>';
+    return '<details class="kg-card" style="padding:10px 12px"><summary style="cursor:pointer;font-weight:700;color:var(--c1)">Yöntem, varsayımlar ve sınırlar</summary>' +
+      '<div class="kg-note" style="margin-top:8px">' +
+      '<b>1) Bölge (kontrol grubu) kıyası — asıl karar.</b> Bir brick–ürünün başarısı yalnızca geçen yıla göre değil, <b>kongreye hiç hekim gönderilmeyen bölge bricklerinin medyanına</b> göre ölçülür (MI_GI-KUTU). Böylece pazarın/bölgenin genel büyümesi kongreye yazılmaz. Karar: (EVO farkı ≥ +10 puan: +1 / ≤ −10: −1) + (kutu büyüme indeksi farkı ≥ +10 puan: +1 / ≤ −10: −1); toplam ≥2 İvme, 1 Pozitif, 0 Nötr, −1 Zayıflama, ≤−2 Düşüş. Bölge verisi yoksa karar yalnızca geçen yıla göre verilir ve bu açıkça belirtilir.<br>' +
+      '<b>2) 6 aylık dönemler.</b> 1. altı ay (Oca–Haz), 2. altı ay (Tem–…, şu an kısmi) ve toplam. Dönem EVO\'su, aylık kutu ve pazar payından (pazar büyüklüğüyle ağırlıklı) hesaplanır. Bölge kıyası kümülatif olduğundan 1. altı ay = Haziran kümülatifi, toplam = en güncel kümülatif; 2. altı ay için H1 sonundan son aya bölgeye göre fark değişimi (Δ) verilir.<br>' +
+      '<b>3) Şans testi.</b> Grup düzeyinde, kongre ve kontrol etiketleri 2.000 kez rastgele karıştırılıp medyan farkın bu kadar büyük çıkma olasılığı (p) hesaplanır. Küçük örneklerde p yüksekse fark şansa bağlı olabilir.<br>' +
+      '<b>4) Fark seyri.</b> Kongre–kontrol farkı aylar içinde açılıyorsa kongre ile tutarlı; baştan beri varsa hekim gönderilen bricklerin zaten farklı olması (seçilim) muhtemeldir.<br>' +
+      '<b>5) Güven.</b> Hacim (YTD kutu), kontrol grubu büyüklüğü ve sinyallerin uyumuna göre düşük/orta/yüksek. <b>Benzersiz brick–ürün:</b> aynı brick–ürün birden çok kongrede geçse de oranlarda bir kez sayılır.<br>' +
+      '<b>6) Aylık kutu ve hekim.</b> Aylık kutu KONGRE_TAKIP_1\'den (geçen yılın aylık kutusu dosyada yok). Hekim bazında satış verisi yoktur; hekimlerin sonucu bulundukları brickin ürün performansıdır, çoklu hekim durumunda hekim başı değer brick sonucunun eşit paylaştırılmasıdır.<br>' +
+      '<b>Sınırlar.</b> Kongre tarihi bilinmediği için “kongreden önce/sonra” ayrımı yapılamaz; hekim gönderilen brickler rastgele seçilmediği için sonuçlar <b>nedensellik kanıtı değil, kongre ile tutarlı sinyaldir</b>. Aylık EVO/pazar payı küçük hacimlerde çok oynaktır. Yıllık veri PANOCER, ACIDPASS, GRIPORT COLD için vardır; FAMTREC için yalnızca katılım bilgisi mevcuttur.</div></details>';
   }
 
   // ───────────────────────── ana render ─────────────────────────
@@ -826,6 +1223,8 @@
         if (S.sonuc === 'notr' && d !== 'notr') return false;
         if (S.sonuc === 'veri' && d !== 'veri') return false;
       }
+      if (S.hekim === 'coklu' && !it.a.coklu) return false;
+      if (S.hekim === 'tek' && it.a.coklu) return false;
       return true;
     });
     items.sort(function (x, y) {
@@ -842,12 +1241,14 @@
       (locked ? '' : sel('Temsilci', 'ttt', mount, S.ttt, tOpts)) +
       sel('Ürün', 'urun', mount, S.urun, uOpts) + sel('Kongre / Toplantı', 'kongre', mount, S.kongre, kOpts) +
       sel('Sonuç', 'sonuc', mount, S.sonuc, [['', 'Tümü'], ['olumlu', '🚀 İvme + Pozitif'], ['notr', '➖ Nötr'], ['olumsuz', '📉 Zayıflama + Düşüş'], ['veri', '❔ Veri yetersiz']]) +
+      sel('Hekim sayısı', 'hekim', mount, S.hekim, [['', 'Tümü'], ['coklu', '👥 Çoklu hekim (≥2)'], ['tek', 'Tek hekim']]) +
       sel('Sırala', 'sirala', mount, S.sirala, [['iyi', 'Sonuç: iyiden kötüye'], ['kotu', 'Sonuç: kötüden iyiye'], ['kongre', 'Kongre adı']]) + '</div>';
 
     var Sm = summarize(items);
     var scope = locked ? 'Sizin' : (S.ttt ? (items[0] ? items[0].row.ttt : 'Seçili temsilci') : 'Ekip');
     var kpi = '<div class="kg-kpis">' +
       '<div class="kg-kpi"><span>Kongre kaydı</span><b>' + Sm.kayit + '</b></div>' +
+      '<div class="kg-kpi"><span>Benzersiz brick–ürün</span><b>' + Sm.u.n + '</b></div>' +
       '<div class="kg-kpi"><span>Ölçülebilen</span><b>' + Sm.olculen + '</b></div>' +
       '<div class="kg-kpi"><span>İvme yakalayan</span><b class="kg-up">' + (Sm.ivme + Sm.pozitif) + '</b></div>' +
       '<div class="kg-kpi"><span>Zayıflama / düşüş</span><b class="kg-dn">' + (Sm.zayif + Sm.dusus) + '</b></div>' +
@@ -858,7 +1259,7 @@
     var showTtt = !locked && !S.ttt;
     el.innerHTML = '<div class="kg-wrap">' +
       '<div class="insight mb16"><div class="insight-title">🧠 Kongre Etkisi Analizi — geçen yıla göre</div><div class="insight-body">' + esc(ozetYorum(Sm, scope)) + '</div></div>' +
-      filt + kpi + (showTtt ? teamTable(items) : '') + heatTable(items, showTtt) +
+      filt + kpi + bolgeTablo() + donemOzet(items) + yogunlukTablo(Sm) + (showTtt ? teamTable(items) : '') + heatTable(items, showTtt) +
       '<div class="kg-sec">🎪 Kongre Bazlı Sonuçlar (' + items.length + ')<i></i></div>' + legendHtml() +
       (items.length ? items.map(function (it) { return cardHtml(it, showTtt); }).join('') : '<div class="kg-note" style="padding:12px">Seçili filtrelerde kayıt yok.</div>') +
       hekimBolumu(items, S, showTtt) +

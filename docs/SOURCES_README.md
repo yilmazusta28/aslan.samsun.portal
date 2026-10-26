@@ -57,3 +57,51 @@ Bu 4 dosya MI&GI Takibi, brick sıralaması (`brick-ranking-engine`), Dosyalar s
 - Yeni CSV'ler ilk çalıştırmada git klonuna kopyalanıp push edilir; `yeni_csv/` klasörü aynı dosyaların bugünkü halidir.
 - `files-orj.zip` içinde `guvenlik_cikti/` (JWT secret, kullanıcı/şifre dosyaları) ve `.claude/settings.local.json` var.
   `.gitignore` bunları dışlıyor ama zip'i paylaşmadan önce bu klasörleri çıkar. Bu dosyaları açmadım.
+
+## 6. Ek Prim (EK-PRIM) — yeni
+
+| Portal dosyası | xlsm kaynağı | Durum |
+|---|---|---|
+| EK_PRIM.csv | EK-PRIM A:E (Griport Cold ek prim) | otomatik (zorunlu değil) |
+| EK_PRIM_FAMTREC.csv | EK-PRIM G:L (Famtrec ek prim; TTT, 4-5 D HEDEF TL, 4-5 D SATIŞ TL, TL REAL %, TEKİL ECZ., PRİM) | otomatik (zorunlu değil) |
+
+- `ims_transform.py` → `FINAL_EXPORTS` ve `weekly_ims_automation.ps1` → `$FinalCsvFiles` listelerine `EK_PRIM` eklendi; her çalışmada CSV üretilir, git klonuna kopyalanır ve push edilir.
+- Portalda `js/data/ek-prim-loader.js` CSV'yi okuyup **Prim Hesapla** sayfasında "Ek Prim Tablosu" kartına basar (`index.html`, `#ekPrimCard`).
+- Kolon başlıkları (EYLÜL SATIŞ / EKİM SATIŞ vb.) CSV'den okunur; dönem değişince kod değişmez, sadece xlsm'deki sayfa güncellenir.
+- Gizlilik: `ttt-lock.js` kuralı geçerli; YILMAZ USTA / ŞENOL YILMAZ tüm tabloyu + toplamı görür, diğer temsilciler yalnızca kendi satırını görür.
+- Portalda yeni dosyalar: `js/data/ek-prim-loader.js`, `EK_PRIM.csv` (bugünkü hali). `index.html`'e kart + script etiketi eklendi.
+
+## 7. Kongre Takip otomasyonu — yeni
+
+`Kongre_Takip_otomatik.xlsx` (VERI / LISTELER / KAYNAK sayfaları) artık aynı zamanlanmış görevlerin içinde güncelleniyor.
+
+| Dosya | Görev |
+|---|---|
+| `kongre_veri_guncelle.py` | Aylık "ASLAN IMS TREND PIVOT" dosyalarındaki HAM DATA'dan VERI ve açılır liste kaynaklarını (bölge → TTT → brick) yeniler. Yeni ay yoksa dosyaya dokunmaz. |
+| `kongre_guncelle.ps1` | Python betiğini çağırır, sonucu `automation_log.txt`'e `[KONGRE]` etiketiyle yazar. Her durumda `exit 0` döner: kongre adımındaki bir hata IMS akışını bozmaz. |
+| `run_ims_with_retry.ps1` | IMS denemeleri bittikten sonra `kongre_guncelle.ps1`'i çağırır (IMS'te yeni hafta olsun olmasın). Zamanlanmış görevler değişmedi. |
+| `period_config.json` | `kongre_enabled`, `kongre_script`, `kongre_xlsx`, `kongre_pivot_folders` (hepsi isteğe bağlı). |
+
+- **Zamanlama:** Ayrı görev gerekmiyor. Salı görevi + oturum açılışı + 08:00–20:00 saatlik kontrol zaten çalışıyor; Trend Pivot dosyası ay içinde ne zaman gelirse bir sonraki turda yakalanır.
+- **Aynı anda tek koşu:** Adım, IMS ile aynı `Global\IMS_Haftalik_Otomasyon` mutex'inin içinde çalışır.
+- **Kapatmak için:** `period_config.json` içinde `"kongre_enabled": false`.
+- **Dikkat:** Yazılacak yeni veri varken `Kongre_Takip_otomatik.xlsx` Excel'de açıksa kayıt yapılamaz (log: "Kongre dosyası Excel'de açık"); dosyayı kapatınca sonraki saatlik turda tamamlanır. Yazmadan önce `Kongre_Takip_otomatik.yedek.xlsx` yedeği alınır.
+- **Dosya konumu:** `kongre_veri_guncelle.py` ve `Kongre_Takip_otomatik.xlsx` varsayılan olarak bu klasörde aranır; başka yerdeyse yolu `period_config.json`'a tam yol olarak yazın.
+
+## 4. Kongre Etkisi (KONGRE_TAKIP_1 / KONGRE_TAKIP_2)
+
+Portal: Performans > Kongre Etkisi (temsilci) ve Yönetici paneli > Kongre Etkisi Analizi kartı (`js/ui/kongre-etkisi.js`).
+
+| Repo dosyası | xlsm sayfası | Kullanım |
+|---|---|---|
+| KONGRE_TAKIP_1.csv | KONGRE_TAKIP_1 (A:BE) | analiz (aylık kutu / pazar payı / EVO) |
+| KONGRE_TAKIP_2.csv | KOGRE_TAKİP_2 (A:AL, sayfa adı xlsm'de yazım hatalı; `SHEET_ALIASES` ile bulunur) | katılımcı hekimler |
+| KONGRE_TAKIP_1.xlsx / KONGRE_TAKIP_2.xlsx | aynı sayfalar, **xlsm'deki biçimle** (renk, birleştirme, genişlik, filtre) | yönetici kartındaki "Excel İndir" |
+
+Güncelleme yolları (ikisi de aynı dosyaları üretir, idempotent):
+1. Haftalık akış: `ims_transform.py --export-final-tables` (FINAL_EXPORTS + `export_kongre_styled`) -> `$FinalCsvFiles` ile git'e.
+2. Bağımsız: `run_ims_with_retry.ps1` her kosuda `kongre_export_push.ps1` calistirir. xlsm'in son değişim damgası
+   (`otomasyon_ciktilari\.kongre_stamp`) değişmişse `kongre_export.py` ile 4 dosyayı üretir, içerik değiştiyse commit + push eder.
+   Kapatmak için period_config.json'a `"kongre_push_enabled": false`; klon yolu için `"git_clone_dir": "..."`.
+Not: xlsm'deki kongre sayfaları xlsm'in KAYDEDİLMİŞ değerlerini taşır; Kongre_Takip_otomatik.xlsx -> xlsm yansıması ve kayıt sonrası ilk koşuda gönderilir.
+
