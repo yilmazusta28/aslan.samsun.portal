@@ -1158,12 +1158,128 @@
     });
   }
 
+  // ───────────────────────── PDF indirme ─────────────────────────
+  // Ekrandaki analiz (filtreler dahil) açık temada, bölümler sayfa sınırında bölünmeden A4 PDF olarak indirilir.
+  // html2canvas + jsPDF (vendor/, tembel yüklenir) — yazı tipi gömme gerekmez, Türkçe karakterler tarayıcıdan çizilir.
+  function loadScript(src) {
+    return new Promise(function (res, rej) {
+      var sc = document.createElement('script'); sc.src = src; sc.onload = res; sc.onerror = function () { rej(new Error(src + ' yüklenemedi')); };
+      document.head.appendChild(sc);
+    });
+  }
+  function ensurePdf() {
+    if (window.jspdf && window.html2canvas) return Promise.resolve();
+    return loadScript('./vendor/html2canvas.min.js?v=1.4.1').then(function () { return loadScript('./vendor/jspdf.umd.min.js?v=2.5.2'); });
+  }
+  function pdfBlocks(clone) {
+    var groups = [], cur = null;
+    Array.prototype.slice.call(clone.children).forEach(function (k) {
+      if (k.classList.contains('kg-sec')) { cur = { nodes: [k], hasCard: false }; groups.push(cur); return; }
+      if (k.classList.contains('kg-card')) {
+        if (cur && !cur.hasCard) { cur.nodes.push(k); cur.hasCard = true; } else groups.push({ nodes: [k], hasCard: true });
+        return;
+      }
+      if (!cur || cur.hasCard) { cur = { nodes: [k], hasCard: false }; groups.push(cur); } else cur.nodes.push(k);
+    });
+    return groups;
+  }
+  function buildPdf(mount, btn) {
+    var el = document.getElementById(mount === 'rep' ? 'perfKongreEtkisi' : 'mgrKongreEtkisi'), wrap = el && el.querySelector('.kg-wrap');
+    if (!wrap) return;
+    var old = btn ? btn.textContent : '';
+    function fin(msg) { if (btn) { btn.disabled = false; btn.textContent = msg || old; if (msg) setTimeout(function () { btn.textContent = old; }, 2500); } }
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ PDF hazırlanıyor…'; }
+    var ifr = null;
+    // kapsam: açık filtreler
+    var kapsam = [];
+    Array.prototype.forEach.call(wrap.querySelectorAll('.kg-filters label'), function (lb) {
+      var sl = lb.querySelector('select'); if (!sl || !sl.value) return;
+      kapsam.push(lb.firstChild.textContent.trim() + ': ' + sl.options[sl.selectedIndex].text);
+    });
+    var now = new Date(), pad = function (n) { return (n < 10 ? '0' : '') + n; };
+    var ds = pad(now.getDate()) + '.' + pad(now.getMonth() + 1) + '.' + now.getFullYear() + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+    ensurePdf().then(function () {
+      // Her bölüm küçük, izole bir iframe'de çizilir (html2canvas tüm sayfayı kopyaladığı için ana sayfada çok yavaş kalır).
+      ifr = document.createElement('iframe');
+      ifr.style.cssText = 'position:fixed;left:-20000px;top:0;width:1040px;height:1400px;border:0;visibility:hidden';
+      document.body.appendChild(ifr);
+      var idoc = ifr.contentDocument;
+      idoc.open(); idoc.write('<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>'); idoc.close();
+      var waits = [];
+      Array.prototype.forEach.call(document.querySelectorAll('link[rel=stylesheet],style'), function (n) {
+        var c = idoc.importNode(n, true);
+        if (c.tagName === 'LINK') waits.push(new Promise(function (r) { c.onload = r; c.onerror = r; }));
+        idoc.head.appendChild(c);
+      });
+      idoc.documentElement.style.cssText = '--text:#1e293b;--dim:#64748b;--border:#e2e8f0;--surf:#ffffff;--surf2:#f8fafc;--c1:#6d28d9;--bg:#ffffff';
+      idoc.body.style.cssText = 'margin:0;background:#fff;color:#1e293b;font-size:12px';
+      return Promise.all(waits).then(function () { return idoc.fonts && idoc.fonts.ready ? idoc.fonts.ready : null; }).then(function () { return idoc; });
+    }).then(function (idoc) {
+      var clone = wrap.cloneNode(true);
+      Array.prototype.forEach.call(clone.querySelectorAll('.kg-filters, .kg-noprint'), function (n) { n.parentNode && n.parentNode.removeChild(n); });
+      // kart içindeki aylık detay tabloları PDF'e girmez (grafikte zaten var); yöntem notu açık gelir
+      Array.prototype.forEach.call(clone.querySelectorAll('.kg-card details'), function (d) { d.parentNode && d.parentNode.removeChild(d); });
+      Array.prototype.forEach.call(clone.querySelectorAll('details'), function (d) { d.setAttribute('open', ''); });
+      Array.prototype.forEach.call(clone.querySelectorAll('.kg-scroll'), function (d) { d.style.overflow = 'visible'; });
+      var head = document.createElement('div');
+      head.innerHTML = '<div style="padding:6px 0 10px;border-bottom:3px solid #6d28d9;margin-bottom:12px"><div style="font-size:22px;font-weight:800;color:#1e293b">🎪 Kongre Etkisi Analizi</div>' +
+        '<div style="font-size:11px;color:#64748b;margin-top:3px">PHARMA VISION · ' + esc(ds) + (window.LOGGED_IN_USER ? ' · ' + esc(window.LOGGED_IN_USER) : '') + '</div>' +
+        '<div style="font-size:11px;color:#64748b">Kapsam: ' + (kapsam.length ? esc(kapsam.join(' · ')) : 'Tüm kayıtlar') + '</div></div>';
+      clone.insertBefore(head, clone.firstChild);
+      var groups = pdfBlocks(clone), PW = 210, PH = 297, MX = 10, MT = 10, MB = 14, CW = PW - 2 * MX, usable = PH - MT - MB;
+      var JsPDF = window.jspdf.jsPDF, doc = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true }), y = MT, idx = 0;
+      function addCanvas(cv) {
+        var mmH = cv.height * CW / cv.width;
+        if (mmH > PH - MB - y + 0.01) {
+          if (mmH <= usable || y > MT + 40) { doc.addPage(); y = MT; }   // blok sığmıyorsa yeni sayfa (çok uzunsa boş sayfa başından)
+        }
+        if (mmH <= PH - MB - y + 0.01) { doc.addImage(cv.toDataURL('image/jpeg', 0.74), 'JPEG', MX, y, CW, mmH); y += mmH + 2; return; }
+        var pxPer = cv.width / CW, off = 0;
+        while (off < cv.height - 1) {                                   // sayfaya sığmayan uzun tablo: parçalara böl
+          var slicePx = Math.min(cv.height - off, Math.floor((PH - MB - y) * pxPer));
+          var sc = document.createElement('canvas'); sc.width = cv.width; sc.height = slicePx;
+          var cx = sc.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, sc.width, sc.height); cx.drawImage(cv, 0, off, cv.width, slicePx, 0, 0, cv.width, slicePx);
+          doc.addImage(sc.toDataURL('image/jpeg', 0.74), 'JPEG', MX, y, CW, slicePx / pxPer);
+          off += slicePx; y += slicePx / pxPer + 2;
+          if (off < cv.height - 1) { doc.addPage(); y = MT; }
+        }
+      }
+      function next() {
+        if (idx >= groups.length) return Promise.resolve();
+        var g = groups[idx++], body = idoc.body, w = idoc.createElement('div');
+        w.style.cssText = 'width:1040px;box-sizing:border-box;padding:0 0 6px;background:#fff';
+        g.nodes.forEach(function (n) { w.appendChild(idoc.importNode(n, true)); });
+        body.innerHTML = ''; body.appendChild(w);
+        // SVG içindeki CSS değişkenleri tek başına çizildiğinde çözülmez → hesaplanmış renge çevir
+        Array.prototype.forEach.call(w.querySelectorAll('svg [style*="var("]'), function (n) {
+          var f = idoc.defaultView.getComputedStyle(n).fill; n.removeAttribute('style'); if (f) n.setAttribute('fill', f);
+        });
+        if (btn) btn.textContent = '⏳ PDF hazırlanıyor… ' + idx + '/' + groups.length;
+        return window.html2canvas(w, { scale: 1.2, backgroundColor: '#ffffff', logging: false, useCORS: false, windowWidth: 1040, windowHeight: Math.max(w.scrollHeight, 200) }).then(function (cv) {
+          addCanvas(cv);
+          return new Promise(function (r) { setTimeout(r, 0); }).then(next);        // arayüzü donmadan sıradaki bölüm
+        });
+      }
+      return next().then(function () {
+        var n = doc.getNumberOfPages(), i;
+        for (i = 1; i <= n; i++) {
+          doc.setPage(i); doc.setFontSize(8); doc.setTextColor(120);
+          doc.text('PHARMA VISION - Kongre Etkisi Analizi', MX, PH - 6);
+          doc.text('Sayfa ' + i + ' / ' + n, PW - MX, PH - 6, { align: 'right' });
+        }
+        doc.save('Kongre_Etkisi_Analizi_' + now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) + '.pdf');
+      });
+    }).then(function () { fin('✓ PDF indirildi'); }).catch(function (e) {
+      console.error('[kongre-etkisi] PDF hatası:', e); fin('⚠ PDF oluşturulamadı');
+    }).then(function () { if (ifr && ifr.parentNode) ifr.parentNode.removeChild(ifr); });
+  }
+
   function downloadArea() {
-    return '<div class="kg-sec">📥 Excel İndir<i></i></div>' +
+    return '<div class="kg-noprint"><div class="kg-sec">📥 Excel İndir<i></i></div>' +
       '<div class="kg-card" style="padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">' +
       '<button class="kg-btn" data-kgact="xlsx1">📊 KONGRE_TAKIP_1 (aylık kutu / pazar payı / EVO)</button>' +
       '<button class="kg-btn" data-kgact="xlsx2">👥 KONGRE_TAKIP_2 (katılımcı hekimler + YTD)</button>' +
-      '<span class="kg-note">YENI IMS .xlsm\'deki KONGRE_TAKIP_1 / KONGRE_TAKIP_2 sayfalarıyla aynı biçimde (renk, birleştirme, genişlik) iner; dosyalar otomasyonla güncellenir.</span></div>';
+      '<span class="kg-note">YENI IMS .xlsm\'deki KONGRE_TAKIP_1 / KONGRE_TAKIP_2 sayfalarıyla aynı biçimde (renk, birleştirme, genişlik) iner; dosyalar otomasyonla güncellenir.</span></div></div>';
   }
 
   function methodNote() {
@@ -1258,6 +1374,7 @@
 
     var showTtt = !locked && !S.ttt;
     el.innerHTML = '<div class="kg-wrap">' +
+      '<div class="kg-noprint" style="display:flex;justify-content:flex-end;margin:0 0 8px"><button class="kg-btn" data-kgact="pdf" data-m="' + mount + '">📄 Analizi PDF indir</button></div>' +
       '<div class="insight mb16"><div class="insight-title">🧠 Kongre Etkisi Analizi — geçen yıla göre</div><div class="insight-body">' + esc(ozetYorum(Sm, scope)) + '</div></div>' +
       filt + kpi + bolgeTablo() + donemOzet(items) + yogunlukTablo(Sm) + (showTtt ? teamTable(items) : '') + heatTable(items, showTtt) +
       '<div class="kg-sec">🎪 Kongre Bazlı Sonuçlar (' + items.length + ')<i></i></div>' + legendHtml() +
@@ -1280,7 +1397,8 @@
     var b = e.target && e.target.closest ? e.target.closest('[data-kgact]') : null;
     if (!b || !D) return;
     var act = b.getAttribute('data-kgact');
-    if (act === 'xlsx1') downloadXlsx(1, b);
+    if (act === 'pdf') buildPdf(b.getAttribute('data-m') || 'mgr', b);
+    else if (act === 'xlsx1') downloadXlsx(1, b);
     else if (act === 'xlsx2') downloadXlsx(2, b);
   });
 
