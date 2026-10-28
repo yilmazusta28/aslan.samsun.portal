@@ -1534,7 +1534,7 @@
           '<td style="padding:5px 4px;color:var(--dim)">' + (r.archivedAt ? r.archivedAt.slice(0, 10) : '—') + '</td>' +
           '<td style="padding:5px 4px;color:var(--dim)">' + r.genelCount + ' / ' + r.imsCount + '</td>' +
           '<td style="padding:5px 4px"><button onclick="window.PeriodArchiveManager.exportPeriodAsFile(\'' + r.key + '\')" ' +
-          'style="font-size:9px;font-weight:600;padding:3px 8px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--fg);cursor:pointer">📥 İndir</button></td>' +
+          'class="pv-dl pv-dl-sm">📥 İndir</button></td>' +
           '</tr>';
       }).join('') +
       '</tbody></table>';

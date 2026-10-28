@@ -308,8 +308,13 @@
           'TL Real ve Prim Puanı önce 1 ondalığa, sonra tam sayıya yuvarlanır (90,45 → 91 · 90,44 → 90). Mevcut prim, canlı GENEL / MI&amp;GI verisiyle hesaplanır; ' +
           'dönem sonu tahmini forecast motorundan gelir. %91 eşiğine kalan TL, gerçekleşmenin %90,45\'e ulaşması (→ 91\'e yuvarlanması) için gereken satıştır.' +
         '</div>' +
-        _historyHtml() +
       '</div>';
+
+    // Geçmiş Dönem Prim Hesabı + Ek Prim Tablosu: ayrı kutuda (Kongre Etkisi Analizi'nden sonra).
+    // #mgrPrimGecmis yoksa eski davranış: Prim Takip kutusunun altına eklenir.
+    var gHost = document.getElementById('mgrPrimGecmis');
+    if (gHost) gHost.innerHTML = _historyHtml();
+    else host.innerHTML += _historyHtml();
   }
 
   window.renderPrimTakipPage = renderPrimTakipPage;

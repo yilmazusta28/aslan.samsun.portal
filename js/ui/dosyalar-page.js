@@ -166,7 +166,7 @@
           '</div>' +
           '<div style="display:flex;gap:8px">' +
           '<button type="button" onclick="_dsyDownloadForm(\'' + f.url + '\',\'' + f.fileName.replace(/'/g, "\\'") + '\',this)"' +
-          ' style="flex:1;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surf);font-size:11px;font-weight:600;color:var(--c1);cursor:pointer">📥 İndir</button>' +
+          ' class="pv-dl" style="flex:1">📥 İndir</button>' +
           '<button type="button" onclick="_dsyPrintForm(\'' + f.url + '\')"' +
           ' style="flex:1;padding:7px 10px;border-radius:8px;border:none;background:linear-gradient(90deg,#7C3AED,#6D28D9);color:#fff;font-size:11px;font-weight:600;cursor:pointer">🖨️ Yazdır</button>' +
           '</div>' +
@@ -1039,7 +1039,7 @@
       '<div class="eczsub-tab" id="dsySubTab_gerceklesen" onclick="_dsyShowSub(\'gerceklesen\')">Gerçekleşen Merkez Ödeme</div>' +
     '</div>';
     html += '<div class="card mb16"><div class="card-body">' +
-      '<button onclick="exportMasrafExcel()" style="padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surf);font-size:11px;font-weight:600;cursor:pointer;color:var(--c1)">📥 Excel İndir (3 sayfa, tek dosya)</button>' +
+      '<button onclick="exportMasrafExcel()" class="pv-dl">📥 Excel İndir (3 sayfa, tek dosya)</button>' +
     '</div></div>';
     html += '<div id="dsySub_temsil">' + _tipPanelHtml('temsil', manager) + '</div>';
     html += '<div id="dsySub_planlanan" style="display:none">' + _tipPanelHtml('planlanan', manager) + '</div>';
@@ -1049,7 +1049,7 @@
     // ── Kongre Katılımcı Bilgileri bölümü ──
     html += '<div id="dsyMain_kongre" style="display:none">';
     html += '<div class="card mb16"><div class="card-body">' +
-      '<button onclick="exportKongreExcel()" style="padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surf);font-size:11px;font-weight:600;cursor:pointer;color:var(--c1)">📥 Excel İndir</button>' +
+      '<button onclick="exportKongreExcel()" class="pv-dl">📥 Excel İndir</button>' +
     '</div></div>';
     html += _tipPanelHtml('kongre', manager);
     html += '</div>'; // /dsyMain_kongre

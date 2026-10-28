@@ -729,10 +729,11 @@
     var st = document.createElement('style');
     st.id = 'pvKongreCss';
     st.textContent =
-      '.kg-wrap{font-size:12px;color:var(--text)}' +
+      '.kg-wrap{font-size:12px;color:var(--text);min-width:0;max-width:100%;box-sizing:border-box}' +
+      '.kg-wrap *{box-sizing:border-box}' +
       '.kg-filters{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 14px;padding:12px 14px;background:var(--surf);border:1px solid var(--border);border-radius:14px;box-shadow:0 2px 10px rgba(15,23,42,.10),0 1px 2px rgba(15,23,42,.06)}' +
       '.kg-filters label{display:flex;flex-direction:column;gap:3px;font-size:9.5px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.3px}' +
-      '.kg-filters select{min-width:140px;max-width:220px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-size:11.5px;font-weight:600;box-shadow:0 1px 3px rgba(15,23,42,.08)}' +
+      '.kg-filters select{min-width:140px;max-width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-size:11.5px;font-weight:600;box-shadow:0 1px 3px rgba(15,23,42,.08)}' +
       '.kg-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px;margin:0 0 14px}' +
       '.kg-kpi{display:flex;flex-direction:column-reverse;justify-content:flex-end;gap:5px;background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:12px 13px}' +
       '.kg-kpi b{display:block;font-size:26px;font-weight:800;line-height:1.1}' +
@@ -741,13 +742,14 @@
       '.kg-sec i{flex:1;height:1px;background:var(--border)}' +
       '.kg-legend{display:flex;flex-wrap:wrap;gap:10px;font-size:10px;color:var(--dim);margin:0 0 10px}' +
       '.kg-legend em{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px;font-style:normal}' +
-      '.kg-card{border:1px solid var(--border);border-radius:14px;background:var(--surf);padding:12px 13px;margin:0 0 10px}' +
+      '.kg-card{min-width:0;max-width:100%;border:1px solid var(--border);border-radius:14px;background:var(--surf);padding:12px 13px;margin:0 0 10px}' +
       '.kg-card-hd{display:flex;flex-wrap:wrap;align-items:center;gap:8px;justify-content:space-between;margin:0 0 8px}' +
       '.kg-title{font-size:12.5px;font-weight:800}' +
       '.kg-sub{font-size:10.5px;color:var(--dim);margin-top:2px}' +
       '.kg-badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:9.5px;font-weight:800;letter-spacing:.3px;white-space:nowrap}' +
-      '.kg-body{display:grid;grid-template-columns:minmax(260px,330px) 1fr;gap:12px;align-items:start}' +
-      '@media(max-width:720px){.kg-body{grid-template-columns:1fr}}' +
+      '.kg-body{display:grid;grid-template-columns:minmax(260px,330px) minmax(0,1fr);gap:12px;align-items:start}' +
+      '.kg-body>*{min-width:0}' +
+      '@media(max-width:720px){.kg-body{grid-template-columns:minmax(0,1fr)}}' +
       '.kg-cap{font-size:9.5px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.3px;margin:8px 0 2px}' +
       '.kg-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}' +
       '.kg-chip{border-radius:10px;padding:5px 9px;font-size:10.5px;font-weight:700;border:1px solid var(--border);background:var(--surf2)}' +
@@ -760,7 +762,7 @@
       '.kg-tbl th{font-size:9.5px;color:var(--dim);text-align:right;padding:4px 6px;border-bottom:1px solid var(--border)}' +
       '.kg-tbl th:first-child,.kg-tbl td:first-child{text-align:left}' +
       '.kg-tbl td{font-size:11px;padding:4px 6px;border-bottom:1px solid var(--border);text-align:right}' +
-      '.kg-scroll{overflow-x:auto}' +
+      '.kg-scroll{overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch}' +
       '.kg-tbl.kg-left th,.kg-tbl.kg-left td{text-align:left}' +
       '.kg-heat{border-collapse:separate;border-spacing:2px;min-width:560px}' +
       '.kg-heat th{font-size:9.5px;color:var(--dim);padding:2px 4px;text-align:center}' +
@@ -774,9 +776,8 @@
       '.kg-dl{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 14px;padding:12px 16px;border-radius:14px;border:1px solid rgba(16,185,129,.45);background:linear-gradient(135deg,rgba(16,185,129,.26),rgba(5,150,105,.10));-webkit-backdrop-filter:blur(10px) saturate(160%);backdrop-filter:blur(10px) saturate(160%);box-shadow:0 4px 16px rgba(5,150,105,.20),inset 0 1px 0 rgba(255,255,255,.35)}' +
       '.kg-dl-t{font-size:12px;font-weight:800;color:#047857;display:flex;align-items:center;gap:6px;margin-right:auto}' +
       '.kg-dl-t small{display:block;font-size:10px;font-weight:600;color:var(--dim)}' +
-      '.kg-dl .kg-btn{padding:8px 15px;font-size:11.5px;color:#fff;border:1px solid rgba(255,255,255,.35);background:linear-gradient(180deg,#10B981,#059669);box-shadow:0 2px 8px rgba(5,150,105,.35);transition:transform .12s,box-shadow .12s}' +
-      '.kg-dl .kg-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(5,150,105,.45)}' +
-      '.kg-dl .kg-btn:disabled{opacity:.6;cursor:wait;transform:none}';
+      '.kg-txt,.kg-note,.kg-sub,.kg-title{overflow-wrap:anywhere}' +
+      '@media(max-width:520px){.kg-filters{padding:10px}.kg-filters label{flex:1 1 140px;min-width:0}.kg-filters select{width:100%;min-width:0}.kg-dl{padding:10px 12px}.kg-dl-t{flex:1 1 100%;margin-right:0}.kg-dl .pv-dl{flex:1 1 100%}.kg-kpi b{font-size:22px}}';
     document.head.appendChild(st);
   }
 
@@ -1326,8 +1327,8 @@
     return '<div class="kg-noprint"><div class="kg-sec">📥 Excel İndir<i></i></div>' +
       '<div class="kg-dl">' +
       '<div class="kg-dl-t">📥 Excel dosyaları<small>YENI IMS .xlsm\'deki sayfalarla aynı biçimde iner; otomasyonla güncellenir.</small></div>' +
-      '<button class="kg-btn" data-kgact="xlsx1">📊 KONGRE_TAKIP_1 (aylık kutu / pazar payı / EVO)</button>' +
-      '<button class="kg-btn" data-kgact="xlsx2">👥 KONGRE_TAKIP_2 (katılımcı hekimler + YTD)</button></div></div>';
+      '<button class="pv-dl" data-kgact="xlsx1">📊 KONGRE_TAKIP_1 (aylık kutu / pazar payı / EVO)</button>' +
+      '<button class="pv-dl" data-kgact="xlsx2">👥 KONGRE_TAKIP_2 (katılımcı hekimler + YTD)</button></div></div>';
   }
 
   function methodNote() {
@@ -1433,7 +1434,7 @@
 
     var showTtt = !locked && !S.ttt;
     el.innerHTML = '<div class="kg-wrap">' +
-      '<div class="kg-noprint kg-dl"><div class="kg-dl-t">📄 Analiz raporu<small>Açık filtrelere göre PDF olarak indir.</small></div><button class="kg-btn" data-kgact="pdf" data-m="' + mount + '">📄 Analizi PDF indir</button></div>' +
+      '<div class="kg-noprint kg-dl"><div class="kg-dl-t">📄 Analiz raporu<small>Açık filtrelere göre PDF olarak indir.</small></div><button class="pv-dl" data-kgact="pdf" data-m="' + mount + '">📄 Analizi PDF indir</button></div>' +
       '<div class="insight mb16"><div class="insight-title">🧠 Kongre Etkisi Analizi — geçen yıla göre</div><div class="insight-body">' + esc(ozetYorum(Sm, scope, HS)) + '</div></div>' +
       filt + kpi + bolgeTablo() + donemOzet(items) + yogunlukTablo(Sm) + (showTtt ? teamTable(items, hsFn) : '') + heatTable(items, showTtt) +
       '<div class="kg-sec">🎪 Kongre × Brick × Ürün Sonuçları (' + items.length + ' analiz kaydı)<i></i></div>' + legendHtml() +

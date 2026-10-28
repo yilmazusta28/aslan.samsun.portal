@@ -208,7 +208,7 @@
     body.innerHTML =
       '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">' +
         '<div style="font-size:11px"><strong>' + _esc(ttt) + '</strong> · ' + yearSel + '</div>' +
-        '<button onclick="PrimLedger.exportYear(\'' + _year + '\')" title="arsiv/ klasörüne commit edin — tüm cihazlar görsün" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surf);font-size:10px;cursor:pointer">⬇️ Kayıtları indir (arsiv/)</button>' +
+        '<button onclick="PrimLedger.exportYear(\'' + _year + '\')" title="arsiv/ klasörüne commit edin — tüm cihazlar görsün" class="pv-dl pv-dl-sm">⬇️ Kayıtları indir (arsiv/)</button>' +
       '</div>' +
       '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="width:100%;font-size:10.5px;border-collapse:collapse;min-width:960px">' +
         _theadHtml('Dönem', true) +

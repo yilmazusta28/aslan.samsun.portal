@@ -612,7 +612,7 @@ report:function(){try{var p=0,r=this.m.map(function(x){var o={adim:x[0],'toplam_
 <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.4.0">
 <!-- PHASE3-STUB: <style> bloğu → css/style.css -->
 <!-- Rollback: bu satırı sil, css/style.css içeriğini <style>...</style> olarak geri ekle -->
-<link rel="stylesheet" href="css/style.css?v=20260914">
+<link rel="stylesheet" href="css/style.css?v=20261028a">
 <script>
 /* AÇILIŞ HIZI: tüm script'ler artık <body> sonunda. Giriş ekranı hemen görünür; script'ler gelmeden
    "Giriş yap"a basılırsa istek kuyruğa alınır, yükleme bitince (DOMContentLoaded) otomatik çalışır. */
@@ -1953,10 +1953,8 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
         <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
           <input type="text" id="eczaneSearch" class="inp" placeholder="🔍 Eczane ara..." 
             style="padding:5px 10px;font-size:11px;width:160px" oninput="filterEczaneTable()">
-          <button type="button" onclick="exportEczaneToExcel()"
-            title="Görüntülenen (filtrelenmiş/sıralanmış) eczane detay listesini Excel dosyası olarak indir"
-            style="padding:5px 10px;font-size:11px;font-weight:600;border-radius:6px;cursor:pointer;
-            border:1px solid #16A34A;background:#16A34A18;color:#16A34A;white-space:nowrap;display:flex;align-items:center;gap:4px">
+          <button type="button" onclick="exportEczaneToExcel()" class="pv-dl pv-dl-sm"
+            title="Görüntülenen (filtrelenmiş/sıralanmış) eczane detay listesini Excel dosyası olarak indir">
             ⬇️ Excel'e Aktar
           </button>
         </div>
@@ -2128,10 +2126,10 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;padding:8px;background:var(--surf,#fff);border:1px solid var(--border);border-radius:12px">
       <a href="#mgr-sec-performans" style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(5,150,105,.08);color:#059669;text-decoration:none;white-space:nowrap">🏆 Ekip Performansı</a>
       <a href="#mgr-sec-temsilci"   style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(14,116,144,.08);color:#0E7490;text-decoration:none;white-space:nowrap">🔍 Temsilci Analizi</a>
-      <a href="#mgr-sec-saha"       style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(217,119,6,.08);color:#D97706;text-decoration:none;white-space:nowrap">📋 Saha Yönetimi</a>
+      <a href="#mgr-sec-primtakip" style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(5,150,105,.10);color:#047857;text-decoration:none;white-space:nowrap">💰 Prim Takip</a>
+      <a href="#mgr-sec-kongre"     style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(245,158,11,.10);color:#B45309;text-decoration:none;white-space:nowrap">🎪 Kongre Analizi</a>
       <a href="#mgr-sec-kritik"     style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(220,38,38,.08);color:#DC2626;text-decoration:none;white-space:nowrap">🚨 Kritik Aksiyonlar</a>
       <a href="#mgr-sec-dosyalar"   style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(79,0,140,.08);color:#4F008C;text-decoration:none;white-space:nowrap">📁 Dosyalar Özeti</a>
-      <a href="#mgr-sec-primtakip" style="font-size:10px;font-weight:700;padding:5px 10px;border-radius:20px;background:rgba(5,150,105,.10);color:#047857;text-decoration:none;white-space:nowrap">💰 Prim Takip</a>
     </div>
 
     <!-- ═══ FAZ 13.0 — BÖLGE GENELİ (ŞENOL YILMAZ) KARTI KALDIRILDI ═══
@@ -2139,6 +2137,21 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
          satış, kalan TL, TL %) tekrar ediyordu — kaldırıldı. mgrRegionKpi
          id'si ve renderManagerRegionKpi() fonksiyonu rollback kolaylığı için
          dosyada bırakıldı, ancak artık çağrılmıyor/render edilmiyor. -->
+
+    <!-- ═══ FAZ 13.3 — BÖLGE ÖZET ANALİZİ (iadeler dahil) ═══
+         "Genel Durum" sayfasında her temsilcinin gördüğü Özet Analizi
+         kutusunun bölge-geneli karşılığı. renderAnaInsight()/
+         buildCompetitionAlerts() ile AYNI mantık; ALL_TTTS'teki HERKESİN
+         iade (negatif haftalık kutu) uyarıları burada tek listede toplanır. -->
+    <div class="insight mb16">
+      <div class="insight-title">🏢 Bölge Özet Analizi</div>
+      <div class="insight-body" id="mgrBolgeOzetBody">Yükleniyor…</div>
+      <div class="ana-insight-stats" id="mgrBolgeOzetStats" style="display:none"></div>
+    </div>
+    <div id="mgrBolgeAlertBox" style="display:none" class="alert-box mb16">
+      <div class="alert-title">⚠️ Dikkat — Bölge Genelinde İade Uyarıları</div>
+      <div class="alert-body" id="mgrBolgeAlertBody"></div>
+    </div>
 
     <!-- ═══ BÖLGE SIRALAMASI (NATIONAL + Bölgeler) ═══
          Kullanıcı isteği: GENEL_TABLO.csv'ye eklenen NATIONAL/DİYARBAKIR/
@@ -2163,19 +2176,12 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
       </div>
     </div>
 
-    <!-- ═══ FAZ 13.3 — BÖLGE ÖZET ANALİZİ (iadeler dahil) ═══
-         "Genel Durum" sayfasında her temsilcinin gördüğü Özet Analizi
-         kutusunun bölge-geneli karşılığı. renderAnaInsight()/
-         buildCompetitionAlerts() ile AYNI mantık; ALL_TTTS'teki HERKESİN
-         iade (negatif haftalık kutu) uyarıları burada tek listede toplanır. -->
-    <div class="insight mb16">
-      <div class="insight-title">🏢 Bölge Özet Analizi</div>
-      <div class="insight-body" id="mgrBolgeOzetBody">Yükleniyor…</div>
-      <div class="ana-insight-stats" id="mgrBolgeOzetStats" style="display:none"></div>
-    </div>
-    <div id="mgrBolgeAlertBox" style="display:none" class="alert-box mb16">
-      <div class="alert-title">⚠️ Dikkat — Bölge Genelinde İade Uyarıları</div>
-      <div class="alert-body" id="mgrBolgeAlertBody"></div>
+    <!-- ═══ FAZ 13.3 — BÖLGE HAFTALIK TL SATIŞ TRENDİ ═══
+         renderTTTDetail()'deki tttHaftaTlChart ile AYNI mantık — ürün
+         bazında haftalık (1-9. hafta) TL çizgi grafiği, bölge toplamı. -->
+    <div class="card mb16">
+      <div class="card-hd"><span class="card-title">📈 Bölge Haftalık TL Satış Trendi</span><span class="card-badge">Ürün Bazlı — 9 Hafta</span></div>
+      <div class="card-body"><div class="ch-md"><canvas id="mgrHaftaTlChart"></canvas></div></div>
     </div>
 
     <!-- ═══ FAZ 13.3 — BÖLGE ÜRÜN BAZLI PERFORMANS ═══
@@ -2189,14 +2195,6 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
           <tbody id="mgrUrunBody"></tbody>
         </table>
       </div>
-    </div>
-
-    <!-- ═══ FAZ 13.3 — BÖLGE HAFTALIK TL SATIŞ TRENDİ ═══
-         renderTTTDetail()'deki tttHaftaTlChart ile AYNI mantık — ürün
-         bazında haftalık (1-9. hafta) TL çizgi grafiği, bölge toplamı. -->
-    <div class="card mb16">
-      <div class="card-hd"><span class="card-title">📈 Bölge Haftalık TL Satış Trendi</span><span class="card-badge">Ürün Bazlı — 9 Hafta</span></div>
-      <div class="card-body"><div class="ch-md"><canvas id="mgrHaftaTlChart"></canvas></div></div>
     </div>
 
     <!-- ═══ FAZ 13.3 — BÖLGE HAFTALIK TL DÖKÜMÜ ═══
@@ -2356,14 +2354,65 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
       </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════════════
-         BÖLÜM 4 — SAHA YÖNETİMİ
-         (Saha gözlemleri manuel giriş + AI eğitim girdileri kısayolları)
-         ═══════════════════════════════════════════════════════════ -->
-    <div id="mgr-sec-saha" style="display:flex;align-items:center;gap:8px;margin:24px 0 10px;scroll-margin-top:12px">
-      <span style="font-size:14px">📋</span>
-      <span style="font-size:12.5px;font-weight:800;color:var(--fg,#111);letter-spacing:.3px;text-transform:uppercase">Saha Yönetimi</span>
+    <!-- ═══ PRİM TAKİP (SADECE YÖNETİCİ — bkz. js/ui/prim-takip-page.js) ═══
+         Kullanıcı isteği: Yönetici sayfasının içinde, Dönem Arşivi'nden ÖNCE.
+         Doldurulması: renderPrimTakipPage() — goPage(7) ve renderManagerExtra()
+         sonrasında çalışır. Sadece okur; hiçbir veriyi/hesabı değiştirmez. -->
+    <div id="mgr-sec-primtakip" style="display:flex;align-items:center;gap:8px;margin:24px 0 10px;scroll-margin-top:12px">
+      <span style="font-size:14px">💰</span>
+      <span style="font-size:12.5px;font-weight:800;color:var(--fg,#111);letter-spacing:.3px;text-transform:uppercase">Prim Takip</span>
       <span style="flex:1;height:1px;background:var(--border)"></span>
+    </div>
+    <div class="mb16" id="mgrPrimTakip"><div style="padding:16px;color:var(--dim);font-size:12px">Yükleniyor...</div></div>
+
+    <div id="mgr-sec-kongre" style="scroll-margin-top:12px"></div>
+    <!-- ═══ Kongre Etkisi (filtreli) — kongreler satışa/pazar payına karşılık buldu mu?
+         js/ui/kongre-etkisi.js · goPage(7) içinde renderKongreEtkisiManager() çağrılır ═══ -->
+    <div class="card mb16" id="mgrKongreEtkisiCard" style="border:1.5px solid rgba(245,158,11,.30)">
+      <div class="card-hd">
+        <span class="card-title">🎪 Kongre Etkisi Analizi</span>
+        <span class="card-badge" style="font-size:9px">Kongre → Brick → Ürün İvmesi</span>
+      </div>
+      <div class="card-body" id="mgrKongreEtkisi"><div style="padding:12px;color:var(--dim);font-size:12px">Yükleniyor…</div></div>
+    </div>
+
+    <!-- Geçmiş Dönem Prim Hesabı + Ek Prim Tablosu: Kongre Etkisi Analizi'nden SONRA (js/ui/prim-takip-page.js burayı doldurur) -->
+    <div class="mb16" id="mgrPrimGecmis"></div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         BÖLÜM 5 — KRİTİK AKSİYONLAR
+         (Kullanıcı isteğiyle Saha Yönetimi bölümünden SONRAYA taşındı.)
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="mgr-sec-kritik" style="display:flex;align-items:center;gap:8px;margin:24px 0 10px;scroll-margin-top:12px">
+      <span style="font-size:14px">🚨</span>
+      <span style="font-size:12.5px;font-weight:800;color:var(--fg,#111);letter-spacing:.3px;text-transform:uppercase">Kritik Aksiyonlar</span>
+      <span style="flex:1;height:1px;background:var(--border)"></span>
+    </div>
+
+    <!-- ═══ FAZ 13.0 — Kritik Aksiyon Listesi (ekleme/katkı) ═══ -->
+    <div class="card mb16" style="border:1.5px solid rgba(220,38,38,.18)">
+      <div class="card-hd"><span class="card-title">🚨 Ekip Genelinde Kritik Aksiyon Listesi</span><span class="card-badge" style="font-size:9px">Tüm Temsilciler — Yüksek Risk</span></div>
+      <div class="card-body" id="mgrCriticalActions"></div>
+    </div>
+
+    <!-- ═══ FAZ 22.1 — Dosyalar Özeti (page8 › Dosyalar sayfası kayıtları) ═══
+         Temsilcilerin "Dosyalar" sayfasından girdiği Temsil Masraf / Planlanan
+         & Gerçekleşen Merkez Ödeme / Kongre kayıtlarının temsilci bazında
+         adet + toplam masraf özeti. Salt okunur; "Detay →" Dosyalar sayfasına
+         geçirir (yönetici orada tüm kayıtları satır satır görür/düzenler).
+         Doldurulması: js/ui/dosyalar-manager-summary.js →
+         renderDosyalarManagerSummary() (goPage(7) içinde çağrılır).
+         FAZ 23: #mgr-sec-dosyalar anchor'ı, üstteki hızlı gezinme
+         çubuğundaki "📁 Dosyalar Özeti" pilinin hedefi olarak eklendi. -->
+    <div id="mgr-sec-dosyalar" style="scroll-margin-top:12px"></div>
+    <div class="card mb16" style="border:1.5px solid rgba(79,0,140,.15)">
+      <div class="card-hd">
+        <span class="card-title">📁 Dosyalar Özeti</span>
+        <span class="card-badge" style="font-size:9px">Masraf &amp; Kongre Kayıtları — Tüm Temsilciler</span>
+      </div>
+      <div class="card-body" id="mgrDosyalarOzet">
+        <div style="font-size:11px;color:var(--dim)">Yükleniyor…</div>
+      </div>
     </div>
 
     <!-- ═══ FAZ 13.5 — Ekip Haftalık Rota Planları (route-plan-input.js FAZ 10.2 üzerinden) ═══
@@ -2416,26 +2465,6 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
       <div id="sgList" style="margin-top:12px"></div>
     </div>
 
-    <!-- ═══ FAZ 22.1 — Dosyalar Özeti (page8 › Dosyalar sayfası kayıtları) ═══
-         Temsilcilerin "Dosyalar" sayfasından girdiği Temsil Masraf / Planlanan
-         & Gerçekleşen Merkez Ödeme / Kongre kayıtlarının temsilci bazında
-         adet + toplam masraf özeti. Salt okunur; "Detay →" Dosyalar sayfasına
-         geçirir (yönetici orada tüm kayıtları satır satır görür/düzenler).
-         Doldurulması: js/ui/dosyalar-manager-summary.js →
-         renderDosyalarManagerSummary() (goPage(7) içinde çağrılır).
-         FAZ 23: #mgr-sec-dosyalar anchor'ı, üstteki hızlı gezinme
-         çubuğundaki "📁 Dosyalar Özeti" pilinin hedefi olarak eklendi. -->
-    <div id="mgr-sec-dosyalar" style="scroll-margin-top:12px"></div>
-    <div class="card mb16" style="border:1.5px solid rgba(79,0,140,.15)">
-      <div class="card-hd">
-        <span class="card-title">📁 Dosyalar Özeti</span>
-        <span class="card-badge" style="font-size:9px">Masraf &amp; Kongre Kayıtları — Tüm Temsilciler</span>
-      </div>
-      <div class="card-body" id="mgrDosyalarOzet">
-        <div style="font-size:11px;color:var(--dim)">Yükleniyor…</div>
-      </div>
-    </div>
-
     <!-- ═══ FAZ 12.2 — AI Eğitim Girdileri Özeti (GÜNCELLEME: artık gerçek
          sayılar gösteriyor — bkz. manager-panel-engine.js renderAiEgitimGirdileriOzeti) ═══ -->
     <div class="card mb16" style="border:1.5px solid rgba(79,0,140,.15)">
@@ -2445,43 +2474,6 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
       </div>
       <div class="card-body" id="mgrAiEgitimOzeti"></div>
     </div>
-
-    <!-- ═══ Kongre Etkisi (filtreli) — kongreler satışa/pazar payına karşılık buldu mu?
-         js/ui/kongre-etkisi.js · goPage(7) içinde renderKongreEtkisiManager() çağrılır ═══ -->
-    <div class="card mb16" id="mgrKongreEtkisiCard" style="border:1.5px solid rgba(245,158,11,.30)">
-      <div class="card-hd">
-        <span class="card-title">🎪 Kongre Etkisi Analizi</span>
-        <span class="card-badge" style="font-size:9px">Kongre → Brick → Ürün İvmesi</span>
-      </div>
-      <div class="card-body" id="mgrKongreEtkisi"><div style="padding:12px;color:var(--dim);font-size:12px">Yükleniyor…</div></div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════════════
-         BÖLÜM 5 — KRİTİK AKSİYONLAR
-         (Kullanıcı isteğiyle Saha Yönetimi bölümünden SONRAYA taşındı.)
-         ═══════════════════════════════════════════════════════════ -->
-    <div id="mgr-sec-kritik" style="display:flex;align-items:center;gap:8px;margin:24px 0 10px;scroll-margin-top:12px">
-      <span style="font-size:14px">🚨</span>
-      <span style="font-size:12.5px;font-weight:800;color:var(--fg,#111);letter-spacing:.3px;text-transform:uppercase">Kritik Aksiyonlar</span>
-      <span style="flex:1;height:1px;background:var(--border)"></span>
-    </div>
-
-    <!-- ═══ FAZ 13.0 — Kritik Aksiyon Listesi (ekleme/katkı) ═══ -->
-    <div class="card mb16" style="border:1.5px solid rgba(220,38,38,.18)">
-      <div class="card-hd"><span class="card-title">🚨 Ekip Genelinde Kritik Aksiyon Listesi</span><span class="card-badge" style="font-size:9px">Tüm Temsilciler — Yüksek Risk</span></div>
-      <div class="card-body" id="mgrCriticalActions"></div>
-    </div>
-
-    <!-- ═══ PRİM TAKİP (SADECE YÖNETİCİ — bkz. js/ui/prim-takip-page.js) ═══
-         Kullanıcı isteği: Yönetici sayfasının içinde, Dönem Arşivi'nden ÖNCE.
-         Doldurulması: renderPrimTakipPage() — goPage(7) ve renderManagerExtra()
-         sonrasında çalışır. Sadece okur; hiçbir veriyi/hesabı değiştirmez. -->
-    <div id="mgr-sec-primtakip" style="display:flex;align-items:center;gap:8px;margin:24px 0 10px;scroll-margin-top:12px">
-      <span style="font-size:14px">💰</span>
-      <span style="font-size:12.5px;font-weight:800;color:var(--fg,#111);letter-spacing:.3px;text-transform:uppercase">Prim Takip</span>
-      <span style="flex:1;height:1px;background:var(--border)"></span>
-    </div>
-    <div class="mb16" id="mgrPrimTakip"><div style="padding:16px;color:var(--dim);font-size:12px">Yükleniyor...</div></div>
 
     <!-- ═══ FAZ 10 — Dönem Arşivi (kullanıcı isteğiyle eklendi) ═══
          GENEL_TABLO.csv/IMS_TABLO.csv her dönem sonunda sıfırlanıyor.
@@ -2600,7 +2592,7 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
 <script src="js/ui/ttt-lock.js?v=20261006"></script>
 <script src="js/ui/ytd-tl-page.js?v=20260912"></script>
 <script src="js/ui/tr-sira-panel.js?v=20260913"></script>
-<script src="js/ui/prim-gecmis.js?v=20261022b"></script>
+<script src="js/ui/prim-gecmis.js?v=20261028a"></script>
 <script src="js/core/runtime-patches.js?v=20260705"></script>
 <script src="js/core/perf-monitor.js?v=20260705"></script>
 <script src="js/core/health-check.js?v=20260705"></script>
@@ -2646,7 +2638,7 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
 <script src="js/ai/executive/team-forecast-engine.js?v=20260705"></script>
 <script src="js/ai/executive/executive-summary-engine.js?v=20260705"></script>
 <script src="js/ai/executive/executive-engine.js?v=20260705"></script>
-<script src="js/ai/executive/manager-panel-engine.js?v=20261010"></script>
+<script src="js/ai/executive/manager-panel-engine.js?v=20261028a"></script>
 <script src="js/ai/executive/ai-usage-panel.js?v=20261011"></script>
 <script src="js/ai/executive/team-learning-engine.js?v=20260705"></script>
 <script src="js/ai/memory/ai-memory.js?v=20260705"></script>
@@ -2669,10 +2661,10 @@ window.DOSYALAR_SYNC_WORKER_URL   = 'https://samsun.yilmazusta28.workers.dev/dos
 window.DOSYALAR_UPDATE_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/dosyalar-update';
 window.DOSYALAR_DELETE_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/dosyalar-delete';
 </script>
-<script src="js/ui/dosyalar-page.js?v=20261013"></script>
+<script src="js/ui/dosyalar-page.js?v=20261028a"></script>
 <script src="js/ui/dosyalar-manager-summary.js?v=20261008"></script>
-<script src="js/ui/prim-takip-page.js?v=20261022b"></script>
-<script src="js/ui/kongre-etkisi.js?v=20261024"></script>
+<script src="js/ui/prim-takip-page.js?v=20261028a"></script>
+<script src="js/ui/kongre-etkisi.js?v=20261028a"></script>
 <script src="js/ai/core/competitive-outcome-linker.js?v=20260705"></script>
 <script>window.SARTLAR_SYNC_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/sartlar-sync';</script>
 <script>window.HABER_SYNC_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/haber-sync';</script>
@@ -4721,8 +4713,7 @@ function _renderStokBanner(ttt) {
       <span style="font-size:11px;color:var(--dim)">
         Ürünler: ${sig.kritikUrunler.join(', ')} · Brickler: ${sig.kritikBricks.join(', ')}
       </span>
-      <button onclick="stokCsvIndir()" style="margin-left:auto;font-size:10px;padding:3px 10px;
-        border:1px solid ${clr};border-radius:6px;background:transparent;color:${clr};cursor:pointer">
+      <button onclick="stokCsvIndir()" class="pv-dl pv-dl-sm" style="margin-left:auto">
         ↓ CSV İndir
       </button>
     </div>`;
