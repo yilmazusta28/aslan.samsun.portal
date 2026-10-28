@@ -105,3 +105,19 @@ Güncelleme yolları (ikisi de aynı dosyaları üretir, idempotent):
    Kapatmak için period_config.json'a `"kongre_push_enabled": false`; klon yolu için `"git_clone_dir": "..."`.
 Not: xlsm'deki kongre sayfaları xlsm'in KAYDEDİLMİŞ değerlerini taşır; Kongre_Takip_otomatik.xlsx -> xlsm yansıması ve kayıt sonrası ilk koşuda gönderilir.
 
+## 8. SharePoint → OneDrive bağlantı düzeltmesi
+
+`YENI IMS .xlsm` içinde Excel'in aktif kullandığı bazı dış bağlantılar doğrudan `https://selcukluholding.sharepoint.com/...` adresine
+(ŞUBAT/MART/AĞUSTOS Karne, ASLAN 37. hafta) ya da artık erişilemeyen ağ yollarına (`\\7D471D08\...`, `\\AF2F8709\...`) bağlıydı.
+Hepsi, OneDrive'ın yerel klasörlerine çevrildi (`C:\Users\yilma\OneDrive - Selçuklu Holding A.Ş\...`):
+
+| Kaynak | Yeni yer |
+|---|---|
+| IMS - Aylık Veriler / Aslan / `<yıl>` / ASLAN KESİNLEŞMİŞ AYLIK IMS | `2. Kesinleşmiş IMS\<yıl>\ASLAN KESİNLEŞMİŞ AYLIK IMS\` |
+| Karne / ASLAN / `<yıl>` | `3. Karne\ASLAN\<yıl>\` |
+| IMS - Haftalık Veriler / Aslan / `<yıl>` | `1. Haftalık IMS\<yıl>\` |
+| eski "Selçuklu Holding Portal - Aslan 1" (5D/6D) | `2. Kesinleşmiş IMS\2026\ASLAN KESİNLEŞMİŞ AYLIK IMS\` |
+
+- `refresh_links.ps1`: bağlantı yolu çözümlenirken artık URL kodlaması (`%20`) ve Unicode biçimi (NFC) normalleştiriliyor; böylece SharePoint kaynaklı bir bağlantı tekrar çıkarsa çalışma anında OneDrive yoluna çevrilir.
+- `period_config.json`: `sharepoint_synced_folder` anahtarı `onedrive_haftalik_folder` oldu (script eski adı da okur).
+
