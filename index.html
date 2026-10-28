@@ -2256,30 +2256,6 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
       </div>
     </div>
 
-    <!-- FAZ 13.0 DÜZELTMESİ: "Takım Öğrenmesi & Peer Benchmark" kartı buradan
-         (AI Asistan / page4, her temsilcinin gördüğü sayfa) Yönetici Sekmesine
-         (page6) TAŞINDI — kart ekip-geneli peer benchmark içerdiği için sadece
-         bölge müdürünün görmesi gereken bir yönetici raporudur; kendi comment'i
-         zaten "yönetici ekranı" diyordu ama fiziksel olarak page4'teydi.
-         Rollback: bu kartı silmek ve page4'teki eski konumuna geri koymak
-         yeterli — renderTeamLearningCard() ve teamLearningCard id'si değişmedi. -->
-    <div class="card mb16" id="acc_team_learning_exec">
-      <div class="card-hd" onclick="const p=this.nextElementSibling;const open=p.style.display==='none';p.style.display=open?'block':'none';if(open)renderTeamLearningCard();">
-        <span class="card-title">🏆 Takım Öğrenmesi & Peer Benchmark</span>
-        <span class="card-badge" style="margin-left:auto;background:#FEE2E2;color:#991B1B">Team Learning</span>
-      </div>
-      <div id="teamLearningCard" style="display:none;padding:12px 16px"></div>
-    </div>
-
-    <!-- ═══ AI Kullanım & Maliyet (yalnız yönetici; worker POST /ai-usage) ═══ -->
-    <div class="card mb16">
-      <div class="card-hd" onclick="const p=this.nextElementSibling;const open=p.style.display==='none';p.style.display=open?'block':'none';if(open&&window.renderAiUsagePanel)renderAiUsagePanel();">
-        <span class="card-title">💸 AI Kullanım &amp; Maliyet</span>
-        <span class="card-badge" style="margin-left:auto;background:#FEF3C7;color:#92400E">Yalnız Yönetici</span>
-      </div>
-      <div id="aiUsageCard" style="display:none;padding:12px 16px"></div>
-    </div>
-
     <!-- ═══════════════════════════════════════════════════════════
          BÖLÜM 3 — TEMSİLCİ ANALİZİ
          (Brick bazlı detay + AI destekli pazar analizi özeti)
@@ -2433,6 +2409,30 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
         <div style="font-size:10px;color:var(--dim);margin-bottom:12px">Her temsilcinin kendi "Haftalık Rota Planım" ekranından girdiği brick planları — salt okunur özet.</div>
         <div id="mgrTeamRouteBody"><div style="font-size:11px;color:var(--dim)">Yükleniyor…</div></div>
       </div>
+    </div>
+
+    <!-- FAZ 13.0 DÜZELTMESİ: "Takım Öğrenmesi & Peer Benchmark" kartı buradan
+         (AI Asistan / page4, her temsilcinin gördüğü sayfa) Yönetici Sekmesine
+         (page6) TAŞINDI — kart ekip-geneli peer benchmark içerdiği için sadece
+         bölge müdürünün görmesi gereken bir yönetici raporudur; kendi comment'i
+         zaten "yönetici ekranı" diyordu ama fiziksel olarak page4'teydi.
+         Rollback: bu kartı silmek ve page4'teki eski konumuna geri koymak
+         yeterli — renderTeamLearningCard() ve teamLearningCard id'si değişmedi. -->
+    <div class="card mb16" id="acc_team_learning_exec">
+      <div class="card-hd" onclick="const p=this.nextElementSibling;const open=p.style.display==='none';p.style.display=open?'block':'none';if(open)renderTeamLearningCard();">
+        <span class="card-title">🏆 Takım Öğrenmesi & Peer Benchmark</span>
+        <span class="card-badge" style="margin-left:auto;background:#FEE2E2;color:#991B1B">Team Learning</span>
+      </div>
+      <div id="teamLearningCard" style="display:none;padding:12px 16px"></div>
+    </div>
+
+    <!-- ═══ AI Kullanım & Maliyet (yalnız yönetici; worker POST /ai-usage) ═══ -->
+    <div class="card mb16">
+      <div class="card-hd" onclick="const p=this.nextElementSibling;const open=p.style.display==='none';p.style.display=open?'block':'none';if(open&&window.renderAiUsagePanel)renderAiUsagePanel();">
+        <span class="card-title">💸 AI Kullanım &amp; Maliyet</span>
+        <span class="card-badge" style="margin-left:auto;background:#FEF3C7;color:#92400E">Yalnız Yönetici</span>
+      </div>
+      <div id="aiUsageCard" style="display:none;padding:12px 16px"></div>
     </div>
 
     <!-- ═══ FAZ 12.2 — Saha Gözlemleri Manuel Giriş ═══ -->
