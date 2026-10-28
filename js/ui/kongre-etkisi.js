@@ -730,13 +730,13 @@
     st.id = 'pvKongreCss';
     st.textContent =
       '.kg-wrap{font-size:12px;color:var(--text)}' +
-      '.kg-filters{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}' +
+      '.kg-filters{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 14px;padding:12px 14px;background:var(--surf);border:1px solid var(--border);border-radius:14px;box-shadow:0 2px 10px rgba(15,23,42,.10),0 1px 2px rgba(15,23,42,.06)}' +
       '.kg-filters label{display:flex;flex-direction:column;gap:3px;font-size:9.5px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.3px}' +
-      '.kg-filters select{min-width:140px;max-width:220px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surf);color:var(--text);font-size:11.5px;font-weight:600}' +
+      '.kg-filters select{min-width:140px;max-width:220px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-size:11.5px;font-weight:600;box-shadow:0 1px 3px rgba(15,23,42,.08)}' +
       '.kg-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px;margin:0 0 14px}' +
-      '.kg-kpi{background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:9px 11px}' +
-      '.kg-kpi b{display:block;font-size:19px;font-weight:800;line-height:1.15}' +
-      '.kg-kpi span{font-size:9.5px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.3px}' +
+      '.kg-kpi{display:flex;flex-direction:column-reverse;justify-content:flex-end;gap:5px;background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:12px 13px}' +
+      '.kg-kpi b{display:block;font-size:26px;font-weight:800;line-height:1.1}' +
+      '.kg-kpi span{font-size:9.5px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.3px;line-height:1.3}' +
       '.kg-sec{display:flex;align-items:center;gap:8px;margin:16px 0 8px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.3px}' +
       '.kg-sec i{flex:1;height:1px;background:var(--border)}' +
       '.kg-legend{display:flex;flex-wrap:wrap;gap:10px;font-size:10px;color:var(--dim);margin:0 0 10px}' +
