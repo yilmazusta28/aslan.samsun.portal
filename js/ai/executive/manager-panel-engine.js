@@ -235,7 +235,7 @@
     if (!body) return;
     var rows = buildRegionRanking();
     if (!rows.length) {
-      body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--dim);padding:14px">' +
+      body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--dim);padding:14px">' +
         'Bölge sıralaması verisi yok — GENEL_TABLO.csv\'ye NATIONAL/bölge satırları henüz eklenmemiş olabilir.</td></tr>';
       return;
     }
@@ -260,12 +260,11 @@
         return '<tr style="' + rowBg + '" title="Ulusal veri henüz yayınlanmadı">' +
           '<td style="font-weight:700">—</td>' +
           '<td style="font-weight:800">' + label + '</td>' +
-          '<td class="mono" colspan="7" style="color:var(--dim);font-size:11px">Ulusal veri henüz yayınlanmadı</td></tr>';
+          '<td class="mono" colspan="6" style="color:var(--dim);font-size:11px">Ulusal veri henüz yayınlanmadı</td></tr>';
       }
       return '<tr style="' + rowBg + '">' +
         '<td style="font-weight:700" title="TL realizasyonuna göre sıra">' + (isNational ? '—' : trRankBadge(r.tl_rank, '', natPct > 0 ? (pct >= natPct ? 'g' : 'r') : 'n').replace('TR Sırası:', 'TL% Sırası:')) + '</td>' +
         '<td style="font-weight:' + (isNational || isSamsun ? '800' : '600') + '">' + label + '</td>' +
-        '<td class="mono" style="color:var(--dim)" title="CSV\'deki TR SIRA (bilgi amaçlı)">' + (r.tr_sira > 0 ? r.tr_sira : '—') + '</td>' +
         '<td class="mono">' + fTL(r.hedef_tl || 0) + '</td>' +
         '<td class="mono" style="font-weight:700">' + fTL(r.satis_tl || 0) + '</td>' +
         '<td class="mono ' + (((r.hedef_tl||0)-(r.satis_tl||0)) > 0 ? 'negative' : 'positive') + '">' + fTL(((r.hedef_tl||0)-(r.satis_tl||0))) + '</td>' +
@@ -406,7 +405,7 @@
     if (!body) return;
     var rows = buildManagerUrunPerformans();
     if (!rows.length) {
-      body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--dim);padding:14px">Veri yok — CSV yüklenmemiş olabilir.</td></tr>';
+      body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--dim);padding:14px">Veri yok — CSV yüklenmemiş olabilir.</td></tr>';
       return;
     }
     var fc = buildManagerUrunForecast();
@@ -638,7 +637,7 @@
     if (!body) return;
     var rows = buildManagerKutuAggregate();
     if (!rows.length) {
-      body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--dim);padding:14px">Veri yok — CSV yüklenmemiş olabilir.</td></tr>';
+      body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--dim);padding:14px">Veri yok — CSV yüklenmemiş olabilir.</td></tr>';
       return;
     }
     // KULLANICI İSTEĞİ: "Hft. Ger. TL" ve "Kalan Hft. Ger. TL" kolonları için
