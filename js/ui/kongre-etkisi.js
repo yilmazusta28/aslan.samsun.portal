@@ -770,7 +770,13 @@
       '.kg-bar{height:7px;border-radius:4px;background:var(--border);overflow:hidden;min-width:70px}' +
       '.kg-bar i{display:block;height:100%;border-radius:4px}' +
       '.kg-note{font-size:10.5px;color:var(--dim);line-height:1.5}' +
-      '.kg-btn{padding:5px 11px;border-radius:8px;border:1px solid var(--border);background:var(--surf);color:var(--c1);font-size:10.5px;font-weight:700;cursor:pointer}';
+      '.kg-btn{padding:5px 11px;border-radius:8px;border:1px solid var(--border);background:var(--surf);color:var(--c1);font-size:10.5px;font-weight:700;cursor:pointer}' +
+      '.kg-dl{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 14px;padding:12px 16px;border-radius:14px;border:1px solid rgba(16,185,129,.45);background:linear-gradient(135deg,rgba(16,185,129,.26),rgba(5,150,105,.10));-webkit-backdrop-filter:blur(10px) saturate(160%);backdrop-filter:blur(10px) saturate(160%);box-shadow:0 4px 16px rgba(5,150,105,.20),inset 0 1px 0 rgba(255,255,255,.35)}' +
+      '.kg-dl-t{font-size:12px;font-weight:800;color:#047857;display:flex;align-items:center;gap:6px;margin-right:auto}' +
+      '.kg-dl-t small{display:block;font-size:10px;font-weight:600;color:var(--dim)}' +
+      '.kg-dl .kg-btn{padding:8px 15px;font-size:11.5px;color:#fff;border:1px solid rgba(255,255,255,.35);background:linear-gradient(180deg,#10B981,#059669);box-shadow:0 2px 8px rgba(5,150,105,.35);transition:transform .12s,box-shadow .12s}' +
+      '.kg-dl .kg-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(5,150,105,.45)}' +
+      '.kg-dl .kg-btn:disabled{opacity:.6;cursor:wait;transform:none}';
     document.head.appendChild(st);
   }
 
@@ -1318,10 +1324,10 @@
 
   function downloadArea() {
     return '<div class="kg-noprint"><div class="kg-sec">📥 Excel İndir<i></i></div>' +
-      '<div class="kg-card" style="padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">' +
+      '<div class="kg-dl">' +
+      '<div class="kg-dl-t">📥 Excel dosyaları<small>YENI IMS .xlsm\'deki sayfalarla aynı biçimde iner; otomasyonla güncellenir.</small></div>' +
       '<button class="kg-btn" data-kgact="xlsx1">📊 KONGRE_TAKIP_1 (aylık kutu / pazar payı / EVO)</button>' +
-      '<button class="kg-btn" data-kgact="xlsx2">👥 KONGRE_TAKIP_2 (katılımcı hekimler + YTD)</button>' +
-      '<span class="kg-note">YENI IMS .xlsm\'deki KONGRE_TAKIP_1 / KONGRE_TAKIP_2 sayfalarıyla aynı biçimde (renk, birleştirme, genişlik) iner; dosyalar otomasyonla güncellenir.</span></div></div>';
+      '<button class="kg-btn" data-kgact="xlsx2">👥 KONGRE_TAKIP_2 (katılımcı hekimler + YTD)</button></div></div>';
   }
 
   function methodNote() {
@@ -1427,7 +1433,7 @@
 
     var showTtt = !locked && !S.ttt;
     el.innerHTML = '<div class="kg-wrap">' +
-      '<div class="kg-noprint" style="display:flex;justify-content:flex-end;margin:0 0 8px"><button class="kg-btn" data-kgact="pdf" data-m="' + mount + '">📄 Analizi PDF indir</button></div>' +
+      '<div class="kg-noprint kg-dl"><div class="kg-dl-t">📄 Analiz raporu<small>Açık filtrelere göre PDF olarak indir.</small></div><button class="kg-btn" data-kgact="pdf" data-m="' + mount + '">📄 Analizi PDF indir</button></div>' +
       '<div class="insight mb16"><div class="insight-title">🧠 Kongre Etkisi Analizi — geçen yıla göre</div><div class="insight-body">' + esc(ozetYorum(Sm, scope, HS)) + '</div></div>' +
       filt + kpi + bolgeTablo() + donemOzet(items) + yogunlukTablo(Sm) + (showTtt ? teamTable(items, hsFn) : '') + heatTable(items, showTtt) +
       '<div class="kg-sec">🎪 Kongre × Brick × Ürün Sonuçları (' + items.length + ' analiz kaydı)<i></i></div>' + legendHtml() +
