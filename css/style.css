@@ -11,7 +11,7 @@
   --c5:#A855F7;--c6:#FB7187;--c7:#E07B39;--c8:#10B981;
   --good:#10B981;--warn:#F59E0B;--danger:#EF4444;
   --nav-w:262px;--topbar-h:60px;
-  --card-radius:18px;--card-shadow:0 2px 20px rgba(79,0,140,.07);
+  --card-radius:18px;--card-shadow:0 4px 24px rgba(79,0,140,.14),0 1px 4px rgba(15,23,42,.10);
   --tabbar-h:0px;
 }
 
@@ -24,7 +24,7 @@
   --c1:#8B5CF6;--c2:#A78BFA;--c3:#22D3EE;--c4:#FB7185;
   --c5:#C084FC;--c6:#FDA4AF;--c7:#FBBF24;--c8:#34D399;
   --good:#34D399;--warn:#FBBF24;--danger:#F87171;
-  --card-shadow:0 2px 20px rgba(0,0,0,.4);
+  --card-shadow:0 4px 26px rgba(0,0,0,.6),0 1px 4px rgba(0,0,0,.45);
 }
 [data-theme="dark"] body{background:var(--bg);color:var(--text)}
 [data-theme="dark"] #topbar{background:#13132A!important;border-color:var(--border)!important;box-shadow:0 2px 14px rgba(0,0,0,.4)!important}
@@ -367,7 +367,7 @@ body{
 
 /* ── CARDS ── */
 .card{background:#fff;border:1px solid var(--border);border-radius:var(--card-radius);overflow:hidden;margin-bottom:18px;box-shadow:var(--card-shadow);transition:box-shadow .2s}
-.card:hover{box-shadow:0 5px 28px rgba(79,0,140,.1)}
+.card:hover{box-shadow:0 8px 34px rgba(79,0,140,.20),0 2px 6px rgba(15,23,42,.12)}
 .card-hd{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:#fff}
 .card-title{font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:7px}
 .card-title i{color:var(--c1);font-size:13px}
@@ -1224,3 +1224,5 @@ th.info-th:hover{color:var(--c1)}
 .pv-dl:disabled{opacity:.6;cursor:wait;transform:none;filter:none}
 .pv-dl-sm{padding:4px 10px;font-size:10px;border-radius:9px;gap:4px}
 @media(max-width:520px){.pv-dl{white-space:normal;text-align:center}}
+/* Kart gölgeleri — diğer kart benzeri kutular da aynı gölgeyi kullanır */
+.insight,.alert-box{box-shadow:var(--card-shadow)}

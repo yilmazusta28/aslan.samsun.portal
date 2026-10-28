@@ -612,7 +612,7 @@ report:function(){try{var p=0,r=this.m.map(function(x){var o={adim:x[0],'toplam_
 <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.4.0">
 <!-- PHASE3-STUB: <style> bloğu → css/style.css -->
 <!-- Rollback: bu satırı sil, css/style.css içeriğini <style>...</style> olarak geri ekle -->
-<link rel="stylesheet" href="css/style.css?v=20261028a">
+<link rel="stylesheet" href="css/style.css?v=20261028b">
 <script>
 /* AÇILIŞ HIZI: tüm script'ler artık <body> sonunda. Giriş ekranı hemen görünür; script'ler gelmeden
    "Giriş yap"a basılırsa istek kuyruğa alınır, yükleme bitince (DOMContentLoaded) otomatik çalışır. */
@@ -845,20 +845,20 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
       <i class="fas fa-chevron-down nav-caret"></i>
     </div>
     <div class="nav-children">
-      <div class="nav-subitem" id="navsub_perf_pazar" onclick="event.stopPropagation();goPageSub(1,function(){goPerfSubTab(0)},this)">
+      <div class="nav-subitem" id="navsub_perf_takip" onclick="event.stopPropagation();goPageSub(1,function(){goPerfSubTab(0)},this)">
+        <span class="nav-subdot">●</span><span>📈 Satış Takibi</span>
+      </div>
+      <div class="nav-subitem" id="navsub_perf_pazar" onclick="event.stopPropagation();goPageSub(1,function(){goPerfSubTab(1)},this)">
         <span class="nav-subdot">●</span><span>📊 Pazar Analizi</span>
       </div>
-      <div class="nav-subitem" id="navsub_perf_payi" onclick="event.stopPropagation();goPageSub(1,function(){goPerfSubTab(1)},this)">
-        <span class="nav-subdot">●</span><span>📊 Pazar Payı Analizi</span>
-      </div>
-      <div class="nav-subitem" id="navsub_perf_takip" onclick="event.stopPropagation();goPageSub(1,function(){goPerfSubTab(2)},this)">
-        <span class="nav-subdot">●</span><span>📈 Satış Takibi</span>
+      <div class="nav-subitem" id="navsub_perf_kongre" onclick="event.stopPropagation();goPageSub(1,function(){goPerfSubTab(2)},this)">
+        <span class="nav-subdot">●</span><span>🎪 Kongre Etkisi</span>
       </div>
       <div class="nav-subitem" id="navsub_perf_ytd" onclick="event.stopPropagation();goPageSub(1,function(){goPerfSubTab(3)},this)">
         <span class="nav-subdot">●</span><span>📉 YTD TL&amp;Kutu</span>
       </div>
-      <div class="nav-subitem" id="navsub_perf_kongre" onclick="event.stopPropagation();goPageSub(1,function(){goPerfSubTab(4)},this)">
-        <span class="nav-subdot">●</span><span>🎪 Kongre Etkisi</span>
+      <div class="nav-subitem" id="navsub_perf_payi" onclick="event.stopPropagation();goPageSub(1,function(){goPerfSubTab(4)},this)">
+        <span class="nav-subdot">●</span><span>📊 Pazar Payı Analizi</span>
       </div>
       <div class="nav-subitem" id="navsub_perf_migi" onclick="event.stopPropagation();goPageSub(2,null,this)">
         <span class="nav-subdot">●</span><span>🗺️ MI &amp; GI Takibi</span>
@@ -1125,8 +1125,8 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
        ve #perfSubSelect referansları zaten "if (bar)/if (sel)" ile
        korumalı olduğundan bu elemanların kaldırılması güvenli. -->
 
-  <!-- ═══ 1. Pazar Analizi (varsayılan, açılışta görünür) ═══ -->
-  <div class="eczsub-panel" id="perfsub_pazar">
+  <!-- ═══ Pazar Analizi (varsayılan DEĞİL — varsayılan açılış sekmesi Satış Takibi) ═══ -->
+  <div class="eczsub-panel" id="perfsub_pazar" style="display:none">
   <!-- TOP STICKY FILTER BAR -->
   <div class="top-filter-bar">
     <div id="pazarTopFilterBar">
@@ -1200,7 +1200,7 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
   </div><!-- /perfsub_payi -->
 
   <!-- ═══ 3. Satış Takibi ═══ -->
-  <div class="eczsub-panel" id="perfsub_takip" style="display:none">
+  <div class="eczsub-panel" id="perfsub_takip">
   <!-- TOP STICKY FILTER BAR -->
   <div class="top-filter-bar">
     <div id="takipTopFilterBar">
@@ -2664,7 +2664,7 @@ window.DOSYALAR_DELETE_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/dos
 <script src="js/ui/dosyalar-page.js?v=20261028a"></script>
 <script src="js/ui/dosyalar-manager-summary.js?v=20261008"></script>
 <script src="js/ui/prim-takip-page.js?v=20261028a"></script>
-<script src="js/ui/kongre-etkisi.js?v=20261028a"></script>
+<script src="js/ui/kongre-etkisi.js?v=20261028b"></script>
 <script src="js/ai/core/competitive-outcome-linker.js?v=20260705"></script>
 <script>window.SARTLAR_SYNC_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/sartlar-sync';</script>
 <script>window.HABER_SYNC_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/haber-sync';</script>
@@ -5566,11 +5566,11 @@ function goPageSub(page, subFn, subEl) {
 // sol (sidebar) menüyle birebir aynı.
 const MTB_GROUPS = {
   perf: { title: 'Performans', items: [
-    { label: '📊 Pazar Analizi', navId: 'navsub_perf_pazar', action: function () { goPageSub(1, function () { goPerfSubTab(0); }); } },
-    { label: '📊 Pazar Payı Analizi', navId: 'navsub_perf_payi', action: function () { goPageSub(1, function () { goPerfSubTab(1); }); } },
-    { label: '📈 Satış Takibi', navId: 'navsub_perf_takip', action: function () { goPageSub(1, function () { goPerfSubTab(2); }); } },
+    { label: '📈 Satış Takibi', navId: 'navsub_perf_takip', action: function () { goPageSub(1, function () { goPerfSubTab(0); }); } },
+    { label: '📊 Pazar Analizi', navId: 'navsub_perf_pazar', action: function () { goPageSub(1, function () { goPerfSubTab(1); }); } },
+    { label: '🎪 Kongre Etkisi', navId: 'navsub_perf_kongre', action: function () { goPageSub(1, function () { goPerfSubTab(2); }); } },
     { label: '📉 YTD TL&Kutu', navId: 'navsub_perf_ytd', action: function () { goPageSub(1, function () { goPerfSubTab(3); }); } },
-    { label: '🎪 Kongre Etkisi', navId: 'navsub_perf_kongre', action: function () { goPageSub(1, function () { goPerfSubTab(4); }); } },
+    { label: '📊 Pazar Payı Analizi', navId: 'navsub_perf_payi', action: function () { goPageSub(1, function () { goPerfSubTab(4); }); } },
     { label: '🗺️ MI & GI Takibi', navId: 'navsub_perf_migi', action: function () { goPageSub(2, null); } }
   ]},
   ecz: { title: 'Eczane Satış', items: [
@@ -5707,7 +5707,7 @@ function goPage(i, keepSidebarOpen){
   // render ediliyor. "Ayarlar & Referans"ta varsayılan alt-sekme
   // ('satis_sartlari') ise goAyarSubTab(0) ile tetikleniyor (aşağıda).
   if(i===0)renderAna();
-  else if(i===1){ renderPazar(); if(typeof pvSyncSubNav==='function') pvSyncSubNav('navsub_perf_' + (PERF_SUBTABS[_perfActiveSubTab] || 'pazar')); /* görünen alt-sekmeyi koru: mobil grup butonu goPage(1)'i çağırınca vurgu Pazar Analizi'ne sıfırlanmasın */ }
+  else if(i===1){ renderPazar(); if(PERF_SUBTABS[_perfActiveSubTab]==='takip' && !window._pvTakipRendered){ window._pvTakipRendered=true; if(typeof renderTakip==='function') renderTakip(); } if(typeof pvSyncSubNav==='function') pvSyncSubNav('navsub_perf_' + (PERF_SUBTABS[_perfActiveSubTab] || 'takip')); /* görünen alt-sekmeyi koru: mobil grup butonu goPage(1)'i çağırınca vurgu Pazar Analizi'ne sıfırlanmasın */ }
   else if(i===2){ initMigi1(); initMigi2(); if(typeof pvSyncSubNav==='function') pvSyncSubNav('navsub_perf_migi'); }
   else if(i===3){ buildPrimInputs(); syncPrimFromCalc(); }
   else if(i===4){ if(typeof renderAiAsistan==='function') renderAiAsistan(); }
@@ -5724,7 +5724,7 @@ function goPage(i, keepSidebarOpen){
 // Varsayılan ('pazar') zaten goPage(1) içinde render ediliyor; burada sadece
 // görünürlük değişimi + diğer ikisinin (takip, ytd) ilk tıklamada bir kez
 // render edilmesi var.
-const PERF_SUBTABS = ['pazar', 'payi', 'takip', 'ytd', 'kongre'];
+const PERF_SUBTABS = ['takip', 'pazar', 'kongre', 'ytd', 'payi'];   // sidebar sırası: Satış Takibi · Pazar Analizi · Kongre Etkisi · YTD TL&Kutu · Pazar Payı Analizi (+ MI & GI)
 let _perfActiveSubTab = 0;
 
 function goPerfSubTab(idx) {
