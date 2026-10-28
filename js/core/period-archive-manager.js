@@ -101,6 +101,20 @@
     return p ? p.key : null;
   }
 
+  // Arşivleme için ETKİN dönem anahtarı: uygulamanın geri kalanıyla (getEffectivePeriod,
+  // PERIOD_GRACE_DAYS) AYNI mantık. Bir dönemin son verisi takvimde döneme göre birkaç gün
+  // SONRA girildiği için, takvim dönemi değişir değişmez arşivlersek son güncellemeler
+  // arşive girmezdi. Etkin dönem yoksa/fonksiyon yoksa takvim dönemine düşer.
+  function _effectivePeriodKey() {
+    try {
+      if (typeof getEffectivePeriod === 'function') {
+        var ep = getEffectivePeriod(_todayStr());
+        if (ep && ep.key) return ep.key;
+      }
+    } catch (e) { /* takvim dönemine düş */ }
+    return getCurrentPeriodKey();
+  }
+
   function _halfYearForKey(periodKey) {
     var periods = _safe(function () { return PERIODS || []; }, []);
     var p = periods.find(function (x) { return x.key === periodKey; });
@@ -203,7 +217,7 @@
       return { archived: false, reason: 'empty-data' };
     }
 
-    var currentPeriodKey = getCurrentPeriodKey();
+    var currentPeriodKey = _effectivePeriodKey();
     if (!currentPeriodKey) {
       // Bugünün tarihi PERIODS aralıklarından hiçbirine düşmüyor (yıl dışı vb.)
       return { archived: false, reason: 'no-period-match' };
@@ -360,17 +374,29 @@
     var thisYear = new Date().getFullYear();
     var years = [thisYear, thisYear - 1];
     var already = listArchivedPeriods();
-    var attempts = [];
-    years.forEach(function (y) {
-      periods.forEach(function (p) {
-        // Zaten yerelde varsa tekrar denemeye gerek yok (gereksiz istek atma)
-        if (already.indexOf(p.key) !== -1) return;
-        attempts.push(fetchRemoteArchive(p.key, y));
+    // Her dönem anahtarı için yıllar SIRAYLA denenir (önce bu yıl); ilk bulunan kazanır.
+    // Paralel denemede iki yılın dosyası da varsa, geç dönen eski yıl bu yılın verisinin
+    // üstüne yazabiliyordu.
+    function tryKey(key) {
+      var chain = Promise.resolve(false);
+      years.forEach(function (y) {
+        chain = chain.then(function (hit) { return hit ? true : fetchRemoteArchive(key, y); });
       });
+      return chain;
+    }
+    var attempts = [];
+    periods.forEach(function (p) {
+      // Zaten yerelde varsa tekrar denemeye gerek yok (gereksiz istek atma)
+      if (already.indexOf(p.key) !== -1) return;
+      attempts.push(tryKey(p.key));
     });
     return Promise.all(attempts).then(function (results) {
       var found = results.filter(Boolean).length;
-      if (found > 0) console.log('[period-archive-manager] hydrateFromRemote: ' + found + ' dönem GitHub arşivinden bulundu.');
+      if (found > 0) {
+        console.log('[period-archive-manager] hydrateFromRemote: ' + found + ' dönem GitHub arşivinden bulundu.');
+        // Kart açıksa yeni bulunan dönemler görünsün
+        try { if (typeof window.renderPeriodArchiveCard === 'function') window.renderPeriodArchiveCard('mgrPeriodArchive'); } catch (e) { /* sessiz */ }
+      }
       return found;
     });
   }
