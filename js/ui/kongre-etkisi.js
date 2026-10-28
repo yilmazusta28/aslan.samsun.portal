@@ -599,6 +599,38 @@
     });
   }
 
+  // ── GÖNDERİLEN HEKİM ÖZETİ ─────────────────────────────────────────────
+  // "Kongre kaydı" (= kongre × brick × ürün analiz birimi) ile "kongreye gönderilen hekim" AYNI ŞEY DEĞİLDİR:
+  // bir hekim birden çok ürün için birden çok analiz birimi üretir (ör. 47 hekim → 55 analiz birimi).
+  // Hekim, brick ve kongre sayıları doğrudan KONGRE_TAKIP_2'deki katılım listesinden (D.att) sayılır;
+  // böylece ürün verisi/hesaplanabilirlik durumu sayıyı etkilemez.
+  //   f.ttt (key), f.kongre (key), f.urun (key): filtreler;  f.items: verilirse yalnız bu kayıtların kongre/brick grupları
+  function hekimOzet(f) {
+    f = f || {};
+    var O = { hekim: 0, brick: 0, kongre: 0, byBrick: [], byTtt: {} }, seenH = {}, seenB = {}, seenK = {}, bb = {}, gks;
+    if (!D || !D.att) return O;
+    if (f.items) { var m = {}; f.items.forEach(function (it) { m[[key(it.row.kongre), key(it.row.ttt), key(it.row.brick)].join('|')] = 1; }); gks = Object.keys(m); }
+    else gks = Object.keys(D.att);
+    gks.forEach(function (gk) {
+      var a = D.att[gk]; if (!a) return;
+      var p = gk.split('|'), kg = p[0], tt = p[1], br = p[2];
+      if (f.ttt && tt !== f.ttt) return;
+      if (f.kongre && kg !== f.kongre) return;
+      a.hekimler.forEach(function (h) {
+        if (f.urun && !h.urunler.some(function (pr) { return key(pr) === f.urun; })) return;
+        var hk = tt + '|' + key(h.ad) + '|' + key(h.unite);
+        if (!seenH[hk]) { seenH[hk] = 1; O.hekim++; O.byTtt[tt] = (O.byTtt[tt] || 0) + 1; }
+        seenK[kg] = 1;
+        var bk = tt + '|' + br; seenB[bk] = 1;
+        var g = D.grp && D.grp[gk];     // gösterim adı (orijinal yazım)
+        var B = bb[bk] || (bb[bk] = { ttt: g ? g.ttt : tt, tk: tt, brick: g ? g.brick : br, set: {} }); B.set[hk] = 1;
+      });
+    });
+    O.brick = Object.keys(seenB).length; O.kongre = Object.keys(seenK).length;
+    O.byBrick = Object.keys(bb).map(function (k) { var B = bb[k]; return { ttt: B.ttt, tk: B.tk, brick: B.brick, n: Object.keys(B.set).length }; })
+      .sort(function (x, y) { return x.ttt.localeCompare(y.ttt, 'tr') || y.n - x.n || x.brick.localeCompare(y.brick, 'tr'); });
+    return O;
+  }
   function summarize(items) {
     var S = { kayit: items.length, olculen: 0, ivme: 0, pozitif: 0, notr: 0, zayif: 0, dusus: 0, veri: 0, net: 0, hekim: 0, oran: null };
     var seenAtt = {}, seenNet = {}, seenHb = {};
@@ -617,9 +649,11 @@
         var nk = [key(it.row.ttt), key(it.row.brick), key(it.row.urun)].join('|');   // aynı brick+ürün birden çok kongrede geçse de bir kez
         if (it.a.net != null && !seenNet[nk]) { seenNet[nk] = 1; S.net += it.a.net; }
       }
-      if (it.att) {
-        var k = [key(it.row.kongre), key(it.row.ttt), key(it.row.brick)].join('|');
-        if (!seenAtt[k]) { seenAtt[k] = 1; S.hekim += it.att.sayi; }
+      if (it.att) {      // benzersiz hekim: aynı kişi birden çok kayıtta/üründe geçse de bir kez
+        it.att.hekimler.forEach(function (h) {
+          var hk2 = key(it.row.ttt) + '|' + key(h.ad) + '|' + key(h.unite);
+          if (!seenAtt[hk2]) { seenAtt[hk2] = 1; S.hekim++; }
+        });
       }
     });
     var seenU = {}; S.u = { n: 0, olc: 0, ok: 0, ivme: 0, pozitif: 0, notr: 0, zayif: 0, dusus: 0, veri: 0 };
@@ -634,11 +668,13 @@
     return S;
   }
 
-  function ozetYorum(S, kapsam) {
-    if (!S.kayit) return 'Seçili filtrelerde kongre kaydı bulunmuyor.';
+  function ozetYorum(S, kapsam, HS) {
+    if (!S.kayit && !(HS && HS.hekim)) return 'Seçili filtrelerde kongre kaydı bulunmuyor.';
     var t = [];
     var U = S.u, reg = !!(D && D.reg);
-    t.push(kapsam + ' için ' + S.kayit + ' kongre kaydı, ' + U.n + ' benzersiz brick–ürün var; ' + U.olc + ' tanesi ' + (reg ? 'bölge (kontrol grubu) kıyasıyla' : 'geçen yıl karşılaştırmasıyla') + ' değerlendirilebildi.');
+    if (HS && HS.hekim) t.push(kapsam + ' için kongre/toplantılara ' + HS.brick + ' bricktan ' + HS.hekim + ' hekim gönderildi (' + HS.kongre + ' farklı kongre/toplantı).');
+    if (!S.kayit) return t.join(' ');
+    t.push('Bu katılım, hekimlerin tanıtıldığı ürünlerle çarpıldığında ' + S.kayit + ' analiz birimine (kongre × brick × ürün) karşılık gelir; ' + U.n + ' benzersiz brick–ürün var ve ' + U.olc + ' tanesi ' + (reg ? 'bölge (kontrol grubu) kıyasıyla' : 'geçen yıl karşılaştırmasıyla') + ' değerlendirilebildi.');
     if (U.olc) {
       t.push('Değerlendirilenlerin ' + U.ok + ' tanesinde (%' + fmt(S.oran) + ') ' + (reg ? 'bölge ortalamasının üzerinde performans' : 'geçen yıla göre artış') + ' görüldü' +
         (U.ivme ? ' (' + U.ivme + ' tanesi güçlü)' : '') + '; ' + (U.zayif + U.dusus) + ' tanesi ' + (reg ? 'bölgenin altında' : 'geriledi') + ', ' + U.notr + ' tanesi ' + (reg ? 'bölgeyle aynı' : 'nötr') + '.');
@@ -677,7 +713,7 @@
       var kongreAd = {};
       Object.keys(res[1].kongreAd || {}).forEach(function (k) { kongreAd[k] = res[1].kongreAd[k]; });
       res[0].forEach(function (r) { kongreAd[key(r.kongre)] = r.kongre; });
-      D = { units: buildUnits(res[0], res[1]), att: res[1].att || {}, agg: buildAgg(res[1].att || {}), kongreler: kongreAd, err: null, reg: null };
+      D = { units: buildUnits(res[0], res[1]), att: res[1].att || {}, grp: res[1].grp || {}, agg: buildAgg(res[1].att || {}), kongreler: kongreAd, err: null, reg: null };
       try { if (res[2]) D.reg = buildRegion(res[2], D.att, D.units); } catch (e) { D.reg = null; }
     }).catch(function (e) {
       D = { units: [], att: {}, kongreler: {}, err: (e && e.message) || String(e) };
@@ -927,11 +963,16 @@
   }
 
   // ───────────────────────── tablolar ─────────────────────────
-  function teamTable(items) {
+  function teamTable(items, hsFn) {
     var by = {}, order = [];
     items.forEach(function (it) { var k = key(it.row.ttt); if (!by[k]) { by[k] = { ad: it.row.ttt, items: [] }; order.push(k); } by[k].items.push(it); });
     if (order.length < 2) return '';
-    var rows = order.map(function (k) { var S = summarize(by[k].items); S.ad = by[k].ad; return S; })
+    var rows = order.map(function (k) {
+      var S = summarize(by[k].items); S.ad = by[k].ad;
+      var H = hsFn ? hsFn(k) : null;
+      if (H) { S.hekim = H.hekim; S.brickN = H.brick; S.bricks = H.byBrick; }
+      return S;
+    })
       .sort(function (x, y) { return (y.oran == null ? -1 : y.oran) - (x.oran == null ? -1 : x.oran); });
     var tr = rows.map(function (S) {
       var o = S.oran, bc = o == null ? '#CBD5E1' : (o >= 60 ? '#16A34A' : (o >= 35 ? '#F59E0B' : '#DC2626'));
@@ -939,10 +980,11 @@
         '<td class="kg-up">' + S.ivme + '</td><td class="kg-up">' + S.pozitif + '</td><td class="kg-nt">' + S.notr + '</td><td class="kg-dn">' + (S.zayif + S.dusus) + '</td>' +
         '<td style="min-width:110px"><div style="display:flex;align-items:center;gap:6px"><div class="kg-bar" style="flex:1"><i style="width:' + (o == null ? 0 : Math.min(100, o)) + '%;background:' + bc + '"></i></div>' +
         '<b style="min-width:34px;text-align:right">' + (o == null ? '—' : '%' + fmt(o)) + '</b></div></td>' +
-        '<td class="' + deltaCls(S.net, 1) + '">' + (S.olculen ? sgn(S.net) : '—') + '</td><td>' + S.hekim + '</td></tr>';
+        '<td class="' + deltaCls(S.net, 1) + '">' + (S.olculen ? sgn(S.net) : '—') + '</td><td><b>' + S.hekim + '</b></td>' +
+        '<td style="text-align:left;font-size:11px;min-width:190px">' + (S.bricks && S.bricks.length ? S.bricks.map(function (b) { return esc(b.brick) + ' <b>(' + b.n + ')</b>'; }).join('<br>') : '—') + '</td></tr>';
     }).join('');
-    return '<div class="kg-sec">👥 Temsilci Karşılaştırması<i></i></div><div class="kg-scroll"><table class="kg-tbl" style="min-width:560px"><thead><tr><th>Temsilci</th><th>Kayıt</th><th>Ölçülebilen</th><th>İvme</th><th>Pozitif</th><th>Nötr</th><th>Zayıf/Düşüş</th><th>Karşılık oranı</th><th>Yıllık ek kutu</th><th>Hekim</th></tr></thead><tbody>' + tr + '</tbody></table></div>' +
-      '<div class="kg-note" style="margin-top:4px">Karşılık oranı = (İvme + Pozitif) ÷ ölçülebilen kayıt. Yıllık ek kutu = ilgili brick–ürünlerde bu yılın YTD kutusu − geçen yılın YTD kutusu.</div>';
+    return '<div class="kg-sec">👥 Temsilci Karşılaştırması<i></i></div><div class="kg-scroll"><table class="kg-tbl" style="min-width:560px"><thead><tr><th>Temsilci</th><th title="Kongre × brick × ürün analiz birimi">Analiz kaydı</th><th>Ölçülebilen</th><th>İvme</th><th>Pozitif</th><th>Nötr</th><th>Zayıf/Düşüş</th><th>Karşılık oranı</th><th>Yıllık ek kutu</th><th>Gönderilen hekim</th><th>Brick (hekim sayısı)</th></tr></thead><tbody>' + tr + '</tbody></table></div>' +
+      '<div class="kg-note" style="margin-top:4px">Kayıt = kongre × brick × ürün analiz birimi (hekim sayısı değildir). Karşılık oranı = (İvme + Pozitif) ÷ ölçülebilen kayıt. Yıllık ek kutu = ilgili brick–ürünlerde bu yılın YTD kutusu − geçen yılın YTD kutusu.</div>';
   }
 
   // Hekim bazlı değerlendirme: her hekim için kongre/brick'teki ürün sonuçları + branş bazında karşılık özeti
@@ -1362,22 +1404,33 @@
 
     var Sm = summarize(items);
     var scope = locked ? 'Sizin' : (S.ttt ? (items[0] ? items[0].row.ttt : 'Seçili temsilci') : 'Ekip');
+    // Gönderilen hekim / brick / kongre: KONGRE_TAKIP_2 katılım listesinden (analiz kaydı sayısından bağımsız)
+    var hsDerived = !!(S.sonuc || S.hekim);          // sonuç / hekim-sayısı filtresi analiz kayıtlarına bağlıdır → o durumda kayıt gruplarından türet
+    var hsBase = { kongre: S.kongre, urun: S.urun, items: hsDerived ? items : null };
+    var HS = hekimOzet({ ttt: locked ? me : S.ttt, kongre: hsBase.kongre, urun: hsBase.urun, items: hsBase.items });
+    var hsFn = function (tk) { return hekimOzet({ ttt: tk, kongre: hsBase.kongre, urun: hsBase.urun, items: hsBase.items }); };
+    var bbTxt = '';
+    if (HS.byBrick.length && (locked || S.ttt)) {
+      bbTxt = '<div class="kg-note" style="margin:-6px 0 12px"><b>Brick bazında gönderilen hekim:</b> ' + HS.byBrick.map(function (b) { return esc(b.brick) + ' <b>(' + b.n + ')</b>'; }).join(' · ') + '</div>';
+    }
     var kpi = '<div class="kg-kpis">' +
-      '<div class="kg-kpi"><span>Kongre kaydı</span><b>' + Sm.kayit + '</b></div>' +
+      '<div class="kg-kpi"><span>Gönderilen hekim</span><b>' + HS.hekim + '</b></div>' +
+      '<div class="kg-kpi"><span>Hekim gönderilen brick</span><b>' + HS.brick + '</b></div>' +
+      '<div class="kg-kpi"><span>Kongre / toplantı</span><b>' + HS.kongre + '</b></div>' +
+      '<div class="kg-kpi" title="Kongre × brick × ürün kombinasyonu. Hekim sayısı değildir: bir hekim birden çok ürün için birden çok kayıt üretir."><span>Analiz kaydı (kongre×brick×ürün)</span><b>' + Sm.kayit + '</b></div>' +
       '<div class="kg-kpi"><span>Benzersiz brick–ürün</span><b>' + Sm.u.n + '</b></div>' +
       '<div class="kg-kpi"><span>Ölçülebilen</span><b>' + Sm.olculen + '</b></div>' +
       '<div class="kg-kpi"><span>İvme yakalayan</span><b class="kg-up">' + (Sm.ivme + Sm.pozitif) + '</b></div>' +
       '<div class="kg-kpi"><span>Zayıflama / düşüş</span><b class="kg-dn">' + (Sm.zayif + Sm.dusus) + '</b></div>' +
       '<div class="kg-kpi"><span>Karşılık oranı</span><b>' + (Sm.oran == null ? '—' : '%' + fmt(Sm.oran)) + '</b></div>' +
-      '<div class="kg-kpi"><span>Yıllık ek kutu (YTD)</span><b class="' + deltaCls(Sm.net, 1) + '">' + (Sm.olculen ? sgn(Sm.net) : '—') + '</b></div>' +
-      '<div class="kg-kpi"><span>Katılan hekim</span><b>' + Sm.hekim + '</b></div></div>';
+      '<div class="kg-kpi"><span>Yıllık ek kutu (YTD)</span><b class="' + deltaCls(Sm.net, 1) + '">' + (Sm.olculen ? sgn(Sm.net) : '—') + '</b></div></div>' + bbTxt;
 
     var showTtt = !locked && !S.ttt;
     el.innerHTML = '<div class="kg-wrap">' +
       '<div class="kg-noprint" style="display:flex;justify-content:flex-end;margin:0 0 8px"><button class="kg-btn" data-kgact="pdf" data-m="' + mount + '">📄 Analizi PDF indir</button></div>' +
-      '<div class="insight mb16"><div class="insight-title">🧠 Kongre Etkisi Analizi — geçen yıla göre</div><div class="insight-body">' + esc(ozetYorum(Sm, scope)) + '</div></div>' +
-      filt + kpi + bolgeTablo() + donemOzet(items) + yogunlukTablo(Sm) + (showTtt ? teamTable(items) : '') + heatTable(items, showTtt) +
-      '<div class="kg-sec">🎪 Kongre Bazlı Sonuçlar (' + items.length + ')<i></i></div>' + legendHtml() +
+      '<div class="insight mb16"><div class="insight-title">🧠 Kongre Etkisi Analizi — geçen yıla göre</div><div class="insight-body">' + esc(ozetYorum(Sm, scope, HS)) + '</div></div>' +
+      filt + kpi + bolgeTablo() + donemOzet(items) + yogunlukTablo(Sm) + (showTtt ? teamTable(items, hsFn) : '') + heatTable(items, showTtt) +
+      '<div class="kg-sec">🎪 Kongre × Brick × Ürün Sonuçları (' + items.length + ' analiz kaydı)<i></i></div>' + legendHtml() +
       (items.length ? items.map(function (it) { return cardHtml(it, showTtt); }).join('') : '<div class="kg-note" style="padding:12px">Seçili filtrelerde kayıt yok.</div>') +
       hekimBolumu(items, S, showTtt) +
       (mount === 'mgr' ? downloadArea() : '') + methodNote() + '</div>';
@@ -1404,7 +1457,7 @@
 
   // Test/diagnostik için (motor DOM'dan bağımsız çalışır)
   window.PVKongre = {
-    parse1: parse1, parse2: parse2, buildUnits: buildUnits, analyze: analyze, summarize: summarize, key: key,
+    parse1: parse1, parse2: parse2, buildUnits: buildUnits, analyze: analyze, summarize: summarize, key: key, buildItems: buildItems, hekimOzet: hekimOzet,
     _setData: function (d) { D = d; }, ESIK: ESIK
   };
 

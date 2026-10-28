@@ -208,14 +208,25 @@
       });
     }
 
+    // SIRALAMA (düzeltme): bölgeler TL REALİZASYONUNA (tl_pct) göre büyükten küçüğe sıralanır;
+    // "Sıra" kolonu bu sıralamanın kendisidir (1 = en yüksek realizasyon). Eski davranışta liste
+    // CSV'deki TR SIRA'ya göre diziliyor, yanındaki TL% ise sırayla uyuşmuyordu (ör. 2. sırada
+    // %88, 3. sırada %95). TR SIRA bilgisi artık ayrı bir kolonda bilgi amaçlı gösterilir.
+    // Realizasyonu henüz olmayan (hedef/satış/TL% hepsi 0) bölgeler en sona düşer ve sıra almaz.
+    // Eşitlikte önce Satış TL, sonra Hedef TL büyük olan öne geçer.
+    function _hasData(r) { return !!((r.hedef_tl || 0) || (r.satis_tl || 0) || (r.tl_pct || 0)); }
     var national = list.filter(function (r) { return r.bolge === 'NATIONAL'; });
     var others   = list.filter(function (r) { return r.bolge !== 'NATIONAL'; })
       .sort(function (a, b) {
-        var sa = a.tr_sira > 0 ? a.tr_sira : Infinity; // TR SIRA'sı olmayan en sona düşer
-        var sb = b.tr_sira > 0 ? b.tr_sira : Infinity;
-        if (sa !== sb) return sa - sb;
-        return (b.tl_pct || 0) - (a.tl_pct || 0); // eşitlikte TL%'e göre
+        var da = _hasData(a) ? 1 : 0, db = _hasData(b) ? 1 : 0;
+        if (da !== db) return db - da;                                   // verisiz bölgeler en sona
+        var pa = a.tl_pct || 0, pb = b.tl_pct || 0;
+        if (pb !== pa) return pb - pa;                                   // TL realizasyonu (büyükten küçüğe)
+        if ((b.satis_tl || 0) !== (a.satis_tl || 0)) return (b.satis_tl || 0) - (a.satis_tl || 0);
+        return (b.hedef_tl || 0) - (a.hedef_tl || 0);
       });
+    var rank = 0;
+    others.forEach(function (r) { r.tl_rank = _hasData(r) ? ++rank : 0; });   // TL% sırası (1..n)
     return national.concat(others);
   }
 
@@ -224,7 +235,7 @@
     if (!body) return;
     var rows = buildRegionRanking();
     if (!rows.length) {
-      body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--dim);padding:14px">' +
+      body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--dim);padding:14px">' +
         'Bölge sıralaması verisi yok — GENEL_TABLO.csv\'ye NATIONAL/bölge satırları henüz eklenmemiş olabilir.</td></tr>';
       return;
     }
@@ -249,11 +260,12 @@
         return '<tr style="' + rowBg + '" title="Ulusal veri henüz yayınlanmadı">' +
           '<td style="font-weight:700">—</td>' +
           '<td style="font-weight:800">' + label + '</td>' +
-          '<td class="mono" colspan="6" style="color:var(--dim);font-size:11px">Ulusal veri henüz yayınlanmadı</td></tr>';
+          '<td class="mono" colspan="7" style="color:var(--dim);font-size:11px">Ulusal veri henüz yayınlanmadı</td></tr>';
       }
       return '<tr style="' + rowBg + '">' +
-        '<td style="font-weight:700">' + (isNational ? '—' : trRankBadge(r.tr_sira, '', natPct > 0 ? (pct >= natPct ? 'g' : 'r') : 'n')) + '</td>' +
+        '<td style="font-weight:700" title="TL realizasyonuna göre sıra">' + (isNational ? '—' : trRankBadge(r.tl_rank, '', natPct > 0 ? (pct >= natPct ? 'g' : 'r') : 'n').replace('TR Sırası:', 'TL% Sırası:')) + '</td>' +
         '<td style="font-weight:' + (isNational || isSamsun ? '800' : '600') + '">' + label + '</td>' +
+        '<td class="mono" style="color:var(--dim)" title="CSV\'deki TR SIRA (bilgi amaçlı)">' + (r.tr_sira > 0 ? r.tr_sira : '—') + '</td>' +
         '<td class="mono">' + fTL(r.hedef_tl || 0) + '</td>' +
         '<td class="mono" style="font-weight:700">' + fTL(r.satis_tl || 0) + '</td>' +
         '<td class="mono ' + (((r.hedef_tl||0)-(r.satis_tl||0)) > 0 ? 'negative' : 'positive') + '">' + fTL(((r.hedef_tl||0)-(r.satis_tl||0))) + '</td>' +
