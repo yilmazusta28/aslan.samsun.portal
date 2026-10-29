@@ -3081,7 +3081,7 @@ function renderAiAsistan() {
   const _aiTttBarEl = document.getElementById('aiTttBar');
   if (_aiTttBarEl) {
     _aiTttBarEl.innerHTML = aiAll.map(t =>
-      `<button class="sp-btn${t===selAiTTT?' active':''}" onclick="setAiTTT('${t}')">${t==='ŞENOL YILMAZ'?'🏢 '+t:t}</button>`
+      `<button class="sp-btn${t===selAiTTT?' active':''}" onclick="setAiTTT(${pvJsArg(t)})">${pvEsc(t==='ŞENOL YILMAZ'?'🏢 '+t:t)}</button>`
     ).join('');
   }
 
@@ -3578,7 +3578,7 @@ function buildEczaneFilters() {
   // Backward compat bars (gizli, ama kod okuyabilsin) — null guard
   const _tttBarEl = document.getElementById('eczaneTttBar');
   if (_tttBarEl) _tttBarEl.innerHTML = allTOptions.map(t =>
-    `<button class="tfb-sp${t===selEczaneTTT?' active':''}" onclick="selEczaneTTT='${t}';buildEczaneFilters();renderEczaneContent()">${t==='TÜMÜ'?'👥 Tüm Temsilciler':t.split(' ')[0]}</button>`
+    `<button class="tfb-sp${t===selEczaneTTT?' active':''}" onclick="selEczaneTTT=${pvJsArg(t)};buildEczaneFilters();renderEczaneContent()">${pvEsc(t==='TÜMÜ'?'👥 Tüm Temsilciler':t.split(' ')[0])}</button>`
   ).join('');
 
   // Seçili TTT'ye ait brickler — "Tüm Temsilciler" seçiliyken TÜM bricklerin
@@ -3592,7 +3592,7 @@ function buildEczaneFilters() {
   const _brickBarEl = document.getElementById('eczaneBrickBar');
   if (_brickBarEl) _brickBarEl.innerHTML =
     ['TÜMÜ', ...tttBricks].map(b =>
-      `<button class="tfb-sp${b===selEczaneBrick?' active':''}" onclick="selEczaneBrick='${b}';buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${b}</button>`
+      `<button class="tfb-sp${b===selEczaneBrick?' active':''}" onclick="selEczaneBrick=${pvJsArg(b)};buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${pvEsc(b)}</button>`
     ).join('');
 
   // Ürünler — URUN_ORDER sırasına göre
@@ -3603,7 +3603,7 @@ function buildEczaneFilters() {
   const _urunBarEl = document.getElementById('eczaneUrunBar');
   if (_urunBarEl) _urunBarEl.innerHTML =
     ['TÜMÜ', ...uruns].map(u =>
-      `<button class="tfb-sp${u===selEczaneUrun?' active':''}" onclick="selEczaneUrun='${u}';buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${u}</button>`
+      `<button class="tfb-sp${u===selEczaneUrun?' active':''}" onclick="selEczaneUrun=${pvJsArg(u)};buildEczaneFilters();renderEczaneContent()" style="font-size:9px;padding:4px 8px">${pvEsc(u)}</button>`
     ).join('');
 
   // Aylar — PDM multi-select'ten türet
@@ -6859,15 +6859,15 @@ function _buildPazarDrawer(){
     <div class="drawer-title"><i class="fas fa-filter"></i> Pazar Analizi Filtresi</div>
     <div class="drawer-group">
       <label><i class="fas fa-user" style="margin-right:5px"></i>Temsilci</label>
-      <div class="drawer-btns">${ALL_TTTS.map(t=>`<button class="drawer-btn-item${t===selTTT_p1?' active':''}" onclick="setP1(0,'${t}');_buildPazarDrawer()">${t.split(' ')[0]}</button>`).join('')}</div>
+      <div class="drawer-btns">${ALL_TTTS.map(t=>`<button class="drawer-btn-item${t===selTTT_p1?' active':''}" onclick="setP1(0,${pvJsArg(t)});_buildPazarDrawer()">${pvEsc(t.split(' ')[0])}</button>`).join('')}</div>
     </div>
     <div class="drawer-group">
       <label><i class="fas fa-pills" style="margin-right:5px"></i>İlaç Grubu</label>
-      <div class="drawer-btns">${ALL_GROUPS.map(g=>`<button class="drawer-btn-item${g===selGroup?' active':''}" onclick="setP1(1,'${g}');_buildPazarDrawer()">${GRP_LBL[g]}</button>`).join('')}</div>
+      <div class="drawer-btns">${ALL_GROUPS.map(g=>`<button class="drawer-btn-item${g===selGroup?' active':''}" onclick="setP1(1,${pvJsArg(g)});_buildPazarDrawer()">${pvEsc(GRP_LBL[g])}</button>`).join('')}</div>
     </div>
     <div class="drawer-group">
       <label><i class="fas fa-calendar-week" style="margin-right:5px"></i>Hafta</label>
-      <div class="drawer-btns">${hl.map(h=>`<button class="drawer-btn-item${h===selHafta?' active':''}" onclick="setP1(2,'${h}');_buildPazarDrawer()">${lb[h]}</button>`).join('')}</div>
+      <div class="drawer-btns">${hl.map(h=>`<button class="drawer-btn-item${h===selHafta?' active':''}" onclick="setP1(2,${pvJsArg(h)});_buildPazarDrawer()">${pvEsc(lb[h])}</button>`).join('')}</div>
     </div>
     <div class="drawer-actions">
       <button class="btn-drawer-clear" onclick="setP1(0,'${ALL_TTTS[0]}');setP1(1,'${ALL_GROUPS[0]||''}');setP1(2,'toplam');_buildPazarDrawer()">Sıfırla</button>
@@ -6882,7 +6882,7 @@ function _buildMg1Drawer(persons,donems,veriOpts){
     <div class="drawer-title"><i class="fas fa-filter"></i> MI &amp; GI — Bölüm 1 Filtresi</div>
     <div class="drawer-group">
       <label><i class="fas fa-user" style="margin-right:5px"></i>Temsilci</label>
-      <div class="drawer-btns">${['TÜMÜ',...(persons||[])].map(p=>`<button class="drawer-btn-item${p===mg1_ttt?' active':''}" onclick="mg1_ttt='${p.replace(/'/g,"\\'")}';initMigi1()">${p==='TÜMÜ'?'Tümü':p.split(' ')[0]}</button>`).join('')}</div>
+      <div class="drawer-btns">${['TÜMÜ',...(persons||[])].map(p=>`<button class="drawer-btn-item${p===mg1_ttt?' active':''}" onclick="mg1_ttt=${pvJsArg(p)};initMigi1()">${pvEsc(p==='TÜMÜ'?'Tümü':p.split(' ')[0])}</button>`).join('')}</div>
     </div>
     <div class="drawer-group">
       <label><i class="fas fa-ruler-combined" style="margin-right:5px"></i>Tip</label>
@@ -7244,7 +7244,7 @@ function _buildTakipDrawer(){
     <div class="drawer-title"><i class="fas fa-chart-line"></i> Satış Takibi Filtresi</div>
     <div class="drawer-group">
       <label><i class="fas fa-user" style="margin-right:5px"></i>Temsilci</label>
-      <div class="drawer-btns">${ALL_TTTS.map(t=>`<button class="drawer-btn-item${t===selTTT_p2?' active':''}" onclick="setP2('${t}');closeMfDrawer('takipDrawer')">${t}</button>`).join('')}</div>
+      <div class="drawer-btns">${ALL_TTTS.map(t=>`<button class="drawer-btn-item${t===selTTT_p2?' active':''}" onclick="setP2(${pvJsArg(t)});closeMfDrawer('takipDrawer')">${pvEsc(t)}</button>`).join('')}</div>
     </div>
     <div class="drawer-actions">
       <button class="btn-drawer-apply" onclick="closeMfDrawer('takipDrawer')">Kapat</button>
