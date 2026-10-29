@@ -1265,7 +1265,11 @@ th.info-th:hover{color:var(--c1)}
 .filter-chip-tag{background:rgba(123,47,190,.12);border:1px solid rgba(123,47,190,.28);color:#4F008C}
 .filter-drawer{background:linear-gradient(160deg,rgba(79,0,140,.12),rgba(255,255,255,.90) 40%,rgba(27,206,216,.12)),rgba(255,255,255,.88);
   -webkit-backdrop-filter:blur(18px) saturate(165%);backdrop-filter:blur(18px) saturate(165%);
-  border-left:1px solid rgba(123,47,190,.30);box-shadow:-12px 0 36px rgba(79,0,140,.22)}
+  border-left:1px solid rgba(123,47,190,.30);box-shadow:none}
+/* Gölge SADECE açıkken: kapalı çekmece ekran dışında beklerken kenara mor bir şerit sızdırmasın */
+.filter-drawer.open{box-shadow:-12px 0 36px rgba(79,0,140,.22)}
+.filter-drawer:not(.open){visibility:hidden;transition:.28s cubic-bezier(.4,0,.2,1),visibility 0s linear .28s}
+.filter-drawer.open{visibility:visible}
 .drawer-group{border-bottom-color:rgba(123,47,190,.22)}
 .drawer-group label{color:#4F008C;font-weight:800}
 .drawer-group select{background:rgba(255,255,255,.82);border:1.5px solid rgba(123,47,190,.32);box-shadow:0 1px 4px rgba(79,0,140,.10)}
