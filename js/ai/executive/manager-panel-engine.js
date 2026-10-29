@@ -209,12 +209,16 @@
     }
 
     var national = list.filter(function (r) { return r.bolge === 'NATIONAL'; });
+    // SIRALAMA: TL realizasyonuna (TL %) göre, yüksekten düşüğe. Eşitlikte satış TL'si, o da eşitse
+    // TR SIRA (küçük olan önde). NATIONAL her zaman en üstte sabit. "Sıra" sütunu yine resmi TR SIRA'yı gösterir.
     var others   = list.filter(function (r) { return r.bolge !== 'NATIONAL'; })
       .sort(function (a, b) {
-        var sa = a.tr_sira > 0 ? a.tr_sira : Infinity; // TR SIRA'sı olmayan en sona düşer
+        var pa = a.tl_pct || 0, pb = b.tl_pct || 0;
+        if (pb !== pa) return pb - pa;
+        if ((b.satis_tl || 0) !== (a.satis_tl || 0)) return (b.satis_tl || 0) - (a.satis_tl || 0);
+        var sa = a.tr_sira > 0 ? a.tr_sira : Infinity;
         var sb = b.tr_sira > 0 ? b.tr_sira : Infinity;
-        if (sa !== sb) return sa - sb;
-        return (b.tl_pct || 0) - (a.tl_pct || 0); // eşitlikte TL%'e göre
+        return sa - sb;
       });
     return national.concat(others);
   }

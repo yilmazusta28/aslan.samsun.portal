@@ -1282,3 +1282,18 @@ th.info-th:hover{color:var(--c1)}
 [data-theme="dark"] .filter-chip-tag{background:rgba(139,92,246,.22);border-color:rgba(167,139,250,.4);color:#E9E3FF}
 [data-theme="dark"] .filter-drawer{background:linear-gradient(160deg,rgba(139,92,246,.22),rgba(19,19,42,.92) 45%,rgba(34,211,238,.10)),rgba(19,19,42,.90);border-left-color:rgba(167,139,250,.38)}
 [data-theme="dark"] .drawer-group select{background:rgba(19,19,42,.75);color:var(--text);border-color:rgba(167,139,250,.40)}
+
+/* ═══ Aktif Dönem bannerı — mobilde yazı kayması/üst üste binme düzeltmesi ═══
+   Dar ekranda: üst satır = ikon (sol) + % ilerleme (sağ); metin bloğu altta tam genişlikte. */
+.period-banner .pb-stats span{white-space:nowrap}
+.period-banner .pb-body{overflow-wrap:anywhere}
+@media(max-width:600px){
+  .period-banner{display:grid!important;grid-template-columns:auto 1fr;grid-template-areas:"icon pct" "body body";gap:12px 10px!important;padding:16px!important;align-items:center!important}
+  .period-banner .pb-icon{grid-area:icon;width:46px!important;height:46px!important;font-size:22px!important;border-radius:14px!important}
+  .period-banner .pb-pct{grid-area:pct;justify-self:end;min-width:0!important;text-align:right!important}
+  .period-banner .pb-pct-v{font-size:28px!important}
+  .period-banner .pb-body{grid-area:body;min-width:0}
+  .period-banner .pb-stats{flex-wrap:wrap;gap:4px 10px!important}
+  .period-banner .pb-stats span[style*="opacity:.4"]{display:none}
+  .period-banner .pb-stats span{white-space:nowrap}
+}
