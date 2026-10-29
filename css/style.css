@@ -1245,3 +1245,36 @@ th.info-th:hover{color:var(--c1)}
 [data-theme="dark"] .pv-filter label{color:#C4B5FD!important}
 [data-theme="dark"] .pv-filter select,[data-theme="dark"] .pv-filter .inp,[data-theme="dark"] .pv-filter input{
   background:rgba(19,19,42,.72)!important;border-color:rgba(167,139,250,.40)!important;color:var(--text)}
+
+/* ═══ Filtre alanları — diğer tüm filtre bileşenleri de aynı mor camsı stilde ═══
+   Üst filtre çubuğu (sticky), kutu dropdown'ları (.mf-select), chip butonlar (.tfb-sp/.mf-chip),
+   aktif filtre etiketleri, filtre çekmecesi (drawer) ve dönem seçici paneli. */
+.top-filter-bar,.donem-secici-panel{
+  background:linear-gradient(135deg,rgba(79,0,140,.13),rgba(123,47,190,.08) 55%,rgba(27,206,216,.14)),rgba(255,255,255,.72)!important;
+  border:1px solid rgba(123,47,190,.30)!important;
+  -webkit-backdrop-filter:blur(14px) saturate(165%);backdrop-filter:blur(14px) saturate(165%);
+  box-shadow:0 6px 22px rgba(79,0,140,.16),0 1px 3px rgba(15,23,42,.10),inset 0 1px 0 rgba(255,255,255,.75)!important}
+.mf-select{background:rgba(255,255,255,.78);border:1px solid rgba(123,47,190,.32);box-shadow:0 1px 4px rgba(79,0,140,.10),inset 0 1px 0 rgba(255,255,255,.9)}
+.mf-select:hover{border-color:#7B2FBE;box-shadow:0 3px 12px rgba(79,0,140,.20),inset 0 1px 0 rgba(255,255,255,.9)}
+.mf-select.active-box{border-color:#7B2FBE;background:linear-gradient(135deg,rgba(123,47,190,.16),rgba(255,255,255,.80))}
+.mf-label{color:#4F008C;font-weight:800}
+.tfb-sp,.mf-chip,.sp-btn,.drawer-btn-item{background:rgba(255,255,255,.72);border-color:rgba(123,47,190,.28);box-shadow:0 1px 3px rgba(79,0,140,.08)}
+.tfb-sp:hover,.mf-chip:hover,.sp-btn:hover,.drawer-btn-item:hover{background:rgba(255,255,255,.95);border-color:#7B2FBE;color:#4F008C}
+.tfb-sp.active,.mf-chip.active,.sp-btn.active{border-color:transparent}
+.active-filters{border-top-color:rgba(123,47,190,.25)}
+.filter-chip-tag{background:rgba(123,47,190,.12);border:1px solid rgba(123,47,190,.28);color:#4F008C}
+.filter-drawer{background:linear-gradient(160deg,rgba(79,0,140,.12),rgba(255,255,255,.90) 40%,rgba(27,206,216,.12)),rgba(255,255,255,.88);
+  -webkit-backdrop-filter:blur(18px) saturate(165%);backdrop-filter:blur(18px) saturate(165%);
+  border-left:1px solid rgba(123,47,190,.30);box-shadow:-12px 0 36px rgba(79,0,140,.22)}
+.drawer-group{border-bottom-color:rgba(123,47,190,.22)}
+.drawer-group label{color:#4F008C;font-weight:800}
+.drawer-group select{background:rgba(255,255,255,.82);border:1.5px solid rgba(123,47,190,.32);box-shadow:0 1px 4px rgba(79,0,140,.10)}
+.drawer-group select:focus{border-color:#7B2FBE;box-shadow:0 0 0 3px rgba(123,47,190,.22)}
+[data-theme="dark"] .top-filter-bar,[data-theme="dark"] .donem-secici-panel{
+  background:linear-gradient(135deg,rgba(139,92,246,.22),rgba(124,58,237,.10) 55%,rgba(34,211,238,.14)),rgba(19,19,42,.80)!important;
+  border-color:rgba(167,139,250,.38)!important;box-shadow:0 6px 24px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.10)!important}
+[data-theme="dark"] .mf-select,[data-theme="dark"] .tfb-sp,[data-theme="dark"] .mf-chip,[data-theme="dark"] .sp-btn,[data-theme="dark"] .drawer-btn-item{background:rgba(19,19,42,.70);border-color:rgba(167,139,250,.38)}
+[data-theme="dark"] .mf-label,[data-theme="dark"] .drawer-group label{color:#C4B5FD}
+[data-theme="dark"] .filter-chip-tag{background:rgba(139,92,246,.22);border-color:rgba(167,139,250,.4);color:#E9E3FF}
+[data-theme="dark"] .filter-drawer{background:linear-gradient(160deg,rgba(139,92,246,.22),rgba(19,19,42,.92) 45%,rgba(34,211,238,.10)),rgba(19,19,42,.90);border-left-color:rgba(167,139,250,.38)}
+[data-theme="dark"] .drawer-group select{background:rgba(19,19,42,.75);color:var(--text);border-color:rgba(167,139,250,.40)}
