@@ -2341,6 +2341,9 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
     </div>
     <div class="mb16" id="mgrPrimTakip"><div style="padding:16px;color:var(--dim);font-size:12px">Yükleniyor...</div></div>
 
+    <!-- Geçmiş Dönem Prim Hesabı + Ek Prim Tablosu: Temsilci Prim Takibi'nin hemen ALTINDA (js/ui/prim-takip-page.js burayı doldurur) -->
+    <div class="mb16" id="mgrPrimGecmis"></div>
+
     <div id="mgr-sec-kongre" style="scroll-margin-top:12px"></div>
     <!-- ═══ Kongre Etkisi (filtreli) — kongreler satışa/pazar payına karşılık buldu mu?
          js/ui/kongre-etkisi.js · goPage(7) içinde renderKongreEtkisiManager() çağrılır ═══ -->
@@ -2351,9 +2354,6 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
       </div>
       <div class="card-body" id="mgrKongreEtkisi"><div style="padding:12px;color:var(--dim);font-size:12px">Yükleniyor…</div></div>
     </div>
-
-    <!-- Geçmiş Dönem Prim Hesabı + Ek Prim Tablosu: Kongre Etkisi Analizi'nden SONRA (js/ui/prim-takip-page.js burayı doldurur) -->
-    <div class="mb16" id="mgrPrimGecmis"></div>
 
     <!-- ═══════════════════════════════════════════════════════════
          BÖLÜM 5 — KRİTİK AKSİYONLAR
