@@ -1226,3 +1226,22 @@ th.info-th:hover{color:var(--c1)}
 @media(max-width:520px){.pv-dl{white-space:normal;text-align:center}}
 /* Kart gölgeleri — diğer kart benzeri kutular da aynı gölgeyi kullanır */
 .insight,.alert-box{box-shadow:var(--card-shadow)}
+
+/* ═══ Standart Filtre Alanı — mor/camsı efekt (.pv-filter) ═══
+   Filtre çubukları (Temsilci / Yıl / Dönem, Kongre filtreleri, Temsilci Seçin vb.) bu sınıfı kullanır. */
+.pv-filter{background:linear-gradient(135deg,rgba(79,0,140,.11),rgba(123,47,190,.07) 55%,rgba(27,206,216,.12))!important;
+  border:1px solid rgba(123,47,190,.30)!important;border-radius:16px;
+  -webkit-backdrop-filter:blur(12px) saturate(165%);backdrop-filter:blur(12px) saturate(165%);
+  box-shadow:0 6px 22px rgba(79,0,140,.16),0 1px 3px rgba(15,23,42,.10),inset 0 1px 0 rgba(255,255,255,.75)!important;overflow:visible}
+.pv-filter>.card-body{background:transparent!important}
+.pv-filter label{color:#4F008C!important;font-weight:800}
+.pv-filter select,.pv-filter input[type=text],.pv-filter input[type=search],.pv-filter input[type=date],.pv-filter .inp{
+  background:rgba(255,255,255,.78)!important;border:1px solid rgba(123,47,190,.32)!important;border-radius:10px;color:var(--text);
+  box-shadow:0 1px 4px rgba(79,0,140,.10),inset 0 1px 0 rgba(255,255,255,.9);transition:border-color .15s,box-shadow .15s}
+.pv-filter select:hover,.pv-filter .inp:hover{border-color:rgba(123,47,190,.55)!important}
+.pv-filter select:focus,.pv-filter .inp:focus,.pv-filter input:focus{outline:none;border-color:#7B2FBE!important;box-shadow:0 0 0 3px rgba(123,47,190,.22)!important}
+[data-theme="dark"] .pv-filter{background:linear-gradient(135deg,rgba(139,92,246,.20),rgba(124,58,237,.10) 55%,rgba(34,211,238,.14))!important;
+  border-color:rgba(167,139,250,.38)!important;box-shadow:0 6px 24px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.10)!important}
+[data-theme="dark"] .pv-filter label{color:#C4B5FD!important}
+[data-theme="dark"] .pv-filter select,[data-theme="dark"] .pv-filter .inp,[data-theme="dark"] .pv-filter input{
+  background:rgba(19,19,42,.72)!important;border-color:rgba(167,139,250,.40)!important;color:var(--text)}

@@ -731,9 +731,9 @@
     st.textContent =
       '.kg-wrap{font-size:12px;color:var(--text);min-width:0;max-width:100%;box-sizing:border-box}' +
       '.kg-wrap *{box-sizing:border-box}' +
-      '.kg-filters{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 14px;padding:12px 14px;background:var(--surf);border:1px solid var(--border);border-radius:14px;box-shadow:0 2px 10px rgba(15,23,42,.10),0 1px 2px rgba(15,23,42,.06)}' +
+      '.kg-filters{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 14px;padding:12px 14px}' +
       '.kg-filters label{display:flex;flex-direction:column;gap:3px;font-size:9.5px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.3px}' +
-      '.kg-filters select{min-width:140px;max-width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-size:11.5px;font-weight:600;box-shadow:0 1px 3px rgba(15,23,42,.08)}' +
+      '.kg-filters select{min-width:140px;max-width:100%;padding:6px 8px;font-size:11.5px;font-weight:600}' +
       '.kg-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px;margin:0 0 14px}' +
       '.kg-kpi{display:flex;flex-direction:column-reverse;justify-content:flex-end;gap:5px;background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:12px 13px}' +
       '.kg-kpi b{display:block;font-size:26px;font-weight:800;line-height:1.1}' +
@@ -1402,7 +1402,7 @@
     var tOpts = [['', 'Tümü']].concat(uniq(all, function (it) { return it.row.ttt; }).map(function (t) { return [key(t), t]; }));
     var uOpts = [['', 'Tümü']].concat(uniq(all, function (it) { return it.row.urun; }).map(function (t) { return [key(t), t]; }));
     var kOpts = [['', 'Tümü']].concat(uniq(all, function (it) { return it.row.kongre; }).map(function (t) { return [key(t), t]; }));
-    var filt = '<div class="kg-filters">' +
+    var filt = '<div class="kg-filters pv-filter">' +
       (locked ? '' : sel('Temsilci', 'ttt', mount, S.ttt, tOpts)) +
       sel('Ürün', 'urun', mount, S.urun, uOpts) + sel('Kongre / Toplantı', 'kongre', mount, S.kongre, kOpts) +
       sel('Sonuç', 'sonuc', mount, S.sonuc, [['', 'Tümü'], ['olumlu', '🚀 İvme + Pozitif'], ['notr', '➖ Nötr'], ['olumsuz', '📉 Zayıflama + Düşüş'], ['veri', '❔ Veri yetersiz']]) +

@@ -612,7 +612,7 @@ report:function(){try{var p=0,r=this.m.map(function(x){var o={adim:x[0],'toplam_
 <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.4.0">
 <!-- PHASE3-STUB: <style> bloğu → css/style.css -->
 <!-- Rollback: bu satırı sil, css/style.css içeriğini <style>...</style> olarak geri ekle -->
-<link rel="stylesheet" href="css/style.css?v=20261028b">
+<link rel="stylesheet" href="css/style.css?v=20261029a">
 <script>
 /* AÇILIŞ HIZI: tüm script'ler artık <body> sonunda. Giriş ekranı hemen görünür; script'ler gelmeden
    "Giriş yap"a basılırsa istek kuyruğa alınır, yükleme bitince (DOMContentLoaded) otomatik çalışır. */
@@ -2280,10 +2280,10 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
           <div style="color:var(--dim);font-size:11px">Yükleniyor…</div>
         </div>
 
-        <div style="margin-bottom:12px">
-          <label style="font-size:10px;font-weight:700;color:var(--dim);display:block;margin-bottom:4px">Temsilci Seçin</label>
+        <div class="pv-filter" style="margin-bottom:12px;padding:12px 14px">
+          <label style="font-size:10px;font-weight:700;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px">Temsilci Seçin</label>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <select id="mgrTttSelect" onchange="onManagerTttChange()" style="flex:1;min-width:200px;max-width:320px;font-size:12px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surf);color:var(--fg)">
+            <select id="mgrTttSelect" onchange="onManagerTttChange()" style="flex:1;min-width:200px;max-width:320px;font-size:12px;padding:7px 10px">
               <option value="">— Temsilci Seçin —</option>
             </select>
             <!-- FAZ 18.1 — Yönetici bu temsilci adına stok/rota planı/saha
@@ -2663,8 +2663,8 @@ window.DOSYALAR_DELETE_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/dos
 </script>
 <script src="js/ui/dosyalar-page.js?v=20261028a"></script>
 <script src="js/ui/dosyalar-manager-summary.js?v=20261008"></script>
-<script src="js/ui/prim-takip-page.js?v=20261028a"></script>
-<script src="js/ui/kongre-etkisi.js?v=20261028b"></script>
+<script src="js/ui/prim-takip-page.js?v=20261029a"></script>
+<script src="js/ui/kongre-etkisi.js?v=20261029a"></script>
 <script src="js/ai/core/competitive-outcome-linker.js?v=20260705"></script>
 <script>window.SARTLAR_SYNC_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/sartlar-sync';</script>
 <script>window.HABER_SYNC_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/haber-sync';</script>

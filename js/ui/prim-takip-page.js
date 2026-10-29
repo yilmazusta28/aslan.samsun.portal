@@ -162,7 +162,7 @@
     var lab = 'font-size:9px;font-weight:700;letter-spacing:.05em;color:var(--dim);text-transform:uppercase;display:block;margin-bottom:2px';
 
     var filterBar =
-      '<div class="card" style="margin-top:18px"><div class="card-body" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">' +
+      '<div class="card pv-filter" style="margin-top:18px"><div class="card-body" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">' +
         '<div><label style="' + lab + '">Temsilci</label><select class="inp" style="' + sty + ';min-width:170px" onchange="ptSetFilter(\'ttt\',this.value)">' +
           opt('', 'Tüm ekip', !_fTtt) + ALL_TTTS.map(function (t) { return opt(t, t, t === _fTtt); }).join('') + '</select></div>' +
         '<div><label style="' + lab + '">Yıl</label><select class="inp" style="' + sty + '" onchange="ptSetFilter(\'year\',this.value)">' +
