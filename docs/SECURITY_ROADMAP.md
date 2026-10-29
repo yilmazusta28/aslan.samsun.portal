@@ -2,6 +2,12 @@
 
 Durum: ✅ yapıldı · 🟡 hazır, devreye alınmayı bekliyor · ⏳ planlandı
 
+## Güncel durum — 29 Ekim 2026 (yalnızca kodda doğrulananlar)
+- `PV_SERVER_AUTH` artık `js/core/pv-config.js` içinde **true**; `index.html`'deki eski `VALID_PASS` ve bayrak kaldırılmış. Worker'ın canlıda `strict` modda olup olmadığı **kodla doğrulanamaz** — Cloudflare'den kontrol edin.
+- `.claude/settings.local.json` artık git'te izlenmiyor (1.5 yapıldı). Geçmişte 2 commit'te var; içinde yalnızca kullanıcı yolu ve `node --check` izinleri var, anahtar yok.
+- ⚠ **Git geçmişi:** eski ortak şifre (`VALID_PASS`, 21 commit) ve `_PV_WORKER_KEY` (4 commit) güncel dosyalardan silinse de geçmiş commit'lerde okunabilir. Eski şifrenin/anahtarın artık geçersiz olması (strict mod + `ANTHROPIC_API_KEY` ve worker anahtarı döndürme, Faz 2 adım 5–6) gerekir; geçmişi temizlemek tek başına yeterli değildir.
+- `innerHTML` şu an 270 yerde, `pvEsc` 27 yerde. Bu sürümde kapatılanlar: AI sohbet/Strateji Motoru çıktısı, hata mesajları, rota tablosu, geri bildirim butonu (`explainable-ai.js`), piyasa haberleri ve satış şartı alanları (`sales-conditions.js`).
+
 ## Faz 1 — İstemci tarafı sertleştirme (bu sürümde) ✅
 | # | Bulgu | Düzeltme | Durum |
 |---|---|---|---|

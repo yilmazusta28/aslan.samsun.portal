@@ -1030,7 +1030,7 @@
           });
         }
       } catch (err) {
-        el.innerHTML = '<div class="ape-error">Hata: ' + (err.message || 'Bilinmeyen hata') + '</div>';
+        el.innerHTML = '<div class="ape-error">Hata: ' + pvEsc(err.message || 'Bilinmeyen hata') + '</div>';
         console.error('[APE] render hata:', err);
       }
     }, 50);

@@ -35,7 +35,7 @@ function _updateProxyStatus(url) {
   var el = document.getElementById('proxyStatus');
   if (!el) return;
   if (url && url !== 'https://YOUR-WORKER.workers.dev') {
-    el.innerHTML = '<span style="color:var(--good)">✅ Proxy aktif: ' + url + '</span>';
+    el.innerHTML = '<span style="color:var(--good)">✅ Proxy aktif: ' + pvEsc(url) + '</span>';
   } else {
     el.innerHTML = '<span style="color:#D97706">⚠️ Proxy ayarlanmadı</span>';
   }
@@ -77,7 +77,9 @@ async function fetchAI(payload) {
 
 // ── Markdown → HTML format helper ─────────────────────────────────
 function _formatAIReply(text) {
-  return (text || '')
+  // Model çıktısı güvenilmez girdidir (kullanıcı notları/prompt injection ile HTML üretebilir):
+  // önce kaçış, sonra yalnızca **kalın** ve satır sonu biçimlendirmesi.
+  return pvEsc(text || '')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\n/g, '<br>');
 }
@@ -146,7 +148,7 @@ async function sendAiMsgWithText(text) {
   }
 
   chatArea.innerHTML += '<div class="ai-bubble-user">' +
-    '<strong style="color:#4F008C">👤 Siz</strong><br>' + text + '</div>';
+    '<strong style="color:#4F008C">👤 Siz</strong><br>' + pvEsc(text) + '</div>';
   requestAnimationFrame(function(){ chatArea.scrollTop = chatArea.scrollHeight; });
 
   var loadId = 'ai_loading_' + Date.now();
@@ -270,7 +272,7 @@ async function sendAiMsgWithText(text) {
       ? '🔧 Proxy kurulumu gerekli. AI Asistan sayfasındaki kurulum talimatlarını takip edin.'
       : err.message;
     if (errEl) errEl.innerHTML = '<strong style="color:#DC2626">⚠️ Hata</strong>' +
-      '<br><div style="margin-top:6px;font-size:11px">' + errMsg + '</div>';
+      '<br><div style="margin-top:6px;font-size:11px">' + pvEsc(errMsg) + '</div>';
     statusEl.textContent = '❌ Hata';
 
   } finally {

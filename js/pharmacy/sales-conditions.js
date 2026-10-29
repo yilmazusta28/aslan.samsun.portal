@@ -732,7 +732,7 @@
             '<label style="font-size:11px;color:var(--dim);display:block;margin-bottom:3px">' +
               'Standart MF (örn: 10+1 20+3 50+10)' +
             '</label>' +
-            '<input id="st_' + urunId + '" type="text" value="' + _satirlarToStr(s.standart) + '"' +
+            '<input id="st_' + urunId + '" type="text" value="' + pvEsc(_satirlarToStr(s.standart)) + '"' +
               ' style="width:100%;padding:5px 8px;border-radius:6px;border:1px solid var(--border);' +
               'background:var(--bg);color:var(--text);font-size:12px;box-sizing:border-box">' +
           '</div>' +
@@ -740,7 +740,7 @@
             '<label style="font-size:11px;color:var(--dim);display:block;margin-bottom:3px">' +
               'Kampanya Şartı (örn: 50+15 100+35)' +
             '</label>' +
-            '<input id="kp_' + urunId + '" type="text" value="' + _satirlarToStr(s.kampanya) + '"' +
+            '<input id="kp_' + urunId + '" type="text" value="' + pvEsc(_satirlarToStr(s.kampanya)) + '"' +
               ' style="width:100%;padding:5px 8px;border-radius:6px;border:1px solid var(--border);' +
               'background:var(--bg);color:var(--text);font-size:12px;box-sizing:border-box">' +
           '</div>' +
@@ -807,19 +807,19 @@
             '<span style="font-size:18px;line-height:1">' + e.icon + '</span>' +
             '<div style="flex:1;min-width:0">' +
               '<div style="font-weight:700;font-size:13px;color:' + e.color + '">' +
-                h.baslik + '</div>' +
+                pvEsc(h.baslik) + '</div>' +
               '<div style="font-size:11px;color:var(--dim);margin-top:2px">' +
-                e.label + ' • ' + h.tarih +
-                (h.aciklama ? ' • ' + h.aciklama : '') +
+                e.label + ' • ' + pvEsc(h.tarih) +
+                (h.aciklama ? ' • ' + pvEsc(h.aciklama) : '') +
               '</div>' +
             '</div>' +
             '<div style="display:flex;gap:6px;flex-shrink:0">' +
-              '<button onclick="window._pvToggleHaber(' + h.id + ')" ' +
+              '<button onclick="window._pvToggleHaber(' + (+h.id || 0) + ')" ' +
                 'style="font-size:10px;padding:3px 8px;border-radius:5px;' +
                 'border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer">' +
                 (h.aktif ? '⏸ Duraklat' : '▶ Aktifleştir') +
               '</button>' +
-              '<button onclick="window._pvSilHaber(' + h.id + ')" ' +
+              '<button onclick="window._pvSilHaber(' + (+h.id || 0) + ')" ' +
                 'style="font-size:10px;padding:3px 8px;border-radius:5px;' +
                 'border:none;background:#FEE2E2;color:#DC2626;cursor:pointer">🗑 Sil</button>' +
             '</div>' +
@@ -1088,7 +1088,7 @@
           var oneriColor = u.kampanyaModu ? '#D97706' : 'var(--c1)';
           var oneriText  = u.siparisOnerisi.sart ? u.siparisOnerisi.sart : u.siparisOnerisi.miktar + ' kutu';
           return '<td style="text-align:center">' +
-            '<div style="font-weight:700;font-size:12px;color:' + oneriColor + '">' + oneriText + '</div>' +
+            '<div style="font-weight:700;font-size:12px;color:' + oneriColor + '">' + pvEsc(oneriText) + '</div>' +
             '<div style="font-size:9px;color:var(--dim)">ort:' + u.aylikOrtalama + ' | son:' + u.sonSiparis + '</div>' +
             '<div style="font-size:9px;color:#15803D">→ ' + u.ongorilenSiparis + '</div>' +
           '</td>';

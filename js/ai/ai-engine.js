@@ -860,12 +860,13 @@ ZAMAN DUYARLI DEĞERLENDİRME — MUTLAKA UYGULA:
       return;
     }
 
-    const fmt    = reply.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+    // Model çıktısı güvenilmez: önce HTML kaçışı, sonra yalnız **kalın** ve satır sonu
+    const fmt    = pvEsc(reply).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
     const el     = document.getElementById(loadId);
     if (el) el.innerHTML = `<strong style="color:var(--c1)"><i class="fas fa-brain" style="margin-right:5px"></i>Strateji Motoru</strong><br><div style="margin-top:8px;line-height:1.7">${fmt}</div>`;
   } catch(err) {
     const el = document.getElementById(loadId);
-    if (el) el.innerHTML = `<strong style="color:#DC2626">⚠️ Hata</strong><br>${err.message}`;
+    if (el) el.innerHTML = `<strong style="color:#DC2626">⚠️ Hata</strong><br>${pvEsc(err.message)}`;
   } finally {
     _engineInflight = false;                    // FIX-RT-02: her durumda kilidi serbest bırak
   }

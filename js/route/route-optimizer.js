@@ -772,8 +772,8 @@
 
       return '<tr>' +
         '<td style="font-weight:800;color:var(--c1);text-align:center;font-size:13px">' + p.rank + '</td>' +
-        '<td style="font-weight:600;font-size:11px">' + p.eczane + '</td>' +
-        '<td style="font-size:10px;color:var(--dim)">' + p.brick + '</td>' +
+        '<td style="font-weight:600;font-size:11px">' + pvEsc(p.eczane) + '</td>' +
+        '<td style="font-size:10px;color:var(--dim)">' + pvEsc(p.brick) + '</td>' +
         '<td style="text-align:center">' + _prioBadge(p.priority) + '</td>' +
         '<td style="text-align:center">' + _clsBadge(p.classification) + '</td>' +
         '<td style="text-align:center">' + (typeof window.renderConfidenceMeter === 'function' ? window.renderConfidenceMeter(p.reorderProbability) : _probBar(p.reorderProbability)) + '</td>' +
@@ -796,7 +796,7 @@
     // Brick özet badge'leri
     var brickBadges = (t.bricks || []).map(function (b) {
       return '<span class="card-badge" style="background:#EFF6FF;color:#1D4ED8">' +
-        b.name + ' (' + b.count + ')</span>';
+        pvEsc(b.name) + ' (' + b.count + ')</span>';
     }).join('');
 
     container.innerHTML =

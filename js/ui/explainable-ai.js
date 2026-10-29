@@ -131,12 +131,10 @@
     // içindeki her " karakteri &quot; olarak HTML-escape edilmeli — aksi
     // halde tarayıcı özniteliği JSON'daki ilk " karakterinde erken kapatıyor
     // ve geri kalan JS kodu bozuluyor (butonlar tıklamaya tepki vermiyor).
-    var ctxJson = JSON.stringify(visitContext || {})
-      .replace(/\\/g, '\\\\')
-      .replace(/'/g, "\\'")
-      .replace(/"/g, '&quot;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+    // JSON, geçerli bir JS nesne literalidir; öznitelik değeri olarak yalnızca HTML-kaçış gerekir
+    // (tarayıcı özniteliği çözünce JSON aynen JS'e geçer). Ek ters-bölü/tırnak kaçışı JSON'u BOZAR
+    // ve ad alanındaki " karakteriyle JS enjeksiyonuna kapı açar.
+    var ctxJson = (typeof pvEsc === 'function' ? pvEsc : _escHtml)(JSON.stringify(visitContext || {}));
     var btns = _FEEDBACK_BTNS.map(function (fb) {
       return (
         '<button onclick="(function(){\n' +
