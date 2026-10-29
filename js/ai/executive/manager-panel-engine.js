@@ -169,8 +169,8 @@
   // csv-parser.js "BÖLGE/ULUSAL SATIRI") "sıra - bölge - TL%" formatında
   // listeler. NATIONAL her zaman en üstte sabit durur; SAMSUN için CSV'de
   // ayrı bir satır YOKTUR — ŞENOL YILMAZ'ın (bölge müdürü) GENEL TOPLAM
-  // satırından türetilir. Diğer bölgeler TR SIRA'ya göre (küçükten büyüğe,
-  // yani en iyi sıradan) sıralanır. Bölge Özet Analizi'nden ÖNCE gösterilir
+  // satırından türetilir. Diğer bölgeler TL realizasyonuna (TL %) göre yüksekten düşüğe
+  // sıralanır (eşitlikte Satış TL, sonra TR SIRA). Bölge Özet Analizi'nden ÖNCE gösterilir
   // (bkz. index.html page7 + renderManagerExtra() çağrı sırası).
   function buildRegionRanking() {
     var rawList = (typeof REGION_RANKING !== 'undefined' ? REGION_RANKING : []).slice();
