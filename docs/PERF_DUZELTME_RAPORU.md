@@ -26,3 +26,6 @@ Not: değişen betiklerin ?v= sürümü 20261031a'ya yükseltildi (cache kırma)
 
 ## Ek: Kongre performansı (files.zip, 5.–7. tur)
 `js/ui/kongre-etkisi.js`: `medianOf` Float64Array ile sıralanıyor (sonuç birebir aynı, ~2,2×); otomatik başlatma `load` sonrası boşta (`requestIdleCallback`) çalışıyor. Dosya içeriği değiştiği için `?v=20261029b`. Tembel yükleme yer tutucusuyla uyumlu: dosya ilk kullanımda yüklenince başlatma zaten boşta çalışır, `renderMount` yine `ensure()` çağırır.
+
+## Ek: Temsilci fotoğrafları (2. analiz)
+`images/*.jpg` 9 dosya 1024×1024, 1.525 KB → 256×256 (kalite 82, progressive), 73 KB. En büyük gösterim 72 px (tsb-avatar); 256 px 3× retina'yı karşılar. Dosya adları değişmedi, kod değişikliği yok. Kullanılmayan: `images/aslan.png` (426 KB) ve `assets/senol-yilmaz.jpg` (189 KB) koddan referanssız, silinebilir.
