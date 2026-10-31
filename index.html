@@ -612,7 +612,7 @@ report:function(){try{var p=0,r=this.m.map(function(x){var o={adim:x[0],'toplam_
 <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css?v=6.4.0">
 <!-- PHASE3-STUB: <style> bloğu → css/style.css -->
 <!-- Rollback: bu satırı sil, css/style.css içeriğini <style>...</style> olarak geri ekle -->
-<link rel="stylesheet" href="css/style.css?v=20261029d">
+<link rel="stylesheet" href="css/style.css?v=20261031a">
 <script>
 /* AÇILIŞ HIZI: tüm script'ler artık <body> sonunda. Giriş ekranı hemen görünür; script'ler gelmeden
    "Giriş yap"a basılırsa istek kuyruğa alınır, yükleme bitince (DOMContentLoaded) otomatik çalışır. */
@@ -2341,7 +2341,8 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
     </div>
     <div class="mb16" id="mgrPrimTakip"><div style="padding:16px;color:var(--dim);font-size:12px">Yükleniyor...</div></div>
 
-    <!-- Geçmiş Dönem Prim Hesabı + Ek Prim Tablosu: Temsilci Prim Takibi'nin hemen ALTINDA (js/ui/prim-takip-page.js burayı doldurur) -->
+    <!-- Geçmiş Dönem Prim Hesabı (filtresiz; temsilci satırına tıkla → dönem dönem döküm) + Ek Prim Tablosu (açılır kutu, varsayılan kapalı):
+         Temsilci Prim Takibi'nin hemen ALTINDA (js/ui/prim-takip-page.js burayı doldurur) -->
     <div class="mb16" id="mgrPrimGecmis"></div>
 
     <div id="mgr-sec-kongre" style="scroll-margin-top:12px"></div>
@@ -2365,10 +2366,12 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
       <span style="flex:1;height:1px;background:var(--border)"></span>
     </div>
 
-    <!-- ═══ FAZ 13.0 — Kritik Aksiyon Listesi (ekleme/katkı) ═══ -->
+    <!-- ═══ FAZ 13.0 — Kritik Aksiyon Listesi (ekleme/katkı) ═══
+         KULLANICI İSTEĞİ: Ekip Haftalık Rota Planları gibi varsayılan KAPALI, başlığa tıklanınca açılır.
+         renderTeamCriticalActions('mgrCriticalActions') tetiklemesi DEĞİŞMEDİ (kapalıyken de arka planda dolar). -->
     <div class="card mb16" style="border:1.5px solid rgba(220,38,38,.18)">
-      <div class="card-hd"><span class="card-title">🚨 Ekip Genelinde Kritik Aksiyon Listesi</span><span class="card-badge" style="font-size:9px">Tüm Temsilciler — Yüksek Risk</span></div>
-      <div class="card-body" id="mgrCriticalActions"></div>
+      <div class="card-hd" style="cursor:pointer" onclick="const p=this.nextElementSibling;const open=p.style.display==='none';p.style.display=open?'block':'none';this.querySelector('.mgr-acc-arrow').textContent=open?'▾':'▸';"><span class="card-title"><span class="mgr-acc-arrow" style="font-size:10px;color:var(--dim);margin-right:2px">▸</span>🚨 Ekip Genelinde Kritik Aksiyon Listesi</span><span class="card-badge" style="font-size:9px">Tüm Temsilciler — Yüksek Risk</span></div>
+      <div class="card-body" id="mgrCriticalActions" style="display:none"></div>
     </div>
 
     <!-- ═══ FAZ 22.1 — Dosyalar Özeti (page8 › Dosyalar sayfası kayıtları) ═══
@@ -2435,9 +2438,15 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
       <div id="aiUsageCard" style="display:none;padding:12px 16px"></div>
     </div>
 
-    <!-- ═══ FAZ 12.2 — Saha Gözlemleri Manuel Giriş ═══ -->
+    <!-- ═══ FAZ 12.2 — Saha Gözlemleri Manuel Giriş ═══
+         KULLANICI İSTEĞİ: Ekip Haftalık Rota Planları ile AYNI idiyom — varsayılan KAPALI, başlığa tıklanınca açılır. -->
     <div class="mb16" style="background:var(--surf);border:1.5px solid rgba(79,0,140,.15);border-radius:14px;padding:16px">
-      <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:12px">📋 Saha Gözlemleri</div>
+      <div style="font-size:13px;font-weight:700;color:var(--fg);cursor:pointer;display:flex;align-items:center;gap:6px"
+        onclick="const p=this.nextElementSibling;const open=p.style.display==='none';p.style.display=open?'block':'none';this.querySelector('.mgr-acc-arrow').textContent=open?'▾':'▸';">
+        <span class="mgr-acc-arrow" style="font-size:10px;color:var(--dim)">▸</span>
+        📋 Saha Gözlemleri
+      </div>
+      <div style="display:none;margin-top:12px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <div>
           <label style="font-size:10px;font-weight:700;color:var(--dim);display:block;margin-bottom:3px">Kategori</label>
@@ -2463,16 +2472,18 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
         <span id="sgStatus" style="font-size:10px;color:var(--dim)"></span>
       </div>
       <div id="sgList" style="margin-top:12px"></div>
+      </div>
     </div>
 
     <!-- ═══ FAZ 12.2 — AI Eğitim Girdileri Özeti (GÜNCELLEME: artık gerçek
          sayılar gösteriyor — bkz. manager-panel-engine.js renderAiEgitimGirdileriOzeti) ═══ -->
+    <!-- KULLANICI İSTEĞİ: Ekip Haftalık Rota Planları gibi varsayılan KAPALI, başlığa tıklanınca açılır. -->
     <div class="card mb16" style="border:1.5px solid rgba(79,0,140,.15)">
-      <div class="card-hd">
-        <span class="card-title">🔗 AI Eğitim Girdileri Özeti</span>
+      <div class="card-hd" style="cursor:pointer" onclick="const p=this.nextElementSibling;const open=p.style.display==='none';p.style.display=open?'block':'none';this.querySelector('.mgr-acc-arrow').textContent=open?'▾':'▸';">
+        <span class="card-title"><span class="mgr-acc-arrow" style="font-size:10px;color:var(--dim);margin-right:2px">▸</span>🔗 AI Eğitim Girdileri Özeti</span>
         <span class="card-badge" style="font-size:9px">Ekip Geneli — Son 7 Gün</span>
       </div>
-      <div class="card-body" id="mgrAiEgitimOzeti"></div>
+      <div class="card-body" id="mgrAiEgitimOzeti" style="display:none"></div>
     </div>
 
     <!-- ═══ FAZ 10 — Dönem Arşivi (kullanıcı isteğiyle eklendi) ═══
@@ -2592,7 +2603,7 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
 <script src="js/ui/ttt-lock.js?v=20261006"></script>
 <script src="js/ui/ytd-tl-page.js?v=20260912"></script>
 <script src="js/ui/tr-sira-panel.js?v=20260913"></script>
-<script src="js/ui/prim-gecmis.js?v=20261028a"></script>
+<script src="js/ui/prim-gecmis.js?v=20261031a"></script>
 <script src="js/core/runtime-patches.js?v=20260705"></script>
 <script src="js/core/perf-monitor.js?v=20260705"></script>
 <script src="js/core/health-check.js?v=20260705"></script>
@@ -2663,8 +2674,8 @@ window.DOSYALAR_DELETE_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/dos
 </script>
 <script src="js/ui/dosyalar-page.js?v=20261028a"></script>
 <script src="js/ui/dosyalar-manager-summary.js?v=20261008"></script>
-<script src="js/ui/prim-takip-page.js?v=20261029a"></script>
-<script src="js/ui/kongre-etkisi.js?v=20261029a"></script>
+<script src="js/ui/prim-takip-page.js?v=20261031a"></script>
+<script src="js/ui/kongre-etkisi.js?v=20261031a"></script>
 <script src="js/ai/core/competitive-outcome-linker.js?v=20260705"></script>
 <script>window.SARTLAR_SYNC_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/sartlar-sync';</script>
 <script>window.HABER_SYNC_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/haber-sync';</script>

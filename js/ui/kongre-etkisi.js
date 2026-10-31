@@ -52,6 +52,8 @@
   var D = null;               // { units, att, kongreler, err }
   var loadPromise = null;
   var RAW = { k1: '', k2: '' };   // ham CSV metinleri (Excel indirme yedeği için)
+  // Yönetici panelinde açılır bölümler / açıklama balonu durumu (filtre değişince yeniden çizilse de korunur)
+  var UI = { rep: { acc: {}, tip: false }, mgr: { acc: {}, tip: false } };
   var ST = {
     rep: { ttt: null, urun: '', kongre: '', sonuc: '', hekim: '', sirala: 'iyi' },
     mgr: { ttt: '', urun: '', kongre: '', sonuc: '', hekim: '', sirala: 'iyi' }
@@ -780,7 +782,25 @@
       '.kg-dl-t{font-size:12px;font-weight:800;color:#047857;display:flex;align-items:center;gap:6px;margin-right:auto}' +
       '.kg-dl-t small{display:block;font-size:10px;font-weight:600;color:var(--dim)}' +
       '.kg-txt,.kg-note,.kg-sub,.kg-title{overflow-wrap:anywhere}' +
-      '@media(max-width:520px){.kg-filters{padding:10px}.kg-filters label{flex:1 1 140px;min-width:0}.kg-filters select{width:100%;min-width:0}.kg-dl{padding:10px 12px}.kg-dl-t{flex:1 1 100%;margin-right:0}.kg-dl .pv-dl{flex:1 1 100%}.kg-kpi b{font-size:22px}}';
+      '@media(max-width:520px){.kg-filters{padding:10px}.kg-filters label{flex:1 1 140px;min-width:0}.kg-filters select{width:100%;min-width:0}.kg-dl{padding:10px 12px}.kg-dl-t{flex:1 1 100%;margin-right:0}.kg-dl .pv-dl{flex:1 1 100%}.kg-kpi b{font-size:22px}}' +
+      // Kart içi: grafik sütunu + metin sütunu. Kart genişliği (container) darsa (tablet) tek sütuna iner,
+      // grafikler yan yana dizilir → grafik sütununun altında boş alan kalmaz.
+      '.kg-cq{container-type:inline-size}' +
+      '@container (max-width:880px){.kg-body{grid-template-columns:minmax(0,1fr)}.kg-charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,330px));gap:6px 18px;align-items:start}.kg-chart>.kg-cap:first-child{margin-top:0}}' +
+      '@supports not (container-type:inline-size){@media(max-width:960px){.kg-body{grid-template-columns:minmax(0,1fr)}.kg-charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,330px));gap:6px 18px;align-items:start}.kg-chart>.kg-cap:first-child{margin-top:0}}}' +
+      // Açılır bölüm (Ekip Haftalık Rota Planları ile aynı idiyom: ▸/▾ + başlığa tıkla)
+      '.kg-acc{background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin:14px 0 10px;min-width:0}' +
+      '.kg-acc-hd{font-size:13px;font-weight:700;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none;-webkit-tap-highlight-color:transparent}' +
+      '.kg-acc-ar{font-size:10px;color:var(--dim);width:10px;flex:none}' +
+      '.kg-acc-hd small{font-size:10px;font-weight:600;color:var(--dim);margin-left:4px}' +
+      '.kg-acc-body{margin-top:10px;min-width:0}' +
+      // Açıklama balonu (Kongre Etkisi Analizi — geçen yıla göre)
+      '.kg-tip{cursor:pointer;margin-bottom:0!important;user-select:none;-webkit-tap-highlight-color:transparent}' +
+      '.kg-info{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--c1);color:#fff;font-size:10px;font-weight:800;font-style:italic;font-family:Georgia,serif;flex:none}' +
+      '.kg-bubble{display:none;position:relative;margin-top:12px;padding:11px 13px;border-radius:12px;background:var(--surf);color:var(--text);border:1px solid rgba(27,206,216,.5);box-shadow:0 4px 14px rgba(0,0,0,.10);font-size:12px;line-height:1.6;overflow-wrap:anywhere}' +
+      '.kg-bubble::before{content:"";position:absolute;top:-6px;left:24px;width:10px;height:10px;background:var(--surf);border-left:1px solid rgba(27,206,216,.5);border-top:1px solid rgba(27,206,216,.5);transform:rotate(45deg)}' +
+      '.kg-bubble.open,.kg-bubble.kg-flat{display:block}' +
+      '.kg-bubble.kg-flat{box-shadow:none}';
     document.head.appendChild(st);
   }
 
@@ -941,14 +961,15 @@
     if (showTtt) sub.push(esc(u.ttt));
     sub.push(esc(u.brick));
     if (it.att) sub.push(o.coklu ? '<b style="color:#2563EB">👥 Çoklu hekim: ' + o.hekimN + (o.hekimEsles ? ' (bu ürün)' : '') + '</b>' : (o.hekimN || it.att.sayi) + ' hekim katıldı');
-    var html = '<div class="kg-card" style="border-left:4px solid ' + v.c + '"><div class="kg-card-hd"><div><div class="kg-title">🎪 ' + esc(u.kongre) +
+    var html = '<div class="kg-card kg-cq" style="border-left:4px solid ' + v.c + '"><div class="kg-card-hd"><div><div class="kg-title">🎪 ' + esc(u.kongre) +
       ' <span style="font-weight:600;color:var(--c1)">· ' + esc(u.urun) + '</span></div><div class="kg-sub">' + sub.join(' · ') + '</div></div>' +
       '<span class="kg-badge" style="color:' + v.c + ';background:' + v.bg + '" title="' + (o.mod === 'bolge' ? 'Karar: kongreye hekim gönderilmeyen bricklere (bölge) göre' : 'Karar: yalnızca geçen yıla göre (bölge kıyası yok)') + '">' + v.ic + ' ' + v.lbl + (o.mod === 'bolge' ? ' · bölgeye göre' : '') + '</span></div>';
-    html += '<div class="kg-body"><div>' + yoyBars(o);
-    if (o.ks) html += '<div class="kg-cap">Aylık kutu çıkışı (renk: önceki aya göre · kesik çizgi: aylık ortalama)</div>' + kutuSvg(o);
-    if (u.ay && o.aylik.length) html += '<div class="kg-cap">Aylık pazar payı farkı (bu yıl − geçen yıl, puan)</div>' + aylikSvg(u, o);
+    var yb = yoyBars(o);
+    html += '<div class="kg-body"><div class="kg-charts">' + (yb ? '<div class="kg-chart">' + yb + '</div>' : '');
+    if (o.ks) html += '<div class="kg-chart"><div class="kg-cap">Aylık kutu çıkışı (renk: önceki aya göre · kesik çizgi: aylık ortalama)</div>' + kutuSvg(o) + '</div>';
+    if (u.ay && o.aylik.length) html += '<div class="kg-chart"><div class="kg-cap">Aylık pazar payı farkı (bu yıl − geçen yıl, puan)</div>' + aylikSvg(u, o) + '</div>';
     if (!o.ks && !(u.ay && o.aylik.length)) html += '<div class="kg-note" style="margin-top:6px">Bu ürün için aylık veri yok; YTD karşılaştırma gösteriliyor.</div>';
-    html += '</div><div>';
+    html += '</div><div class="kg-main">';
     html += donemTablo(it);
     if (OLCULEN.indexOf(o.durum) >= 0) {
       html += '<div class="kg-chips">' +
@@ -1116,7 +1137,15 @@
       '<div class="kg-note" style="margin-top:4px">' + n + ' brick–ürün (aylık verisi olanlar). 1. → 2. altı ay geçişi: <b class="kg-up">' + geç.iyi + ' iyileşen</b> · ' + geç.ayni + ' aynı · <b class="kg-dn">' + geç.kotu + ' kötüleşen</b>. Mutlak dereceler bölge geneli eğilimleri de içerir (ör. yıl içinde düşen EVO); 2. altı ay henüz tamamlanmadığı için kısmidir.</div>';
   }
 
-  function heatTable(items, showTtt) {
+  // Yönetici panelinde bölüm başlığı tıklanınca açılan kutu (varsayılan KAPALI); temsilci sayfasında eski düz başlık.
+  function accHtml(mount, id, title, body) {
+    if (mount !== 'mgr') return '<div class="kg-sec">' + title + '<i></i></div>' + body;
+    var open = !!UI[mount].acc[id];
+    return '<div class="kg-acc"><div class="kg-acc-hd" role="button" tabindex="0" aria-expanded="' + open + '" data-kgact="acc" data-m="' + mount + '" data-id="' + id + '">' +
+      '<span class="kg-acc-ar">' + (open ? '▾' : '▸') + '</span>' + title + '</div>' +
+      '<div class="kg-acc-body"' + (open ? '' : ' style="display:none"') + '>' + body + '</div></div>';
+  }
+  function heatTable(items, showTtt, mount) {
     var g = {}, order = [], maxLast = 0;
     items.forEach(function (it) {
       var k = [key(it.row.ttt), key(it.row.brick), key(it.row.urun)].join('|');
@@ -1143,9 +1172,9 @@
       tds += '<td><div class="kg-hc" style="background:' + ce.bg + ';color:' + ce.fg + '">' + (a.evo == null ? '—' : fmt(a.evo)) + '</div></td>';
       return '<tr>' + tds + '</tr>';
     }).join('');
-    return '<div class="kg-sec">🗺️ Brick–Ürün İvme Haritası (geçen yıla göre)<i></i></div>' +
+    return accHtml(mount, 'heat', '🗺️ Brick–Ürün İvme Haritası (geçen yıla göre)',
       '<div class="kg-legend"><span><em style="background:#16A34A"></em>≥ +%25</span><span><em style="background:#BBF7D0"></em>+%5…+%25</span><span><em style="background:var(--surf2);border:1px solid var(--border)"></em>±%5</span><span><em style="background:#FECACA"></em>−%5…−%25</span><span><em style="background:#DC2626"></em>≤ −%25</span><span>Aylık hücre = pazar payının geçen yılın aynı ayına göre değişimi (EVO − 100), altında o ayın kutusu · YTD Kutu = geçen yıla göre kutu değişimi</span></div>' +
-      '<div class="kg-scroll"><table class="kg-heat"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>';
+      '<div class="kg-scroll"><table class="kg-heat"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>');
   }
 
     // ───────────────────────── Excel indirme (yönetici) ─────────────────────────
@@ -1269,6 +1298,18 @@
     }).then(function (idoc) {
       var clone = wrap.cloneNode(true);
       Array.prototype.forEach.call(clone.querySelectorAll('.kg-filters, .kg-noprint'), function (n) { n.parentNode && n.parentNode.removeChild(n); });
+      // açılır bölümler PDF'te hep açık ve düz başlık olarak yazılır; açıklama balonu metni açık gelir
+      Array.prototype.forEach.call(clone.querySelectorAll('.kg-acc'), function (a) {
+        var hd = a.querySelector('.kg-acc-hd'), bd = a.querySelector('.kg-acc-body'), par = a.parentNode;
+        if (!hd || !bd || !par) return;
+        var ar = hd.querySelector('.kg-acc-ar'); if (ar) ar.parentNode.removeChild(ar);
+        hd.className = 'kg-sec'; hd.removeAttribute('style'); hd.removeAttribute('role'); hd.appendChild(document.createElement('i'));
+        par.insertBefore(hd, a);
+        while (bd.firstChild) par.insertBefore(bd.firstChild, a);
+        par.removeChild(a);
+      });
+      Array.prototype.forEach.call(clone.querySelectorAll('.kg-info'), function (n) { n.parentNode && n.parentNode.removeChild(n); });
+      Array.prototype.forEach.call(clone.querySelectorAll('.kg-bubble'), function (n) { n.classList.add('kg-flat'); });
       // kart içindeki aylık detay tabloları PDF'e girmez (grafikte zaten var); yöntem notu açık gelir
       Array.prototype.forEach.call(clone.querySelectorAll('.kg-card details'), function (d) { d.parentNode && d.parentNode.removeChild(d); });
       Array.prototype.forEach.call(clone.querySelectorAll('details'), function (d) { d.setAttribute('open', ''); });
@@ -1436,12 +1477,19 @@
       '<div class="kg-kpi"><span>Yıllık ek kutu (YTD)</span><b class="' + deltaCls(Sm.net, 1) + '">' + (Sm.olculen ? sgn(Sm.net) : '—') + '</b></div></div>' + bbTxt;
 
     var showTtt = !locked && !S.ttt;
+    var insTxt = esc(ozetYorum(Sm, scope, HS));
+    var insightHtml = (mount === 'mgr')
+      // Yönetici: başlığa (ⓘ) tıklayınca açıklama balonu açılır
+      ? '<div class="insight mb16 kg-insight"><div class="insight-title kg-tip" role="button" tabindex="0" aria-expanded="' + !!UI[mount].tip + '" data-kgact="tip" data-m="' + mount + '" title="Açıklamayı göster / gizle">' +
+          '🧠 Kongre Etkisi Analizi — geçen yıla göre <span class="kg-info">i</span></div>' +
+          '<div class="kg-bubble' + (UI[mount].tip ? ' open' : '') + '" role="note">' + insTxt + '</div></div>'
+      : '<div class="insight mb16"><div class="insight-title">🧠 Kongre Etkisi Analizi — geçen yıla göre</div><div class="insight-body">' + insTxt + '</div></div>';
     el.innerHTML = '<div class="kg-wrap">' +
       '<div class="kg-noprint kg-dl"><div class="kg-dl-t">📄 Analiz raporu<small>Açık filtrelere göre PDF olarak indir.</small></div><button class="pv-dl" data-kgact="pdf" data-m="' + mount + '">📄 Analizi PDF indir</button></div>' +
-      '<div class="insight mb16"><div class="insight-title">🧠 Kongre Etkisi Analizi — geçen yıla göre</div><div class="insight-body">' + esc(ozetYorum(Sm, scope, HS)) + '</div></div>' +
-      filt + kpi + bolgeTablo() + donemOzet(items) + yogunlukTablo(Sm) + (showTtt ? teamTable(items, hsFn) : '') + heatTable(items, showTtt) +
-      '<div class="kg-sec">🎪 Kongre × Brick × Ürün Sonuçları (' + items.length + ' analiz kaydı)<i></i></div>' + legendHtml() +
-      (items.length ? items.map(function (it) { return cardHtml(it, showTtt); }).join('') : '<div class="kg-note" style="padding:12px">Seçili filtrelerde kayıt yok.</div>') +
+      insightHtml +
+      filt + kpi + bolgeTablo() + donemOzet(items) + yogunlukTablo(Sm) + (showTtt ? teamTable(items, hsFn) : '') + heatTable(items, showTtt, mount) +
+      accHtml(mount, 'sonuc', '🎪 Kongre × Brick × Ürün Sonuçları (' + items.length + ' analiz kaydı)',
+        legendHtml() + (items.length ? items.map(function (it) { return cardHtml(it, showTtt); }).join('') : '<div class="kg-note" style="padding:12px">Seçili filtrelerde kayıt yok.</div>')) +
       hekimBolumu(items, S, showTtt) +
       (mount === 'mgr' ? downloadArea() : '') + methodNote() + '</div>';
   }
@@ -1456,11 +1504,51 @@
     var dk = t.getAttribute('data-kg');
     if (dk) { var m = t.getAttribute('data-m'); ST[m][dk] = t.value; renderMount(m); }
   });
+  // Balon açıkken başka yere tıklanınca / Esc'ye basılınca kapanır; başlıklar klavyeyle (Enter/Boşluk) de açılır
+  function closeTips(except) {
+    ['rep', 'mgr'].forEach(function (m) {
+      if (!UI[m].tip) return;
+      UI[m].tip = false;
+      Array.prototype.forEach.call(document.querySelectorAll('.kg-insight'), function (ins) {
+        if (ins === except) return;
+        var bub = ins.querySelector('.kg-bubble'), hd = ins.querySelector('.kg-tip');
+        if (bub) bub.classList.remove('open');
+        if (hd) hd.setAttribute('aria-expanded', 'false');
+      });
+    });
+  }
+  document.addEventListener('click', function (e) {
+    var inIns = e.target && e.target.closest ? e.target.closest('.kg-insight') : null;
+    if (!inIns) closeTips(null);
+  });
+  document.addEventListener('keydown', function (e) {
+    var t = e.target;
+    if (e.key === 'Escape') { closeTips(null); return; }
+    if ((e.key === 'Enter' || e.key === ' ') && t && t.getAttribute && t.getAttribute('role') === 'button' && t.getAttribute('data-kgact')) {
+      e.preventDefault(); t.click();
+    }
+  });
   document.addEventListener('click', function (e) {
     var b = e.target && e.target.closest ? e.target.closest('[data-kgact]') : null;
     if (!b || !D) return;
     var act = b.getAttribute('data-kgact');
-    if (act === 'pdf') buildPdf(b.getAttribute('data-m') || 'mgr', b);
+    if (act === 'acc') {            // açılır bölüm: DOM'da yerinde aç/kapat (yeniden çizim yok)
+      var am = b.getAttribute('data-m') || 'mgr', aid = b.getAttribute('data-id'), box = b.closest('.kg-acc'), body = box && box.querySelector('.kg-acc-body');
+      if (!body) return;
+      var aOpen = body.style.display === 'none';
+      UI[am].acc[aid] = aOpen;
+      body.style.display = aOpen ? '' : 'none';
+      var arr = b.querySelector('.kg-acc-ar'); if (arr) arr.textContent = aOpen ? '▾' : '▸';
+      b.setAttribute('aria-expanded', aOpen ? 'true' : 'false');
+    }
+    else if (act === 'tip') {       // açıklama balonu
+      var tm = b.getAttribute('data-m') || 'mgr', ins = b.closest('.kg-insight'), bub = ins && ins.querySelector('.kg-bubble');
+      if (!bub) return;
+      UI[tm].tip = !bub.classList.contains('open');
+      bub.classList.toggle('open', UI[tm].tip);
+      b.setAttribute('aria-expanded', UI[tm].tip ? 'true' : 'false');
+    }
+    else if (act === 'pdf') buildPdf(b.getAttribute('data-m') || 'mgr', b);
     else if (act === 'xlsx1') downloadXlsx(1, b);
     else if (act === 'xlsx2') downloadXlsx(2, b);
   });

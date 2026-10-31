@@ -10,9 +10,10 @@
 //  TL Real primi %100 sınırlı çarpanla, Portföy ≥91/≥91, MI&GI ≥70.
 //  Bu sayfa SADECE OKUR — hiçbir veriyi/hesabı değiştirmez.
 //
-//  Bölümler: (1) Güncel dönem ekip tablosu · (2) Filtre çubuğu (temsilci / yıl / dönem)
-//  · (3) Geçmiş Dönem Prim Hesabı (temsilci sayfasındaki tabloyla aynı hesap — js/ui/prim-gecmis.js
-//  PrimGecmisMgr) · (4) Ek Prim Tablosu (EK_PRIM.csv — js/data/ek-prim-loader.js ekPrimTablesHtml).
+//  Bölümler: (1) Güncel dönem ekip tablosu (satıra tıkla → ürün dökümü)
+//  · (2) Geçmiş Dönem Prim Hesabı — filtre YOK; temsilci satırına tıkla → dönem dönem döküm
+//  (temsilci sayfasındaki tabloyla aynı hesap — js/ui/prim-gecmis.js PrimGecmisMgr.buildTeam)
+//  · (3) Ek Prim Tablosu — açılır kutu, varsayılan kapalı (EK_PRIM.csv — js/data/ek-prim-loader.js ekPrimTablesHtml).
 //
 //  Rollback: index.html'den #mgr-sec-primtakip + #mgrPrimTakip bloğunu, bu script
 //  satırını, "Prim Takip" pill'ini ve goPage() i===7 dalındaki renderPrimTakipPage çağrısını sil.
@@ -28,10 +29,11 @@
   var _sortDir = -1;          // -1: büyükten küçüğe
   var _openRows = {};         // açık ürün detayı satırları
 
-  // Geçmiş Dönem / Ek Prim filtreleri ('' = tüm ekip / tüm dönemler)
-  var _fTtt = '';
+  // Geçmiş Dönem Prim Hesabı: yıl seçimi (yalnızca birden çok yıl varsa görünür), açık temsilci satırları
+  // ve Ek Prim Tablosu açılır kutusunun durumu (yeniden çizimlerde korunur)
   var _fYear = '';
-  var _fPeriod = '';
+  var _histOpen = {};
+  var _ekOpen = false;
 
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -138,17 +140,23 @@
   }
 
   function ptSetFilter(kind, val) {
-    if (kind === 'ttt') _fTtt = val || '';
-    else if (kind === 'year') _fYear = val || '';
-    else if (kind === 'period') _fPeriod = val || '';
-    else if (kind === 'clear') { _fTtt = ''; _fPeriod = ''; _fYear = ''; }
+    if (kind === 'year') _fYear = val || '';
+    else if (kind === 'clear') _fYear = '';
     renderPrimTakipPage();
   }
 
-  // Filtre çubuğu + Geçmiş Dönem kartı + Ek Prim kartı
+  // Yalnız Geçmiş Dönem + Ek Prim bölümünü yeniden çiz (Güncel Dönem tablosuna dokunma)
+  function _renderHist() {
+    var gHost = document.getElementById('mgrPrimGecmis');
+    if (gHost) gHost.innerHTML = _historyHtml(); else renderPrimTakipPage();
+  }
+  function ptHistToggle(ttt) { _histOpen[ttt] = !_histOpen[ttt]; _renderHist(); }
+  function ptEkToggle() { _ekOpen = !_ekOpen; _renderHist(); }
+
+  // Geçmiş Dönem kartı (temsilci satırı tıklanınca açılır) + Ek Prim kartı (başlığa tıklanınca açılır)
   function _historyHtml() {
     var G = window.PrimGecmisMgr;
-    if (!G) {
+    if (!G || typeof G.buildTeam !== 'function') {
       return '<div class="card" style="margin-top:16px"><div class="card-body" style="font-size:12px;color:var(--dim)">Geçmiş dönem modülü (prim-gecmis.js) yüklenemedi.</div></div>';
     }
     G.ensure(renderPrimTakipPage);   // YTD_TL.csv yüklü değilse arka planda çek, gelince yeniden çiz
@@ -156,45 +164,33 @@
     var years = G.years();
     var curY = String(new Date().getFullYear());
     var year = (_fYear && years.indexOf(_fYear) >= 0) ? _fYear : (years.indexOf(curY) >= 0 ? curY : years[0]);
-    var periods = G.periods();
-    var opt = function (v, l, sel) { return '<option value="' + _esc(v) + '"' + (sel ? ' selected' : '') + '>' + _esc(l) + '</option>'; };
-    var sty = 'padding:5px 8px;font-size:11px;max-width:100%';
-    var lab = 'font-size:9px;font-weight:700;letter-spacing:.05em;color:var(--dim);text-transform:uppercase;display:block;margin-bottom:2px';
+    var yearSel = years.length > 1
+      ? '<div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-bottom:8px;font-size:11px"><span style="color:var(--dim)">Yıl</span>' +
+        '<select class="inp" style="padding:4px 8px;font-size:11px" onchange="ptSetFilter(\'year\',this.value)">' +
+        years.map(function (y) { return '<option value="' + _esc(y) + '"' + (y === year ? ' selected' : '') + '>' + _esc(y) + '</option>'; }).join('') + '</select></div>'
+      : '';
 
-    var filterBar =
-      '<div class="card pv-filter" style="margin-top:18px"><div class="card-body" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">' +
-        '<div><label style="' + lab + '">Temsilci</label><select class="inp" style="' + sty + ';min-width:170px" onchange="ptSetFilter(\'ttt\',this.value)">' +
-          opt('', 'Tüm ekip', !_fTtt) + ALL_TTTS.map(function (t) { return opt(t, t, t === _fTtt); }).join('') + '</select></div>' +
-        '<div><label style="' + lab + '">Yıl</label><select class="inp" style="' + sty + '" onchange="ptSetFilter(\'year\',this.value)">' +
-          years.map(function (y) { return opt(y, y, y === year); }).join('') + '</select></div>' +
-        '<div><label style="' + lab + '">Dönem</label><select class="inp" style="' + sty + ';min-width:170px" onchange="ptSetFilter(\'period\',this.value)">' +
-          opt('', 'Tüm dönemler', !_fPeriod) + periods.map(function (p) { return opt(p.key, p.label + ' · ' + p.months, p.key === _fPeriod); }).join('') + '</select></div>' +
-        ((_fTtt || _fPeriod) ? '<button onclick="ptSetFilter(\'clear\')" style="padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surf);font-size:11px;cursor:pointer">↺ Filtreyi temizle</button>' : '') +
-        '<div style="font-size:10px;color:var(--dim);flex:1 1 220px;line-height:1.4">Temsilci filtresi hem Geçmiş Dönem Prim Hesabını hem Ek Prim Tablosunu, yıl ve dönem filtresi Geçmiş Dönem tablosunu etkiler.</div>' +
-      '</div></div>';
-
-    var perLbl = '';
-    if (_fPeriod) { var pm = periods.filter(function (p) { return p.key === _fPeriod; })[0]; perLbl = pm ? pm.label : ''; }
-    var badge = [(_fTtt || 'Tüm ekip'), year, (perLbl || 'Tüm dönemler')].join(' · ');
     var histCard =
-      '<div class="card" style="margin-top:16px">' +
-        '<div class="card-hd"><span class="card-title">📆 Geçmiş Dönem Prim Hesabı — MI &amp; GIGI</span><span class="card-badge">' + _esc(badge) + '</span></div>' +
-        '<div class="card-body">' + G.build({ ttt: _fTtt, year: year, period: _fPeriod }) + '</div>' +
+      '<div class="card" style="margin-top:18px">' +
+        '<div class="card-hd"><span class="card-title">📆 Geçmiş Dönem Prim Hesabı — MI &amp; GIGI</span><span class="card-badge">' + _esc(year) + ' · Satıra tıkla → dönem dönem döküm</span></div>' +
+        '<div class="card-body">' + yearSel + G.buildTeam({ year: year, open: _histOpen }) + '</div>' +
       '</div>';
 
-    var ek = (typeof window.ekPrimTablesHtml === 'function') ? window.ekPrimTablesHtml(_fTtt) : null;
+    var ek = (typeof window.ekPrimTablesHtml === 'function') ? window.ekPrimTablesHtml('') : null;
     var ekBody = ek ||
       '<div style="color:var(--dim);font-size:11px;padding:6px 0">Ek prim tablosu bulunamadı veya yükleniyor' +
       (window.EK_PRIM_LOAD_ERROR ? ' (' + _esc(window.EK_PRIM_LOAD_ERROR) + ')' : '') + '.</div>';
+    // Ekip Haftalık Rota Planları ile aynı açılır kutu görünümü (varsayılan KAPALI)
     var ekCard =
-      '<div class="card" style="margin-top:16px">' +
-        '<div class="card-hd"><span class="card-title">🎯 Ek Prim Tablosu</span><span class="card-badge">' + _esc(_fTtt || 'Tüm ekip') + '</span></div>' +
-        '<div class="card-body">' + ekBody +
+      '<div class="mb16" style="background:var(--surf);border:1.5px solid rgba(79,0,140,.15);border-radius:14px;padding:16px;margin-top:16px">' +
+        '<div style="font-size:13px;font-weight:700;color:var(--fg);cursor:pointer;display:flex;align-items:center;gap:6px" onclick="ptEkToggle()">' +
+          '<span class="mgr-acc-arrow" style="font-size:10px;color:var(--dim)">' + (_ekOpen ? '▾' : '▸') + '</span>🎯 Ek Prim Tablosu</div>' +
+        '<div style="display:' + (_ekOpen ? 'block' : 'none') + ';margin-top:8px">' + ekBody +
           '<div style="font-size:10px;color:var(--dim);margin-top:2px">Ek prim kampanyaları döneme bağlı değildir (kampanya tablosu olduğu gibi gösterilir). Kompanzasyon ek primi yukarıdaki Geçmiş Dönem tablosunda (3. ve 6. dönem) yer alır.</div>' +
         '</div>' +
       '</div>';
 
-    return filterBar + histCard + ekCard;
+    return histCard + ekCard;
   }
 
   function renderPrimTakipPage() {
@@ -321,6 +317,8 @@
   window.ptSort = ptSort;
   window.ptToggle = ptToggle;
   window.ptSetFilter = ptSetFilter;
+  window.ptHistToggle = ptHistToggle;
+  window.ptEkToggle = ptEkToggle;
 
   // data-loader.js veri yüklenince renderManagerExtra()'yı çağırıyor; Yönetici sayfası
   // açıkken Prim Takip bölümü de otomatik yenilensin (çift sarmayı engelle).

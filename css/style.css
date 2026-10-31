@@ -576,6 +576,10 @@ body{
   box-shadow:0 2px 8px rgba(79,0,140,.3);flex-shrink:0;
 }
 .mf-detail-btn:hover{opacity:.9;transform:translateY(-1px)}
+/* KULLANICI İSTEĞİ: tüm filtrelerde, filtre kutusunun altındaki aktif-filtre çip satırı (ör. "AYKUT DİNLER") ve
+   yanındaki "Temsilci Seç / Filtrele" düğmesi kaldırıldı — sadece filtre kutusu kalır (kutuya tıklamak çekmeceyi zaten açar).
+   JS çip satırını doldurmaya devam eder, yalnızca gizlenir. Geri almak için bu tek satırı silmek yeterli. */
+.active-filters,.mf-detail-btn{display:none!important}
 
 /* Responsive */
 @media(max-width:768px){

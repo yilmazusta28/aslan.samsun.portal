@@ -377,11 +377,82 @@
       '</div>';
   }
 
+  // ── AÇILIR TEMSİLCİ TABLOSU (Yönetici › Geçmiş Dönem Prim Hesabı) ──────────────────────
+  //  Filtre YOK: tüm ekip, temsilci × dönem toplam prim matrisi olarak gelir; bir temsilci satırına tıklayınca
+  //  (Temsilci Prim Takibi — Güncel Dönem ile aynı idiyom) altında o temsilcinin dönem dönem tam dökümü açılır
+  //  (temsilci sayfasındaki tabloyla AYNI hesap: _calcRow / _rowHtml). Açık satırlar o.open[ttt] ile gelir;
+  //  tıklama window.ptHistToggle(ttt) (js/ui/prim-takip-page.js) ile yönetilir.
+  function mgrBuildTeam(o) {
+    o = o || {};
+    var years = _years();
+    var year = (o.year && years.indexOf(o.year) >= 0) ? o.year : (years.indexOf(String(new Date().getFullYear())) >= 0 ? String(new Date().getFullYear()) : years[0]);
+    var open = o.open || {};
+    var eff = (typeof getEffectivePeriod === 'function') ? getEffectivePeriod() : null;
+    var effKey = eff ? eff.key : null;
+    var allP = _periods();
+    var ttts = (typeof ALL_TTTS !== 'undefined') ? ALL_TTTS.slice() : [];
+    var note = window.YTD_TL_DATA ? '' : '<div style="font-size:10px;color:var(--dim);margin-bottom:6px">Ürün bazlı dönem verisi (YTD_TL.csv) yükleniyor…</div>';
+    var nCol = allP.length + 3;
+
+    var head = '<thead><tr style="border-bottom:2px solid var(--c1)"><th style="text-align:left;padding:4px 6px;font-size:9px">Temsilci</th>' +
+      allP.map(function (p) {
+        return '<th style="text-align:right;padding:4px 6px;font-size:9px;white-space:nowrap">' + _esc(p.label) +
+          '<div style="font-size:8px;font-weight:400;color:var(--dim)">' + _esc(p.months) + '</div></th>';
+      }).join('') +
+      '<th style="text-align:right;padding:4px 6px;font-size:9px;white-space:nowrap">✅ Kesinleşen</th><th style="text-align:right;padding:4px 6px;font-size:9px;white-space:nowrap">⏳ Tahmini</th></tr></thead>';
+
+    var colK = allP.map(function () { return 0; }), colT = allP.map(function () { return 0; });
+    var totK = 0, totT = 0;
+    var body = ttts.map(function (t) {
+      var rs = allP.map(function (p) { return _calcRow(t, year, _periodFor(p, year), effKey); });
+      var sm = _sumRows(rs);
+      totK += sm.kesin; totT += sm.tahmini;
+      var isOpen = !!open[t];
+      var tds = rs.map(function (r, i) {
+        var c = r.calc;
+        if (!c) return '<td style="text-align:right;padding:4px 6px;color:var(--dim)">—</td>';
+        if (r.inProgress) return '<td style="text-align:right;padding:4px 6px;color:#2563EB;font-size:10px" title="Dönem sürüyor">▶ devam</td>';
+        if (r.mg) { colK[i] += c.toplamPrim; return '<td style="text-align:right;padding:4px 6px;font-weight:700;color:#16A34A" title="Kesinleşti">' + _tl(c.toplamPrim) + '</td>'; }
+        colT[i] += c.toplamPrim;
+        var nd = (typeof window.getMiGiNeden === 'function') ? window.getMiGiNeden(r.ttt, r.year, r.p.key) : '';
+        return '<td style="text-align:right;padding:4px 6px;color:#D97706" title="Tahmini (MI&amp;GIGI bekleniyor)' + (nd ? ' — ' + _esc(nd) : '') + '">≈ ' + _tl(c.toplamPrim) + '</td>';
+      }).join('');
+      var line = '<tr style="cursor:pointer;border-bottom:1px solid var(--border)" onclick="ptHistToggle(\'' + _jsq(t) + '\')">' +
+        '<td style="padding:4px 6px;white-space:nowrap;font-weight:700">' + (isOpen ? '▾ ' : '▸ ') + _esc(t) + '</td>' + tds +
+        '<td style="text-align:right;padding:4px 6px;font-weight:700;color:#16A34A">' + _tl(sm.kesin) + '</td><td style="text-align:right;padding:4px 6px;color:#D97706">' + _tl(sm.tahmini) + '</td></tr>';
+      if (isOpen) {
+        var trs = rs.map(function (r) { return _rowHtml(r, { edit: false }); }).join('');
+        // sticky + min(): dar ekranda detay kutusu görünür genişlikte kalır, içindeki geniş tablo kendi içinde kayar
+        line += '<tr><td colspan="' + nCol + '" style="background:rgba(79,0,140,.03);padding:8px 10px">' +
+          '<div style="position:sticky;left:0;box-sizing:border-box;width:min(100%,calc(100vw - 64px))">' +
+          '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="width:100%;font-size:10.5px;border-collapse:collapse;min-width:960px">' +
+            _theadHtml('Dönem', false) + '<tbody>' + trs + '</tbody></table></div>' +
+          '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:11px">' +
+            '<div>✅ Kesinleşen toplam: <strong style="color:#16A34A">' + _tl(sm.kesin) + '</strong></div>' +
+            '<div>⏳ MI&amp;GIGI bekleyen (tahmini): <strong style="color:#D97706">' + _tl(sm.tahmini) + '</strong></div>' +
+          '</div></div></td></tr>';
+      }
+      return line;
+    }).join('');
+
+    var foot = '<tr style="border-top:2px solid var(--c1);background:rgba(79,0,140,.05)"><td style="padding:4px 6px;font-weight:800;color:var(--c1)">EKİP TOPLAMI</td>' +
+      allP.map(function (p, i) { return '<td style="text-align:right;padding:4px 6px;font-weight:700">' + (colK[i] || colT[i] ? _tl(colK[i] + colT[i]) : '—') + '</td>'; }).join('') +
+      '<td style="text-align:right;padding:4px 6px;font-weight:800;color:#16A34A">' + _tl(totK) + '</td><td style="text-align:right;padding:4px 6px;font-weight:800;color:#D97706">' + _tl(totT) + '</td></tr>';
+
+    return note + '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="width:100%;font-size:11px;border-collapse:collapse;min-width:760px">' + head + '<tbody>' + body + foot + '</tbody></table></div>' +
+      '<div style="font-size:10px;color:var(--dim);margin-top:6px">Temsilci satırına tıkla → dönem dönem MI&amp;GIGI / prim dökümü.</div>' +
+      '<div style="font-size:9px;color:var(--dim);background:var(--surf2);padding:8px;border-radius:6px;border:1px solid var(--border);margin-top:8px">' +
+        '* Prim, dönem bitiminden 2 ay sonra gelen (düzeltilmiş IMS\'li) MI &amp; GIGI ile kesinleşir; gelene kadar sistemdeki MI/GIGI verisinden tahmin edilir (≈), veri yoksa 100*. ' +
+        'Hesap, temsilcinin kendi sayfasındaki Geçmiş Dönem tablosuyla aynıdır; kompanzasyon ek primi (3. ve 6. dönem) TL Real Primi hücresinde "(+… komp.)" olarak görünür.' +
+      '</div>';
+  }
+
   window.PrimGecmisMgr = {
     years: _years,
     periods: function () { return _periods().map(function (p) { return { key: p.key, label: p.label, months: p.months }; }); },
     ensure: mgrEnsure,
-    build: mgrBuild
+    build: mgrBuild,
+    buildTeam: mgrBuildTeam
   };
 
   window.renderPrimGecmis = renderPrimGecmis;
