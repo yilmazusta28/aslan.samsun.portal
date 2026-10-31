@@ -1,0 +1,227 @@
+{
+  "version": 2,
+  "dir": "eczane",
+  "files": [
+    {
+      "year": 2025,
+      "month": 1,
+      "key": "2025_01",
+      "file": "2025_01_Eczane.csv",
+      "path": "eczane/2025_01_Eczane.csv",
+      "size": 577868,
+      "v": "0e32f02bd84c"
+    },
+    {
+      "year": 2025,
+      "month": 2,
+      "key": "2025_02",
+      "file": "2025_02_Eczane.csv",
+      "path": "eczane/2025_02_Eczane.csv",
+      "size": 577117,
+      "v": "86e4785c563f"
+    },
+    {
+      "year": 2025,
+      "month": 3,
+      "key": "2025_03",
+      "file": "2025_03_Eczane.csv",
+      "path": "eczane/2025_03_Eczane.csv",
+      "size": 737642,
+      "v": "fa5c226d596d"
+    },
+    {
+      "year": 2025,
+      "month": 4,
+      "key": "2025_04",
+      "file": "2025_04_Eczane.csv",
+      "path": "eczane/2025_04_Eczane.csv",
+      "size": 753047,
+      "v": "0fe11e3bcb8d"
+    },
+    {
+      "year": 2025,
+      "month": 5,
+      "key": "2025_05",
+      "file": "2025_05_Eczane.csv",
+      "path": "eczane/2025_05_Eczane.csv",
+      "size": 676752,
+      "v": "071abca80b4a"
+    },
+    {
+      "year": 2025,
+      "month": 6,
+      "key": "2025_06",
+      "file": "2025_06_Eczane.csv",
+      "path": "eczane/2025_06_Eczane.csv",
+      "size": 580235,
+      "v": "b448519d0fd3"
+    },
+    {
+      "year": 2025,
+      "month": 7,
+      "key": "2025_07",
+      "file": "2025_07_Eczane.csv",
+      "path": "eczane/2025_07_Eczane.csv",
+      "size": 664229,
+      "v": "7fd7fb03c898"
+    },
+    {
+      "year": 2025,
+      "month": 8,
+      "key": "2025_08",
+      "file": "2025_08_Eczane.csv",
+      "path": "eczane/2025_08_Eczane.csv",
+      "size": 624167,
+      "v": "08b7c893b48f"
+    },
+    {
+      "year": 2025,
+      "month": 9,
+      "key": "2025_09",
+      "file": "2025_09_Eczane.csv",
+      "path": "eczane/2025_09_Eczane.csv",
+      "size": 718957,
+      "v": "0a86297a2f0c"
+    },
+    {
+      "year": 2025,
+      "month": 10,
+      "key": "2025_10",
+      "file": "2025_10_Eczane.csv",
+      "path": "eczane/2025_10_Eczane.csv",
+      "size": 710129,
+      "v": "6b1cec02d9b0"
+    },
+    {
+      "year": 2025,
+      "month": 11,
+      "key": "2025_11",
+      "file": "2025_11_Eczane.csv",
+      "path": "eczane/2025_11_Eczane.csv",
+      "size": 533287,
+      "v": "0d4783c53e71"
+    },
+    {
+      "year": 2025,
+      "month": 12,
+      "key": "2025_12",
+      "file": "2025_12_Eczane.csv",
+      "path": "eczane/2025_12_Eczane.csv",
+      "size": 688392,
+      "v": "cef0a725fa65"
+    },
+    {
+      "year": 2026,
+      "month": 1,
+      "key": "2026_01",
+      "file": "2026_01_Eczane.csv",
+      "path": "eczane/2026_01_Eczane.csv",
+      "size": 708126,
+      "v": "7da0af751b8e"
+    },
+    {
+      "year": 2026,
+      "month": 2,
+      "key": "2026_02",
+      "file": "2026_02_Eczane.csv",
+      "path": "eczane/2026_02_Eczane.csv",
+      "size": 673544,
+      "v": "d9beed226970"
+    },
+    {
+      "year": 2026,
+      "month": 3,
+      "key": "2026_03",
+      "file": "2026_03_Eczane.csv",
+      "path": "eczane/2026_03_Eczane.csv",
+      "size": 769990,
+      "v": "ca83728d2a98"
+    },
+    {
+      "year": 2026,
+      "month": 4,
+      "key": "2026_04",
+      "file": "2026_04_Eczane.csv",
+      "path": "eczane/2026_04_Eczane.csv",
+      "size": 612023,
+      "v": "acbe0c11702a"
+    },
+    {
+      "year": 2026,
+      "month": 5,
+      "key": "2026_05",
+      "file": "2026_05_Eczane.csv",
+      "path": "eczane/2026_05_Eczane.csv",
+      "size": 511801,
+      "v": "10a4d8d6eb75"
+    },
+    {
+      "year": 2026,
+      "month": 6,
+      "key": "2026_06",
+      "file": "2026_06_Eczane.csv",
+      "path": "eczane/2026_06_Eczane.csv",
+      "size": 598826,
+      "v": "585a553eaa0d"
+    },
+    {
+      "year": 2026,
+      "month": 7,
+      "key": "2026_07",
+      "file": "2026_07_Eczane.csv",
+      "path": "eczane/2026_07_Eczane.csv",
+      "size": 542425,
+      "v": "6ae7f165296c"
+    },
+    {
+      "year": 2026,
+      "month": 8,
+      "key": "2026_08",
+      "file": "2026_08_Eczane.csv",
+      "path": "eczane/2026_08_Eczane.csv",
+      "size": 359959,
+      "v": "fcdd43ef97a2"
+    },
+    {
+      "year": 2026,
+      "month": 9,
+      "key": "2026_09",
+      "file": "2026_09_Eczane.csv",
+      "path": "eczane/2026_09_Eczane.csv",
+      "size": 648279,
+      "v": "9683255a9a20"
+    }
+  ],
+  "years": [
+    2025,
+    2026
+  ],
+  "months": {
+    "2025": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "2026": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ]
+  },
+  "latest": "2026_09"
+}

@@ -314,7 +314,7 @@
     // #mgrPrimGecmis yoksa eski davranış: Prim Takip kutusunun altına eklenir.
     var gHost = document.getElementById('mgrPrimGecmis');
     if (gHost) gHost.innerHTML = _historyHtml();
-    else host.innerHTML += _historyHtml();
+    else host.insertAdjacentHTML('beforeend', _historyHtml());
   }
 
   window.renderPrimTakipPage = renderPrimTakipPage;

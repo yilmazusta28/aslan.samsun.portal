@@ -29,13 +29,17 @@ jobs:
               const year  = parseInt(m[1], 10);
               const month = parseInt(m[2], 10);
               const stat  = fs.statSync(path.join(dir, f));
+              // v: içerik hash'i — istemci cache anahtarı. (mtime CI checkout'ta her seferinde
+              // değiştiği için sürüm anahtarı olarak GÜVENİLMEZ.)
+              const v = require('crypto').createHash('sha1')
+                .update(fs.readFileSync(path.join(dir, f))).digest('hex').slice(0, 12);
               return {
                 year, month,
                 key:  m[1] + '_' + m[2],
                 file: f,
                 path: dir + '/' + f,
                 size: stat.size,
-                modified: stat.mtime.toISOString()
+                v: v
               };
             }).sort((a,b) => (a.year - b.year) || (a.month - b.month));
 
@@ -46,8 +50,7 @@ jobs:
             });
 
             const manifest = {
-              generatedAt: new Date().toISOString(),
-              version: 1,
+              version: 2,
               dir: dir,
               files: entries,
               years: years,

@@ -1,3 +1,5 @@
+// PERF/GÜVENLİK: push(...dizi) çok büyük dizilerde argüman sınırını aşıp RangeError verir; döngü bu riski taşımaz.
+function pvPushAll(target, src) { for (var i = 0; i < src.length; i++) target.push(src[i]); return target.length; }
 // ══════════════════════════════════════════════════════════════
 //  js/data/data-loader.js — CSV Fetch & Hydration Katmanı
 //  Phase 2.1 extraction — EXACT copy from index.html
@@ -416,11 +418,11 @@ async function syncData(forceFresh) {
     const { genel: newGenel, imsTL: newImsTL, trSira: newTrSira, regions: newRegions } = parseGenelCSV(csvGenel);
 
     // TOPLAM dosyaları
-    if(csvMiGiTL)  { try{ const _nat=[]; const p=parseMiGiToplamCSV(csvMiGiTL,_nat);   MIGI_TL_RAW.length=0;      MIGI_TL_RAW.push(...p);      window.MIGI_TL_NATIONAL=_nat;      console.log('[TOPLAM-TL]',p.length,'| NATIONAL:',_nat.length); }catch(e){console.warn(e);} }
-    if(csvMiGiKutu){ try{ const p=parseMiGiToplamCSV(csvMiGiKutu); MIGI_KUTU_RAW.length=0;    MIGI_KUTU_RAW.push(...p);    console.log('[TOPLAM-KUTU]',p.length); }catch(e){console.warn(e);} }
+    if(csvMiGiTL)  { try{ const _nat=[]; const p=parseMiGiToplamCSV(csvMiGiTL,_nat);   MIGI_TL_RAW.length=0;      pvPushAll(MIGI_TL_RAW, p);      window.MIGI_TL_NATIONAL=_nat;      console.log('[TOPLAM-TL]',p.length,'| NATIONAL:',_nat.length); }catch(e){console.warn(e);} }
+    if(csvMiGiKutu){ try{ const p=parseMiGiToplamCSV(csvMiGiKutu); MIGI_KUTU_RAW.length=0;    pvPushAll(MIGI_KUTU_RAW, p);    console.log('[TOPLAM-KUTU]',p.length); }catch(e){console.warn(e);} }
     // BRICK dosyaları
-    if(csvMiGiBTL)  { try{ const p=parseMiGiBrickCSV(csvMiGiBTL);   MIGI_BRICK_TL_RAW.length=0;   MIGI_BRICK_TL_RAW.push(...p);   console.log('[BRICK-TL]',p.length); }catch(e){console.warn(e);} }
-    if(csvMiGiBKutu){ try{ const p=parseMiGiBrickCSV(csvMiGiBKutu); MIGI_BRICK_KUTU_RAW.length=0; MIGI_BRICK_KUTU_RAW.push(...p); console.log('[BRICK-KUTU]',p.length); }catch(e){console.warn(e);} }
+    if(csvMiGiBTL)  { try{ const p=parseMiGiBrickCSV(csvMiGiBTL);   MIGI_BRICK_TL_RAW.length=0;   pvPushAll(MIGI_BRICK_TL_RAW, p);   console.log('[BRICK-TL]',p.length); }catch(e){console.warn(e);} }
+    if(csvMiGiBKutu){ try{ const p=parseMiGiBrickCSV(csvMiGiBKutu); MIGI_BRICK_KUTU_RAW.length=0; pvPushAll(MIGI_BRICK_KUTU_RAW, p); console.log('[BRICK-KUTU]',p.length); }catch(e){console.warn(e);} }
 
     // ── FAZ 6.4: RAKIP_AKSİYON.csv — kritik DEĞİL, MI/GI dosyalarıyla AYNI
     // tolerans deseni (safeGet zaten yukarıda hata-toleranslı çekti).
@@ -444,7 +446,7 @@ async function syncData(forceFresh) {
     }
 
     // Dizileri güncelle
-    IMS.length   = 0;  IMS.push(...newIMS);
+    IMS.length   = 0;  pvPushAll(IMS, newIMS);
 
     // ── FAZ 1.3: Outcome Tracker — yeni IMS yüklendiğinde, Recommendation
     // Memory içindeki açık (evaluated=false) önerileri otomatik değerlendir.
@@ -470,7 +472,7 @@ async function syncData(forceFresh) {
     const dedupedGenel = Array.from(_genelMap.values());
     console.log('[GENEL DEDUP] Önce:', newGenel.length, '→ Sonra:', dedupedGenel.length,
       '(' + (newGenel.length - dedupedGenel.length) + ' duplicate kaldırıldı)');
-    GENEL.length = 0;  GENEL.push(...dedupedGenel);
+    GENEL.length = 0;  pvPushAll(GENEL, dedupedGenel);
     // ── END GENEL DEDUP ──────────────────────────────────────────────
 
     // ── FAZ — 6 Aylık Dönem Arşivleme ──────────────────────────────
@@ -533,7 +535,7 @@ async function syncData(forceFresh) {
     // Yönetici sayfasındaki Bölge Sıralaması tablosunu besler.
     if (typeof REGION_RANKING !== 'undefined') {
       REGION_RANKING.length = 0;
-      REGION_RANKING.push(...(newRegions || []));
+      pvPushAll(REGION_RANKING, (newRegions || []));
     }
 
     // KUTU'yu yeniden oluştur
@@ -546,7 +548,7 @@ async function syncData(forceFresh) {
         .map(r => r.ttt)
     )].sort();
     ALL_TTTS.length = 0;
-    ALL_TTTS.push(...freshTTTs);
+    pvPushAll(ALL_TTTS, freshTTTs);
 
     // UI'ı yenile
     renderTopBar();

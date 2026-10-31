@@ -490,10 +490,10 @@
     var tots = wk.map(function (w) { return rows.reduce(function (s, r) { return s + (r[w] || 0); }, 0); });
     var nzT = tots.filter(function (v) { return v > 0; });
     var avgT = nzT.length ? nzT.reduce(function (a, b) { return a + b; }, 0) / nzT.length : 0;
-    body.innerHTML += '<tr class="toplam-row" style="border-top:2px solid var(--border);background:#F7F9FC">' +
+    body.insertAdjacentHTML('beforeend', '<tr class="toplam-row" style="border-top:2px solid var(--border);background:#F7F9FC">' +
       '<td style="font-weight:700">TOPLAM</td>' +
       tots.map(function (v) { return '<td class="mono" style="font-weight:600;color:var(--c2)">' + (v > 0 ? fTL(v) : '—') + '</td>'; }).join('') +
-      '<td class="mono" style="font-weight:700;color:var(--c1)">' + fTL(avgT) + '</td></tr>';
+      '<td class="mono" style="font-weight:700;color:var(--c1)">' + fTL(avgT) + '</td></tr>');
   }
 
 

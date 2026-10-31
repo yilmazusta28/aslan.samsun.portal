@@ -110,9 +110,9 @@ async function sendAiMsgWithText(text) {
   if (_aiInflight) {
     var _ca = document.getElementById('aiChatArea');
     if (_ca) {
-      _ca.innerHTML += '<div class="ai-bubble-ai" style="opacity:.6;font-size:11px">' +
+      _ca.insertAdjacentHTML('beforeend', '<div class="ai-bubble-ai" style="opacity:.6;font-size:11px">' +
         '<strong style="color:#92400E">⏳ Bekle</strong><br>' +
-        'Önceki yanıt bekleniyor, lütfen bekleyin…</div>';
+        'Önceki yanıt bekleniyor, lütfen bekleyin…</div>');
       requestAnimationFrame(function(){ _ca.scrollTop = _ca.scrollHeight; });
     }
     return;
@@ -147,14 +147,14 @@ async function sendAiMsgWithText(text) {
     return;
   }
 
-  chatArea.innerHTML += '<div class="ai-bubble-user">' +
-    '<strong style="color:#4F008C">👤 Siz</strong><br>' + pvEsc(text) + '</div>';
+  chatArea.insertAdjacentHTML('beforeend', '<div class="ai-bubble-user">' +
+    '<strong style="color:#4F008C">👤 Siz</strong><br>' + pvEsc(text) + '</div>');
   requestAnimationFrame(function(){ chatArea.scrollTop = chatArea.scrollHeight; });
 
   var loadId = 'ai_loading_' + Date.now();
-  chatArea.innerHTML += '<div id="' + loadId + '" class="ai-bubble-ai">' +
+  chatArea.insertAdjacentHTML('beforeend', '<div id="' + loadId + '" class="ai-bubble-ai">' +
     '<strong style="color:var(--c1)">🤖 AI Asistan</strong><br>' +
-    '<span style="color:var(--dim)">⏳ Analiz ediliyor...</span></div>';
+    '<span style="color:var(--dim)">⏳ Analiz ediliyor...</span></div>');
   requestAnimationFrame(function(){ chatArea.scrollTop = chatArea.scrollHeight; });
   statusEl.textContent = '⏳ Düşünüyor...';
 

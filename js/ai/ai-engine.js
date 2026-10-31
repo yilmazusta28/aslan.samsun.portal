@@ -659,10 +659,10 @@ async function engineAiAnalysis(type) {
   if (_engineInflight) {
     const aiArea = document.getElementById('engineAiChatArea');
     if (aiArea) {
-      aiArea.innerHTML += `<div class="ai-bubble-ai" style="opacity:.6;font-size:11px">
+      aiArea.insertAdjacentHTML('beforeend', `<div class="ai-bubble-ai" style="opacity:.6;font-size:11px">
         <strong style="color:#92400E">⏳ Bekle</strong><br>
         Önceki analiz devam ediyor…
-      </div>`;
+      </div>`);
       aiArea.scrollTop = aiArea.scrollHeight;
     }
     return;
@@ -677,10 +677,10 @@ async function engineAiAnalysis(type) {
   const _reqEngTTT = engineSelTTT;
 
   const loadId = 'eng_ai_' + Date.now();
-  aiArea.innerHTML += `<div id="${loadId}" class="ai-bubble-ai">
+  aiArea.insertAdjacentHTML('beforeend', `<div id="${loadId}" class="ai-bubble-ai">
     <strong style="color:var(--c1)"><i class="fas fa-brain" style="margin-right:5px"></i>Strateji Motoru</strong><br>
     <span style="color:var(--dim)">⏳ Analiz hazırlanıyor...</span>
-  </div>`;
+  </div>`);
   aiArea.scrollTop = aiArea.scrollHeight;
 
   // Phase 4.1 — Unified Context: tüm motorların çıktısını birleştir

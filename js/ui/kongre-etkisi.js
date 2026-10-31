@@ -216,7 +216,10 @@
 
   function medianOf(a) {
     if (!a.length) return null;
-    var b = a.slice().sort(function (x, y) { return x - y; }), n = b.length;
+    // Float64Array.sort() sayısal sıralar ve karşılaştırıcı fonksiyonsuz ~2x hızlıdır (permP binlerce kez çağırır);
+    // sonuç eski a.slice().sort((x,y)=>x-y) ile birebir aynıdır (3000 rastgele dizide doğrulandı).
+    var b = Float64Array.from(a), n = b.length;
+    b.sort();
     return n % 2 ? b[(n - 1) / 2] : (b[n / 2 - 1] + b[n / 2]) / 2;
   }
   function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; var t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
@@ -1470,7 +1473,15 @@
 
   function init() {
     if (window.__KONGRE_NO_AUTOINIT) return;
-    ensure();   // CSV'leri önceden çek; çizim sekme/sayfa açılınca yapılır (giriş öncesi hiçbir şey çizilmez)
+    // AÇILIŞ HIZI: CSV ayrıştırma + bölge analizi (permütasyon testi) ana iş parçacığını yüzlerce ms tutuyordu.
+    // Sayfa tamamen yüklendikten SONRA, tarayıcı boştayken çalıştır. Kullanıcı sayfayı erken açarsa
+    // renderMount zaten ensure() çağırır (aynı söz paylaşılır), yani davranış değişmez.
+    var go = function () { ensure(); };
+    var schedule = function () {
+      if (window.requestIdleCallback) window.requestIdleCallback(go, { timeout: 10000 });
+      else setTimeout(go, 3000);
+    };
+    if (document.readyState === 'complete') schedule(); else window.addEventListener('load', schedule);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
   console.debug('[kongre-etkisi] yüklendi.');

@@ -166,7 +166,15 @@
     load();
     // Temsilci seçimi (kullanıcı ya da kod tarafından) değişince vurguyu yenile
     var last = null;
-    setInterval(function () { var s = selectedKey(); if (s !== last) { last = s; render(); } }, 1500);
+    // PERF: programatik değer değişimleri olay üretmediği için yoklama korunur; ancak sekme
+    // gizliyken ya da Ek Prim kartı ekranda değilken (Prim Hesapla sayfası kapalı) boşuna çalışmaz.
+    setInterval(function () {
+      if (document.hidden) return;
+      var card = document.getElementById('ekPrimCard');
+      if (!card || !card.offsetParent) return;
+      var s = selectedKey();
+      if (s !== last) { last = s; render(); }
+    }, 1500);
     document.addEventListener('change', function (e) { if (e.target && e.target.id === 'primTTT') render(); });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

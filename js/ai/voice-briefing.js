@@ -539,7 +539,7 @@
     var html = '';
     if (question) html += '<div class="vb-q">🗣️ ' + _escape(question) + '</div>';
     html += '<div class="vb-a">' + (isBriefing ? '📋 ' : '🤖 ') + _escape(answer) + '</div>';
-    t.innerHTML += html;
+    t.insertAdjacentHTML('beforeend', html);
     t.scrollTop = t.scrollHeight;
   }
 
