@@ -625,7 +625,7 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
 <!-- ═══ LOGIN SCREEN ═══ -->
 <div id="loginScreen">
   <div class="login-box">
-    <div class="login-logo"><img src="assets/logo.png" alt="Logo" style="width:100%;height:100%;object-fit:contain;border-radius:14px" onerror="this.parentElement.innerHTML='<span style=\'font-size:15px;font-weight:800;color:#fff\'>2D</span>'"></div>
+    <div class="login-logo"><img src="images/login-logo.jpg" alt="Logo" style="width:100%;height:100%;object-fit:contain;border-radius:14px" onerror="this.parentElement.innerHTML='<span style=\'font-size:15px;font-weight:800;color:#fff\'>2D</span>'"></div>
     <div class="login-title">PHARMA-VISION</div>
     <div class="login-sub">Samsun Bölge Satış Portalı · Gizli</div>
     <div class="login-group">
@@ -644,7 +644,7 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
 
 <div id="loading">
   <div style="text-align:center">
-    <div style="width:72px;height:72px;border-radius:18px;background:linear-gradient(135deg,#4F008C,#1BCED8);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;box-shadow:none;overflow:hidden;padding:4px"><img src="assets/logo.png" alt="Logo" style="width:100%;height:100%;object-fit:contain;border-radius:14px" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\'font-size:18px;font-weight:800;color:#fff\'>2D</span>'"></div>
+    <div style="width:72px;height:72px;border-radius:18px;background:linear-gradient(135deg,#4F008C,#1BCED8);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;box-shadow:none;overflow:hidden;padding:4px"><img src="images/login-logo.jpg" alt="Logo" style="width:100%;height:100%;object-fit:contain;border-radius:14px" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\'font-size:18px;font-weight:800;color:#fff\'>2D</span>'"></div>
     <div class="spinner" style="margin:0 auto 12px"></div>
     <div style="color:#9CA3AF;font-size:10px;letter-spacing:2px;text-transform:uppercase;font-family:'Poppins',sans-serif" id="loadMsg">Veriler yükleniyor…</div>
   </div>
@@ -2556,13 +2556,13 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
 <script src="js/core/migi-donem.js?v=20261022"></script>
 <script src="js/core/prim-ledger.js?v=20261003"></script>
 <script src="js/data/data-normalizer.js?v=20260705"></script>
-<script src="js/data/csv-parser.js?v=20261031a"></script>
+<script src="js/data/csv-parser.js?v=20261031"></script>
 <script src="js/data/data-state.js?v=20260705"></script>
-<script src="js/data/data-loader.js?v=20261031a"></script>
+<script src="js/data/data-loader.js?v=20261001b"></script>
 <script src="js/data/ytd-tl-loader.js?v=20260912"></script>
 <script src="js/data/tr-sira-loader.js?v=20260913"></script>
 <script src="js/data/brick-tl-loader.js?v=20261010"></script>
-<script src="js/data/ek-prim-loader.js?v=20261031a"></script>
+<script src="js/data/ek-prim-loader.js?v=20261031"></script>
 <script src="js/data/charts.js?v=20260705"></script>
 <script src="js/data/storage.js?v=20260705"></script>
 <script src="js/data/data-cache.js?v=20261001b"></script>
@@ -2638,7 +2638,7 @@ window.doLogin=function(){window._pvLoginQueued=true;var b=document.querySelecto
 <script src="js/ai/executive/team-forecast-engine.js?v=20260705"></script>
 <script src="js/ai/executive/executive-summary-engine.js?v=20260705"></script>
 <script src="js/ai/executive/executive-engine.js?v=20260705"></script>
-<script src="js/ai/executive/manager-panel-engine.js?v=20261031a"></script>
+<script src="js/ai/executive/manager-panel-engine.js?v=20261029e"></script>
 <script src="js/ai/executive/ai-usage-panel.js?v=20261011"></script>
 <script src="js/ai/executive/team-learning-engine.js?v=20260705"></script>
 <script src="js/ai/memory/ai-memory.js?v=20260705"></script>
@@ -2663,31 +2663,8 @@ window.DOSYALAR_DELETE_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/dos
 </script>
 <script src="js/ui/dosyalar-page.js?v=20261028a"></script>
 <script src="js/ui/dosyalar-manager-summary.js?v=20261008"></script>
-<script src="js/ui/prim-takip-page.js?v=20261031a"></script>
-<script>
-/* PERF: kongre-etkisi.js (116 KB) yalnızca Kongre Etkisi sekmesi / Yönetici paneli açılınca yüklenir.
-   Aşağıdaki iki global, gerçek betik yüklenene kadar yer tutucudur; yüklenince gerçek fonksiyon çağrılır.
-   Rollback: bu betik bloğunu silip eski script src satırını geri koy: js/ui/kongre-etkisi.js?v=20261029b */
-(function () {
-  var _p = null;
-  function load() {
-    if (!_p) _p = pvLoadScript('js/ui/kongre-etkisi.js?v=20261029b').catch(function (e) { _p = null; throw e; });
-    return _p;
-  }
-  function lazy(name) {
-    var stub = function () {
-      var a = arguments;
-      return load().then(function () {
-        var real = window[name];
-        if (real && real !== stub) return real.apply(window, a);
-      });
-    };
-    return stub;
-  }
-  window.renderKongreEtkisi = lazy('renderKongreEtkisi');
-  window.renderKongreEtkisiManager = lazy('renderKongreEtkisiManager');
-})();
-</script>
+<script src="js/ui/prim-takip-page.js?v=20261029a"></script>
+<script src="js/ui/kongre-etkisi.js?v=20261029a"></script>
 <script src="js/ai/core/competitive-outcome-linker.js?v=20260705"></script>
 <script>window.SARTLAR_SYNC_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/sartlar-sync';</script>
 <script>window.HABER_SYNC_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/haber-sync';</script>
@@ -2695,17 +2672,17 @@ window.DOSYALAR_DELETE_WORKER_URL = 'https://samsun.yilmazusta28.workers.dev/dos
 <script src="js/pharmacy/competitor-conditions.js?v=20260705"></script>
 <script src="js/ai/territory/launch-readiness-engine.js?v=20260705"></script>
 <script src="js/pharmacy/pharmacy-intelligence.js?v=20260705"></script>
-<script src="js/pharmacy/pharmacy-data-manager.js?v=20261031a"></script>
+<script src="js/pharmacy/pharmacy-data-manager.js?v=20261031"></script>
 <script src="js/pharmacy/reorder-engine.js?v=20260705"></script>
 <script src="js/pharmacy/reorder-classifier.js?v=20260705"></script>
 <script src="js/route/route-optimizer.js?v=20260705d"></script>
 <script src="js/ai/ai-sales-coach-v2.js?v=20260705"></script>
 <script src="js/ai/ai-context.js?v=20261003"></script>
-<script src="js/ai/ai-service.js?v=20261031a"></script>
+<script src="js/ai/ai-service.js?v=20260705c"></script>
 <script src="js/ai/voice-intents.js?v=20261011"></script>
-<script src="js/ai/voice-briefing.js?v=20261031a"></script>
+<script src="js/ai/voice-briefing.js?v=20261011"></script>
 <script src="js/ai/learning-engine.js?v=20260705"></script>
-<script src="js/ai/ai-engine.js?v=20261031a"></script>
+<script src="js/ai/ai-engine.js?v=20261003"></script>
 <script type="module" src="js/ai/recommendation-memory.js"></script>
 <script src="js/ai/outcomes/outcome-tracker.js?v=20260705"></script>
 <script src="js/ai/learning/learning-engine.js?v=20260705"></script>
@@ -2770,11 +2747,11 @@ function buildPrimInputs() {
   const container = document.getElementById('primUrunInputs');
   if (!container.children.length) {
     URUN_ORDER.forEach(u => {
-      container.insertAdjacentHTML('beforeend', `<div>
+      container.innerHTML += `<div>
         <label style="font-size:9px;font-weight:700;color:${URUN_CLR[u]};display:block;margin-bottom:3px">${u}</label>
         <input type="number" class="inp" id="primReal_${u.replace(/\s/g,'_').replace(/[^a-zA-Z0-9_]/g,'X')}" 
           value="" min="0" max="200" placeholder="TL Real %" oninput="calcPrim()" style="padding:5px 8px">
-      </div>`);
+      </div>`;
     });
   }
   calcPrim();
@@ -7153,10 +7130,10 @@ function renderRakipTable(grpData,drugs,ownIlac,mktRows,mktWk){
       ${vals.map(v=>`<td class="mono" style="${v>0?'':'color:#A0AEC0'}">${v>0?fK(v):'—'}</td>`).join('')}
       <td class="mono" style="font-weight:700">${fK(tot)}</td></tr>`;
   }).join('');
-  body.insertAdjacentHTML('beforeend', `<tr class="toplam-row" style="border-top:2px solid var(--border);background:#F7F9FC">
+  body.innerHTML+=`<tr class="toplam-row" style="border-top:2px solid var(--border);background:#F7F9FC">
     <td style="font-weight:700">📦 Toplam Pazar</td>
     ${mktWk.map(v=>`<td class="mono" style="font-weight:700">${fK(v)}</td>`).join('')}
-    <td class="mono" style="font-weight:700">${fK(mktTot)}</td></tr>`);
+    <td class="mono" style="font-weight:700">${fK(mktTot)}</td></tr>`;
 }
 
 function renderMarketDetailTable(grpData,drugs,bricks,ownIlac){
@@ -7493,10 +7470,10 @@ function renderWeeklyTable2(){
   }).join('');
   const tots=wk.map(w=>rows.reduce((s,r)=>s+(r[w]||0),0));
   const nzT=tots.filter(v=>v>0);const avgT=nzT.length?nzT.reduce((a,b)=>a+b,0)/nzT.length:0;
-  document.getElementById('weeklyTlBody').insertAdjacentHTML('beforeend', `<tr class="toplam-row" style="border-top:2px solid var(--border);background:#F7F9FC">
+  document.getElementById('weeklyTlBody').innerHTML+=`<tr class="toplam-row" style="border-top:2px solid var(--border);background:#F7F9FC">
     <td style="font-weight:700">TOPLAM</td>
     ${tots.map(v=>`<td class="mono" style="font-weight:600;color:var(--c2)">${v>0?fTL(v):'—'}</td>`).join('')}
-    <td class="mono" style="font-weight:700;color:var(--c1)">${fTL(avgT)}</td></tr>`);
+    <td class="mono" style="font-weight:700;color:var(--c1)">${fTL(avgT)}</td></tr>`;
   // Kutu tablosu (KUTU dizisinden)
   const kutuEl=document.getElementById('weeklyKutuBody');
   if(kutuEl){
@@ -7513,10 +7490,10 @@ function renderWeeklyTable2(){
     const kTots=wk.map(w=>kutuRows.reduce((s,r)=>s+(r[w]||0),0));
     const kNzWeeks=kTots.filter(v=>v>0);
     const kAvg=kNzWeeks.length?Math.round(kNzWeeks.reduce((a,b)=>a+b,0)/kNzWeeks.length):0;
-    kutuEl.insertAdjacentHTML('beforeend', `<tr class="toplam-row" style="border-top:2px solid var(--border);background:#F7F9FC">
+    kutuEl.innerHTML+=`<tr class="toplam-row" style="border-top:2px solid var(--border);background:#F7F9FC">
       <td style="font-weight:700">TOPLAM</td>
       ${kTots.map(v=>`<td class="mono" style="font-weight:600;color:var(--c2)">${v>0?fK(v):'—'}</td>`).join('')}
-      <td class="mono" style="font-weight:700;color:var(--c1)">${kAvg>0?fK(kAvg):'—'}</td></tr>`);
+      <td class="mono" style="font-weight:700;color:var(--c1)">${kAvg>0?fK(kAvg):'—'}</td></tr>`;
   }
   // ── IMS TL'ye Göre Haftalık Kutu ──────────────────────────
   const imsKutuEl = document.getElementById('weeklyImsKutuBody');
@@ -7537,10 +7514,10 @@ function renderWeeklyTable2(){
     }, 0));
     const iNz = iTots.filter(v=>v>0);
     const iAvg = iNz.length ? Math.round(iNz.reduce((a,b)=>a+b,0)/iNz.length) : 0;
-    imsKutuEl.insertAdjacentHTML('beforeend', `<tr class="toplam-row" style="border-top:2px solid var(--border);background:#F7F9FC">
+    imsKutuEl.innerHTML += `<tr class="toplam-row" style="border-top:2px solid var(--border);background:#F7F9FC">
       <td style="font-weight:700">TOPLAM</td>
       ${iTots.map(v=>`<td class="mono" style="font-weight:600;color:var(--c2)">${v>0?fK(v):'—'}</td>`).join('')}
-      <td class="mono" style="font-weight:700;color:var(--c1)">${iAvg>0?fK(iAvg):'—'}</td></tr>`);
+      <td class="mono" style="font-weight:700;color:var(--c1)">${iAvg>0?fK(iAvg):'—'}</td></tr>`;
   }
 }
 function renderTakip(){buildTTT2Slicer();renderTakipContent();}

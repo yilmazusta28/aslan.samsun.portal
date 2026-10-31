@@ -1,0 +1,240 @@
+--- orig_backup/js/data/csv-parser.js	2026-10-31 08:09:08.631697807 +0000
++++ w/files-orj/js/data/csv-parser.js	2026-10-31 08:09:08.744237869 +0000
+@@ -4,12 +4,19 @@
+ //              js/core/constants.js (ALL_TTTS, OWN_IMS, TR_SIRA_MAP, PERIODS)
+ // ══════════════════════════════════════════════════════════════
+ function detectSeparator(text) {
+-  // İlk gerçek veri satırını al
+-  const firstLine = text.replace(/\r/g,'').split('\n').find(l => l.trim());
++  // PERF: tüm metni split etmek yerine ilk gerçek veri satırını tara
++  let firstLine = '', pos = 0;
++  while (pos < text.length) {
++    let e = text.indexOf('\n', pos); if (e < 0) e = text.length;
++    const ln = text.slice(pos, e);
++    if (ln.trim()) { firstLine = ln.replace(/\r/g, ''); break; }
++    pos = e + 1;
++  }
+   if (!firstLine) return ',';
+   // Tırnak dışındaki ; sayısı ile , sayısını karşılaştır
+   let inQ = false, commas = 0, semis = 0;
+-  for (const ch of firstLine) {
++  for (let i = 0; i < firstLine.length; i++) {
++    const ch = firstLine[i];
+     if (ch === '"') { inQ = !inQ; continue; }
+     if (!inQ) {
+       if (ch === ',') commas++;
+@@ -17,8 +24,7 @@
+     }
+   }
+   const sep = semis > commas ? ';' : ',';
+-  console.log('[CSV] separator detected:', JSON.stringify(sep),
+-    '(commas:', commas, 'semis:', semis, ')');
++  if (window.PV_DEBUG_CSV) console.log('[CSV] separator detected:', JSON.stringify(sep), '(commas:', commas, 'semis:', semis, ')');
+   return sep;
+ }
+ 
+@@ -36,7 +42,23 @@
+ 
+ function parseCSVRows(text) {
+   const sep = detectSeparator(text);
+-  return text.replace(/\r/g,'').split('\n')
++  const src = text.indexOf('\r') >= 0 ? text.replace(/\r/g, '') : text;
++  // PERF: tırnak içermeyen CSV'de (eczane/*.csv gibi) karakter-karakter ayrıştırma yerine split (~6x hızlı).
++  // Tırnaklı dosyalar eski ayrıştırıcıyla aynen işlenir → davranış değişmez.
++  if (src.indexOf('"') === -1) {
++    const rows = [];
++    let s = 0; const n = src.length;
++    while (s < n) {
++      let e = src.indexOf('\n', s); if (e < 0) e = n;
++      const l = src.slice(s, e); s = e + 1;
++      if (!l.trim()) continue;
++      const cells = l.split(sep);
++      for (let i = 0; i < cells.length; i++) cells[i] = cells[i].trim();
++      rows.push(cells);
++    }
++    return rows;
++  }
++  return src.split('\n')
+     .filter(l => l.trim())
+     .map(l => parseCSVLine(l, sep));
+ }
+--- orig_backup/js/data/ek-prim-loader.js	2026-10-31 08:09:08.631802052 +0000
++++ w/files-orj/js/data/ek-prim-loader.js	2026-10-31 15:22:30.104781084 +0000
+@@ -166,7 +166,7 @@
+     load();
+     // Temsilci seçimi (kullanıcı ya da kod tarafından) değişince vurguyu yenile
+     var last = null;
+-    setInterval(function () { var s = selectedKey(); if (s !== last) { last = s; render(); } }, 1500);
++    setInterval(function () { if (document.hidden) return; var s = selectedKey(); if (s !== last) { last = s; render(); } }, 1500);
+     document.addEventListener('change', function (e) { if (e.target && e.target.id === 'primTTT') render(); });
+   }
+   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+--- orig_backup/js/pharmacy/pharmacy-data-manager.js	2026-10-31 08:09:08.631956975 +0000
++++ w/files-orj/js/pharmacy/pharmacy-data-manager.js	2026-10-31 15:22:30.104220406 +0000
+@@ -49,6 +49,9 @@
+   var _discoveryDone    = false;
+   var _discoveryPromise = null;
+   var _loadingKeys      = {};
++  var _loadingPromises  = {};   // PERF: 100ms setInterval polling yerine paylaşılan promise
++  var _manifestVer      = {};   // key → içerik hash'i (manifest.json) — cache anahtarı
++  var _bgScheduled      = false;
+ 
+   // ── Yardımcılar ───────────────────────────────────────────────────────
+   function _fileName(year, month) {
+@@ -69,6 +72,59 @@
+   // Başarılı olanlar registry'e eklenir.
+   // HEAD istekleri GitHub raw'da güvenilmez olduğundan
+   // fetch(..., {method:'HEAD'}) yerine GET + abort kullanılır.
++  // ── MANIFEST + ARKA PLAN YÜKLEME (PERF) ───────────────────────────────
++  async function _discoverFromManifest() {
++    try {
++      var ctrl = new AbortController();
++      var t = setTimeout(function () { ctrl.abort(); }, 6000);
++      var r = await fetch(_fileUrl('manifest.json'), { cache: 'no-cache', signal: ctrl.signal });
++      clearTimeout(t);
++      if (!r.ok) return null;
++      var mf = await r.json();
++      if (!mf || !Array.isArray(mf.files) || !mf.files.length) return null;
++      var out = [];
++      mf.files.forEach(function (e) {
++        if (!e || !e.year || !e.month || !e.file) return;
++        var key = e.year + '_' + String(e.month).padStart(2, '0');
++        _manifestVer[key] = String(e.hash || e.size || '');
++        out.push({ year: e.year, month: e.month, file: e.file, key: key, legacy: false });
++      });
++      out.sort(function (a, b) { return a.year !== b.year ? a.year - b.year : a.month - b.month; });
++      return out;
++    } catch (e) {
++      console.warn('[PDM52] manifest okunamadı, probe yoluna düşülüyor:', e && e.message);
++      return null;
++    }
++  }
++
++  // Tüm aylar (AI motorları pharmacyStore.normalized'dan çok aylı veri bekler) açılışın kritik
++  // yolundan çıkarıldı: tarayıcı boştayken, en yeni aydan başlayarak, 2 paralel indirilir.
++  function _scheduleBackgroundLoad() {
++    if (_bgScheduled) return;
++    _bgScheduled = true;
++    var run = function () {
++      var queue = window.pharmacyFileRegistry.slice().reverse();   // en yeni ay önce
++      var active = 0, idx = 0, MAX = 2;
++      function pump() {
++        while (active < MAX && idx < queue.length) {
++          var f = queue[idx++];
++          active++;
++          loadPharmacyMonth(f.year, f.month).catch(function () {}).then(function () {
++            active--;
++            if (idx >= queue.length && active === 0) {
++              try { window.dispatchEvent(new CustomEvent('pv:pharmacy-all-loaded')); } catch (e) {}
++            } else {
++              setTimeout(pump, 30);   // aylar arasında ana thread'e nefes aldır
++            }
++          });
++        }
++      }
++      pump();
++    };
++    if (window.requestIdleCallback) window.requestIdleCallback(run, { timeout: 4000 });
++    else setTimeout(run, 1500);
++  }
++
+   async function discoverPharmacyFiles() {
+     if (_discoveryDone) return window.pharmacyFileRegistry;
+     if (_discoveryPromise) return _discoveryPromise;
+@@ -76,6 +132,23 @@
+     _discoveryPromise = (async function () {
+       console.log('[PDM52] Dosya keşfi başlıyor…');
+ 
++      // PERF: Önce eczane/manifest.json (CI üretir) — 21 CSV'yi indirmeden dosya listesi.
++      // Manifest yoksa/bozuksa aşağıdaki eski GET-probe yoluna düşülür (davranış aynı).
++      var mfFound = await _discoverFromManifest();
++      if (mfFound && mfFound.length) {
++        window.pharmacyFileRegistry = mfFound;
++        _discoveryDone = true;
++        console.log('[PDM52] Manifest ile keşif:', mfFound.length, 'ay (indirme yok)');
++        if (!window.pharmacyActiveFilter.years || !window.pharmacyActiveFilter.years.length) {
++          var _lm = mfFound[mfFound.length - 1];
++          window.pharmacyActiveFilter.years  = [_lm.year];
++          window.pharmacyActiveFilter.months = [];
++        }
++        _refreshFilterUI();
++        _scheduleBackgroundLoad();
++        return mfFound;
++      }
++
+       var now   = new Date();
+       var dates = [];
+       // 2025-01'den başla (ilk CSV o tarihe ait), bugünden 3 ay ileriye kadar tara
+@@ -224,23 +297,24 @@
+       return window.pharmacyCache[key];
+     }
+ 
+-    if (_loadingKeys[key]) {
+-      return new Promise(function (resolve) {
+-        var t = setInterval(function () {
+-          if (!_loadingKeys[key]) {
+-            clearInterval(t);
+-            resolve(window.pharmacyCache[key] || []);
+-          }
+-        }, 100);
+-      });
+-    }
++    if (_loadingPromises[key]) return _loadingPromises[key];
+ 
+     _loadingKeys[key] = true;
+-    var url = _fileUrl(file) + '?v=' + Date.now();
++    var _pm = _loadMonthFromNetwork(year, month, key, file);
++    _loadingPromises[key] = _pm;
++    try { return await _pm; }
++    finally { delete _loadingPromises[key]; _loadingKeys[key] = false; }
++  }
++
++  async function _loadMonthFromNetwork(year, month, key, file) {
++    // Manifest hash'i biliniyorsa: URL içerik-sürümlü → tarayıcı HTTP cache'i kullanılır (geçmiş aylar tekrar inmez).
++    // Bilinmiyorsa eski davranış (no-store + zaman damgası).
++    var _ver = _manifestVer[key];
++    var url = _fileUrl(file) + '?v=' + (_ver || Date.now());
+     console.log('[PDM52] Yükleniyor:', key);
+ 
+     try {
+-      var resp = await fetch(url, { cache: 'no-store' });
++      var resp = await fetch(url, _ver ? {} : { cache: 'no-store' });
+       if (!resp.ok) {
+         console.warn('[PDM52] HTTP', resp.status, file);
+         window.pharmacyCache[key] = [];
+@@ -281,7 +355,7 @@
+       return rows;
+     } catch (err) {
+       console.error('[PDM52] Yükleme hatası:', key, err.message);
+-      window.pharmacyCache[key] = [];
++      // Geçici ağ hatasında boş dizi CACHE'LENMEZ → sonraki çağrı yeniden dener
+       return [];
+     } finally {
+       _loadingKeys[key] = false;
+--- orig_backup/.github/workflows/update-eczane-manifest.yml	2026-10-31 08:09:08.307033410 +0000
++++ w/files-orj/.github/workflows/update-eczane-manifest.yml	2026-10-31 08:09:21.092830339 +0000
+@@ -20,6 +20,7 @@
+           node -e "
+             const fs = require('fs');
+             const path = require('path');
++            const crypto = require('crypto');
+ 
+             const dir = 'eczane';
+             const files = fs.readdirSync(dir).filter(f => /^\d{4}_\d{2}_Eczane\.csv$/.test(f));
+@@ -35,6 +36,7 @@
+                 file: f,
+                 path: dir + '/' + f,
+                 size: stat.size,
++                hash: crypto.createHash('sha1').update(fs.readFileSync(path.join(dir, f))).digest('hex').slice(0, 10),
+                 modified: stat.mtime.toISOString()
+               };
+             }).sort((a,b) => (a.year - b.year) || (a.month - b.month));
+@@ -47,7 +49,7 @@
+ 
+             const manifest = {
+               generatedAt: new Date().toISOString(),
+-              version: 1,
++              version: 2,
+               dir: dir,
+               files: entries,
+               years: years,

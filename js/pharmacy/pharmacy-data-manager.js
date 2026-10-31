@@ -48,6 +48,10 @@
 
   var _discoveryDone    = false;
   var _discoveryPromise = null;
+  var _loadingKeys      = {};
+  var _loadingPromises  = {};   // PERF: 100ms setInterval polling yerine paylaşılan promise
+  var _manifestVer      = {};   // key → içerik hash'i (manifest.json) — cache anahtarı
+  var _bgScheduled      = false;
 
   // ── Yardımcılar ───────────────────────────────────────────────────────
   function _fileName(year, month) {
@@ -62,130 +66,63 @@
     return REPO_RAW_BASE + ECZANE_DIR + file;
   }
 
-  // ── Ağ katmanı (PERF) ─────────────────────────────────────────────────
-  // • Eşzamanlı istek sayısı sınırlı (21 paralel indirme bant genişliğini
-  //   bölüp zaman aşımına düşürüyordu).
-  // • Zaman aşımı gövde okumayı da kapsar ve 30 sn'dir; başarısız istek
-  //   bir kez tekrar denenir. Başarısızlık ASLA cache'e "boş ay" olarak yazılmaz.
-  // • no-store / Date.now() yok: geçmiş aylar HTTP cache'ten gelir.
-  var NET = { maxParallel: 4, timeoutMs: 30000, retry: 1 };
-  var _manifest   = null;   // { byKey:{}, latest:'YYYY_MM' } — manifest.json okunabildiyse
-  var _inflight   = {};     // key → Promise (aynı ay iki kez indirilmez)
-  var _missing    = {};     // key → true (404: dosya yok)
-  var _active     = 0;
-  var _queue      = [];
-  var _allLoaded  = false;
-  var _bgPromise  = null;
-
-  function _sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
-
-  function _limit(task) {
-    return new Promise(function (resolve, reject) {
-      function run() {
-        _active++;
-        task().then(resolve, reject).then(function () {
-          _active--;
-          if (_queue.length) _queue.shift()();
-        });
-      }
-      if (_active < NET.maxParallel) run(); else _queue.push(run);
-    });
-  }
-
-  function _fetchText(url, opts, timeoutMs) {
-    var ctrl  = new AbortController();
-    var timer = setTimeout(function () { ctrl.abort(); }, timeoutMs || NET.timeoutMs);
-    opts = Object.assign({}, opts || {}, { signal: ctrl.signal });
-    return fetch(url, opts).then(function (r) {
-      if (!r.ok) { clearTimeout(timer); return { status: r.status, text: null }; }
-      return r.text().then(function (t) { clearTimeout(timer); return { status: 200, text: t }; });
-    }).catch(function (e) {
-      clearTimeout(timer);
-      return { status: 0, text: null, err: e };
-    });
-  }
-
-  // Manifest varsa sürüm anahtarı (içerik hash'i / boyut) URL'ye eklenir:
-  // dosya değişmedikçe URL aynı kalır → tarayıcı cache'i devreye girer.
-  function _monthRequest(key, file) {
-    var url = _fileUrl(file);
-    var e   = _manifest && _manifest.byKey[key];
-    var v   = e && (e.v || e.size);
-    if (v) return { url: url + '?v=' + encodeURIComponent(v), opts: {} };
-    // Manifest yok: koşullu istek (ETag) — değişmediyse 304, gövde inmez
-    return { url: url, opts: { cache: 'no-cache' } };
-  }
-
-  // Bir ayı indir + ayrıştır. → {status:'ok'|'missing'|'error', rows}
-  async function _fetchMonth(year, month) {
-    var key  = _cacheKey(year, month);
-    var file = _fileName(year, month);
-    var req  = _monthRequest(key, file);
-    var res;
-    for (var attempt = 0; attempt <= NET.retry; attempt++) {
-      res = await _limit(function () { return _fetchText(req.url, req.opts); });
-      if (res.status === 200 && res.text) break;
-      if (res.status === 404) return { status: 'missing', rows: [] };
-      if (attempt < NET.retry) await _sleep(700 * (attempt + 1));
-    }
-    if (!res || res.status !== 200 || !res.text) {
-      console.warn('[PDM52] İndirilemedi (cache\'e yazılmadı):', key, 'HTTP', res && res.status);
-      return { status: 'error', rows: [] };
-    }
-    var csv = res.text;
-    if (csv.length <= 50 || csv.trim().charAt(0) === '<') return { status: 'missing', rows: [] };
-
-    var rows = _parseCsvWithPapaParse(csv);
-    if (typeof getBrickTTTMap === 'function') {
-      var bm = getBrickTTTMap();
-      for (var i = 0; i < rows.length; i++) {
-        var r = rows[i];
-        if (!r.ttt && r.brick) r.ttt = bm[r.brick.toUpperCase()] || null;
-      }
-    }
-    return { status: 'ok', rows: rows };
-  }
-
-  // ── 1. FILE DISCOVERY ─────────────────────────────────────────────────
-  // Birincil yol: eczane/manifest.json (tek küçük istek; CI üretir).
-  // Yedek yol   : manifest yoksa/okunamazsa eski "ay ay yokla" taraması
-  //               (artık sınırlı eşzamanlılıkla, hata ay silmez).
-  async function _loadManifest() {
-    var r = await _fetchText(_fileUrl('manifest.json'), { cache: 'no-cache' }, 8000);
-    if (r.status !== 200 || !r.text) return null;
+  // ── 1. AUTO FILE DISCOVERY ────────────────────────────────────────────
+  // Strateji: HEAD istekleri yerine, bugünden ±24 ay aralığını
+  // PARALEL fetch (içerik yok, sadece 200/404 kontrolü) ile tarar.
+  // Başarılı olanlar registry'e eklenir.
+  // HEAD istekleri GitHub raw'da güvenilmez olduğundan
+  // fetch(..., {method:'HEAD'}) yerine GET + abort kullanılır.
+  // ── MANIFEST + ARKA PLAN YÜKLEME (PERF) ───────────────────────────────
+  async function _discoverFromManifest() {
     try {
-      var m = JSON.parse(r.text);
-      if (!m || !Array.isArray(m.files) || !m.files.length) return null;
-      var byKey = {}, list = [];
-      m.files.forEach(function (e) {
-        if (!e || !e.year || !e.month) return;
-        var mm  = String(e.month).padStart(2, '0');
-        var key = e.year + '_' + mm;
-        var ent = { year: e.year, month: e.month, file: e.file || _fileName(e.year, e.month),
-                    key: key, legacy: false, size: e.size, v: e.v, modified: e.modified };
-        byKey[key] = ent;
-        list.push(ent);
+      var ctrl = new AbortController();
+      var t = setTimeout(function () { ctrl.abort(); }, 6000);
+      var r = await fetch(_fileUrl('manifest.json'), { cache: 'no-cache', signal: ctrl.signal });
+      clearTimeout(t);
+      if (!r.ok) return null;
+      var mf = await r.json();
+      if (!mf || !Array.isArray(mf.files) || !mf.files.length) return null;
+      var out = [];
+      mf.files.forEach(function (e) {
+        if (!e || !e.year || !e.month || !e.file) return;
+        var key = e.year + '_' + String(e.month).padStart(2, '0');
+        _manifestVer[key] = String(e.hash || e.size || '');
+        out.push({ year: e.year, month: e.month, file: e.file, key: key, legacy: false });
       });
-      if (!list.length) return null;
-      list.sort(function (a, b) { return a.year !== b.year ? a.year - b.year : a.month - b.month; });
-      _manifest = { byKey: byKey, latest: list[list.length - 1].key };
-      return list;
+      out.sort(function (a, b) { return a.year !== b.year ? a.year - b.year : a.month - b.month; });
+      return out;
     } catch (e) {
-      console.warn('[PDM52] manifest.json ayrıştırılamadı:', e.message);
+      console.warn('[PDM52] manifest okunamadı, probe yoluna düşülüyor:', e && e.message);
       return null;
     }
   }
 
-  async function _probeMonths(dates) {
-    await Promise.all(dates.map(function (d) { return loadPharmacyMonth(d.year, d.month); }));
-    var out = [];
-    dates.forEach(function (d) {
-      var key = _cacheKey(d.year, d.month);
-      if (window.pharmacyCache[key]) {
-        out.push({ year: d.year, month: d.month, file: _fileName(d.year, d.month), key: key, legacy: false });
+  // Tüm aylar (AI motorları pharmacyStore.normalized'dan çok aylı veri bekler) açılışın kritik
+  // yolundan çıkarıldı: tarayıcı boştayken, en yeni aydan başlayarak, 2 paralel indirilir.
+  function _scheduleBackgroundLoad() {
+    if (_bgScheduled) return;
+    _bgScheduled = true;
+    var run = function () {
+      var queue = window.pharmacyFileRegistry.slice().reverse();   // en yeni ay önce
+      var active = 0, idx = 0, MAX = 2;
+      function pump() {
+        while (active < MAX && idx < queue.length) {
+          var f = queue[idx++];
+          active++;
+          loadPharmacyMonth(f.year, f.month).catch(function () {}).then(function () {
+            active--;
+            if (idx >= queue.length && active === 0) {
+              try { window.dispatchEvent(new CustomEvent('pv:pharmacy-all-loaded')); } catch (e) {}
+            } else {
+              setTimeout(pump, 30);   // aylar arasında ana thread'e nefes aldır
+            }
+          });
+        }
       }
-    });
-    return out;
+      pump();
+    };
+    if (window.requestIdleCallback) window.requestIdleCallback(run, { timeout: 4000 });
+    else setTimeout(run, 1500);
   }
 
   async function discoverPharmacyFiles() {
@@ -195,45 +132,97 @@
     _discoveryPromise = (async function () {
       console.log('[PDM52] Dosya keşfi başlıyor…');
 
-      var now = new Date();
-      var found = await _loadManifest();
-
-      if (found) {
-        console.log('[PDM52] manifest.json okundu:', found.length, 'ay');
-        // Manifest bot'u henüz çalışmadıysa yeni ay eksik olabilir:
-        // manifestteki son aydan sonraki (en fazla gelecek ay) dosyaları yokla (404 ücretsiz).
-        var last = found[found.length - 1];
-        var extra = [];
-        var d = new Date(last.year, last.month, 1); // last.month 1-tabanlı → bir sonraki ay
-        var endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-        for (; d <= endDate; d.setMonth(d.getMonth() + 1)) {
-          extra.push({ year: d.getFullYear(), month: d.getMonth() + 1 });
+      // PERF: Önce eczane/manifest.json (CI üretir) — 21 CSV'yi indirmeden dosya listesi.
+      // Manifest yoksa/bozuksa aşağıdaki eski GET-probe yoluna düşülür (davranış aynı).
+      var mfFound = await _discoverFromManifest();
+      if (mfFound && mfFound.length) {
+        window.pharmacyFileRegistry = mfFound;
+        _discoveryDone = true;
+        console.log('[PDM52] Manifest ile keşif:', mfFound.length, 'ay (indirme yok)');
+        if (!window.pharmacyActiveFilter.years || !window.pharmacyActiveFilter.years.length) {
+          var _lm = mfFound[mfFound.length - 1];
+          window.pharmacyActiveFilter.years  = [_lm.year];
+          window.pharmacyActiveFilter.months = [];
         }
-        if (extra.length) {
-          var more = await _probeMonths(extra);
-          more.forEach(function (e) { found.push(e); });
-        }
-      } else {
-        console.warn('[PDM52] manifest.json yok — ay ay yoklama moduna düşüldü');
-        var dates = [];
-        var endD = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-        for (var dd = new Date(2025, 0, 1); dd <= endD; dd.setMonth(dd.getMonth() + 1)) {
-          dates.push({ year: dd.getFullYear(), month: dd.getMonth() + 1 });
-        }
-        found = await _probeMonths(dates);
+        _refreshFilterUI();
+        _scheduleBackgroundLoad();
+        return mfFound;
       }
+
+      var now   = new Date();
+      var dates = [];
+      // 2025-01'den başla (ilk CSV o tarihe ait), bugünden 3 ay ileriye kadar tara
+      var startDate = new Date(2025, 0, 1); // Ocak 2025
+      var endDate   = new Date(now.getFullYear(), now.getMonth() + 1, 1); // maks: bir sonraki ay
+      for (var d = new Date(startDate); d <= endDate; d.setMonth(d.getMonth() + 1)) {
+        dates.push({ year: d.getFullYear(), month: d.getMonth() + 1 });
+      }
+
+      // Paralel GET probe — HEAD GitHub raw'da güvenilmez (CORS)
+      // AbortController ile ilk byte alır almaz kesilir: varlık teyidi + minimum trafik
+      var found = [];
+      var checks = dates.map(function (d) {
+        var file = _fileName(d.year, d.month);
+        var url  = _fileUrl(file);
+        var ctrl = new AbortController();
+        var timer = setTimeout(function () { ctrl.abort(); }, 8000);
+        return fetch(url, { cache: 'no-store', signal: ctrl.signal })
+          .then(async function (r) {
+            clearTimeout(timer);
+            if (!r.ok || r.status !== 200) return { d: d, file: file, ok: false };
+            // İçeriği oku + hemen cache'e al (loadPharmacyMonth tekrar fetch yapmaz)
+            try {
+              var csvText = await r.text();
+              if (csvText && !csvText.trim().startsWith('<') && csvText.length > 50) {
+                var parsed = _parseCsvWithPapaParse(csvText);
+                // TTT ataması
+                if (typeof getBrickTTTMap === 'function') {
+                  var bm = getBrickTTTMap();
+                  parsed.forEach(function(row) {
+                    if (!row.ttt && row.brick) row.ttt = bm[row.brick.toUpperCase()] || null;
+                  });
+                }
+                var mm  = String(d.month).padStart(2,'0');
+                var key = d.year + '_' + mm;
+                window.pharmacyCache[key] = parsed;
+                _updatePharmacyStore(d.year, d.month, parsed);
+                return { d: d, file: file, ok: true };
+              }
+              return { d: d, file: file, ok: false };
+            } catch(parseErr) {
+              return { d: d, file: file, ok: false };
+            }
+          })
+          .catch(function () {
+            clearTimeout(timer);
+            return { d: d, file: file, ok: false };
+          });
+      });
+
+      // Paralel çalıştır — tamamını bekle
+      var results = await Promise.all(checks);
+      results.forEach(function (res) {
+        if (res.ok) {
+          var mm = String(res.d.month).padStart(2, '0');
+          found.push({ year: res.d.year, month: res.d.month, file: res.file,
+                       key: res.d.year + '_' + mm, legacy: false });
+        }
+      });
 
       found.sort(function (a, b) {
         return a.year !== b.year ? a.year - b.year : a.month - b.month;
       });
 
-      // ── FALLBACK: ECZANE/ klasörü henüz yok → legacy ECZANE_RAW ───────
+      // ── FALLBACK: ECZANE/ klasörü henüz yok ──────────────────────────
+      // ECZANE_RAW içindeki ay bilgisinden registry üret +
+      // ay bazında cache'e böl — hiçbir şey bozulmadan filtreler çalışır.
       if (found.length === 0) {
         console.log('[PDM52] ECZANE/ klasörü boş — legacy ECZANE_RAW modu');
         var raw = window.ECZANE_RAW || [];
         var aySet = {};
         raw.forEach(function (r) {
           if (!r.ay) return;
+          // ay formatı beklenen: "MM/YYYY" veya "M/YYYY"
           var p = String(r.ay).split('/');
           if (p.length < 2) return;
           var mo = parseInt(p[0], 10);
@@ -248,12 +237,17 @@
         found.sort(function (a, b) {
           return a.year !== b.year ? a.year - b.year : a.month - b.month;
         });
+
+        // Cache: ECZANE_RAW'ı ay bazında böl
         found.forEach(function (f) {
-          if (window.pharmacyCache[f.key]) return;
+          if (window.pharmacyCache[f.key]) return; // zaten var
           var mm    = String(f.month).padStart(2, '0');
           var ayStr = mm + '/' + f.year;
+          // Farklı format denemeleri
           var rows  = raw.filter(function (r) {
-            return r.ay === ayStr || r.ay === String(f.month) + '/' + f.year;
+            if (r.ay === ayStr) return true;
+            if (r.ay === String(f.month) + '/' + f.year) return true;
+            return false;
           });
           window.pharmacyCache[f.key] = rows;
           console.log('[PDM52] Legacy cache:', f.key, '→', rows.length, 'satır');
@@ -295,121 +289,87 @@
   }
 
   // ── 2-3. LAZY LOADING + SMART CACHE ──────────────────────────────────
-  function loadPharmacyMonth(year, month) {
-    var key = _cacheKey(year, month);
+  async function loadPharmacyMonth(year, month) {
+    var key  = _cacheKey(year, month);
+    var file = _fileName(year, month);
 
-    if (window.pharmacyCache[key]) return Promise.resolve(window.pharmacyCache[key]);
-    // Aynı ay zaten iniyorsa AYNI promise döner (eski 100 ms'lik polling kalktı)
-    if (_inflight[key]) return _inflight[key];
+    if (window.pharmacyCache[key]) {
+      return window.pharmacyCache[key];
+    }
 
-    var p = (async function () {
-      console.log('[PDM52] Yükleniyor:', key);
-      var res = await _fetchMonth(year, month);
-      if (res.status !== 'ok') {
-        if (res.status === 'missing') _missing[key] = true;
-        return [];            // cache'e yazılmaz → sonraki istekte yeniden denenir
+    if (_loadingPromises[key]) return _loadingPromises[key];
+
+    _loadingKeys[key] = true;
+    var _pm = _loadMonthFromNetwork(year, month, key, file);
+    _loadingPromises[key] = _pm;
+    try { return await _pm; }
+    finally { delete _loadingPromises[key]; _loadingKeys[key] = false; }
+  }
+
+  async function _loadMonthFromNetwork(year, month, key, file) {
+    // Manifest hash'i biliniyorsa: URL içerik-sürümlü → tarayıcı HTTP cache'i kullanılır (geçmiş aylar tekrar inmez).
+    // Bilinmiyorsa eski davranış (no-store + zaman damgası).
+    var _ver = _manifestVer[key];
+    var url = _fileUrl(file) + '?v=' + (_ver || Date.now());
+    console.log('[PDM52] Yükleniyor:', key);
+
+    try {
+      var resp = await fetch(url, _ver ? {} : { cache: 'no-store' });
+      if (!resp.ok) {
+        console.warn('[PDM52] HTTP', resp.status, file);
+        window.pharmacyCache[key] = [];
+        return [];
       }
-      var rows = res.rows;
+      var csv = await resp.text();
+      if (!csv || csv.trim().startsWith('<')) {
+        window.pharmacyCache[key] = [];
+        return [];
+      }
+
+      var rows = _parseCsvWithPapaParse(csv);
+
+      // TTT ataması
+      if (typeof getBrickTTTMap === 'function') {
+        var bm = getBrickTTTMap();
+        rows.forEach(function (r) {
+          if (!r.ttt && r.brick) r.ttt = bm[r.brick.toUpperCase()] || null;
+        });
+      }
+
       window.pharmacyCache[key] = rows;
+      // pharmacyStore güncelle (normalize + index)
       _updatePharmacyStore(year, month, rows);
       console.log('[PDM52]', key, '→', rows.length, 'satır');
 
+      // Bu ay registry'de yoksa ekle
       var exists = window.pharmacyFileRegistry.some(function (f) { return f.key === key; });
       if (!exists && rows.length > 0) {
-        window.pharmacyFileRegistry.push({ year: year, month: month, file: _fileName(year, month), key: key });
+        var mm = String(month).padStart(2,'0');
+        window.pharmacyFileRegistry.push({ year: year, month: month, file: file, key: key });
         window.pharmacyFileRegistry.sort(function (a, b) {
           return a.year !== b.year ? a.year - b.year : a.month - b.month;
         });
+        _discoveryDone = true;
       }
-      return rows;
-    })().then(function (rows) {
-      delete _inflight[key];
-      return rows;
-    }, function (err) {
-      delete _inflight[key];
-      console.error('[PDM52] Yükleme hatası:', key, err && err.message);
-      return [];
-    });
 
-    _inflight[key] = p;
-    return p;
+      return rows;
+    } catch (err) {
+      console.error('[PDM52] Yükleme hatası:', key, err.message);
+      // Geçici ağ hatasında boş dizi CACHE'LENMEZ → sonraki çağrı yeniden dener
+      return [];
+    } finally {
+      _loadingKeys[key] = false;
+    }
   }
 
   async function loadPharmacyMultiMonth(year) {
     var files = window.pharmacyFileRegistry.filter(function (f) { return f.year === year; });
     if (!files.length) return [];
+    // PERF: aylar sırayla değil paralel indirilir (sıra korunur)
     var parts = await Promise.all(files.map(function (f) { return loadPharmacyMonth(f.year, f.month); }));
     var all = [];
     parts.forEach(function (rows) { all = all.concat(rows); });
     return all;
-  }
-
-  // ── Arka plan yükleme ────────────────────────────────────────────────
-  // Giriş sonrası kritik yolu tutmaz: en yeni ay hemen, kalanlar tarayıcı
-  // boştayken (en yeniden eskiye, 2 işçi) yüklenir. Çok aylı veri bekleyen
-  // AI motorları (reorder / behavior / temporal) bittiğinde cache'lerini
-  // temizler ve tam veriyle yeniden hesaplar.
-  // window.PV_PHARMACY_PRELOAD = 'all' | 'recent' | 'none'  ile zorlanabilir.
-  function _preloadMode() {
-    if (window.PV_PHARMACY_PRELOAD) return window.PV_PHARMACY_PRELOAD;
-    var c = navigator.connection || {};
-    if (c.saveData || /2g/.test(c.effectiveType || '')) return 'recent';
-    return 'all';
-  }
-
-  function _idle() {
-    return new Promise(function (resolve) {
-      if (typeof requestIdleCallback === 'function') requestIdleCallback(function () { resolve(); }, { timeout: 2000 });
-      else setTimeout(resolve, 50);
-    });
-  }
-
-  function _backgroundLoadRest(found) {
-    if (_bgPromise) return _bgPromise;
-    var mode = _preloadMode();
-    var todo = found.slice().reverse().filter(function (f) { return !window.pharmacyCache[f.key]; });
-    if (mode === 'recent') todo = todo.slice(0, 3);
-    if (mode === 'none')   todo = [];
-    console.log('[PDM52] Arka plan yükleme modu:', mode, '→', todo.length, 'ay');
-
-    var idx = 0;
-    async function worker() {
-      while (idx < todo.length) {
-        var f = todo[idx++];
-        await _idle();
-        await loadPharmacyMonth(f.year, f.month);
-        await _sleep(0);   // ana thread'e nefes aldır
-      }
-    }
-    _bgPromise = (async function () {
-      await _sleep(1500);
-      await Promise.all([worker(), worker()]);
-      _allLoaded = true;
-      _onBackgroundDone();
-    })();
-    return _bgPromise;
-  }
-
-  function _onBackgroundDone() {
-    getActivePharmacyData().then(function () {
-      if (typeof reresolveTTT === 'function') reresolveTTT();
-      if (window.PharmacyAdapter && typeof window.PharmacyAdapter.clearCache === 'function') window.PharmacyAdapter.clearCache();
-      if (window.PharmacyBehaviorEngine && typeof window.PharmacyBehaviorEngine.clearCache === 'function') window.PharmacyBehaviorEngine.clearCache();
-      if (window.PharmacyRanking && typeof window.PharmacyRanking.clearCache === 'function') window.PharmacyRanking.clearCache();
-      try { window.dispatchEvent(new CustomEvent('pharmacy:allMonthsLoaded')); } catch (_e) {}
-      if (typeof curPage !== 'undefined' && curPage === 5) {
-        if (typeof buildEczaneFilters   === 'function') buildEczaneFilters();
-        if (typeof renderEczaneContent  === 'function') renderEczaneContent();
-      }
-      console.log('[PDM52] Arka plan yükleme tamam:', Object.keys(window.pharmacyCache).length, 'ay hafızada');
-    });
-  }
-
-  // Çok aylı veri isteyen herhangi bir motor bunu await edebilir.
-  async function ensureAllMonths() {
-    var files = window.pharmacyFileRegistry.length ? window.pharmacyFileRegistry : await discoverPharmacyFiles();
-    await Promise.all(files.map(function (f) { return loadPharmacyMonth(f.year, f.month); }));
-    return window.pharmacyStore.normalized;
   }
 
   async function getActivePharmacyData() {
@@ -754,25 +714,36 @@
   }
 
   // ── İlk Init ──────────────────────────────────────────────────────────
-  // 1) manifest ile keşif  2) EN YENİ ay hemen  3) kalanlar boşta, arka planda
+  // Strateji: Eczane sayfasına ilk girildiğinde (renderEczane çağrısı)
+  // discoverPharmacyFiles() tetiklenir; tamamlanınca filtreler doldurulur.
+  // Sayfa zaten açıksa (curPage===5) anında renderEczane tekrar çağrılır.
   async function initPharmacyDataManager() {
     console.log('[PDM52] Init başlıyor…');
 
-    var found = await discoverPharmacyFiles();
-    if (!found.length) {
-      console.warn('[PDM52] Hiç dosya bulunamadı — eski ECZANE.csv modunda devam');
-      return;
-    }
-    _refreshFilterUI();
-
-    var latest = found[found.length - 1];
-    await loadPharmacyMonth(latest.year, latest.month);
-    if (typeof curPage !== 'undefined' && curPage === 5) {
-      if (typeof buildEczaneFilters  === 'function') buildEczaneFilters();
-    }
-    if (typeof reresolveTTT === 'function') reresolveTTT();
-
-    _backgroundLoadRest(found);
+    // Mevcut ECZANE_RAW varsa (eski ECZANE.csv yüklüydü):
+    // Discovery'yi arka planda çalıştır, tamamlanınca filtreler gözükür.
+    discoverPharmacyFiles().then(function(found){
+      if (!found.length) {
+        console.warn('[PDM52] Hiç dosya bulunamadı — eski ECZANE.csv modunda devam');
+        return;
+      }
+      _refreshFilterUI();
+      // Aktif veriyi yükle (hem filtreler hem pharmacyActiveData dolsun)
+      getActivePharmacyData().then(function(rows){
+        if (rows.length > 0) {
+          console.log('[PDM52] Aktif data hazır:', rows.length, 'satır');
+        }
+        // Eczane sayfası açıksa ekranı güncelle
+        if (typeof curPage !== 'undefined' && curPage === 5) {
+          if (typeof buildEczaneFilters==='function')  buildEczaneFilters();
+          if (typeof renderEczaneContent==='function') renderEczaneContent();
+        }
+        // FAZ 12.3: IMS/MIGI bu ana kadar zaten hazırsa (nadiren — normalde
+        // PDM52 IMS'ten önce biter, bkz. reresolveTTT() yorumu) hemen dene;
+        // hazır değilse data-loader.js::syncData() bunu IMS dolunca çağırır.
+        if (typeof reresolveTTT === 'function') reresolveTTT();
+      });
+    });
   }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -814,51 +785,65 @@ function _normalizeRow(r, year, month) {
 }
 
 // ── pharmacyStore'u güncelle (loadPharmacyMonth sonrası çağrılır) ─────
-// Tek geçişte indeksler kurulur. Aynı ay yeniden yüklenirse eski kayıtlar
-// normalized'dan VE üç indeksten de çıkarılır (eskiden indeksler çoğalıyordu).
-function _indexRows(S, list) {
-  for (var i = 0; i < list.length; i++) {
-    var n = list[i];
-    var id = n.gln || n.eczane;
-    if (id) (S.byPharmacy[id] || (S.byPharmacy[id] = [])).push(n);
-    if (n.brick) (S.byBrick[n.brick] || (S.byBrick[n.brick] = [])).push(n);
-    if (n.urun)  (S.byProduct[n.urun] || (S.byProduct[n.urun] = [])).push(n);
-  }
-}
-
 function _updatePharmacyStore(year, month, rows) {
-  var S   = window.pharmacyStore;
   var key = year + '_' + String(month).padStart(2,'0');
-  var wasLoaded = !!(S.registry[key] && S.registry[key].loaded);
 
-  S.registry[key] = {
+  // registry güncelle
+  window.pharmacyStore.registry[key] = {
     year: year, month: month,
-    file: key + '_Eczane.csv',
+    file: year + '_' + String(month).padStart(2,'0') + '_Eczane.csv',
     key:  key, loaded: true,
     rowCount: rows.length
   };
-  S.cache[key] = rows;
 
-  var normed = new Array(rows.length);
-  for (var i = 0; i < rows.length; i++) normed[i] = _normalizeRow(rows[i], year, month);
+  // cache senkronize
+  window.pharmacyStore.cache[key] = rows;
 
-  if (wasLoaded) {
-    S.normalized = S.normalized.filter(function (n) { return !(n.year === year && n.month === month); });
-    S.byPharmacy = {}; S.byBrick = {}; S.byProduct = {};
-    _indexRows(S, S.normalized);
-  }
-  S.normalized = S.normalized.concat(normed);
-  _indexRows(S, normed);
+  // normalize & index
+  var normed = rows.map(function(r) { return _normalizeRow(r, year, month); });
 
-  if (S.metadata.years.indexOf(year) === -1) {
-    S.metadata.years.push(year);
-    S.metadata.years.sort(function(a,b){return a-b;});
+  // Mevcut normalize'dan bu ayı çıkar (yenile)
+  window.pharmacyStore.normalized = window.pharmacyStore.normalized.filter(function(n) {
+    return !(n.year === year && n.month === month);
+  });
+  window.pharmacyStore.normalized = window.pharmacyStore.normalized.concat(normed);
+
+  // byPharmacy index
+  normed.forEach(function(n) {
+    var id = n.gln || n.eczane;
+    if (!id) return;
+    if (!window.pharmacyStore.byPharmacy[id]) window.pharmacyStore.byPharmacy[id] = [];
+    window.pharmacyStore.byPharmacy[id].push(n);
+  });
+
+  // byBrick index
+  normed.forEach(function(n) {
+    if (!n.brick) return;
+    if (!window.pharmacyStore.byBrick[n.brick]) window.pharmacyStore.byBrick[n.brick] = [];
+    window.pharmacyStore.byBrick[n.brick].push(n);
+  });
+
+  // byProduct index
+  normed.forEach(function(n) {
+    if (!n.urun) return;
+    if (!window.pharmacyStore.byProduct[n.urun]) window.pharmacyStore.byProduct[n.urun] = [];
+    window.pharmacyStore.byProduct[n.urun].push(n);
+  });
+
+  // metadata
+  if (window.pharmacyStore.metadata.years.indexOf(year) === -1) {
+    window.pharmacyStore.metadata.years.push(year);
+    window.pharmacyStore.metadata.years.sort(function(a,b){return a-b;});
   }
-  if (!S.metadata.months[year]) S.metadata.months[year] = [];
-  if (S.metadata.months[year].indexOf(month) === -1) {
-    S.metadata.months[year].push(month);
-    S.metadata.months[year].sort(function(a,b){return a-b;});
+  if (!window.pharmacyStore.metadata.months[year]) {
+    window.pharmacyStore.metadata.months[year] = [];
   }
+  if (window.pharmacyStore.metadata.months[year].indexOf(month) === -1) {
+    window.pharmacyStore.metadata.months[year].push(month);
+    window.pharmacyStore.metadata.months[year].sort(function(a,b){return a-b;});
+  }
+
+  console.log('[PDM52] pharmacyStore güncellendi:', key, normed.length, 'normalize kayıt');
 }
 
 // ── CSV Parse — parseEczaneCSV öncelikli ─────────────────────────────
@@ -914,9 +899,11 @@ async function loadAll() {
     await discoverPharmacyFiles();
     files = window.pharmacyFileRegistry;
   }
-  var parts = await Promise.all(files.map(function (f) { return loadPharmacyMonth(f.year, f.month); }));
   var all = [];
-  parts.forEach(function (rows) { all = all.concat(rows); });
+  for (var i = 0; i < files.length; i++) {
+    var rows = await loadPharmacyMonth(files[i].year, files[i].month);
+    all = all.concat(rows);
+  }
   console.log('[PDM52] loadAll() tamamlandı:', all.length, 'satır,', files.length, 'ay');
   return all;
 }
@@ -932,7 +919,6 @@ function clearCache() {
   window.pharmacyActiveData        = [];
   _discoveryDone    = false;
   _discoveryPromise = null;
-  _inflight = {}; _missing = {}; _allLoaded = false; _bgPromise = null;
   console.log('[PDM52] Cache temizlendi');
 }
 
@@ -1086,9 +1072,6 @@ function getFilteredData(filters) {
     updatePharmacyStore:          _updatePharmacyStore,
     normalizeRow:                 _normalizeRow,
     reresolveTTT:                 reresolveTTT,
-    ensureAllMonths:              ensureAllMonths,
-    whenAllLoaded:                function () { return _bgPromise || Promise.resolve(); },
-    isAllLoaded:                  function () { return _allLoaded; },
   };
 
   // Sayfa yüklenince arka planda başlat

@@ -3,21 +3,20 @@
 //  Bağımlılık: js/data/data-normalizer.js (stripTR, normTTT, normGrp, isMktRow)
 //              js/core/constants.js (ALL_TTTS, OWN_IMS, TR_SIRA_MAP, PERIODS)
 // ══════════════════════════════════════════════════════════════
-var _csvSepLogged = false;
 function detectSeparator(text) {
-  // PERF: tüm metni split etmeden yalnızca ilk dolu satırı al
-  let firstLine = '', start = 0;
-  while (start < text.length) {
-    let end = text.indexOf('\n', start);
-    if (end === -1) end = text.length;
-    const l = text.slice(start, end).replace(/\r/g, '');
-    if (l.trim()) { firstLine = l; break; }
-    start = end + 1;
+  // PERF: tüm metni split etmek yerine ilk gerçek veri satırını tara
+  let firstLine = '', pos = 0;
+  while (pos < text.length) {
+    let e = text.indexOf('\n', pos); if (e < 0) e = text.length;
+    const ln = text.slice(pos, e);
+    if (ln.trim()) { firstLine = ln.replace(/\r/g, ''); break; }
+    pos = e + 1;
   }
   if (!firstLine) return ',';
   // Tırnak dışındaki ; sayısı ile , sayısını karşılaştır
   let inQ = false, commas = 0, semis = 0;
-  for (const ch of firstLine) {
+  for (let i = 0; i < firstLine.length; i++) {
+    const ch = firstLine[i];
     if (ch === '"') { inQ = !inQ; continue; }
     if (!inQ) {
       if (ch === ',') commas++;
@@ -25,11 +24,7 @@ function detectSeparator(text) {
     }
   }
   const sep = semis > commas ? ';' : ',';
-  if (!_csvSepLogged) {            // her dosyada log basma
-    _csvSepLogged = true;
-    console.log('[CSV] separator detected:', JSON.stringify(sep),
-      '(commas:', commas, 'semis:', semis, ')');
-  }
+  if (window.PV_DEBUG_CSV) console.log('[CSV] separator detected:', JSON.stringify(sep), '(commas:', commas, 'semis:', semis, ')');
   return sep;
 }
 
@@ -47,30 +42,25 @@ function parseCSVLine(line, sep) {
 
 function parseCSVRows(text) {
   const sep = detectSeparator(text);
-  const clean = text.indexOf('\r') === -1 ? text : text.replace(/\r/g, '');
-  const lines = clean.split('\n');
-  const rows = [];
-
-  // PERF hızlı yol: metinde HİÇ tırnak yoksa karakter karakter gezmeye gerek yok.
-  // (Eczane CSV'lerinin hiçbirinde tırnak yok → ~6× hızlı.) Tırnak varsa eski
-  // ayrıştırıcıya düşülür, davranış birebir aynı kalır.
-  if (clean.indexOf('"') === -1) {
-    for (let i = 0; i < lines.length; i++) {
-      const l = lines[i];
+  const src = text.indexOf('\r') >= 0 ? text.replace(/\r/g, '') : text;
+  // PERF: tırnak içermeyen CSV'de (eczane/*.csv gibi) karakter-karakter ayrıştırma yerine split (~6x hızlı).
+  // Tırnaklı dosyalar eski ayrıştırıcıyla aynen işlenir → davranış değişmez.
+  if (src.indexOf('"') === -1) {
+    const rows = [];
+    let s = 0; const n = src.length;
+    while (s < n) {
+      let e = src.indexOf('\n', s); if (e < 0) e = n;
+      const l = src.slice(s, e); s = e + 1;
       if (!l.trim()) continue;
       const cells = l.split(sep);
-      for (let k = 0; k < cells.length; k++) cells[k] = cells[k].trim();
+      for (let i = 0; i < cells.length; i++) cells[i] = cells[i].trim();
       rows.push(cells);
     }
     return rows;
   }
-
-  for (let i = 0; i < lines.length; i++) {
-    const l = lines[i];
-    if (!l.trim()) continue;
-    rows.push(parseCSVLine(l, sep));
-  }
-  return rows;
+  return src.split('\n')
+    .filter(l => l.trim())
+    .map(l => parseCSVLine(l, sep));
 }
 
 // ─── SAYI PARSER (Türkçe CSV formatı) ──────────────────────
